@@ -232,6 +232,8 @@ Student seed integrity validation passed
 
 Then validate the backend health endpoint and log in through the frontend with `9300000001` (Aarav) or `9300000002` (Priya). Runtime API errors must be fixed before this branch is merged.
 
+Phase 1B code changes are complete on the feature branch. Runtime Docker/API validation is the remaining gate before merge.
+
 ## Deferred items
 
 The following are intentionally not solved in Phase 1:
