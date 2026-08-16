@@ -204,6 +204,16 @@ The reconciliation step also:
 
 These reconciliation/validation scripts are development-seed safeguards only. They do not change production business rules or the canonical migrations.
 
+### Local Docker smoke-test ports
+
+The current `docker-compose.yml` exposes the application on host ports:
+
+- Frontend: `http://localhost:3001`
+- Backend health: `http://localhost:5001/health`
+- Backend API base: `http://localhost:5001/api/v1`
+- PostgreSQL: host `5433` → container `5432`
+- Redis: host `6380` → container `6379`
+
 ## Deferred items
 
 The following are intentionally not solved in Phase 1:
