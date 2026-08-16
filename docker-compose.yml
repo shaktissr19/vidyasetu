@@ -1,0 +1,92 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: vidyasetu_postgres
+    environment:
+      POSTGRES_DB:       vidyasetu_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/run_all_migrations.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seeds/dev_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vidyasetu_redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: vidyasetu_backend
+    environment:
+      PORT:               5000
+      NODE_ENV:           development
+      DB_HOST:            postgres
+      DB_PORT:            5432
+      DB_NAME:            vidyasetu_db
+      DB_USER:            postgres
+      DB_PASSWORD:        postgres
+      REDIS_URL:          redis://redis:6379
+      JWT_ACCESS_SECRET:  vidyasetu_access_secret_local_dev_2025!!
+      JWT_REFRESH_SECRET: vidyasetu_refresh_secret_local_dev_2025!!
+      JWT_ACCESS_EXPIRY:  15m
+      JWT_REFRESH_EXPIRY: 30d
+      OTP_EXPIRY_MINUTES: 10
+      OTP_MAX_ATTEMPTS:   3
+      SMS_PROVIDER:       mock
+      WHATSAPP_PROVIDER:  mock
+      AI_PROVIDER:        mock
+      AWS_REGION:         ap-south-1
+      AWS_ACCESS_KEY_ID:  mock
+      AWS_SECRET_ACCESS_KEY: mock
+      S3_BUCKET_NAME:     vidyasetu-content
+      RAZORPAY_KEY_ID:    rzp_test_mock
+      RAZORPAY_KEY_SECRET: mock_secret
+      FRONTEND_URL:       http://localhost:3001
+    ports:
+      - "5001:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: vidyasetu_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5001/api/v1
+      INTERNAL_API_URL:    http://backend:5000/api/v1
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
