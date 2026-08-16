@@ -173,6 +173,37 @@ Frontend code should be updated to consume the canonical camelCase DTO rather th
 9. Leaderboards are based on `students.xp_total` and active students only.
 10. Report-card reads use `SCHOOL_TEST` + `SCORED` records from the current exam schema.
 
+## Phase 1B development seed invariants
+
+Fresh Docker database initialization now runs:
+
+```text
+01_schema.sql
+02_seed.sql
+03_student_seed_reconcile.sql
+04_student_seed_validate.sql
+```
+
+The original development seed stores rich demo XP/streak snapshots while inserting only a small recent XP-event window. Since `xp_events` is the canonical XP ledger, `03_student_seed_reconcile.sql` adds an older development-only baseline event so the intended demo totals and the ledger agree exactly.
+
+The reconciliation step also:
+
+- rebuilds seeded streak history relative to `CURRENT_DATE` instead of fixed 2025 dates;
+- sets `students.last_activity` consistently;
+- adds enough historical lesson events for Priya to legitimately meet `CURIOUS_MIND`;
+- inserts missing criteria-based Student badges without deleting hand-picked demo badges.
+
+`04_student_seed_validate.sql` intentionally fails fresh Docker database initialization if any core Student invariant breaks, including:
+
+- Student → user/school/class relationship integrity;
+- `students.xp_total = SUM(xp_events.xp_amount)`;
+- canonical XP-level calculation;
+- active streak ledger consistency;
+- existence of Aarav/Priya smoke-test accounts;
+- Priya's intended 2800-XP / 30-day demo snapshot.
+
+These reconciliation/validation scripts are development-seed safeguards only. They do not change production business rules or the canonical migrations.
+
 ## Deferred items
 
 The following are intentionally not solved in Phase 1:
