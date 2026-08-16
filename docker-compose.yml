@@ -11,6 +11,7 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Fresh DB init order: schema -> base seed -> Student reconciliation -> integrity validation
       - ./database/run_all_migrations.sql:/docker-entrypoint-initdb.d/01_schema.sql
       - ./database/seeds/dev_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
       - ./database/seeds/03_student_seed_reconcile.sql:/docker-entrypoint-initdb.d/03_student_seed_reconcile.sql
