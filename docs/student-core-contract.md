@@ -214,6 +214,24 @@ The current `docker-compose.yml` exposes the application on host ports:
 - PostgreSQL: host `5433` → container `5432`
 - Redis: host `6380` → container `6379`
 
+### Required Phase 1B local smoke test
+
+From the repository root on branch `phase1-student-foundation`:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+A successful fresh database initialization must print both:
+
+```text
+Student seed reconciliation complete
+Student seed integrity validation passed
+```
+
+Then validate the backend health endpoint and log in through the frontend with `9300000001` (Aarav) or `9300000002` (Priya). Runtime API errors must be fixed before this branch is merged.
+
 ## Deferred items
 
 The following are intentionally not solved in Phase 1:
