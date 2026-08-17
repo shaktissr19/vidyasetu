@@ -29,12 +29,12 @@ async function resetMissedStreaks() {
     yesterday.setDate(yesterday.getDate() - 1);
     const yday = yesterday.toISOString().split('T')[0];
 
-    // Students with streak > 0 who did NOT log activity yesterday
     const { rows: affected } = await query(
       `UPDATE students
-       SET streak_current = 0, updated_at = NOW()
+       SET streak_current = 0,
+           updated_at = NOW()
        WHERE streak_current > 0
-         AND (last_activity_date IS NULL OR last_activity_date < $1)
+         AND (last_activity IS NULL OR last_activity < $1::date)
        RETURNING id`,
       [yday]
     );
@@ -64,6 +64,7 @@ async function markOverdueInvoices() {
 
 /**
  * Refresh leaderboards for competitions that ended today.
+ * Competition schema normalization is handled in its own module pass.
  */
 async function refreshEndedExamLeaderboards() {
   try {
@@ -81,9 +82,10 @@ async function refreshEndedExamLeaderboards() {
       try {
         await recomputeLeaderboard(exam.id);
 
-        // Mark exam as COMPLETED
         await query(
-          `UPDATE exams SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1`,
+          `UPDATE exams
+           SET status = 'COMPLETED', updated_at = NOW()
+           WHERE id = $1`,
           [exam.id]
         );
 

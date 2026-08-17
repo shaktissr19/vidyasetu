@@ -1,0 +1,144 @@
+name: Student Native CI
+
+on:
+  push:
+    branches: [phase1-student-foundation, main]
+  workflow_dispatch:
+
+jobs:
+  student-native-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Validate deployment scripts
+        run: |
+          bash -n scripts/native-vps-cutover.sh
+          bash -n scripts/native-vps-resume.sh
+          bash -n scripts/deploy-main-native.sh
+          bash -n scripts/student-e2e-smoke.sh
+
+      - name: Install and start native PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build VidyaSetu database from SQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+
+      - name: Install and syntax-check backend
+        working-directory: backend
+        run: |
+          npm ci
+          find src -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Start backend natively
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: development
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: ci_access_secret_vidyasetu_2026
+          JWT_REFRESH_SECRET: ci_refresh_secret_vidyasetu_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-backend.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-backend.log
+          exit 1
+
+      - name: Complete Student API E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          CI_MOBILE: '9399999999'
+        run: bash scripts/student-e2e-smoke.sh
+
+      - name: Validate Student database invariants after E2E mutations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "
+          SELECT u.mobile, u.name, s.id AS student_id, s.xp_total, s.xp_level,
+                 sch.name AS school, sc.class_name, sc.section
+          FROM users u
+          JOIN students s ON s.user_id = u.id
+          JOIN schools sch ON sch.id = s.school_id
+          JOIN school_classes sc ON sc.id = s.class_id
+          WHERE u.mobile IN ('9300000001','9300000002','9399999999')
+          ORDER BY u.mobile;"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id=u.id WHERE u.mobile IN ('9300000001','9300000002','9399999999');")" = "3"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exam_attempts ea JOIN students s ON s.id=ea.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND ea.status='SCORED';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM doubts d JOIN students s ON s.id=d.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND d.status='RESOLVED';")" -ge 1
+
+      - name: Install and build Next.js frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Start production Next.js and verify Student route
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vidyasetu-frontend.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsSI http://127.0.0.1:3000/student >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-frontend.log
+          exit 1
+
+      - name: Application logs on failure
+        if: failure()
+        run: |
+          echo '--- Backend ---'
+          cat /tmp/vidyasetu-backend.log || true
+          echo '--- Frontend ---'
+          cat /tmp/vidyasetu-frontend.log || true

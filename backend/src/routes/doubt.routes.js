@@ -8,24 +8,30 @@ const { validate } = require('../middleware/validate.middleware');
 router.use(authenticate);
 
 const doubtSchema = z.object({
-  title:     z.string().min(5).max(300),
-  body:      z.string().min(10),
+  title: z.string().min(5).max(300),
+  body: z.string().min(10),
+  subjectCode: z.string().max(20).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),
-  imageUrl:  z.string().url().optional(),
-});
-
-const answerSchema = z.object({
-  body:     z.string().min(5),
+  contentItemId: z.string().uuid().optional(),
   imageUrl: z.string().url().optional(),
 });
 
-router.get('/',                                                  ctrl.list);
-router.post('/',         authorize('STUDENT'), validate(doubtSchema), ctrl.create);
-router.get('/:doubtId',                                         ctrl.get);
-router.post('/:doubtId/answers', validate(answerSchema),        ctrl.answer);
-router.post('/:doubtId/answers/:answerId/upvote',               ctrl.upvote);
-router.patch('/:doubtId/resolve',                               ctrl.resolve);
-router.post('/:doubtId/ai-answer', authorize('STUDENT'),        ctrl.aiAnswer);
+const answerSchema = z.object({
+  body: z.string().min(5),
+  imageUrl: z.string().url().optional(),
+});
+
+const resolveSchema = z.object({
+  bestAnswerId: z.string().uuid().optional(),
+});
+
+router.get('/', ctrl.list);
+router.post('/', authorize('STUDENT'), validate(doubtSchema), ctrl.create);
+router.get('/:doubtId', ctrl.get);
+router.post('/:doubtId/answers', validate(answerSchema), ctrl.answer);
+router.post('/:doubtId/answers/:answerId/upvote', ctrl.upvote);
+router.patch('/:doubtId/resolve', validate(resolveSchema), ctrl.resolve);
+router.post('/:doubtId/ai-answer', authorize('STUDENT'), ctrl.aiAnswer);
 
 module.exports = router;

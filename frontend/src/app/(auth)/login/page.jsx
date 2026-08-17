@@ -14,7 +14,7 @@ const ROLES = [
 ];
 
 const ROLE_DASHBOARDS = {
-  STUDENT:      '/dashboard',
+  STUDENT:      '/student',
   SCHOOL_ADMIN: '/school/overview',
   PARENT:       '/parent/dashboard',
   SUPER_ADMIN:  '/admin/analytics',
@@ -61,7 +61,7 @@ export default function LoginPage() {
       if (res.data.data.isNewUser) {
         router.push('/register?complete=1');
       } else {
-        router.push(ROLE_DASHBOARDS[user.role] || '/dashboard');
+        router.push(ROLE_DASHBOARDS[user.role] || '/student');
       }
     } catch (err) {
       toast.error(err.response?.data?.error?.message || 'Invalid OTP');

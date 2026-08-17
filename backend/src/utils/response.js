@@ -24,6 +24,12 @@ function badRequest(res, message = 'Bad request', errors = null) {
   return res.status(400).json(body);
 }
 
+function validationError(res, message = 'Validation failed', errors = null) {
+  const body = { success: false, error: { code: 'VALIDATION_ERROR', message } };
+  if (errors) body.error.details = errors;
+  return res.status(400).json(body);
+}
+
 function unauthorized(res, message = 'Unauthorized') {
   return res.status(401).json({
     success: false,
@@ -59,4 +65,15 @@ function serverError(res, message = 'Internal server error') {
   });
 }
 
-module.exports = { ok, created, noContent, badRequest, unauthorized, forbidden, notFound, conflict, serverError };
+module.exports = {
+  ok,
+  created,
+  noContent,
+  badRequest,
+  validationError,
+  unauthorized,
+  forbidden,
+  notFound,
+  conflict,
+  serverError,
+};
