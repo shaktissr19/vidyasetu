@@ -55,10 +55,10 @@ async function getNotifications(req, res, next) {
   try {
     const { rows } = await query(
       `SELECT id, type, channel, title, body, reference_type, reference_id,
-              is_read, read_at, delivery_status, created_at
+              is_read, read_at, delivery_status, sent_at AS created_at
        FROM notifications
        WHERE user_id = $1
-       ORDER BY created_at DESC
+       ORDER BY sent_at DESC
        LIMIT 50`,
       [req.user.userId]
     );
