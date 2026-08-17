@@ -8,7 +8,7 @@ services:
       POSTGRES_USER:     postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Fresh DB init order: schema -> base seed -> Student reconciliation -> integrity validation
@@ -26,7 +26,7 @@ services:
     image: redis:7-alpine
     container_name: vidyasetu_redis
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -65,9 +65,9 @@ services:
       S3_BUCKET_NAME:     vidyasetu-content
       RAZORPAY_KEY_ID:    rzp_test_mock
       RAZORPAY_KEY_SECRET: mock_secret
-      FRONTEND_URL:       http://localhost:3001
+      FRONTEND_URL:       http://frontend:3000
     ports:
-      - "5001:5000"
+      - "127.0.0.1:5001:5000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,10 +82,10 @@ services:
       context: ./frontend
     container_name: vidyasetu_frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:5001/api/v1
+      NEXT_PUBLIC_API_URL: http://backend:5000/api/v1
       INTERNAL_API_URL:    http://backend:5000/api/v1
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     depends_on:
       - backend
     restart: unless-stopped
