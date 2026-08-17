@@ -1,6 +1,10 @@
 // services/studentService.js
 import api from './api';
 
+export const getProfileStatus = () => api.get('/student/profile/status');
+export const getProfileSetupOptions = () => api.get('/student/profile/setup-options');
+export const completeStudentProfile = (payload) => api.post('/student/profile/complete', payload);
+
 export const getDashboard = () => api.get('/student/dashboard');
 export const getAttendance = (year, month) => api.get(`/student/attendance/${year}/${month}`);
 export const getBadges = () => api.get('/student/badges');
