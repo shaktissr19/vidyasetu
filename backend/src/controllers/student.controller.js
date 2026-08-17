@@ -1,9 +1,31 @@
 // controllers/student.controller.js
 const studentService = require('../services/student.service');
+const studentProfileService = require('../services/studentProfile.service');
 const studentPortalService = require('../services/studentPortal.service');
 const notificationService = require('../services/notification.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
+
+async function getProfileStatus(req, res, next) {
+  try {
+    const data = await studentProfileService.getProfileStatus(req.user.userId);
+    return R.ok(res, data);
+  } catch (err) { next(err); }
+}
+
+async function getProfileSetupOptions(req, res, next) {
+  try {
+    const data = await studentProfileService.getSetupOptions();
+    return R.ok(res, data);
+  } catch (err) { next(err); }
+}
+
+async function completeProfile(req, res, next) {
+  try {
+    const data = await studentProfileService.completeProfile(req.user.userId, req.body);
+    return R.ok(res, { message: 'Student profile completed', student: data });
+  } catch (err) { next(err); }
+}
 
 async function getDashboard(req, res, next) {
   try {
@@ -88,6 +110,9 @@ async function removeOfflineDownload(req, res, next) {
 }
 
 module.exports = {
+  getProfileStatus,
+  getProfileSetupOptions,
+  completeProfile,
   getDashboard,
   getAttendance,
   getBadges,
