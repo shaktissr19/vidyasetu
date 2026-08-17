@@ -8,7 +8,7 @@ on:
 jobs:
   student-native-e2e:
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -23,14 +23,16 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
 
-      - name: Start native PostgreSQL and Redis
+      - name: Install and start native PostgreSQL and Redis
         run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
           sudo systemctl start postgresql
           sudo systemctl start redis-server
           sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
           sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
           pg_isready -h 127.0.0.1 -U postgres
-          redis-cli ping
+          redis-cli ping | grep -q PONG
 
       - name: Build VidyaSetu database from SQL
         env:
@@ -68,6 +70,10 @@ jobs:
           SMS_PROVIDER: mock
           WHATSAPP_PROVIDER: mock
           AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
           FRONTEND_URL: http://127.0.0.1:3000
         run: |
           nohup npm start > /tmp/vidyasetu-backend.log 2>&1 &
@@ -78,56 +84,28 @@ jobs:
           cat /tmp/vidyasetu-backend.log
           exit 1
 
-      - name: Verify seeded Student identity and dashboard
+      - name: Complete Student API E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          CI_MOBILE: '9399999999'
+        run: bash scripts/student-e2e-smoke.sh
+
+      - name: Validate Student database invariants after E2E mutations
+        env:
+          PGPASSWORD: postgres
         run: |
-          set -euo pipefail
-          SEND=$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp -H 'Content-Type: application/json' -d '{"mobile":"9300000001"}')
-          OTP=$(echo "$SEND" | jq -r '.data.otp')
-          LOGIN=$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp -H 'Content-Type: application/json' -d "{\"mobile\":\"9300000001\",\"otp\":\"$OTP\"}")
-          TOKEN=$(echo "$LOGIN" | jq -r '.data.accessToken')
-          test -n "$TOKEN" && test "$TOKEN" != "null"
-
-          STATUS=$(curl -fsS http://127.0.0.1:5000/api/v1/student/profile/status -H "Authorization: Bearer $TOKEN")
-          test "$(echo "$STATUS" | jq -r '.data.complete')" = "true"
-          test "$(echo "$STATUS" | jq -r '.data.profile.mobile')" = "9300000001"
-
-          DASH=$(curl -fsS http://127.0.0.1:5000/api/v1/student/dashboard -H "Authorization: Bearer $TOKEN")
-          test "$(echo "$DASH" | jq -r '.data.student.mobile')" = "9300000001"
-          test "$(echo "$DASH" | jq -r '.data.student.schoolName')" != "null"
-          test "$(echo "$DASH" | jq -r '.data.student.className')" != "null"
-
-          curl -fsS http://127.0.0.1:5000/api/v1/student/attendance/2026/8 -H "Authorization: Bearer $TOKEN" >/dev/null
-          curl -fsS http://127.0.0.1:5000/api/v1/student/badges -H "Authorization: Bearer $TOKEN" >/dev/null
-          curl -fsS 'http://127.0.0.1:5000/api/v1/student/leaderboard?scope=class' -H "Authorization: Bearer $TOKEN" >/dev/null
-          curl -fsS http://127.0.0.1:5000/api/v1/student/report-card -H "Authorization: Bearer $TOKEN" >/dev/null
-
-      - name: Verify new Student profile completion E2E
-        run: |
-          set -euo pipefail
-          MOBILE=9399999999
-          SEND=$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp -H 'Content-Type: application/json' -d "{\"mobile\":\"$MOBILE\"}")
-          OTP=$(echo "$SEND" | jq -r '.data.otp')
-          LOGIN=$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp -H 'Content-Type: application/json' -d "{\"mobile\":\"$MOBILE\",\"otp\":\"$OTP\"}")
-          TOKEN=$(echo "$LOGIN" | jq -r '.data.accessToken')
-
-          BEFORE=$(curl -fsS http://127.0.0.1:5000/api/v1/student/profile/status -H "Authorization: Bearer $TOKEN")
-          test "$(echo "$BEFORE" | jq -r '.data.complete')" = "false"
-
-          OPTIONS=$(curl -fsS http://127.0.0.1:5000/api/v1/student/profile/setup-options -H "Authorization: Bearer $TOKEN")
-          SCHOOL_ID=$(echo "$OPTIONS" | jq -r '.data.schools[0].id')
-          CLASS_ID=$(echo "$OPTIONS" | jq -r '.data.schools[0].classes[0].id')
-          test -n "$SCHOOL_ID" && test "$SCHOOL_ID" != "null"
-          test -n "$CLASS_ID" && test "$CLASS_ID" != "null"
-
-          COMPLETE=$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/student/profile/complete \
-            -H "Authorization: Bearer $TOKEN" \
-            -H 'Content-Type: application/json' \
-            -d "{\"name\":\"CI Student\",\"language\":\"en\",\"schoolId\":\"$SCHOOL_ID\",\"classId\":\"$CLASS_ID\"}")
-          test "$(echo "$COMPLETE" | jq -r '.data.student.mobile')" = "$MOBILE"
-
-          AFTER=$(curl -fsS http://127.0.0.1:5000/api/v1/student/profile/status -H "Authorization: Bearer $TOKEN")
-          test "$(echo "$AFTER" | jq -r '.data.complete')" = "true"
-          curl -fsS http://127.0.0.1:5000/api/v1/student/dashboard -H "Authorization: Bearer $TOKEN" >/dev/null
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "
+          SELECT u.mobile, u.name, s.id AS student_id, s.xp_total, s.xp_level,
+                 sch.name AS school, sc.class_name, sc.section
+          FROM users u
+          JOIN students s ON s.user_id = u.id
+          JOIN schools sch ON sch.id = s.school_id
+          JOIN school_classes sc ON sc.id = s.class_id
+          WHERE u.mobile IN ('9300000001','9300000002','9399999999')
+          ORDER BY u.mobile;"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id=u.id WHERE u.mobile IN ('9300000001','9300000002','9399999999');")" = "3"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exam_attempts ea JOIN students s ON s.id=ea.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND ea.status='SCORED';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM doubts d JOIN students s ON s.id=d.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND d.status='RESOLVED';")" -ge 1
 
       - name: Install and build Next.js frontend
         working-directory: frontend
@@ -138,6 +116,24 @@ jobs:
           npm ci
           npm run build
 
-      - name: Backend logs on failure
+      - name: Start production Next.js and verify Student route
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vidyasetu-frontend.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsSI http://127.0.0.1:3000/student >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-frontend.log
+          exit 1
+
+      - name: Application logs on failure
         if: failure()
-        run: cat /tmp/vidyasetu-backend.log || true
+        run: |
+          echo '--- Backend ---'
+          cat /tmp/vidyasetu-backend.log || true
+          echo '--- Frontend ---'
+          cat /tmp/vidyasetu-frontend.log || true
