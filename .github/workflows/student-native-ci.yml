@@ -2,7 +2,7 @@ name: Student Native CI
 
 on:
   push:
-    branches: [phase1-student-foundation]
+    branches: [phase1-student-foundation, main]
   workflow_dispatch:
 
 jobs:
@@ -20,6 +20,13 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: backend/package-lock.json
+
+      - name: Validate deployment scripts
+        run: |
+          bash -n scripts/native-vps-cutover.sh
+          bash -n scripts/native-vps-resume.sh
+          bash -n scripts/deploy-main-native.sh
+          bash -n scripts/student-e2e-smoke.sh
 
       - name: Install and start native PostgreSQL and Redis
         run: |
