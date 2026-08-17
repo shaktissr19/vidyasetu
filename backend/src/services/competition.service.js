@@ -300,7 +300,7 @@ async function recomputeLeaderboard(examId) {
     `SELECT ea.id AS attempt_id, ea.student_id, ea.school_id, ea.total_marks,
             RANK() OVER (ORDER BY ea.total_marks DESC, ea.time_taken_secs ASC, ea.submitted_at ASC) AS rank_overall,
             RANK() OVER (PARTITION BY ea.school_id ORDER BY ea.total_marks DESC, ea.time_taken_secs ASC, ea.submitted_at ASC) AS rank_school,
-            ROUND(PERCENT_RANK() OVER (ORDER BY ea.total_marks) * 100, 2) AS percentile
+            ROUND((PERCENT_RANK() OVER (ORDER BY ea.total_marks) * 100)::numeric, 2) AS percentile
      FROM exam_attempts ea
      WHERE ea.exam_id = $1 AND ea.status = 'SCORED'`,
     [examId]
