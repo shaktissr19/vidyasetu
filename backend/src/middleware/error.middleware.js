@@ -12,7 +12,6 @@ function notFound(req, res) {
 function errorHandler(err, req, res, next) {
   logger.error(err);
 
-  // PostgreSQL unique violation
   if (err.code === '23505') {
     return res.status(409).json({
       success: false,
@@ -20,7 +19,6 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  // PostgreSQL foreign key violation
   if (err.code === '23503') {
     return res.status(400).json({
       success: false,
@@ -29,13 +27,21 @@ function errorHandler(err, req, res, next) {
   }
 
   const status = err.statusCode || err.status || 500;
-  const message = process.env.NODE_ENV === 'production'
+  const isServerError = status >= 500;
+  const message = process.env.NODE_ENV === 'production' && isServerError
     ? 'Internal server error'
     : err.message || 'Internal server error';
+  const code = err.apiCode
+    || (status === 400 ? 'BAD_REQUEST'
+      : status === 401 ? 'UNAUTHORIZED'
+        : status === 403 ? 'FORBIDDEN'
+          : status === 404 ? 'NOT_FOUND'
+            : status === 409 ? 'CONFLICT'
+              : 'SERVER_ERROR');
 
   res.status(status).json({
     success: false,
-    error: { code: 'SERVER_ERROR', message },
+    error: { code, message },
   });
 }
 
