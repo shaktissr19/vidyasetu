@@ -33,12 +33,12 @@ systemctl is-active --quiet redis-server || fail "Native Redis is not active."
 pg_isready -h 127.0.0.1 -p 5432 >/dev/null || fail "Native PostgreSQL is not accepting connections on 5432."
 redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG || fail "Native Redis is not responding on 6379."
 
-if ! find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'vidyasetu_docker_final_*.dump' -o -name 'vidyasetu_before_student_fix_*.dump' \) -size +0c 2>/dev/null | grep -q .; then
-  warn "No recognized pre-cutover dump found in $BACKUP_DIR. Creating a fresh native safety dump now."
-  mkdir -p "$BACKUP_DIR"
-  runuser -u postgres -- pg_dump -d "$DB_NAME_DEFAULT" -Fc > "$BACKUP_DIR/vidyasetu_native_pre_main_$(date +%F_%H%M%S).dump" \
-    || fail "Could not create native PostgreSQL safety dump."
-fi
+mkdir -p "$BACKUP_DIR"
+SAFETY_DUMP="$BACKUP_DIR/vidyasetu_native_pre_main_$(date +%F_%H%M%S).dump"
+runuser -u postgres -- pg_dump -d "$DB_NAME_DEFAULT" -Fc > "$SAFETY_DUMP" \
+  || fail "Could not create native PostgreSQL safety dump."
+test -s "$SAFETY_DUMP" || fail "Native PostgreSQL safety dump is empty."
+printf 'Safety DB dump: %s\n' "$SAFETY_DUMP"
 
 log "2/10 Recover/create native application environment without rebuilding the DB"
 if [[ ! -s "$BACKEND_ENV" ]]; then
@@ -113,9 +113,46 @@ fi
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc 'SELECT 1' >/dev/null \
   || fail "Native application database authentication failed."
 
-log "3/10 Validate Student database contract and seeded identities"
+log "3/10 Reconcile and validate Student database contract"
+cd "$PROJECT_DIR"
+# These canonical migrations are idempotent (CREATE IF NOT EXISTS / duplicate-safe enums)
+# and cover every table required by the Student release. Existing data is preserved.
+for migration in \
+  database/migrations/001_users.sql \
+  database/migrations/002_schools.sql \
+  database/migrations/003_students.sql \
+  database/migrations/005_attendance.sql \
+  database/migrations/007_content.sql \
+  database/migrations/008_exams.sql \
+  database/migrations/009_gamification.sql \
+  database/migrations/010_doubt_forum.sql; do
+  printf 'Applying %s\n' "$migration"
+  psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    -v ON_ERROR_STOP=1 -f "$migration" >/dev/null \
+    || fail "Student schema reconciliation failed at $migration. Safety dump retained: $SAFETY_DUMP"
+done
+
+# Student enrichment/reconciliation scripts are designed to be idempotent.
+psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql >/dev/null \
+  || fail "Student XP/streak reconciliation failed. Safety dump retained: $SAFETY_DUMP"
+psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql >/dev/null \
+  || fail "Student module enrichment failed. Safety dump retained: $SAFETY_DUMP"
+psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql >/dev/null \
+  || fail "Student seed validation failed. Safety dump retained: $SAFETY_DUMP"
+
+for table_name in \
+  users students school_classes subjects chapters content_items student_content_progress \
+  attendance exams exam_attempts badges student_badges xp_events doubts offline_downloads; do
+  psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    -Atc "SELECT to_regclass('public.$table_name') IS NOT NULL;" | grep -qx t \
+    || fail "Required Student table '$table_name' is missing after reconciliation. Safety dump retained: $SAFETY_DUMP"
+done
+
 PROFILE_COUNT="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id=u.id WHERE u.mobile IN ('9300000001','9300000002');")"
-[[ "$PROFILE_COUNT" == "2" ]] || fail "Aarav/Priya Student mappings are missing from native PostgreSQL. DB was not modified."
+[[ "$PROFILE_COUNT" == "2" ]] || fail "Aarav/Priya Student mappings are missing from native PostgreSQL after reconciliation."
 
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "
 SELECT u.mobile, u.name, s.id AS student_id, s.xp_total, s.xp_level,
@@ -126,11 +163,6 @@ JOIN schools sch ON sch.id=s.school_id
 JOIN school_classes sc ON sc.id=s.class_id
 WHERE u.mobile IN ('9300000001','9300000002')
 ORDER BY u.mobile;"
-
-for table_name in users students school_classes subjects chapters content_items student_progress attendance exams exam_attempts badges student_badges xp_transactions doubts offline_downloads; do
-  psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.$table_name') IS NOT NULL;" | grep -qx t \
-    || fail "Required Student table '$table_name' is missing."
-done
 
 log "4/10 Install dependencies and build main"
 cd "$PROJECT_DIR/backend"
@@ -215,4 +247,5 @@ printf '\n\033[1;32mVidyaSetu Student Module main deployment completed successfu
 printf 'Git branch: '; git -C "$PROJECT_DIR" branch --show-current
 printf 'Git commit: '; git -C "$PROJECT_DIR" rev-parse --short HEAD
 printf 'Student portal: https://vidyasetu.sbs/student\n'
+printf 'Safety DB dump: %s\n' "$SAFETY_DUMP"
 printf 'Rollback safety: Docker packages/volumes retained until final browser sign-off.\n'
