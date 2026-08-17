@@ -9,14 +9,10 @@ Rules:
 - Always respond in the same language the student uses (Hindi or English).
 - Keep explanations simple, use examples from daily Indian life.
 - For Math problems, show step-by-step solutions.
-- Never give direct answers to exam questions — guide the student to think.
-- Be encouraging and patient. Use "Shabash!" or "Great!" to motivate.
+- Never give direct answers to a live exam question; guide the student to think.
+- Be encouraging and patient.
 - If asked non-academic questions, politely redirect to studies.`;
 
-/**
- * Send a message to VidyaBot and get a response.
- * Maintains conversation history for context.
- */
 async function chat(userId, studentId, message, history = []) {
   const provider = process.env.AI_PROVIDER || 'mock';
 
@@ -24,8 +20,7 @@ async function chat(userId, studentId, message, history = []) {
     return mockResponse(message);
   }
 
-  // Build messages array with history (last 10 turns for context window)
-  const recentHistory = history.slice(-10);
+  const recentHistory = (history || []).slice(-10);
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...recentHistory,
@@ -38,10 +33,10 @@ async function chat(userId, studentId, message, history = []) {
     const res = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4o-mini',
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         messages,
-        max_tokens: 600,
-        temperature: 0.7,
+        max_tokens: 700,
+        temperature: 0.6,
       },
       {
         headers: {
@@ -50,90 +45,108 @@ async function chat(userId, studentId, message, history = []) {
         },
       }
     );
-    responseText = res.data.choices[0].message.content;
+    responseText = res.data.choices?.[0]?.message?.content;
   } else if (provider === 'gemini') {
     const res = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || 'gemini-1.5-flash'}:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         contents: messages
           .filter(m => m.role !== 'system')
           .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        generationConfig: { maxOutputTokens: 600, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: 700, temperature: 0.6 },
       }
     );
-    responseText = res.data.candidates[0].content.parts[0].text;
+    responseText = res.data.candidates?.[0]?.content?.parts?.[0]?.text;
   } else {
     throw new Error(`Unknown AI provider: ${provider}`);
   }
 
-  // Log interaction for quality monitoring
+  if (!responseText) throw new Error('AI provider returned an empty response');
   await logAIInteraction(studentId, message, responseText).catch(() => {});
-
   return { response: responseText };
 }
 
-/**
- * Auto-answer a doubt using AI, mark it as AI-answered.
- */
 async function answerDoubt(doubtId, studentId) {
   const { rows: [doubt] } = await query(
-    `SELECT d.*, s.name AS subject_name, ch.title AS chapter_title
+    `SELECT d.id, d.title, d.body, d.subject_code, d.chapter_id,
+            sub.name AS subject_name, ch.title AS chapter_title
      FROM doubts d
-     LEFT JOIN subjects s ON s.id = d.subject_id
+     LEFT JOIN subjects sub ON sub.code = d.subject_code
      LEFT JOIN chapters ch ON ch.id = d.chapter_id
      WHERE d.id = $1`,
     [doubtId]
   );
   if (!doubt) throw Object.assign(new Error('Doubt not found'), { statusCode: 404 });
 
-  const prompt = `A student has posted this doubt:
-Subject: ${doubt.subject_name || 'General'}
+  const prompt = `A student has posted this academic doubt.
+Subject: ${doubt.subject_name || doubt.subject_code || 'General'}
 Chapter: ${doubt.chapter_title || 'Not specified'}
 Question: ${doubt.title}
 Details: ${doubt.body}
 
-Please provide a clear, helpful explanation. Use simple Hindi or English based on the question language.`;
+Explain clearly, step by step, in the same language as the student's question.`;
 
   const { response } = await chat(null, studentId, prompt, []);
 
-  // Save AI answer
-  await query(
-    `INSERT INTO doubt_answers (doubt_id, answered_by, body, is_ai_answer)
-     VALUES ($1, (SELECT id FROM users WHERE role = 'SUPER_ADMIN' LIMIT 1), $2, TRUE)`,
-    [doubtId, response]
+  const { rows: [systemUser] } = await query(
+    `SELECT id FROM users WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE' ORDER BY created_at LIMIT 1`
   );
+  if (!systemUser) throw Object.assign(new Error('AI author user is not configured'), { statusCode: 500 });
 
-  // Update doubt status
-  await query(
-    `UPDATE doubts SET status = 'ANSWERED', updated_at = NOW() WHERE id = $1`,
+  const { rows: [existing] } = await query(
+    `SELECT id FROM doubt_answers
+     WHERE doubt_id = $1 AND is_ai_answer = TRUE
+     ORDER BY created_at DESC LIMIT 1`,
     [doubtId]
   );
 
-  return { answer: response };
+  let answerId;
+  if (existing) {
+    await query(
+      `UPDATE doubt_answers
+       SET body = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [response, existing.id]
+    );
+    answerId = existing.id;
+  } else {
+    const { rows: [answer] } = await query(
+      `INSERT INTO doubt_answers (doubt_id, author_id, body, is_ai_answer)
+       VALUES ($1, $2, $3, TRUE)
+       RETURNING id`,
+      [doubtId, systemUser.id, response]
+    );
+    answerId = answer.id;
+  }
+
+  await query(
+    `UPDATE doubts SET ai_answered = TRUE, updated_at = NOW() WHERE id = $1`,
+    [doubtId]
+  );
+
+  return { answerId, answer: response };
 }
 
 async function logAIInteraction(studentId, question, answer) {
-  // Could be stored in a separate ai_interactions table
-  // For now just log
-  logger.info(`AI interaction — Student: ${studentId} | Q: ${question.substring(0, 60)}`);
+  logger.info(`AI interaction — Student: ${studentId || 'n/a'} | Q: ${String(question).substring(0, 60)} | A: ${String(answer).substring(0, 60)}`);
 }
 
 function mockResponse(message) {
-  const responses = {
-    default: 'Bilkul! Main samjhata hoon. Yeh concept bahut interesting hai. Step by step chalte hain...',
-    maths: 'Math ke liye hum step-by-step approach use karenge. Pehle formula yaad karo, phir example solve karte hain.',
-    science: 'Vigyan mein observation bahut important hai. Is concept ko ek example se samjhte hain...',
-  };
-
-  const lower = message.toLowerCase();
-  if (lower.includes('math') || lower.includes('ganit') || lower.includes('equation')) {
-    return { response: responses.maths };
+  const lower = String(message || '').toLowerCase();
+  if (lower.includes('pythagoras')) {
+    return { response: 'Bilkul! Right-angle triangle mein Pythagoras theorem kehta hai: hypotenuse² = base² + height². Example: base 3 aur height 4 ho, toh hypotenuse² = 9 + 16 = 25, isliye hypotenuse = 5.' };
   }
-  if (lower.includes('science') || lower.includes('vigyan') || lower.includes('physics')) {
-    return { response: responses.science };
+  if (lower.includes('quadratic') || lower.includes('equation') || lower.includes('math') || lower.includes('ganit')) {
+    return { response: 'Math ko step by step karte hain. Pehle given values likho, phir sahi formula choose karo, values substitute karo, aur last mein answer verify karo. Apna exact question bhejo, main har step samjhaunga.' };
   }
-  return { response: responses.default };
+  if (lower.includes('photosynthesis')) {
+    return { response: 'Photosynthesis mein green plants sunlight, carbon dioxide aur water ka use karke glucose banate hain aur oxygen release karte hain. Chlorophyll sunlight ki energy capture karta hai. Is process ko hum 3 parts mein samajh sakte hain: water uptake, light energy capture, aur glucose formation.' };
+  }
+  if (lower.includes('science') || lower.includes('vigyan') || lower.includes('physics') || lower.includes('light')) {
+    return { response: 'Science mein concept ko observation aur example se samajhna easiest hota hai. Apna exact topic batao; main definition, real-life example aur important formula teen simple steps mein samjhaunga.' };
+  }
+  return { response: 'Bilkul! Main is topic ko simple steps mein samjhata hoon. Pehle basic idea, phir example, aur end mein ek quick practice question. Apna subject ya exact question likho.' };
 }
 
 module.exports = { chat, answerDoubt };
