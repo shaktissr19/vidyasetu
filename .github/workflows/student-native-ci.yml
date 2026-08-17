@@ -19,9 +19,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install and start native PostgreSQL and Redis
         run: |
@@ -113,7 +111,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
           INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
       - name: Start production Next.js and verify Student route
