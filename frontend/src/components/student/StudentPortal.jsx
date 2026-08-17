@@ -73,7 +73,14 @@ export default function StudentPortal() {
   const student = dashboard?.student;
 
   useEffect(() => {
-    if (dashboardQuery.error?.response?.status === 401) router.replace('/login');
+    const status = dashboardQuery.error?.response?.status;
+    if (status === 401) {
+      router.replace('/login');
+      return;
+    }
+    if (status === 404) {
+      router.replace('/register?complete=1');
+    }
   }, [dashboardQuery.error, router]);
 
   const greeting = useMemo(() => {
@@ -122,8 +129,8 @@ export default function StudentPortal() {
     default: content = <DashboardSection {...shared} greeting={greeting} />;
   }
 
-  if (dashboardQuery.isLoading) {
-    return <div className={styles.shell}><div className={styles.loading}>Loading your VidyaSetu Student workspace…</div></div>;
+  if (dashboardQuery.isLoading || dashboardQuery.error?.response?.status === 404) {
+    return <div className={styles.shell}><div className={styles.loading}>{dashboardQuery.error?.response?.status === 404 ? 'Opening Student profile setup…' : 'Loading your VidyaSetu Student workspace…'}</div></div>;
   }
 
   if (dashboardQuery.isError) {
@@ -131,7 +138,7 @@ export default function StudentPortal() {
       <div className={styles.shell}>
         <div className={styles.loading}>
           <div>
-            <div className={styles.error}>{dashboardQuery.error?.response?.data?.error?.message || 'Could not load the Student profile.'}</div>
+            <div className={styles.error}>{dashboardQuery.error?.response?.data?.error?.message || 'Could not load the Student workspace.'}</div>
             <button className={styles.primary} onClick={() => dashboardQuery.refetch()}>Retry</button>
           </div>
         </div>
