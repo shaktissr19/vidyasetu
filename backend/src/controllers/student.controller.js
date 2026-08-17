@@ -1,5 +1,6 @@
 // controllers/student.controller.js
 const studentService = require('../services/student.service');
+const studentPortalService = require('../services/studentPortal.service');
 const notificationService = require('../services/notification.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
@@ -13,9 +14,9 @@ async function getDashboard(req, res, next) {
 
 async function getAttendance(req, res, next) {
   try {
-    const year  = parseInt(req.params.year  || new Date().getFullYear());
-    const month = parseInt(req.params.month || new Date().getMonth() + 1);
-    const data  = await studentService.getAttendance(req.user.userId, year, month);
+    const year = parseInt(req.params.year || new Date().getFullYear(), 10);
+    const month = parseInt(req.params.month || new Date().getMonth() + 1, 10);
+    const data = await studentService.getAttendance(req.user.userId, year, month);
     return R.ok(res, data);
   } catch (err) { next(err); }
 }
@@ -29,8 +30,8 @@ async function getBadges(req, res, next) {
 
 async function getLeaderboard(req, res, next) {
   try {
-    const scope = req.query.scope || 'class'; // 'class' | 'school'
-    const rows  = await studentService.getLeaderboard(req.user.userId, scope);
+    const scope = req.query.scope || 'class';
+    const rows = await studentService.getLeaderboard(req.user.userId, scope);
     return R.ok(res, rows);
   } catch (err) { next(err); }
 }
@@ -45,9 +46,7 @@ async function getReportCard(req, res, next) {
 
 async function markContentComplete(req, res, next) {
   try {
-    const result = await studentService.markContentComplete(
-      req.user.userId, req.params.contentItemId
-    );
+    const result = await studentService.markContentComplete(req.user.userId, req.params.contentItemId);
     return R.ok(res, result);
   } catch (err) { next(err); }
 }
@@ -55,7 +54,12 @@ async function markContentComplete(req, res, next) {
 async function getNotifications(req, res, next) {
   try {
     const { rows } = await query(
-      `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      `SELECT id, type, channel, title, body, reference_type, reference_id,
+              is_read, read_at, delivery_status, created_at
+       FROM notifications
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
       [req.user.userId]
     );
     return R.ok(res, rows);
@@ -69,7 +73,29 @@ async function markNotifRead(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function getOfflineDownloads(req, res, next) {
+  try {
+    const data = await studentPortalService.getOfflineDownloads(req.user.userId);
+    return R.ok(res, data);
+  } catch (err) { next(err); }
+}
+
+async function removeOfflineDownload(req, res, next) {
+  try {
+    const data = await studentPortalService.removeOfflineDownload(req.user.userId, req.params.contentItemId);
+    return R.ok(res, data);
+  } catch (err) { next(err); }
+}
+
 module.exports = {
-  getDashboard, getAttendance, getBadges, getLeaderboard,
-  getReportCard, markContentComplete, getNotifications, markNotifRead,
+  getDashboard,
+  getAttendance,
+  getBadges,
+  getLeaderboard,
+  getReportCard,
+  markContentComplete,
+  getNotifications,
+  markNotifRead,
+  getOfflineDownloads,
+  removeOfflineDownload,
 };
