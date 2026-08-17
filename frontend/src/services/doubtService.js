@@ -8,3 +8,8 @@ export const answerDoubt = (doubtId, payload) => api.post(`/doubts/${doubtId}/an
 export const toggleAnswerUpvote = (doubtId, answerId) => api.post(`/doubts/${doubtId}/answers/${answerId}/upvote`);
 export const resolveDoubt = (doubtId, bestAnswerId) => api.patch(`/doubts/${doubtId}/resolve`, { bestAnswerId });
 export const requestAIAnswer = (doubtId) => api.post(`/doubts/${doubtId}/ai-answer`);
+
+// Backward-compatible aliases for the legacy standalone Doubts route.
+// The canonical /student portal uses the names above.
+export const upvoteAnswer = toggleAnswerUpvote;
+export const aiAnswerDoubt = requestAIAnswer;
