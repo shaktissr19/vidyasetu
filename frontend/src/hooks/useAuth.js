@@ -4,16 +4,12 @@ import { useRouter } from 'next/navigation';
 import useAuthStore from '@/store/authStore';
 
 const ROLE_DASHBOARDS = {
-  STUDENT:      '/dashboard',
+  STUDENT:      '/student',
   SCHOOL_ADMIN: '/school/overview',
   PARENT:       '/parent/dashboard',
   SUPER_ADMIN:  '/admin/analytics',
 };
 
-/**
- * Redirect to login if not authenticated.
- * Optionally restrict to specific roles.
- */
 export function useRequireAuth(allowedRoles = []) {
   const { isLoggedIn, user } = useAuthStore();
   const router = useRouter();
@@ -27,22 +23,18 @@ export function useRequireAuth(allowedRoles = []) {
       const dest = ROLE_DASHBOARDS[user.role] || '/login';
       router.replace(dest);
     }
-  }, [isLoggedIn, user, router]);
+  }, [isLoggedIn, user, router, allowedRoles]);
 
   return { isLoggedIn, user };
 }
 
-/**
- * Redirect to role dashboard if already logged in.
- * Used on login/register pages.
- */
 export function useRedirectIfLoggedIn() {
   const { isLoggedIn, user } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoggedIn && user?.role) {
-      router.replace(ROLE_DASHBOARDS[user.role] || '/dashboard');
+      router.replace(ROLE_DASHBOARDS[user.role] || '/student');
     }
   }, [isLoggedIn, user, router]);
 }
