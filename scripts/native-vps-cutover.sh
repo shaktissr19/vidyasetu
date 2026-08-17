@@ -137,7 +137,7 @@ npm ci
 find src -name '*.js' -print0 | xargs -0 -n1 node --check
 
 cd "$PROJECT_DIR/frontend"
-npm ci
+npm install --no-audit --no-fund
 npm run build
 
 log "9/13 Start native API and Next.js with PM2"
@@ -162,7 +162,10 @@ done
 log "10/13 Run the complete Student E2E suite against native API"
 cd "$PROJECT_DIR"
 chmod +x scripts/student-e2e-smoke.sh
-API_BASE=http://127.0.0.1:5000/api/v1 CI_MOBILE=9399999999 bash scripts/student-e2e-smoke.sh
+EPOCH_NOW="$(date +%s)"
+SMOKE_MOBILE="93${EPOCH_NOW: -8}"
+printf 'Student smoke-test mobile: %s\n' "$SMOKE_MOBILE"
+API_BASE=http://127.0.0.1:5000/api/v1 CI_MOBILE="$SMOKE_MOBILE" bash scripts/student-e2e-smoke.sh
 
 log "11/13 Switch existing Nginx/SSL proxy from container ports to native ports"
 [[ -f "$NGINX_SITE" ]] || fail "Nginx site file not found: $NGINX_SITE"
