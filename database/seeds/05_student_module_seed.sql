@@ -8,6 +8,11 @@
 
 BEGIN;
 
+-- Keep the development Student module on the current academic year.
+UPDATE schools SET academic_year='2026-27' WHERE id='10000000-0000-0000-0000-000000000001';
+UPDATE school_classes SET academic_year='2026-27' WHERE school_id='10000000-0000-0000-0000-000000000001';
+UPDATE students SET academic_year='2026-27' WHERE school_id='10000000-0000-0000-0000-000000000001';
+
 -- ── Class 8 chapters for all sidebar subjects ─────────────────
 INSERT INTO chapters (id, subject_id, class_name, chapter_number, title, title_hi) VALUES
   ('61000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000003','8',1,'The Best Christmas Present in the World','द बेस्ट क्रिसमस प्रेज़ेंट इन द वर्ल्ड'),
@@ -16,7 +21,7 @@ INSERT INTO chapters (id, subject_id, class_name, chapter_number, title, title_h
   ('61000000-0000-0000-0000-000000000004','50000000-0000-0000-0000-000000000006','8',1,'सुभाषितानि','सुभाषितानि')
 ON CONFLICT (subject_id, class_name, chapter_number) DO NOTHING;
 
--- Attach lightweight same-origin demo assets to existing content.
+-- Attach lightweight same-origin development assets to existing content.
 UPDATE content_items SET file_url='/demo-content/rational-numbers.html', file_size_kb=18, is_offline_ready=TRUE
 WHERE id='70000000-0000-0000-0000-000000000001';
 UPDATE content_items SET file_url='/demo-content/rational-numbers-notes.html', file_size_kb=12, is_offline_ready=TRUE
@@ -28,7 +33,6 @@ WHERE id='70000000-0000-0000-0000-000000000006';
 UPDATE content_items SET file_url='/demo-content/crop-production-notes.html', file_size_kb=12, is_offline_ready=TRUE
 WHERE id='70000000-0000-0000-0000-000000000007';
 
--- Additional class 8 content so all six subject cards are backed by PostgreSQL.
 INSERT INTO content_items
   (id, chapter_id, type, status, title, title_hi, language, file_url, file_size_kb,
    xp_reward, sort_order, is_offline_ready) VALUES
@@ -37,7 +41,9 @@ INSERT INTO content_items
   ('71000000-0000-0000-0000-000000000003','61000000-0000-0000-0000-000000000003','NOTES','PUBLISHED','Resources — Quick Notes','संसाधन — त्वरित नोट्स','en','/demo-content/resources.html',11,8,1,TRUE),
   ('71000000-0000-0000-0000-000000000004','61000000-0000-0000-0000-000000000004','NOTES','PUBLISHED','सुभाषितानि — अर्थ सहित','सुभाषितानि — अर्थ सहित','hi','/demo-content/sanskrit-subhashitani.html',9,8,1,TRUE)
 ON CONFLICT (id) DO UPDATE SET
-  status=EXCLUDED.status, file_url=EXCLUDED.file_url, file_size_kb=EXCLUDED.file_size_kb,
+  status=EXCLUDED.status,
+  file_url=EXCLUDED.file_url,
+  file_size_kb=EXCLUDED.file_size_kb,
   is_offline_ready=EXCLUDED.is_offline_ready;
 
 -- Give Aarav and Priya real progress across all subjects.
@@ -60,15 +66,12 @@ ON CONFLICT (student_id, content_item_id) DO UPDATE SET
   last_accessed=EXCLUDED.last_accessed,
   completed_at=COALESCE(student_content_progress.completed_at,EXCLUDED.completed_at);
 
--- ── Current-month attendance for realistic dashboard/calendar ─
+-- ── Current-month attendance ──────────────────────────────────
+-- The attendance trigger maintains attendance_monthly_summary.
 WITH days AS (
   SELECT d::date AS day,
          ROW_NUMBER() OVER (ORDER BY d) AS rn
-  FROM generate_series(
-    date_trunc('month', CURRENT_DATE)::date,
-    CURRENT_DATE,
-    INTERVAL '1 day'
-  ) d
+  FROM generate_series(date_trunc('month', CURRENT_DATE)::date, CURRENT_DATE, INTERVAL '1 day') d
   WHERE EXTRACT(ISODOW FROM d) BETWEEN 1 AND 5
 )
 INSERT INTO attendance (student_id, class_id, school_id, date, status, marked_by, remark)
@@ -89,33 +92,6 @@ CROSS JOIN (VALUES
   ('30000000-0000-0000-0000-000000000002'::uuid)
 ) AS s(student_id)
 ON CONFLICT (student_id, date) DO NOTHING;
-
--- Recompute monthly summary from source attendance rows.
-INSERT INTO attendance_monthly_summary
-  (student_id, school_id, year, month, working_days, present_days, absent_days, late_days, half_days, percentage)
-SELECT a.student_id,
-       MAX(a.school_id),
-       EXTRACT(YEAR FROM CURRENT_DATE)::smallint,
-       EXTRACT(MONTH FROM CURRENT_DATE)::smallint,
-       COUNT(*)::smallint,
-       COUNT(*) FILTER (WHERE a.status='PRESENT')::smallint,
-       COUNT(*) FILTER (WHERE a.status='ABSENT')::smallint,
-       COUNT(*) FILTER (WHERE a.status='LATE')::smallint,
-       COUNT(*) FILTER (WHERE a.status='HALF_DAY')::smallint,
-       ROUND((COUNT(*) FILTER (WHERE a.status IN ('PRESENT','LATE','HALF_DAY'))::numeric / NULLIF(COUNT(*),0))*100,2)
-FROM attendance a
-WHERE a.student_id IN ('30000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002')
-  AND EXTRACT(YEAR FROM a.date)=EXTRACT(YEAR FROM CURRENT_DATE)
-  AND EXTRACT(MONTH FROM a.date)=EXTRACT(MONTH FROM CURRENT_DATE)
-GROUP BY a.student_id
-ON CONFLICT (student_id, year, month) DO UPDATE SET
-  working_days=EXCLUDED.working_days,
-  present_days=EXCLUDED.present_days,
-  absent_days=EXCLUDED.absent_days,
-  late_days=EXCLUDED.late_days,
-  half_days=EXCLUDED.half_days,
-  percentage=EXCLUDED.percentage,
-  updated_at=NOW();
 
 -- ── Student exam center: live, upcoming and completed exams ───
 INSERT INTO exams
@@ -166,7 +142,7 @@ INSERT INTO exam_questions
   ('b1000000-0000-0000-0000-000000000005','b0000000-0000-0000-0000-000000000001','The mean of 4, 6 and 8 is:','4, 6 और 8 का औसत है:','5','6','7','8','B','(4+6+8)/3 = 6.','MATH','MEDIUM',5)
 ON CONFLICT (id) DO NOTHING;
 
--- Past scored attempts for report card.
+-- Past scored attempts for Report Card.
 INSERT INTO exam_attempts
   (id, exam_id, student_id, school_id, status, started_at, submitted_at,
    time_taken_secs, total_marks, correct_count, wrong_count, skipped_count, rank_school, rank_overall, percentile) VALUES
@@ -175,9 +151,14 @@ INSERT INTO exam_attempts
   ('b2000000-0000-0000-0000-000000000003','b0000000-0000-0000-0000-000000000003','30000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','SCORED',CURRENT_DATE-INTERVAL '30 days',CURRENT_DATE-INTERVAL '30 days'+INTERVAL '34 minutes',2040,96,24,1,0,1,5,96.1),
   ('b2000000-0000-0000-0000-000000000004','b0000000-0000-0000-0000-000000000004','30000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','SCORED',CURRENT_DATE-INTERVAL '15 days',CURRENT_DATE-INTERVAL '15 days'+INTERVAL '36 minutes',2160,88,22,3,0,2,10,91.0)
 ON CONFLICT (exam_id, student_id) DO UPDATE SET
-  status='SCORED', total_marks=EXCLUDED.total_marks, correct_count=EXCLUDED.correct_count,
-  wrong_count=EXCLUDED.wrong_count, skipped_count=EXCLUDED.skipped_count,
-  rank_school=EXCLUDED.rank_school, rank_overall=EXCLUDED.rank_overall, percentile=EXCLUDED.percentile;
+  status='SCORED',
+  total_marks=EXCLUDED.total_marks,
+  correct_count=EXCLUDED.correct_count,
+  wrong_count=EXCLUDED.wrong_count,
+  skipped_count=EXCLUDED.skipped_count,
+  rank_school=EXCLUDED.rank_school,
+  rank_overall=EXCLUDED.rank_overall,
+  percentile=EXCLUDED.percentile;
 
 -- ── Doubt forum answers and fresh threads ─────────────────────
 INSERT INTO doubts
@@ -192,7 +173,9 @@ INSERT INTO doubt_answers (id, doubt_id, author_id, body, is_ai_answer, is_accep
 ON CONFLICT (id) DO NOTHING;
 
 UPDATE doubts d SET answer_count=(SELECT COUNT(*) FROM doubt_answers da WHERE da.doubt_id=d.id);
-UPDATE doubts SET resolved_by='00000000-0000-0000-0000-000000000020', resolved_at=COALESCE(resolved_at,NOW()-INTERVAL '10 days')
+UPDATE doubts
+SET resolved_by='00000000-0000-0000-0000-000000000020',
+    resolved_at=COALESCE(resolved_at,NOW()-INTERVAL '10 days')
 WHERE id='a0000000-0000-0000-0000-000000000001';
 
 COMMIT;
