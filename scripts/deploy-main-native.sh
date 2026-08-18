@@ -13,6 +13,11 @@ FRONTEND_ENV="$PROJECT_DIR/frontend/.env.production"
 log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\n\033[1;33mWARN: %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
+read_env_value() {
+  local key="$1"
+  local file="$2"
+  grep -m1 -E "^${key}=" "$file" 2>/dev/null | cut -d= -f2- || true
+}
 
 [[ $EUID -eq 0 ]] || fail "Run this script as root."
 [[ -d "$PROJECT_DIR/.git" ]] || fail "Repository not found at $PROJECT_DIR"
@@ -42,12 +47,12 @@ printf 'Safety DB dump: %s\n' "$SAFETY_DUMP"
 
 log "2/10 Recover/create native application environment without rebuilding the DB"
 if [[ ! -s "$BACKEND_ENV" ]]; then
-  DB_PASSWORD="$(openssl rand -hex 24)"
+  DB_PASSWORD_NEW="$(openssl rand -hex 24)"
   JWT_ACCESS_SECRET="$(openssl rand -hex 48)"
   JWT_REFRESH_SECRET="$(openssl rand -hex 48)"
 
   runuser -u postgres -- psql -v ON_ERROR_STOP=1 \
-    -c "ALTER USER postgres PASSWORD '$DB_PASSWORD';" >/dev/null \
+    -c "ALTER USER postgres PASSWORD '$DB_PASSWORD_NEW';" >/dev/null \
     || fail "Could not reset the local postgres password through peer authentication."
 
   cat > "$BACKEND_ENV" <<EOF
@@ -57,7 +62,7 @@ DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=$DB_NAME_DEFAULT
 DB_USER=$DB_USER_DEFAULT
-DB_PASSWORD=$DB_PASSWORD
+DB_PASSWORD=$DB_PASSWORD_NEW
 DB_POOL_MIN=2
 DB_POOL_MAX=10
 REDIS_URL=redis://127.0.0.1:6379
@@ -89,16 +94,22 @@ INTERNAL_API_URL=http://127.0.0.1:5000/api/v1
 EOF
 fi
 
-set -a
-# shellcheck disable=SC1091
-source "$BACKEND_ENV"
-set +a
+# Never source backend/.env into the deployment shell. In particular,
+# NODE_ENV=development must not leak into `next build`.
+sed -i '/^[[:space:]]*NODE_ENV=/d' "$FRONTEND_ENV"
 
+DB_HOST="$(read_env_value DB_HOST "$BACKEND_ENV")"
+DB_PORT="$(read_env_value DB_PORT "$BACKEND_ENV")"
+DB_NAME="$(read_env_value DB_NAME "$BACKEND_ENV")"
+DB_USER="$(read_env_value DB_USER "$BACKEND_ENV")"
+DB_PASSWORD="$(read_env_value DB_PASSWORD "$BACKEND_ENV")"
+DB_HOST="${DB_HOST:-127.0.0.1}"
+DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-$DB_NAME_DEFAULT}"
 DB_USER="${DB_USER:-$DB_USER_DEFAULT}"
-DB_PORT="${DB_PORT:-5432}"
+
 [[ "$DB_HOST" == "127.0.0.1" || "$DB_HOST" == "localhost" ]] || fail "backend/.env DB_HOST must target native PostgreSQL, found '$DB_HOST'."
-[[ -n "${DB_PASSWORD:-}" ]] || fail "DB_PASSWORD is missing from backend/.env"
+[[ -n "$DB_PASSWORD" ]] || fail "DB_PASSWORD is missing from backend/.env"
 
 export PGPASSWORD="$DB_PASSWORD"
 if ! psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc 'SELECT 1' >/dev/null 2>&1; then
@@ -115,8 +126,6 @@ psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc 'SELECT 1' >/de
 
 log "3/10 Reconcile and validate Student database contract"
 cd "$PROJECT_DIR"
-# These canonical migrations are idempotent (CREATE IF NOT EXISTS / duplicate-safe enums)
-# and cover every table required by the Student release. Existing data is preserved.
 for migration in \
   database/migrations/001_users.sql \
   database/migrations/002_schools.sql \
@@ -132,7 +141,6 @@ for migration in \
     || fail "Student schema reconciliation failed at $migration. Safety dump retained: $SAFETY_DUMP"
 done
 
-# Student enrichment/reconciliation scripts are designed to be idempotent.
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql >/dev/null \
   || fail "Student XP/streak reconciliation failed. Safety dump retained: $SAFETY_DUMP"
@@ -164,20 +172,22 @@ JOIN school_classes sc ON sc.id=s.class_id
 WHERE u.mobile IN ('9300000001','9300000002')
 ORDER BY u.mobile;"
 
-log "4/10 Install dependencies and build main"
+log "4/10 Clean install and production build main"
 cd "$PROJECT_DIR/backend"
 npm ci
 find src -name '*.js' -print0 | xargs -0 -n1 node --check
 
 cd "$PROJECT_DIR/frontend"
+unset NODE_ENV || true
+rm -rf .next node_modules
 npm install --no-audit --no-fund
-npm run build
+NODE_ENV=production npm run build
 
 log "5/10 Start main API and web under PM2"
 pm2 delete vs-api >/dev/null 2>&1 || true
 pm2 delete vs-web >/dev/null 2>&1 || true
 pm2 start src/index.js --name vs-api --cwd "$PROJECT_DIR/backend" --time
-pm2 start npm --name vs-web --cwd "$PROJECT_DIR/frontend" --time -- start
+NODE_ENV=production pm2 start npm --name vs-web --cwd "$PROJECT_DIR/frontend" --time -- start
 pm2 save
 pm2 startup systemd -u root --hp /root >/tmp/vidyasetu-pm2-startup.txt 2>&1 || true
 
