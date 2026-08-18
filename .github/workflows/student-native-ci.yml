@@ -27,6 +27,11 @@ jobs:
           bash -n scripts/native-vps-resume.sh
           bash -n scripts/deploy-main-native.sh
           bash -n scripts/student-e2e-smoke.sh
+          grep -q 'NODE_ENV=production npm run build' scripts/deploy-main-native.sh
+          if grep -q 'source "$BACKEND_ENV"' scripts/deploy-main-native.sh; then
+            echo 'deploy-main-native.sh must not source backend/.env into the frontend build shell'
+            exit 1
+          fi
 
       - name: Install and start native PostgreSQL and Redis
         run: |
@@ -118,12 +123,15 @@ jobs:
           NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
           INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
         run: |
+          unset NODE_ENV || true
+          rm -rf .next node_modules
           npm install --no-audit --no-fund
-          npm run build
+          NODE_ENV=production npm run build
 
       - name: Start production Next.js and verify Student route
         working-directory: frontend
         env:
+          NODE_ENV: production
           NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
           INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
         run: |
