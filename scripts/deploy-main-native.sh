@@ -107,7 +107,7 @@ NODE_ENV=production npm run build
 log "6/10 Restart native PM2 applications"
 pm2 delete vs-api >/dev/null 2>&1 || true
 pm2 delete vs-web >/dev/null 2>&1 || true
-pm2 start src/index.js --name vs-api --cwd "$PROJECT_DIR/backend" --time
+NODE_ENV=production pm2 start src/index.js --name vs-api --cwd "$PROJECT_DIR/backend" --time
 NODE_ENV=production pm2 start npm --name vs-web --cwd "$PROJECT_DIR/frontend" --time -- start
 pm2 save
 for i in {1..40}; do
