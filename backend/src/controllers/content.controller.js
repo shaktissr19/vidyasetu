@@ -1,6 +1,6 @@
 // controllers/content.controller.js
 const contentService = require('../services/content.service');
-const studentService = require('../services/student.service');
+const academicLearningService = require('../services/academicLearning.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
 
@@ -42,7 +42,7 @@ async function getContentUrl(req, res, next) {
 
 async function markComplete(req, res, next) {
   try {
-    const result = await studentService.markContentComplete(req.user.userId, req.params.itemId);
+    const result = await academicLearningService.markContentComplete(req.user.userId, req.params.itemId);
     return R.ok(res, result);
   } catch (err) { next(err); }
 }
@@ -56,7 +56,7 @@ async function getQuizQuestions(req, res, next) {
 
 async function submitQuiz(req, res, next) {
   try {
-    const result = await contentService.submitQuiz(req.params.itemId, req.user.userId, req.body.answers);
+    const result = await academicLearningService.submitQuiz(req.params.itemId, req.user.userId, req.body.answers);
     return R.ok(res, result);
   } catch (err) { next(err); }
 }
