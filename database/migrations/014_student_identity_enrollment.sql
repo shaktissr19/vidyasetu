@@ -28,9 +28,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
   ON users (LOWER(email)) WHERE email IS NOT NULL;
 
--- Existing users get deterministic unique usernames so every account has a
--- non-mobile identifier. New accounts receive a friendlier firstname.lastname
--- username from the application service.
 UPDATE users
 SET username = CONCAT(
   NULLIF(TRIM(BOTH '.' FROM REGEXP_REPLACE(LOWER(COALESCE(name, 'user')), '[^a-z0-9]+', '.', 'g')), ''),
@@ -57,8 +54,6 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS school_link_status student_school_
 ALTER TABLE students ADD COLUMN IF NOT EXISTS school_link_reviewed_at TIMESTAMPTZ;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS school_link_reviewed_by UUID REFERENCES users(id);
 
--- Self-registered students may learn independently without being on a school's
--- official roll. A school/class becomes authoritative only after approval.
 ALTER TABLE students ALTER COLUMN school_id DROP NOT NULL;
 ALTER TABLE students ALTER COLUMN class_id DROP NOT NULL;
 
@@ -71,13 +66,8 @@ SET grade_level = COALESCE(s.grade_level, sc.class_name),
 FROM school_classes sc
 WHERE s.class_id = sc.id;
 
-UPDATE students
-SET grade_level = COALESCE(grade_level, '8')
-WHERE grade_level IS NULL;
-
-UPDATE students
-SET student_code = next_student_code()
-WHERE student_code IS NULL;
+UPDATE students SET grade_level = COALESCE(grade_level, '8') WHERE grade_level IS NULL;
+UPDATE students SET student_code = next_student_code() WHERE student_code IS NULL;
 
 ALTER TABLE students ALTER COLUMN student_code SET DEFAULT next_student_code();
 ALTER TABLE students ALTER COLUMN student_code SET NOT NULL;
@@ -85,6 +75,12 @@ ALTER TABLE students ALTER COLUMN grade_level SET NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_students_student_code ON students(student_code);
 CREATE INDEX IF NOT EXISTS idx_students_school_link_status ON students(school_link_status);
+
+-- Platform-wide exams must also work for Students who are not yet affiliated
+-- with a school. School-specific exams continue to be filtered by application logic.
+ALTER TABLE exam_registrations ALTER COLUMN school_id DROP NOT NULL;
+ALTER TABLE exam_attempts ALTER COLUMN school_id DROP NOT NULL;
+ALTER TABLE exam_leaderboard ALTER COLUMN school_id DROP NOT NULL;
 
 -- ── Student → School enrollment requests ────────────────────
 CREATE TABLE IF NOT EXISTS student_school_requests (
