@@ -17,16 +17,20 @@ const completeProfileSchema = z.object({
 router.use(authenticate);
 router.use(authorize('STUDENT'));
 
-// Profile/onboarding endpoints intentionally work before a students row exists.
 router.get('/profile/status', ctrl.getProfileStatus);
 router.get('/profile/setup-options', ctrl.getProfileSetupOptions);
 router.post('/profile/complete', validate(completeProfileSchema), ctrl.completeProfile);
+router.get('/school-link', ctrl.getSchoolLink);
 
 router.get('/dashboard', ctrl.getDashboard);
 router.get('/attendance', ctrl.getAttendance);
 router.get('/attendance/:year/:month', ctrl.getAttendance);
+
+// Legacy gamification endpoints remain temporarily for backward compatibility.
+// The Student UI no longer treats XP as academic performance or rank.
 router.get('/badges', ctrl.getBadges);
 router.get('/leaderboard', ctrl.getLeaderboard);
+
 router.get('/report-card', ctrl.getReportCard);
 router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
 router.get('/notifications', ctrl.getNotifications);
