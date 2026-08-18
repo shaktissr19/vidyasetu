@@ -47,21 +47,16 @@ async function getAttendance(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// Legacy endpoints retained temporarily for API compatibility only.
-async function getBadges(req, res, next) {
-  try { return R.ok(res, await studentService.getBadges(req.user.userId)); }
-  catch (err) { next(err); }
-}
-
-async function getLeaderboard(req, res, next) {
-  try { return R.ok(res, await studentService.getLeaderboard(req.user.userId, req.query.scope || 'class')); }
-  catch (err) { next(err); }
-}
-
 async function getReportCard(req, res, next) {
   try {
     const { term, year } = req.query;
-    return R.ok(res, await studentService.getReportCard(req.user.userId, term, year));
+    const data = await studentService.getReportCard(req.user.userId, term, year);
+    const { rows: [identity] } = await query(
+      `SELECT student_code FROM students WHERE user_id = $1`,
+      [req.user.userId]
+    );
+    if (data?.student) data.student.student_code = identity?.student_code || null;
+    return R.ok(res, data);
   } catch (err) { next(err); }
 }
 
@@ -110,8 +105,6 @@ module.exports = {
   getDashboard,
   getSchoolLink,
   getAttendance,
-  getBadges,
-  getLeaderboard,
   getReportCard,
   markContentComplete,
   getNotifications,
