@@ -16,8 +16,6 @@ fail() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
 [[ -d "$PROJECT_DIR/.git" ]] || fail "Repository not found at $PROJECT_DIR"
 command -v git >/dev/null || fail "git is not installed"
-command -v docker >/dev/null || fail "docker is not installed"
-docker compose version >/dev/null 2>&1 || fail "docker compose is not available"
 command -v curl >/dev/null || fail "curl is not installed"
 command -v jq >/dev/null || fail "jq is not installed"
 
@@ -33,9 +31,33 @@ git pull --ff-only origin "$TARGET_BRANCH"
 printf 'Branch: '; git branch --show-current
 printf 'Commit: '; git rev-parse --short HEAD
 
+# The VPS went through a partial Docker -> native cutover earlier.  Do not assume
+# that the Docker PostgreSQL container is still the authoritative database.
+# Prefer the native deployment whenever native PostgreSQL/Redis are already
+# healthy and the old Docker DB container is absent.
+DOCKER_DB_RUNNING=false
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$DB_CONTAINER"; then
+    DOCKER_DB_RUNNING=true
+  fi
+fi
+
+if [[ "$DOCKER_DB_RUNNING" != "true" ]]; then
+  if command -v pg_isready >/dev/null 2>&1 \
+      && pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1 \
+      && command -v redis-cli >/dev/null 2>&1 \
+      && redis-cli -h 127.0.0.1 -p 6379 ping 2>/dev/null | grep -q PONG; then
+    log "2/8 Native PostgreSQL/Redis detected; hand off to the native main deployment"
+    printf 'Docker DB container %s is not running; this VPS is already on the native database runtime.\n' "$DB_CONTAINER"
+    exec bash "$PROJECT_DIR/scripts/deploy-main-native.sh"
+  fi
+  fail "$DB_CONTAINER is not running and no healthy native PostgreSQL/Redis runtime was detected. No deployment changes were made."
+fi
+
+command -v docker >/dev/null || fail "docker is not installed"
+docker compose version >/dev/null 2>&1 || fail "docker compose is not available"
+
 log "2/8 Verify live Docker database before touching application containers"
-docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER" \
-  || fail "$DB_CONTAINER is not running. No deployment changes were made."
 docker exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null \
   || fail "PostgreSQL is not ready. No deployment changes were made."
 
@@ -91,7 +113,6 @@ for i in {1..60}; do
 done
 
 log "7/8 Run non-destructive Student production smoke"
-chmod +x scripts/student-production-smoke.sh
 API_BASE="$API_BASE" WEB_BASE="$WEB_BASE" bash scripts/student-production-smoke.sh
 
 log "8/8 Verify public HTTPS route"
