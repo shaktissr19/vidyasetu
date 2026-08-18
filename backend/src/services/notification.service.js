@@ -9,7 +9,9 @@ async function sendSMS(mobile, message) {
     logger.info(`[MOCK SMS] To: ${mobile} | Msg: ${message}`);
     return { success: true };
   }
+
   if (provider === 'kaleyra') {
+    if (!process.env.KALEYRA_API_KEY) throw new Error('KALEYRA_API_KEY is required');
     const res = await axios.get('https://api.kaleyra.io/v1/messages', {
       params: {
         apikey: process.env.KALEYRA_API_KEY,
@@ -21,10 +23,17 @@ async function sendSMS(mobile, message) {
     });
     return res.data;
   }
+
   if (provider === 'twofactor') {
-    const res = await axios.get(`https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/SMS/+91${mobile}/AUTOGEN`);
+    if (!process.env.TWOFACTOR_API_KEY) throw new Error('TWOFACTOR_API_KEY is required');
+    const otp = String(message).match(/\b(\d{6})\b/)?.[1];
+    if (!otp) throw new Error('A 6-digit OTP is required for the 2Factor OTP provider');
+    const res = await axios.post(
+      `https://2factor.in/API/V1/${encodeURIComponent(process.env.TWOFACTOR_API_KEY)}/SMS/+91${encodeURIComponent(mobile)}/${encodeURIComponent(otp)}`
+    );
     return res.data;
   }
+
   throw new Error(`Unknown SMS provider: ${provider}`);
 }
 
