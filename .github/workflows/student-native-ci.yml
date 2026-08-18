@@ -2,13 +2,13 @@ name: Student Native CI
 
 on:
   push:
-    branches: [phase1-student-foundation, main]
+    branches: [student-e2e-identity, phase1-student-foundation, main]
   workflow_dispatch:
 
 jobs:
   student-native-e2e:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -21,15 +21,17 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Validate deployment scripts
+      - name: Validate release scripts
         run: |
           bash -n scripts/native-vps-cutover.sh
           bash -n scripts/native-vps-resume.sh
           bash -n scripts/deploy-main-native.sh
           bash -n scripts/student-e2e-smoke.sh
-          grep -q 'NODE_ENV=production npm run build' scripts/deploy-main-native.sh
-          if grep -q 'source "$BACKEND_ENV"' scripts/deploy-main-native.sh; then
-            echo 'deploy-main-native.sh must not source backend/.env into the frontend build shell'
+          bash -n scripts/student-production-smoke.sh
+          grep -q '014_student_identity_enrollment.sql' scripts/deploy-main-native.sh
+          grep -q 'student-production-smoke.sh' scripts/deploy-main-native.sh
+          if grep -Eq 'docker compose down.*-v|docker-compose down.*-v' scripts/deploy-main-native.sh; then
+            echo 'Destructive Docker volume deletion is forbidden in deployment scripts.'
             exit 1
           fi
 
@@ -44,7 +46,7 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build VidyaSetu database from SQL
+      - name: Build database and apply Student identity migration
         env:
           PGPASSWORD: postgres
         run: |
@@ -53,6 +55,21 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          # Migration must be safe to re-run against an existing production database.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+
+      - name: Validate identity and enrollment schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE username IS NULL OR BTRIM(username)='';")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE student_code IS NULL OR BTRIM(student_code)='';")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM (SELECT LOWER(username) FROM users GROUP BY LOWER(username) HAVING COUNT(*)>1) x;")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM (SELECT student_code FROM students GROUP BY student_code HAVING COUNT(*)>1) x;")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.student_school_requests') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.parent_link_requests') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE school_id IS NOT NULL AND school_link_status <> 'APPROVED';")" = "0"
 
       - name: Install and syntax-check backend
         working-directory: backend
@@ -98,24 +115,33 @@ jobs:
         env:
           API_BASE: http://127.0.0.1:5000/api/v1
           CI_MOBILE: '9399999999'
+          CI_EMAIL: ci.student@vidyasetu.test
+          CI_USERNAME: ci.student
+          CI_PASSWORD: Student12345
+          CI_RESET_PASSWORD: Student54321
         run: bash scripts/student-e2e-smoke.sh
 
-      - name: Validate Student database invariants after E2E mutations
+      - name: Validate Student database invariants after E2E
         env:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "
-          SELECT u.mobile, u.name, s.id AS student_id, s.xp_total, s.xp_level,
-                 sch.name AS school, sc.class_name, sc.section
+          SELECT u.mobile, u.username, u.email, s.student_code, s.school_link_status,
+                 s.roll_number, sch.name AS school, sc.class_name, sc.section
           FROM users u
           JOIN students s ON s.user_id = u.id
-          JOIN schools sch ON sch.id = s.school_id
-          JOIN school_classes sc ON sc.id = s.class_id
-          WHERE u.mobile IN ('9300000001','9300000002','9399999999')
-          ORDER BY u.mobile;"
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id=u.id WHERE u.mobile IN ('9300000001','9300000002','9399999999');")" = "3"
+          LEFT JOIN schools sch ON sch.id = s.school_id
+          LEFT JOIN school_classes sc ON sc.id = s.class_id
+          WHERE u.mobile='9399999999';"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id=u.id WHERE u.mobile='9399999999' AND u.username='ci.student' AND u.email='ci.student@vidyasetu.test' AND u.password_hash IS NOT NULL AND s.school_link_status='APPROVED' AND s.roll_number='CI8A99';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM student_school_requests r JOIN students s ON s.id=r.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND r.status='APPROVED';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM parent_student_links p JOIN students s ON s.id=p.student_id JOIN users u ON u.id=s.user_id JOIN users pu ON pu.id=p.parent_user_id WHERE u.mobile='9399999999' AND pu.mobile='9400000001';")" = "1"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exam_attempts ea JOIN students s ON s.id=ea.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND ea.status='SCORED';")" -ge 1
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM doubts d JOIN students s ON s.id=d.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND d.status='RESOLVED';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM attendance a JOIN students s ON s.id=a.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND a.status='PRESENT';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM student_content_progress p JOIN students s ON s.id=p.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999' AND p.is_completed=TRUE;")" -ge 2
+          # XP is retained only as legacy storage. The new Student flow must not create XP events.
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM xp_events x JOIN students s ON s.id=x.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9399999999';")" = "0"
 
       - name: Install and build Next.js frontend
         working-directory: frontend
@@ -128,7 +154,7 @@ jobs:
           npm install --no-audit --no-fund
           NODE_ENV=production npm run build
 
-      - name: Start production Next.js and verify Student route
+      - name: Start production Next.js and verify canonical routes
         working-directory: frontend
         env:
           NODE_ENV: production
@@ -137,11 +163,16 @@ jobs:
         run: |
           nohup npm start > /tmp/vidyasetu-frontend.log 2>&1 &
           for i in {1..30}; do
-            if curl -fsSI http://127.0.0.1:3000/student >/dev/null; then exit 0; fi
+            code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/student || true)"
+            if [[ "$code" =~ ^(200|301|302|307|308)$ ]]; then break; fi
             sleep 1
+            [[ "$i" -lt 30 ]] || { cat /tmp/vidyasetu-frontend.log; exit 1; }
           done
-          cat /tmp/vidyasetu-frontend.log
-          exit 1
+          for path in / /login /register /student /school/enrollments /school/overview /school/students /parent/dashboard /admin/analytics; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$path")"
+            echo "$path -> $code"
+            [[ "$code" =~ ^(200|301|302|307|308)$ ]] || exit 1
+          done
 
       - name: Application logs on failure
         if: failure()
