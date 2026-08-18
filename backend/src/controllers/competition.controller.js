@@ -1,13 +1,15 @@
 // controllers/competition.controller.js
 const competitionService = require('../services/competition.service');
+const academicCompetitionService = require('../services/academicCompetition.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
 
 async function getStudent(req) {
   const { rows: [student] } = await query(
-    `SELECT s.id, s.school_id, sc.class_name
+    `SELECT s.id, s.school_id, s.school_link_status,
+            COALESCE(sc.class_name, s.grade_level) AS class_name
      FROM students s
-     JOIN school_classes sc ON sc.id = s.class_id
+     LEFT JOIN school_classes sc ON sc.id = s.class_id
      WHERE s.user_id = $1 AND s.status = 'ACTIVE'`,
     [req.user.userId]
   );
@@ -33,7 +35,13 @@ async function list(req, res, next) {
 
 async function listMine(req, res, next) {
   try {
-    const exams = await competitionService.listForUser(req.user.userId);
+    const student = await getStudent(req);
+    if (!student) return R.notFound(res, 'Student profile not found');
+    const exams = await competitionService.listForStudent(
+      student.id,
+      student.class_name,
+      student.school_link_status === 'APPROVED' ? student.school_id : null
+    );
     return R.ok(res, exams);
   } catch (err) { next(err); }
 }
@@ -60,7 +68,7 @@ async function submit(req, res, next) {
   try {
     const student = await getStudent(req);
     if (!student) return R.notFound(res, 'Student profile not found');
-    const result = await competitionService.submitAttempt(
+    const result = await academicCompetitionService.submitAttempt(
       req.params.attemptId,
       student.id,
       req.body.responses || []
