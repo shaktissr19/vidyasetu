@@ -1,6 +1,7 @@
 -- ============================================================
 -- 014_student_identity_enrollment.sql
 -- Student credentials + school/parent linking workflow
+-- Safe for an existing database and idempotent on repeat runs.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -23,20 +24,29 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_failed_attempts SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_locked_until TIMESTAMPTZ;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
-  ON users (LOWER(username)) WHERE username IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
-  ON users (LOWER(email)) WHERE email IS NOT NULL;
-
+-- Legacy accounts need a guaranteed-unique non-mobile identity.  Use the full
+-- UUID for the migration backfill so duplicate names can never collide.  New
+-- registrations use the friendlier firstname.lastname allocator in auth.service.
 UPDATE users
 SET username = CONCAT(
-  NULLIF(TRIM(BOTH '.' FROM REGEXP_REPLACE(LOWER(COALESCE(name, 'user')), '[^a-z0-9]+', '.', 'g')), ''),
+  LEFT(
+    COALESCE(
+      NULLIF(TRIM(BOTH '.' FROM REGEXP_REPLACE(LOWER(COALESCE(name, 'user')), '[^a-z0-9]+', '.', 'g')), ''),
+      'user'
+    ),
+    27
+  ),
   '.',
-  SUBSTRING(REPLACE(id::text, '-', '') FROM 1 FOR 6)
+  REPLACE(id::text, '-', '')
 )
 WHERE username IS NULL;
 
 ALTER TABLE users ALTER COLUMN username SET NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower
+  ON users (LOWER(username));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
+  ON users (LOWER(email)) WHERE email IS NOT NULL;
 
 -- ── Student public identity + independent learning profile ───
 CREATE SEQUENCE IF NOT EXISTS student_code_seq START WITH 100001;
@@ -54,6 +64,8 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS school_link_status student_school_
 ALTER TABLE students ADD COLUMN IF NOT EXISTS school_link_reviewed_at TIMESTAMPTZ;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS school_link_reviewed_by UUID REFERENCES users(id);
 
+-- A VidyaSetu Student may learn independently.  School/class become official
+-- only after a school approves the affiliation request.
 ALTER TABLE students ALTER COLUMN school_id DROP NOT NULL;
 ALTER TABLE students ALTER COLUMN class_id DROP NOT NULL;
 
@@ -66,8 +78,13 @@ SET grade_level = COALESCE(s.grade_level, sc.class_name),
 FROM school_classes sc
 WHERE s.class_id = sc.id;
 
-UPDATE students SET grade_level = COALESCE(grade_level, '8') WHERE grade_level IS NULL;
-UPDATE students SET student_code = next_student_code() WHERE student_code IS NULL;
+UPDATE students
+SET grade_level = COALESCE(grade_level, '8')
+WHERE grade_level IS NULL;
+
+UPDATE students
+SET student_code = next_student_code()
+WHERE student_code IS NULL;
 
 ALTER TABLE students ALTER COLUMN student_code SET DEFAULT next_student_code();
 ALTER TABLE students ALTER COLUMN student_code SET NOT NULL;
@@ -77,7 +94,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_students_student_code ON students(student_c
 CREATE INDEX IF NOT EXISTS idx_students_school_link_status ON students(school_link_status);
 
 -- Platform-wide exams must also work for Students who are not yet affiliated
--- with a school. School-specific exams continue to be filtered by application logic.
+-- with a school. School-specific exams remain guarded by application logic.
 ALTER TABLE exam_registrations ALTER COLUMN school_id DROP NOT NULL;
 ALTER TABLE exam_attempts ALTER COLUMN school_id DROP NOT NULL;
 ALTER TABLE exam_leaderboard ALTER COLUMN school_id DROP NOT NULL;
