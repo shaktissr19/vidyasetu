@@ -1,9 +1,9 @@
 // controllers/school.controller.js
 const schoolService = require('../services/school.service');
+const schoolRosterService = require('../services/schoolRoster.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
 
-// Helper: get schoolId from token (SCHOOL_ADMIN has it; SUPER_ADMIN can pass ?schoolId)
 function getSchoolId(req) {
   return req.user.schoolId || req.query.schoolId;
 }
@@ -12,7 +12,15 @@ async function getOverview(req, res, next) {
   try {
     const schoolId = getSchoolId(req);
     if (!schoolId) return R.badRequest(res, 'School ID required');
-    const data = await schoolService.getOverview(schoolId);
+    const [data, roster] = await Promise.all([
+      schoolService.getOverview(schoolId),
+      schoolRosterService.getRosterCounts(schoolId),
+    ]);
+    data.stats = {
+      ...(data.stats || {}),
+      total_students: roster.approvedStudents,
+      pending_enrollment_requests: roster.pendingRequests,
+    };
     return R.ok(res, data);
   } catch (err) { next(err); }
 }
@@ -22,7 +30,7 @@ async function getStudents(req, res, next) {
     const schoolId = getSchoolId(req);
     if (!schoolId) return R.badRequest(res, 'School ID required');
     const { classId, search, status } = req.query;
-    const data = await schoolService.getStudents(schoolId, req.query, { classId, search, status });
+    const data = await schoolRosterService.getApprovedStudents(schoolId, req.query, { classId, search, status });
     return R.ok(res, data.students, data.meta);
   } catch (err) { next(err); }
 }
@@ -53,10 +61,12 @@ async function getAttendanceSummary(req, res, next) {
     const { rows } = await query(
       `SELECT sc.class_name, sc.section,
               COUNT(a.id) FILTER (WHERE a.status = 'PRESENT') AS present,
-              COUNT(a.id) FILTER (WHERE a.status = 'ABSENT')  AS absent,
+              COUNT(a.id) FILTER (WHERE a.status = 'ABSENT') AS absent,
               COUNT(DISTINCT st.id) AS total_students
        FROM school_classes sc
        LEFT JOIN students st ON st.class_id = sc.id
+         AND st.status = 'ACTIVE'
+         AND st.school_link_status = 'APPROVED'
        LEFT JOIN attendance a ON a.student_id = st.id AND a.date = $2
        WHERE sc.school_id = $1
        GROUP BY sc.class_name, sc.section
@@ -116,14 +126,14 @@ async function getResults(req, res, next) {
     if (!schoolId) return R.badRequest(res, 'School ID required');
     const { rows } = await query(
       `SELECT sc.class_name, sc.section, e.title AS exam_name,
-              ROUND(AVG(ea.score), 1) AS avg_score,
-              COUNT(ea.id) FILTER (WHERE ea.score >= e.pass_marks) AS pass_count,
+              ROUND(AVG(ea.total_marks), 1) AS avg_score,
+              COUNT(ea.id) FILTER (WHERE ea.total_marks >= (e.total_questions * e.marks_per_question * 0.33)) AS pass_count,
               COUNT(ea.id) AS total_attempts
        FROM exams e
-       JOIN exam_attempts ea ON ea.exam_id = e.id
-       JOIN students st ON st.id = ea.student_id
+       JOIN exam_attempts ea ON ea.exam_id = e.id AND ea.status = 'SCORED'
+       JOIN students st ON st.id = ea.student_id AND st.school_link_status = 'APPROVED'
        JOIN school_classes sc ON sc.id = st.class_id
-       WHERE e.school_id = $1 AND ea.status = 'EVALUATED'
+       WHERE e.school_id = $1
        GROUP BY sc.class_name, sc.section, e.id, e.title
        ORDER BY e.start_time DESC`,
       [schoolId]
@@ -137,7 +147,8 @@ async function getAnnouncements(req, res, next) {
     const schoolId = getSchoolId(req);
     if (!schoolId) return R.badRequest(res, 'School ID required');
     const { rows } = await query(
-      `SELECT a.*, u.name AS created_by_name FROM announcements a
+      `SELECT a.*, u.name AS created_by_name
+       FROM announcements a
        JOIN users u ON u.id = a.created_by
        WHERE a.school_id = $1 ORDER BY a.created_at DESC LIMIT 30`,
       [schoolId]
@@ -161,8 +172,8 @@ async function getTeachers(req, res, next) {
     if (!schoolId) return R.badRequest(res, 'School ID required');
     const { rows } = await query(
       `SELECT t.id, t.employee_id, t.status, u.name, u.mobile,
-              array_agg(DISTINCT ta.subject) AS subjects,
-              array_agg(DISTINCT sc.class_name || '-' || sc.section) AS classes
+              array_agg(DISTINCT ta.subject_code) FILTER (WHERE ta.subject_code IS NOT NULL) AS subjects,
+              array_agg(DISTINCT sc.class_name || '-' || sc.section) FILTER (WHERE sc.id IS NOT NULL) AS classes
        FROM teachers t
        JOIN users u ON u.id = t.user_id
        LEFT JOIN teacher_assignments ta ON ta.teacher_id = t.id
@@ -182,7 +193,9 @@ async function getClasses(req, res, next) {
     const { rows } = await query(
       `SELECT sc.*, COUNT(st.id) AS student_count
        FROM school_classes sc
-       LEFT JOIN students st ON st.class_id = sc.id AND st.status = 'ACTIVE'
+       LEFT JOIN students st ON st.class_id = sc.id
+         AND st.status = 'ACTIVE'
+         AND st.school_link_status = 'APPROVED'
        WHERE sc.school_id = $1
        GROUP BY sc.id ORDER BY sc.class_name, sc.section`,
       [schoolId]
