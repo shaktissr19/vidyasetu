@@ -2,6 +2,8 @@
 const studentService = require('../services/student.service');
 const studentProfileService = require('../services/studentProfile.service');
 const studentPortalService = require('../services/studentPortal.service');
+const studentOverviewService = require('../services/studentOverview.service');
+const enrollmentService = require('../services/enrollment.service');
 const notificationService = require('../services/notification.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
@@ -29,7 +31,15 @@ async function completeProfile(req, res, next) {
 
 async function getDashboard(req, res, next) {
   try {
-    const data = await studentService.getDashboard(req.user.userId);
+    const data = await studentOverviewService.getDashboard(req.user.userId);
+    return R.ok(res, data);
+  } catch (err) { next(err); }
+}
+
+async function getSchoolLink(req, res, next) {
+  try {
+    const data = await enrollmentService.getStudentLinkSummary(req.user.userId);
+    if (!data) return R.notFound(res, 'Student profile not found');
     return R.ok(res, data);
   } catch (err) { next(err); }
 }
@@ -114,6 +124,7 @@ module.exports = {
   getProfileSetupOptions,
   completeProfile,
   getDashboard,
+  getSchoolLink,
   getAttendance,
   getBadges,
   getLeaderboard,
