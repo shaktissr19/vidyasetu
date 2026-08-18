@@ -4,6 +4,8 @@ import api from './api';
 export const getOverview          = ()                         => api.get('/school/overview');
 export const getStudents          = (params)                   => api.get('/school/students', { params });
 export const addStudent           = (data)                     => api.post('/school/students', data);
+export const getEnrollmentRequests = (status = 'PENDING')      => api.get('/school/enrollment-requests', { params: { status } });
+export const reviewEnrollmentRequest = (requestId, data)       => api.patch(`/school/enrollment-requests/${requestId}`, data);
 export const markAttendance       = (data)                     => api.post('/school/attendance', data);
 export const getAttendanceSummary = (date)                     => api.get('/school/attendance', { params: { date } });
 export const getFeeOverview       = (year)                     => api.get('/school/fees', { params: { year } });

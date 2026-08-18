@@ -59,8 +59,8 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
 
   const completeMutation = useMutation({
     mutationFn: (itemId) => markComplete(itemId),
-    onSuccess: async (_, itemId) => {
-      notify('✅ Lesson marked complete. XP and progress updated.');
+    onSuccess: async () => {
+      notify('✅ Lesson marked complete. Learning progress updated.');
       await queryClient.invalidateQueries({ queryKey: ['content-items'] });
       await refreshDashboard();
     },
@@ -75,7 +75,7 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
     onSuccess: async response => {
       const result = data(response);
       setQuizResult(result);
-      notify(result?.passed ? `🎉 Quiz passed: ${result.score}% · +${result.xpAwarded || 0} XP` : `Quiz score: ${result?.score || 0}%. Try again.`);
+      notify(result?.passed ? `🎉 Quiz passed: ${result.score}%` : `Quiz score: ${result?.score || 0}%. Try again.`);
       await queryClient.invalidateQueries({ queryKey: ['content-items'] });
       await refreshDashboard();
     },
@@ -191,7 +191,7 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
                     {item.is_completed && <span className={styles.done}>✓ Completed</span>}
                   </div>
                   <div className={styles.contentTitle}>{lang === 'hi' && item.title_hi ? item.title_hi : item.title}</div>
-                  <div className={styles.contentMeta}>+{item.xp_reward || 0} XP · Progress {Number(item.progress_pct || 0)}%{item.quiz_score != null ? ` · Best quiz ${item.quiz_score}%` : ''}</div>
+                  <div className={styles.contentMeta}>Progress {Number(item.progress_pct || 0)}%{item.quiz_score != null ? ` · Best quiz ${item.quiz_score}%` : ''}</div>
                   <div className={styles.contentActions}>
                     {item.type === 'QUIZ' ? (
                       <button className={`${styles.miniBtn} ${styles.miniPrimary}`} onClick={() => openQuiz(item)}>Take Quiz</button>
@@ -233,7 +233,7 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
                 })}
               </div>
             ))}
-            {quizResult && <div className={quizResult.passed ? styles.success : styles.error}>Score: <b>{quizResult.score}%</b> · {quizResult.correctCount}/{quizResult.totalQuestions} correct · XP awarded: {quizResult.xpAwarded || 0}</div>}
+            {quizResult && <div className={quizResult.passed ? styles.success : styles.error}>Score: <b>{quizResult.score}%</b> · {quizResult.correctCount}/{quizResult.totalQuestions} correct</div>}
             <div className={styles.buttonRow}>
               <button className={styles.secondary} onClick={closeQuiz}>Close</button>
               <button className={styles.primary} disabled={quizMutation.isPending || !(quizQuery.data || []).length} onClick={() => quizMutation.mutate()}>{quizMutation.isPending ? 'Submitting…' : 'Submit Quiz'}</button>

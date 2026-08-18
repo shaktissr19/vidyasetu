@@ -2,22 +2,21 @@
 const studentService = require('../services/student.service');
 const studentProfileService = require('../services/studentProfile.service');
 const studentPortalService = require('../services/studentPortal.service');
+const studentOverviewService = require('../services/studentOverview.service');
+const studentLearningService = require('../services/studentLearning.service');
+const enrollmentService = require('../services/enrollment.service');
 const notificationService = require('../services/notification.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
 
 async function getProfileStatus(req, res, next) {
-  try {
-    const data = await studentProfileService.getProfileStatus(req.user.userId);
-    return R.ok(res, data);
-  } catch (err) { next(err); }
+  try { return R.ok(res, await studentProfileService.getProfileStatus(req.user.userId)); }
+  catch (err) { next(err); }
 }
 
 async function getProfileSetupOptions(req, res, next) {
-  try {
-    const data = await studentProfileService.getSetupOptions();
-    return R.ok(res, data);
-  } catch (err) { next(err); }
+  try { return R.ok(res, await studentProfileService.getSetupOptions()); }
+  catch (err) { next(err); }
 }
 
 async function completeProfile(req, res, next) {
@@ -28,8 +27,14 @@ async function completeProfile(req, res, next) {
 }
 
 async function getDashboard(req, res, next) {
+  try { return R.ok(res, await studentOverviewService.getDashboard(req.user.userId)); }
+  catch (err) { next(err); }
+}
+
+async function getSchoolLink(req, res, next) {
   try {
-    const data = await studentService.getDashboard(req.user.userId);
+    const data = await enrollmentService.getStudentLinkSummary(req.user.userId);
+    if (!data) return R.notFound(res, 'Student profile not found');
     return R.ok(res, data);
   } catch (err) { next(err); }
 }
@@ -38,23 +43,7 @@ async function getAttendance(req, res, next) {
   try {
     const year = parseInt(req.params.year || new Date().getFullYear(), 10);
     const month = parseInt(req.params.month || new Date().getMonth() + 1, 10);
-    const data = await studentService.getAttendance(req.user.userId, year, month);
-    return R.ok(res, data);
-  } catch (err) { next(err); }
-}
-
-async function getBadges(req, res, next) {
-  try {
-    const badges = await studentService.getBadges(req.user.userId);
-    return R.ok(res, badges);
-  } catch (err) { next(err); }
-}
-
-async function getLeaderboard(req, res, next) {
-  try {
-    const scope = req.query.scope || 'class';
-    const rows = await studentService.getLeaderboard(req.user.userId, scope);
-    return R.ok(res, rows);
+    return R.ok(res, await studentService.getAttendance(req.user.userId, year, month));
   } catch (err) { next(err); }
 }
 
@@ -62,14 +51,18 @@ async function getReportCard(req, res, next) {
   try {
     const { term, year } = req.query;
     const data = await studentService.getReportCard(req.user.userId, term, year);
+    const { rows: [identity] } = await query(
+      `SELECT student_code FROM students WHERE user_id = $1`,
+      [req.user.userId]
+    );
+    if (data?.student) data.student.student_code = identity?.student_code || null;
     return R.ok(res, data);
   } catch (err) { next(err); }
 }
 
 async function markContentComplete(req, res, next) {
   try {
-    const result = await studentService.markContentComplete(req.user.userId, req.params.contentItemId);
-    return R.ok(res, result);
+    return R.ok(res, await studentLearningService.markContentComplete(req.user.userId, req.params.contentItemId));
   } catch (err) { next(err); }
 }
 
@@ -96,17 +89,13 @@ async function markNotifRead(req, res, next) {
 }
 
 async function getOfflineDownloads(req, res, next) {
-  try {
-    const data = await studentPortalService.getOfflineDownloads(req.user.userId);
-    return R.ok(res, data);
-  } catch (err) { next(err); }
+  try { return R.ok(res, await studentPortalService.getOfflineDownloads(req.user.userId)); }
+  catch (err) { next(err); }
 }
 
 async function removeOfflineDownload(req, res, next) {
-  try {
-    const data = await studentPortalService.removeOfflineDownload(req.user.userId, req.params.contentItemId);
-    return R.ok(res, data);
-  } catch (err) { next(err); }
+  try { return R.ok(res, await studentPortalService.removeOfflineDownload(req.user.userId, req.params.contentItemId)); }
+  catch (err) { next(err); }
 }
 
 module.exports = {
@@ -114,9 +103,8 @@ module.exports = {
   getProfileSetupOptions,
   completeProfile,
   getDashboard,
+  getSchoolLink,
   getAttendance,
-  getBadges,
-  getLeaderboard,
   getReportCard,
   markContentComplete,
   getNotifications,

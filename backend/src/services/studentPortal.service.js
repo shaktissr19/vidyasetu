@@ -3,10 +3,10 @@ const { query } = require('../config/db');
 
 async function getStudentByUserId(userId) {
   const { rows: [student] } = await query(
-    `SELECT s.id, s.school_id, s.class_id, s.academic_year,
+    `SELECT s.id, s.school_id, s.class_id, s.academic_year, s.grade_level, s.school_link_status,
             sc.class_name, sc.section
      FROM students s
-     JOIN school_classes sc ON sc.id = s.class_id
+     LEFT JOIN school_classes sc ON sc.id = s.class_id
      WHERE s.user_id = $1 AND s.status = 'ACTIVE'`,
     [userId]
   );
@@ -54,4 +54,4 @@ async function removeOfflineDownload(userId, contentItemId) {
   return { removed: rowCount > 0 };
 }
 
-module.exports = { getOfflineDownloads, removeOfflineDownload };
+module.exports = { getStudentByUserId, getOfflineDownloads, removeOfflineDownload };

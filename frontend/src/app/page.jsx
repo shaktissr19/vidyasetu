@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const ROLE_DESTINATIONS = {
-  STUDENT:      '/dashboard',
+  STUDENT:      '/student',
   SCHOOL_ADMIN: '/school/overview',
   PARENT:       '/parent/dashboard',
   SUPER_ADMIN:  '/admin/analytics',
@@ -26,7 +26,7 @@ export default function LandingPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed?.state?.isLoggedIn && parsed?.state?.user?.role) {
-          router.replace(ROLE_DESTINATIONS[parsed.state.user.role] || '/dashboard');
+          router.replace(ROLE_DESTINATIONS[parsed.state.user.role] || '/student');
         }
       }
     } catch (_) {}
@@ -55,8 +55,8 @@ export default function LandingPage() {
     ['📚', 'AI-Powered Learning', 'AI लर्निंग', 'NCERT lessons with AI tutor in Hindi & 8 languages.', 'हिंदी में NCERT और AI ट्यूटर।'],
     ['🏫', 'Complete School ERP', 'स्कूल ERP', 'Attendance, fees, results — all in one place, free.', 'उपस्थिति, शुल्क, परिणाम — एक जगह।'],
     ['👨‍👩‍👧', 'Parent Connect', 'पेरेंट कनेक्ट', 'Real-time alerts via WhatsApp. No app download needed.', 'WhatsApp पर रियल-टाइम अलर्ट।'],
+    ['📈', 'Progress & Performance', 'प्रगति और प्रदर्शन', 'Track lessons, quiz scores and academic progress clearly.', 'पाठ, क्विज़ स्कोर और शैक्षणिक प्रगति स्पष्ट रूप से देखें।'],
     ['🏆', 'Monthly Olympiads', 'मासिक ओलंपियाड', 'Compete across Bharat. Win up to ₹5 lakh monthly.', '₹5 लाख तक जीतें।'],
-    ['🎮', 'Gamification & XP', 'गेमिफिकेशन', 'Earn badges, XP points and top the leaderboard.', 'बैज, XP और लीडरबोर्ड।'],
     ['🌐', '9 Regional Languages', '9 भाषाएँ', 'Hindi, Tamil, Telugu, Marathi, Bengali and more.', 'हिंदी, तमिल, तेलुगु और अधिक।'],
     ['📶', 'Offline-First', 'ऑफलाइन', 'Study without internet. Auto-syncs when back online.', 'इंटरनेट के बिना पढ़ें।'],
     ['🤖', 'AI Doubt Solver', 'AI डाउट सॉल्वर', 'Ask doubts in Hindi. Get instant step-by-step answers.', 'हिंदी में सवाल, तुरंत जवाब।'],
@@ -65,7 +65,7 @@ export default function LandingPage() {
   const testimonials = [
     ['"My daughter was struggling in Maths. VidyaSetu\'s AI tutor helped her score 87 in the Olympiad. Hindi explanations made everything clear."', '"मेरी बेटी गणित में कमज़ोर थी। VidyaSetu AI से उसने 87 अंक लिए।"', 'Savita Devi, Parent', 'Muzaffarpur, Bihar'],
     ['"The school ERP handles attendance and fees. WhatsApp notifications reduced absenteeism by 30%. Free and easy to use!"', '"ERP ने उपस्थिति और फीस आसान की। अनुपस्थिति 30% कम हुई।"', 'Rajendra Gupta, Principal', 'Saraswati Vidyalay, Morena MP'],
-    ['"I won ₹5,000 in the GK Olympiad! The gamification keeps me motivated. I check my XP every day before school."', '"मैंने ₹5,000 जीते! XP से रोज़ प्रेरणा मिलती है।"', 'Arjun Patel, Class 8', 'Shivaji School, Anand Gujarat'],
+    ['"I can see my quiz scores, lesson progress and exam results in one place. It helps me understand what I should practise next."', '"मैं अपने क्विज़ स्कोर, पाठ की प्रगति और परीक्षा परिणाम एक जगह देख सकता हूँ। इससे मुझे पता चलता है कि आगे क्या अभ्यास करना है।"', 'Arjun Patel, Class 8', 'Shivaji School, Anand Gujarat'],
   ];
 
   return (
@@ -205,7 +205,7 @@ export default function LandingPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 0, maxWidth: 1000, margin: '0 auto' }}>
           {[
             ['1', t('School Registers', 'स्कूल रजिस्टर'), t('Free onboarding in 5 minutes. Upload student list.', '5 मिनट में मुफ्त सेटअप।')],
-            ['2', t('Students Login', 'छात्र लॉगिन'), t('OTP on mobile. No password. Works on ₹1500 phones.', 'OTP से लॉगिन। कोई पासवर्ड नहीं।')],
+            ['2', t('Students Login', 'छात्र लॉगिन'), t('Use username, email or Student ID with password. OTP is also available.', 'यूज़रनेम, ईमेल या Student ID और पासवर्ड से लॉगिन करें। OTP भी उपलब्ध है।')],
             ['3', t('Learn & Practice', 'पढ़ें और अभ्यास'), t('NCERT videos + AI tutor in Hindi. Download offline.', 'हिंदी में NCERT + AI ट्यूटर।')],
             ['4', t('Parents Stay Updated', 'माता-पिता अपडेट'), t('WhatsApp alerts for attendance, fees, results.', 'WhatsApp पर उपस्थिति और परिणाम।')],
           ].map(([n, title, desc], i) => (
