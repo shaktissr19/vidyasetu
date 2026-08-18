@@ -8,7 +8,7 @@ const { otpLimiter } = require('../middleware/rateLimit.middleware');
 
 const passwordSchema = z.string().min(8).max(128)
   .regex(/[A-Za-z]/, 'Password must contain a letter')
-  .regex(/\d/, 'Password must contain a number');
+  .regex(/\d/, 'Password must contain at least one number');
 
 const sendOtpSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
@@ -17,6 +17,7 @@ const verifyOtpSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/),
   otp: z.string().length(6, 'OTP must be 6 digits'),
   deviceInfo: z.string().max(500).optional(),
+  role: z.enum(['STUDENT','PARENT','SCHOOL_ADMIN','SUPER_ADMIN']).optional(),
 });
 const loginSchema = z.object({
   identifier: z.string().trim().min(3).max(180),
