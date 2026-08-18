@@ -12,7 +12,16 @@ async function sendOTP(req, res, next) {
 
 async function verifyOTP(req, res, next) {
   try {
-    const { mobile, otp, deviceInfo } = req.body;
+    const { mobile, otp, deviceInfo, role } = req.body;
+    if (role) {
+      const { rows: [existing] } = await query('SELECT role FROM users WHERE mobile = $1', [mobile]);
+      if (existing && existing.role !== role) {
+        return R.forbidden(res, `This mobile number belongs to a ${existing.role.replaceAll('_', ' ').toLowerCase()} account`);
+      }
+      if (!existing && role !== 'STUDENT') {
+        return R.badRequest(res, 'No registered account exists for this role and mobile number');
+      }
+    }
     const result = await authService.verifyOTPAndLogin(mobile, otp, deviceInfo || null, req.ip);
     return R.ok(res, result);
   } catch (err) { next(err); }
