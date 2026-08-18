@@ -73,7 +73,6 @@ PROFILE_COUNT="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -At
 [[ "$PROFILE_COUNT" == "2" ]] || fail "Seeded Student baseline is incomplete; refusing migration. Backup: $SAFETY_DUMP"
 
 log "4/10 Apply idempotent Student content enrichment and identity/enrollment migration"
-# 05 is designed to enrich the existing Student demo contract without rebuilding the DB.
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql >/dev/null \
   || fail "Student module enrichment failed. Backup retained: $SAFETY_DUMP"
@@ -101,6 +100,7 @@ find src -name '*.js' -print0 | xargs -0 -n1 node --check
 cd "$PROJECT_DIR/frontend"
 unset NODE_ENV || true
 rm -rf .next node_modules
+rm -f package-lock.json
 npm install --no-audit --no-fund
 NODE_ENV=production npm run build
 
@@ -139,8 +139,6 @@ WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash script
 
 log "10/10 Retain rollback assets and report status"
 if command -v docker >/dev/null 2>&1; then
-  # Stop legacy application containers only after native public smoke is green.
-  # Do NOT remove containers, images or volumes here.
   cd "$PROJECT_DIR"
   docker compose stop frontend backend >/dev/null 2>&1 || true
 fi
