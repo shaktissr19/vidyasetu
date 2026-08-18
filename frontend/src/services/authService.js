@@ -8,7 +8,8 @@ export const getStudentRegistrationOptions = () => api.get('/auth/student-regist
 export const registerStudent = (data) => api.post('/auth/register/student', data);
 
 export const sendOTP = (mobile) => api.post('/auth/send-otp', { mobile });
-export const verifyOTP = (mobile, otp, dev) => api.post('/auth/verify-otp', { mobile, otp, deviceInfo: dev });
+export const verifyOTP = (mobile, otp, dev, role) =>
+  api.post('/auth/verify-otp', { mobile, otp, deviceInfo: dev, role });
 
 export const forgotPassword = (identifier) => api.post('/auth/forgot-password', { identifier });
 export const resetPassword = (identifier, otp, newPassword) =>
