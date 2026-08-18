@@ -1,6 +1,6 @@
 // controllers/competition.controller.js
 const competitionService = require('../services/competition.service');
-const academicCompetitionService = require('../services/academicCompetition.service');
+const studentExamService = require('../services/studentExam.service');
 const { query } = require('../config/db');
 const R = require('../utils/response');
 
@@ -50,8 +50,7 @@ async function register(req, res, next) {
   try {
     const student = await getStudent(req);
     if (!student) return R.notFound(res, 'Student profile not found');
-    const result = await competitionService.register(req.params.examId, student.id);
-    return R.ok(res, result);
+    return R.ok(res, await studentExamService.register(req.params.examId, student.id));
   } catch (err) { next(err); }
 }
 
@@ -59,8 +58,7 @@ async function startAttempt(req, res, next) {
   try {
     const student = await getStudent(req);
     if (!student) return R.notFound(res, 'Student profile not found');
-    const data = await competitionService.startAttempt(req.params.examId, student.id);
-    return R.ok(res, data);
+    return R.ok(res, await studentExamService.startAttempt(req.params.examId, student.id));
   } catch (err) { next(err); }
 }
 
@@ -68,12 +66,11 @@ async function submit(req, res, next) {
   try {
     const student = await getStudent(req);
     if (!student) return R.notFound(res, 'Student profile not found');
-    const result = await academicCompetitionService.submitAttempt(
+    return R.ok(res, await studentExamService.submitAttempt(
       req.params.attemptId,
       student.id,
       req.body.responses || []
-    );
-    return R.ok(res, result);
+    ));
   } catch (err) { next(err); }
 }
 
@@ -81,8 +78,7 @@ async function getLeaderboard(req, res, next) {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 50;
-    const rows = await competitionService.getLeaderboard(req.params.examId, page, limit);
-    return R.ok(res, rows);
+    return R.ok(res, await competitionService.getLeaderboard(req.params.examId, page, limit));
   } catch (err) { next(err); }
 }
 
@@ -90,16 +86,13 @@ async function createExam(req, res, next) {
   try {
     const body = { ...req.body };
     if (req.user.role === 'SCHOOL_ADMIN' && !body.schoolId) body.schoolId = req.user.schoolId;
-    const exam = await competitionService.createExam(body, req.user.userId);
-    return R.created(res, exam);
+    return R.created(res, await competitionService.createExam(body, req.user.userId));
   } catch (err) { next(err); }
 }
 
 async function addQuestions(req, res, next) {
-  try {
-    const result = await competitionService.addQuestions(req.params.examId, req.body.questions || []);
-    return R.ok(res, result);
-  } catch (err) { next(err); }
+  try { return R.ok(res, await competitionService.addQuestions(req.params.examId, req.body.questions || [])); }
+  catch (err) { next(err); }
 }
 
 async function updateStatus(req, res, next) {
@@ -113,14 +106,4 @@ async function updateStatus(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = {
-  list,
-  listMine,
-  register,
-  startAttempt,
-  submit,
-  getLeaderboard,
-  createExam,
-  addQuestions,
-  updateStatus,
-};
+module.exports = { list, listMine, register, startAttempt, submit, getLeaderboard, createExam, addQuestions, updateStatus };
