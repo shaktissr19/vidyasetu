@@ -271,31 +271,36 @@ export interface Result {
 export interface Announcement {
   id: UUID;
   schoolId: UUID;
+  createdBy: UUID;
   title: string;
   body: string;
+  targetClasses: string[];
   targetRoles: UserRole[];
-  createdBy?: UUID;
-  createdAt: ISODateTimeString;
+  isPinned: boolean;
+  sendWhatsapp: boolean;
+  publishedAt: ISODateTimeString;
+  expiresAt: ISODateTimeString | null;
+  createdAt?: ISODateTimeString;
 }
 
-export interface ApiErrorDetail {
-  code?: string;
+export interface ApiError {
+  code: string;
+  message: string;
   details?: unknown;
 }
 
-export interface ApiSuccess<T> {
+export interface ApiSuccess<T, TMeta = unknown> {
   success: true;
-  data: T;
-  message?: string;
+  data?: T;
+  meta?: TMeta;
 }
 
 export interface ApiFailure {
   success: false;
-  message: string;
-  error?: ApiErrorDetail;
+  error: ApiError;
 }
 
-export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
+export type ApiResponse<T, TMeta = unknown> = ApiSuccess<T, TMeta> | ApiFailure;
 
 export interface PaginationRequest {
   page?: number;
