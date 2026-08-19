@@ -19,7 +19,8 @@
     "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@vidyasetu/contracts": ["../shared/contracts/dist/index.d.ts"]
     }
   },
   "include": [
