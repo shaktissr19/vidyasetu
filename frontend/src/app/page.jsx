@@ -1,36 +1,26 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import useAuthStore from '@/store/authStore';
+import { logout as apiLogout } from '@/services/authService';
 
 const ROLE_DESTINATIONS = {
   STUDENT:      '/student',
   SCHOOL_ADMIN: '/school/overview',
+  TEACHER:      '/school/overview',
   PARENT:       '/parent/dashboard',
   SUPER_ADMIN:  '/admin/analytics',
 };
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user, isLoggedIn, refreshToken, logout } = useAuthStore();
   const [lang, setLang] = useState('en');
   const [mounted, setMounted] = useState(false);
   const [cd, setCd] = useState({ d: '03', h: '14', m: '22', s: '45' });
 
-  // Prevent hydration mismatch
+  // Prevent hydration mismatch while the persisted auth store rehydrates.
   useEffect(() => { setMounted(true); }, []);
-
-  // Check if already logged in
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const stored = localStorage.getItem('vidyasetu-auth');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed?.state?.isLoggedIn && parsed?.state?.user?.role) {
-          router.replace(ROLE_DESTINATIONS[parsed.state.user.role] || '/student');
-        }
-      }
-    } catch (_) {}
-  }, [router]);
 
   // Countdown timer
   useEffect(() => {
@@ -49,11 +39,19 @@ export default function LandingPage() {
   }, []);
 
   const t = (en, hi) => (mounted && lang === 'hi') ? hi : en;
-  const go = () => router.push('/login');
+  const sessionActive = mounted && isLoggedIn;
+  const dashboardPath = ROLE_DESTINATIONS[user?.role] || '/';
+  const go = () => router.push(sessionActive ? dashboardPath : '/login');
+
+  async function handleLogout() {
+    try { if (refreshToken) await apiLogout(refreshToken); } catch (_) {}
+    logout();
+    router.replace('/');
+  }
 
   const features = [
     ['📚', 'AI-Powered Learning', 'AI लर्निंग', 'NCERT lessons with AI tutor in Hindi & 8 languages.', 'हिंदी में NCERT और AI ट्यूटर।'],
-    ['🏫', 'Complete School ERP', 'स्कूल ERP', 'Attendance, fees, results — all in one place, free.', 'उपस्थिति, शुल्क, परिणाम — एक जगह।'],
+    ['🏫', 'Complete School Management', 'स्कूल प्रबंधन', 'Attendance, fees, results — all in one place, free.', 'उपस्थिति, शुल्क, परिणाम — एक जगह।'],
     ['👨‍👩‍👧', 'Parent Connect', 'पेरेंट कनेक्ट', 'Real-time alerts via WhatsApp. No app download needed.', 'WhatsApp पर रियल-टाइम अलर्ट।'],
     ['📈', 'Progress & Performance', 'प्रगति और प्रदर्शन', 'Track lessons, quiz scores and academic progress clearly.', 'पाठ, क्विज़ स्कोर और शैक्षणिक प्रगति स्पष्ट रूप से देखें।'],
     ['🏆', 'Monthly Olympiads', 'मासिक ओलंपियाड', 'Compete across Bharat. Win up to ₹5 lakh monthly.', '₹5 लाख तक जीतें।'],
@@ -64,7 +62,7 @@ export default function LandingPage() {
 
   const testimonials = [
     ['"My daughter was struggling in Maths. VidyaSetu\'s AI tutor helped her score 87 in the Olympiad. Hindi explanations made everything clear."', '"मेरी बेटी गणित में कमज़ोर थी। VidyaSetu AI से उसने 87 अंक लिए।"', 'Savita Devi, Parent', 'Muzaffarpur, Bihar'],
-    ['"The school ERP handles attendance and fees. WhatsApp notifications reduced absenteeism by 30%. Free and easy to use!"', '"ERP ने उपस्थिति और फीस आसान की। अनुपस्थिति 30% कम हुई।"', 'Rajendra Gupta, Principal', 'Saraswati Vidyalay, Morena MP'],
+    ['"The school system handles attendance and fees. WhatsApp notifications reduced absenteeism by 30%. Free and easy to use!"', '"स्कूल सिस्टम ने उपस्थिति और फीस आसान की। अनुपस्थिति 30% कम हुई।"', 'Rajendra Gupta, Principal', 'Saraswati Vidyalay, Morena MP'],
     ['"I can see my quiz scores, lesson progress and exam results in one place. It helps me understand what I should practise next."', '"मैं अपने क्विज़ स्कोर, पाठ की प्रगति और परीक्षा परिणाम एक जगह देख सकता हूँ। इससे मुझे पता चलता है कि आगे क्या अभ्यास करना है।"', 'Arjun Patel, Class 8', 'Shivaji School, Anand Gujarat'],
   ];
 
@@ -90,7 +88,7 @@ export default function LandingPage() {
 
         {/* Nav Links */}
         <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {['Home', 'Olympiad', 'Student', 'School ERP', 'Parent', 'Admin'].map((label) => (
+          {['Home', 'Olympiad', 'Student', 'School', 'Parent', 'Admin'].map((label) => (
             <a key={label} href={`#${label.toLowerCase().replace(' ', '-')}`}
               style={{ fontSize: '0.875rem', fontWeight: 600, color: '#5A6278', padding: '8px 14px', borderRadius: 8, textDecoration: 'none', transition: 'all 0.2s', display: 'inline-block' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#FFF3E8'; e.currentTarget.style.color = '#FF6B00'; }}
@@ -98,7 +96,7 @@ export default function LandingPage() {
               {label === 'Home' ? t('Home', 'होम') :
                label === 'Olympiad' ? t('Olympiad', 'ओलंपियाड') :
                label === 'Student' ? t('Student', 'छात्र') :
-               label === 'School ERP' ? t('School ERP', 'स्कूल ERP') :
+               label === 'School' ? t('School', 'स्कूल') :
                label === 'Parent' ? t('Parent', 'अभिभावक') : t('Admin', 'एडमिन')}
             </a>
           ))}
@@ -108,22 +106,37 @@ export default function LandingPage() {
           </button>
         </div>
 
-        {/* CTA Buttons */}
+        {/* Session-aware actions */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4CAF50' }} />
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#138808' }}>{t('Offline Ready', 'ऑफलाइन रेडी')}</span>
           </div>
-          <button onClick={go}
-            style={{ background: 'none', border: '2px solid #FF6B00', color: '#FF6B00', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '7px 20px', borderRadius: 9, cursor: 'pointer', transition: 'all 0.2s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#FF6B00'; e.currentTarget.style.color = 'white'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#FF6B00'; }}>
-            {t('Login', 'लॉगिन')}
-          </button>
-          <button onClick={go}
-            style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: 'none', color: 'white', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '8px 22px', borderRadius: 9, cursor: 'pointer', boxShadow: '0 4px 16px rgba(255,107,0,0.35)' }}>
-            {t('Join Free →', 'मुफ्त जुड़ें →')}
-          </button>
+          {sessionActive ? (
+            <>
+              <button onClick={() => router.push(dashboardPath)} title="Back to dashboard"
+                style={{ background: '#F5F7FA', border: 'none', color: '#0D1B3E', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '8px 16px', borderRadius: 9, cursor: 'pointer' }}>
+                {user?.name?.split(' ')[0] || t('Account', 'खाता')}
+              </button>
+              <button onClick={handleLogout}
+                style={{ background: 'none', border: '2px solid #FF6B00', color: '#FF6B00', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '7px 20px', borderRadius: 9, cursor: 'pointer' }}>
+                {t('Logout', 'लॉगआउट')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => router.push('/login')}
+                style={{ background: 'none', border: '2px solid #FF6B00', color: '#FF6B00', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '7px 20px', borderRadius: 9, cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#FF6B00'; e.currentTarget.style.color = 'white'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#FF6B00'; }}>
+                {t('Login', 'लॉगिन')}
+              </button>
+              <button onClick={() => router.push('/register')}
+                style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: 'none', color: 'white', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '8px 22px', borderRadius: 9, cursor: 'pointer', boxShadow: '0 4px 16px rgba(255,107,0,0.35)' }}>
+                {t('Join Free →', 'मुफ्त जुड़ें →')}
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -144,14 +157,14 @@ export default function LandingPage() {
               भारत के हर गाँव तक शिक्षा पहुँचाना
             </p>
             <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.05rem', lineHeight: 1.75, marginBottom: 36, maxWidth: 500 }}>
-              {t('School ERP + Learning Platform + Student OS. Works offline, in Hindi and 8 regional languages.', 'स्कूल ERP + लर्निंग प्लेटफॉर्म। हिंदी और 8 भाषाओं में, ऑफलाइन।')}
+              {t('School Management + Learning Platform + Student OS. Works offline, in Hindi and 8 regional languages.', 'स्कूल प्रबंधन + लर्निंग प्लेटफॉर्म। हिंदी और 8 भाषाओं में, ऑफलाइन।')}
             </p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <button onClick={go} style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', color: 'white', border: 'none', padding: '15px 32px', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', borderRadius: 12, cursor: 'pointer', boxShadow: '0 8px 28px rgba(255,107,0,0.45)' }}>
-                🎓 {t('Start Learning Free', 'मुफ्त शुरू करें')}
+                🎓 {t(sessionActive ? 'Go to Dashboard' : 'Start Learning Free', sessionActive ? 'डैशबोर्ड पर जाएँ' : 'मुफ्त शुरू करें')}
               </button>
               <button onClick={go} style={{ background: 'rgba(255,255,255,0.08)', color: 'white', border: '2px solid rgba(255,255,255,0.25)', padding: '14px 30px', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', borderRadius: 12, cursor: 'pointer' }}>
-                🏫 {t('Register Your School', 'स्कूल रजिस्टर करें')}
+                🏫 {t(sessionActive ? 'Open My Account' : 'Register Your School', sessionActive ? 'मेरा खाता खोलें' : 'स्कूल रजिस्टर करें')}
               </button>
             </div>
           </div>
@@ -238,7 +251,7 @@ export default function LandingPage() {
             ))}
           </div>
           <button onClick={go} style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: 'none', color: 'white', padding: '13px 36px', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 24px rgba(255,107,0,0.5)' }}>
-            {t('Register Free →', 'मुफ्त रजिस्टर करें →')}
+            {t(sessionActive ? 'Go to Dashboard →' : 'Register Free →', sessionActive ? 'डैशबोर्ड पर जाएँ →' : 'मुफ्त रजिस्टर करें →')}
           </button>
         </div>
       </section>

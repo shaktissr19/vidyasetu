@@ -21,9 +21,10 @@ function isActive(pathname, href) {
 }
 
 function accountPath(role) {
-  if (role === 'STUDENT') return '/student/profile';
-  if (['SCHOOL_ADMIN','SUPER_ADMIN','TEACHER'].includes(role)) return role === 'SUPER_ADMIN' ? '/admin/analytics' : '/school/profile';
+  if (role === 'STUDENT') return '/student';
+  if (role === 'SCHOOL_ADMIN' || role === 'TEACHER') return '/school/overview';
   if (role === 'PARENT') return '/parent/dashboard';
+  if (role === 'SUPER_ADMIN') return '/admin/analytics';
   return '/';
 }
 
@@ -76,7 +77,7 @@ export default function GlobalTopbar() {
         </button>
         {isLoggedIn ? (
           <>
-            <button onClick={() => router.push(accountPath(user?.role))} style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => router.push(accountPath(user?.role))} title="Back to dashboard" style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
               {user?.name?.split(' ')[0] || 'Account'}
             </button>
             <button onClick={handleLogout} style={{ border: '2px solid #FF6B00', background: '#fff', color: '#FF6B00', padding: '8px 16px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Logout</button>
