@@ -107,7 +107,7 @@ async function getStudentContextById(studentId: UUID): Promise<StudentContextRow
   return student;
 }
 
-export async function listForStudent(studentId: UUID, className: string, schoolId: UUID) {
+export async function listForStudent(studentId: UUID, className: string, schoolId: UUID | null) {
   const { rows } = await query(
     `SELECT e.id, e.title, e.title_hi, e.description, e.type, e.status,
             e.class_names, e.subject_codes, e.total_questions, e.duration_mins,
@@ -191,281 +191,220 @@ export async function startAttempt(examId: UUID, studentId: UUID) {
   const student = await getStudentContextById(studentId);
   const { rows: [exam] } = await query<ExamRow>('SELECT * FROM exams WHERE id = $1', [examId]);
   if (!exam) throw Object.assign(new Error('Exam not found'), { statusCode: 404 });
-  if (exam.status !== 'LIVE') throw Object.assign(new Error('Exam is not live right now'), { statusCode: 400 });
+  if (!['LIVE', 'REGISTRATION_OPEN'].includes(exam.status)) {
+    throw Object.assign(new Error('Exam is not currently available'), { statusCode: 400 });
+  }
+  if (new Date() > new Date(exam.end_time)) {
+    throw Object.assign(new Error('Exam has ended'), { statusCode: 400 });
+  }
   if (exam.school_id && exam.school_id !== student.school_id) {
     throw Object.assign(new Error('This exam is not available for your school'), { statusCode: 403 });
   }
-  if (exam.class_names?.length && !exam.class_names.includes(student.class_name)) {
-    throw Object.assign(new Error('This exam is not available for your class'), { statusCode: 403 });
-  }
 
-  const { rows: [registration] } = await query<IdRow>(
-    'SELECT id FROM exam_registrations WHERE exam_id = $1 AND student_id = $2',
+  const { rows: [registration] } = await query<RegistrationRow>(
+    'SELECT id, registered_at FROM exam_registrations WHERE exam_id = $1 AND student_id = $2',
     [examId, studentId],
   );
-  if (!registration) await register(examId, studentId);
+  if (!registration && exam.type !== 'PRACTICE') {
+    throw Object.assign(new Error('You must register before starting this exam'), { statusCode: 400 });
+  }
 
   const { rows: [existing] } = await query<AttemptRow>(
-    'SELECT * FROM exam_attempts WHERE exam_id = $1 AND student_id = $2',
+    'SELECT id, exam_id, status, started_at FROM exam_attempts WHERE exam_id = $1 AND student_id = $2',
     [examId, studentId],
   );
-  if (existing && existing.status !== 'IN_PROGRESS') {
-    throw Object.assign(new Error('You have already submitted this exam'), { statusCode: 409 });
-  }
+  if (existing) return existing;
 
-  let attempt = existing;
-  if (!attempt) {
-    const { rows: [created] } = await query<AttemptRow>(
-      `INSERT INTO exam_attempts (exam_id, student_id, school_id, status)
-       VALUES ($1, $2, $3, 'IN_PROGRESS') RETURNING *`,
-      [examId, studentId, student.school_id],
-    );
-    if (!created) throw new Error('Exam attempt insert returned no row');
-    attempt = created;
-  }
-
-  const { rows: questions } = await query(
-    `SELECT id, question_text, question_hi,
-            option_a, option_b, option_c, option_d,
-            option_a_hi, option_b_hi, option_c_hi, option_d_hi,
-            subject_code, difficulty, sort_order
-     FROM exam_questions WHERE exam_id = $1 ORDER BY sort_order, created_at`,
-    [examId],
+  const { rows: [attempt] } = await query<AttemptRow>(
+    `INSERT INTO exam_attempts (exam_id, student_id, school_id, status, started_at)
+     VALUES ($1, $2, $3, 'IN_PROGRESS', NOW())
+     RETURNING id, exam_id, status, started_at`,
+    [examId, studentId, student.school_id],
   );
-  const durationEnd = new Date(new Date(attempt.started_at).getTime() + exam.duration_mins * 60000);
-  const hardEnd = new Date(exam.end_time);
-  return {
-    attemptId: attempt.id,
-    exam: {
-      id: exam.id,
-      title: exam.title,
-      titleHi: exam.title_hi,
-      durationMins: exam.duration_mins,
-      totalQuestions: exam.total_questions,
-      marksPerQuestion: Number(exam.marks_per_question),
-      negativeMarks: Number(exam.negative_marks),
-      instructions: exam.instructions,
-      subjectCodes: exam.subject_codes,
-    },
-    startedAt: attempt.started_at,
-    endsAt: (durationEnd < hardEnd ? durationEnd : hardEnd).toISOString(),
-    questions,
-  };
+  if (!attempt) throw new Error('Exam attempt returned no row');
+  return attempt;
 }
 
-async function hasXPEvent(studentId: UUID, examId: UUID, eventType: string): Promise<boolean> {
-  const { rows: [row] } = await query<IdRow>(
-    `SELECT id FROM xp_events WHERE student_id = $1 AND reference_id = $2 AND event_type = $3 LIMIT 1`,
-    [studentId, examId, eventType],
-  );
-  return Boolean(row);
-}
-
-export async function submitAttempt(
-  attemptId: UUID,
-  studentId: UUID,
-  responses: ExamResponseInput[] = [],
-) {
-  const result = await transaction(async (client) => {
+export async function submitAttempt(examId: UUID, studentId: UUID, responses: ExamResponseInput[] = []) {
+  return transaction(async client => {
     const { rows: [attempt] } = await client.query<AttemptRow>(
-      `SELECT ea.*, e.duration_mins, e.end_time, e.marks_per_question, e.negative_marks,
+      `SELECT ea.id, ea.status, ea.started_at, e.marks_per_question, e.negative_marks,
               e.total_questions, e.type
        FROM exam_attempts ea
        JOIN exams e ON e.id = ea.exam_id
-       WHERE ea.id = $1 AND ea.student_id = $2 FOR UPDATE`,
-      [attemptId, studentId],
+       WHERE ea.exam_id = $1 AND ea.student_id = $2
+       FOR UPDATE`,
+      [examId, studentId],
     );
-    if (!attempt) throw Object.assign(new Error('Attempt not found'), { statusCode: 404 });
+    if (!attempt) throw Object.assign(new Error('Exam attempt not found'), { statusCode: 404 });
+    if (attempt.status === 'SUBMITTED') {
+      const { rows: [submitted] } = await client.query<AttemptRow>(
+        'SELECT * FROM exam_attempts WHERE id = $1', [attempt.id],
+      );
+      return submitted;
+    }
     if (attempt.status !== 'IN_PROGRESS') {
-      throw Object.assign(new Error('Attempt already submitted'), { statusCode: 409 });
+      throw Object.assign(new Error('Exam attempt cannot be submitted'), { statusCode: 400 });
     }
 
     const { rows: questions } = await client.query<QuestionRow>(
-      'SELECT id, correct_option FROM exam_questions WHERE exam_id = $1 ORDER BY sort_order',
-      [attempt.exam_id],
+      'SELECT id, correct_option FROM exam_questions WHERE exam_id = $1', [examId],
     );
-    if (!questions.length) throw Object.assign(new Error('This exam does not have questions yet'), { statusCode: 400 });
-
-    const responseMap = new Map<UUID, string | null>(responses.map((r) => [
-      r.questionId,
-      String(r.selectedOption || '').toUpperCase() || null,
-    ]));
-    let correctCount = 0;
-    let wrongCount = 0;
-    let skippedCount = 0;
-    let totalMarks = 0;
-
-    for (const q of questions) {
-      const selected = responseMap.get(q.id) || null;
-      const isCorrect = selected ? selected === q.correct_option : null;
-      let marksAwarded = 0;
-      if (!selected) skippedCount += 1;
-      else if (isCorrect) {
-        correctCount += 1;
-        marksAwarded = Number(attempt.marks_per_question);
-      } else {
-        wrongCount += 1;
-        marksAwarded = -Number(attempt.negative_marks);
+    const validQuestionIds = new Set(questions.map(question => question.id));
+    const submittedByQuestion = new Map<UUID, string | null>();
+    responses.forEach(response => {
+      if (validQuestionIds.has(response.questionId)) {
+        submittedByQuestion.set(response.questionId, response.selectedOption || null);
       }
-      totalMarks += marksAwarded;
+    });
+
+    for (const question of questions) {
+      const selectedOption = submittedByQuestion.get(question.id) ?? null;
+      const isCorrect = selectedOption !== null && selectedOption === question.correct_option;
       await client.query(
-        `INSERT INTO exam_responses
-           (attempt_id, question_id, selected_option, is_correct, marks_awarded)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (attempt_id, question_id) DO UPDATE
-         SET selected_option = EXCLUDED.selected_option,
-             is_correct = EXCLUDED.is_correct,
-             marks_awarded = EXCLUDED.marks_awarded`,
-        [attemptId, q.id, selected, isCorrect, marksAwarded],
+        `INSERT INTO exam_responses (attempt_id, question_id, selected_option, is_correct)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (attempt_id, question_id)
+         DO UPDATE SET selected_option=EXCLUDED.selected_option, is_correct=EXCLUDED.is_correct, answered_at=NOW()`,
+        [attempt.id, question.id, selectedOption, selectedOption === null ? null : isCorrect],
       );
     }
 
-    totalMarks = Math.max(0, Number(totalMarks.toFixed(2)));
-    const submittedAt = new Date();
-    const timeTakenSecs = Math.max(0, Math.floor((submittedAt.getTime() - new Date(attempt.started_at).getTime()) / 1000));
-    await client.query(
+    const correctCount = questions.filter(q => submittedByQuestion.get(q.id) === q.correct_option).length;
+    const answeredCount = questions.filter(q => submittedByQuestion.has(q.id) && submittedByQuestion.get(q.id) !== null).length;
+    const wrongCount = answeredCount - correctCount;
+    const skippedCount = Math.max(Number(attempt.total_questions || questions.length) - answeredCount, 0);
+    const marksPerQuestion = Number(attempt.marks_per_question || 0);
+    const negativeMarks = Number(attempt.negative_marks || 0);
+    const totalMarks = Math.max(correctCount * marksPerQuestion - wrongCount * negativeMarks, 0);
+
+    const { rows: [submitted] } = await client.query<AttemptRow>(
       `UPDATE exam_attempts
-       SET status = 'SCORED', submitted_at = NOW(), time_taken_secs = $1,
-           total_marks = $2, correct_count = $3, wrong_count = $4, skipped_count = $5
-       WHERE id = $6`,
-      [timeTakenSecs, totalMarks, correctCount, wrongCount, skippedCount, attemptId],
+       SET status='SUBMITTED', submitted_at=NOW(),
+           total_marks=$2, correct_count=$3, wrong_count=$4, skipped_count=$5,
+           time_taken_secs=GREATEST(0, EXTRACT(EPOCH FROM (NOW() - started_at))::INT)
+       WHERE id=$1
+       RETURNING *`,
+      [attempt.id, totalMarks, correctCount, wrongCount, skippedCount],
     );
-    return {
-      examId: attempt.exam_id,
-      examType: attempt.type || '',
-      score: totalMarks,
-      maxMarks: Number(attempt.total_questions) * Number(attempt.marks_per_question),
-      correctCount,
-      wrongCount,
-      skippedCount,
-      timeTakenSecs,
-    };
+    if (!submitted) throw new Error('Exam submission returned no row');
+
+    if (attempt.type === 'OLYMPIAD') {
+      await studentService.awardXP(studentId, 0, 'EXAM_ATTEMPT', examId, examId);
+    }
+    return submitted;
   });
+}
 
-  if (!(await hasXPEvent(studentId, result.examId, 'EXAM_COMPLETE'))) {
-    await studentService.awardXP(
-      studentId,
-      'EXAM_COMPLETE',
-      result.examType === 'OLYMPIAD' ? 60 : 40,
-      result.examId,
-      'EXAM',
-      'Completed exam',
+export async function scoreExam(examId: UUID) {
+  const { rows: attempts } = await query<AttemptRow>(
+    `SELECT ea.id, ea.student_id, ea.school_id, ea.total_marks
+     FROM exam_attempts ea WHERE ea.exam_id=$1 AND ea.status='SUBMITTED'`, [examId],
+  );
+  if (!attempts.length) return { scored: 0 };
+
+  const sorted = [...attempts].sort((a, b) => Number(b.total_marks || 0) - Number(a.total_marks || 0));
+  let previousMarks: number | null = null;
+  let previousRank = 0;
+  for (let index = 0; index < sorted.length; index += 1) {
+    const attempt = sorted[index];
+    if (!attempt) continue;
+    const marks = Number(attempt.total_marks || 0);
+    const rankOverall = previousMarks === marks ? previousRank : index + 1;
+    previousMarks = marks;
+    previousRank = rankOverall;
+    const percentile = sorted.length <= 1 ? 100 : ((sorted.length - rankOverall) / (sorted.length - 1)) * 100;
+    await query(
+      `UPDATE exam_attempts SET rank_overall=$2, percentile=$3 WHERE id=$1`,
+      [attempt.id, rankOverall, Number(percentile.toFixed(2))],
     );
   }
-  await recomputeLeaderboard(result.examId);
-  const { rows: [ranked] } = await query(
-    'SELECT total_marks, rank_school, rank_overall, percentile FROM exam_attempts WHERE id = $1',
-    [attemptId],
+
+  const { rows: schoolRows } = await query<RankedRow>(
+    `SELECT id AS attempt_id, student_id, school_id, total_marks,
+            RANK() OVER (PARTITION BY school_id ORDER BY total_marks DESC) AS rank_school,
+            rank_overall, percentile
+     FROM exam_attempts
+     WHERE exam_id=$1 AND status='SUBMITTED'`, [examId],
   );
-  return { ...result, ...ranked };
-}
-
-export async function recomputeLeaderboard(examId: UUID): Promise<void> {
-  const { rows: ranked } = await query<RankedRow>(
-    `SELECT ea.id AS attempt_id, ea.student_id, ea.school_id, ea.total_marks,
-            RANK() OVER (ORDER BY ea.total_marks DESC, ea.time_taken_secs ASC, ea.submitted_at ASC) AS rank_overall,
-            RANK() OVER (PARTITION BY ea.school_id ORDER BY ea.total_marks DESC, ea.time_taken_secs ASC, ea.submitted_at ASC) AS rank_school,
-            ROUND((PERCENT_RANK() OVER (ORDER BY ea.total_marks) * 100)::numeric, 2) AS percentile
-     FROM exam_attempts ea WHERE ea.exam_id = $1 AND ea.status = 'SCORED'`,
-    [examId],
-  );
-
-  for (const row of ranked) {
-    await query(
-      `UPDATE exam_attempts SET rank_school = $1, rank_overall = $2, percentile = $3 WHERE id = $4`,
-      [Number(row.rank_school), Number(row.rank_overall), Number(row.percentile), row.attempt_id],
-    );
-    await query(
-      `INSERT INTO exam_leaderboard
-         (exam_id, attempt_id, student_id, school_id, total_marks,
-          rank_school, rank_overall, percentile, xp_awarded)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,0)
-       ON CONFLICT (exam_id, student_id) DO UPDATE
-       SET attempt_id = EXCLUDED.attempt_id,
-           school_id = EXCLUDED.school_id,
-           total_marks = EXCLUDED.total_marks,
-           rank_school = EXCLUDED.rank_school,
-           rank_overall = EXCLUDED.rank_overall,
-           percentile = EXCLUDED.percentile`,
-      [examId, row.attempt_id, row.student_id, row.school_id, row.total_marks,
-       Number(row.rank_school), Number(row.rank_overall), Number(row.percentile)],
-    );
-
-    const overallRank = Number(row.rank_overall);
-    if (overallRank <= 10 && !(await hasXPEvent(row.student_id, examId, 'EXAM_TOP_10'))) {
-      await studentService.awardXP(row.student_id, 'EXAM_TOP_10', 100, examId, 'EXAM', `Top ${overallRank} overall`);
-    }
-    if (overallRank <= 3 && !(await hasXPEvent(row.student_id, examId, 'EXAM_TOP_3'))) {
-      await studentService.awardXP(row.student_id, 'EXAM_TOP_3', 200, examId, 'EXAM', `Top ${overallRank} overall`);
-      await studentService.awardBadgeIfNotEarned(row.student_id, 'EXAM_TOPPER');
-    }
+  for (const row of schoolRows) {
+    await query('UPDATE exam_attempts SET rank_school=$2 WHERE id=$1', [row.attempt_id, Number(row.rank_school)]);
   }
+
+  await query("UPDATE exams SET status='COMPLETED', results_at=COALESCE(results_at, NOW()) WHERE id=$1", [examId]);
+  return { scored: attempts.length };
 }
 
-export async function getLeaderboard(examId: UUID, page = 1, limit = 50) {
-  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
-  const safePage = Math.max(Number(page) || 1, 1);
-  const offset = (safePage - 1) * safeLimit;
-  const { rows } = await query(
-    `SELECT el.rank_overall, el.rank_school, el.total_marks, el.percentile,
-            u.name, u.profile_photo, sc.class_name, sc.section,
-            sch.name AS school_name, sch.state
-     FROM exam_leaderboard el
-     JOIN students s ON s.id = el.student_id
-     JOIN users u ON u.id = s.user_id
-     JOIN school_classes sc ON sc.id = s.class_id
-     JOIN schools sch ON sch.id = s.school_id
-     WHERE el.exam_id = $1
-     ORDER BY el.rank_overall, el.total_marks DESC
-     LIMIT $2 OFFSET $3`,
-    [examId, safeLimit, offset],
+export async function getResult(examId: UUID, studentId: UUID) {
+  const { rows: [result] } = await query(
+    `SELECT ea.*, e.title, e.title_hi, e.type, e.total_questions,
+            e.marks_per_question, e.negative_marks,
+            (e.total_questions * e.marks_per_question) AS max_marks
+     FROM exam_attempts ea
+     JOIN exams e ON e.id=ea.exam_id
+     WHERE ea.exam_id=$1 AND ea.student_id=$2`,
+    [examId, studentId],
   );
-  return rows;
+  if (!result) throw Object.assign(new Error('Result not found'), { statusCode: 404 });
+  return result;
 }
 
-export async function createExam(data: CreateExamInput, createdBy: UUID) {
-  const { rows: [exam] } = await query(
-    `INSERT INTO exams
-       (title, title_hi, description, type, school_id, class_names, subject_codes,
-        status, total_questions, duration_mins, marks_per_question, negative_marks,
-        registration_start, registration_end, start_time, end_time, results_at,
-        prize_pool, instructions, instructions_hi, banner_url, max_registrations, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
-     RETURNING *`,
+export async function createExam(input: CreateExamInput, createdBy: UUID) {
+  const { rows: [exam] } = await query<ExamRow>(
+    `INSERT INTO exams (
+       title, title_hi, description, type, school_id, class_names, subject_codes, status,
+       total_questions, duration_mins, marks_per_question, negative_marks,
+       registration_start, registration_end, start_time, end_time, results_at,
+       prize_pool, instructions, instructions_hi, banner_url, max_registrations, created_by
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
+     ) RETURNING *`,
     [
-      data.title, data.titleHi || null, data.description || null, data.type || 'OLYMPIAD',
-      data.schoolId || null, data.classNames || [], data.subjectCodes || [], data.status || 'DRAFT',
-      data.totalQuestions || 30, data.durationMins || 60, data.marksPerQuestion ?? 4,
-      data.negativeMarks ?? 1, data.registrationStart || null, data.registrationEnd || null,
-      data.startTime, data.endTime, data.resultsAt || null, data.prizePool || 0,
-      data.instructions || null, data.instructionsHi || null, data.bannerUrl || null,
-      data.maxRegistrations || null, createdBy,
+      input.title, input.titleHi || null, input.description || null, input.type || 'OLYMPIAD', input.schoolId || null,
+      input.classNames || [], input.subjectCodes || [], input.status || 'DRAFT', input.totalQuestions || 0,
+      input.durationMins || 60, input.marksPerQuestion || 4, input.negativeMarks || 0,
+      input.registrationStart || null, input.registrationEnd || null, input.startTime, input.endTime,
+      input.resultsAt || null, input.prizePool || 0, input.instructions || null, input.instructionsHi || null,
+      input.bannerUrl || null, input.maxRegistrations || null, createdBy,
     ],
   );
+  if (!exam) throw new Error('Exam creation returned no row');
   return exam;
 }
 
-export async function addQuestions(examId: UUID, questions: ExamQuestionInput[] = []) {
-  return transaction(async (client) => {
-    const { rows: [exam] } = await client.query<IdRow>('SELECT id FROM exams WHERE id = $1', [examId]);
-    if (!exam) throw Object.assign(new Error('Exam not found'), { statusCode: 404 });
-    for (let i = 0; i < questions.length; i += 1) {
-      const q = questions[i];
-      if (!q) continue;
+export async function addQuestions(examId: UUID, questions: ExamQuestionInput[]) {
+  let count = 0;
+  await transaction(async client => {
+    for (const question of questions) {
       await client.query(
-        `INSERT INTO exam_questions
-           (exam_id, question_text, question_hi,
-            option_a, option_b, option_c, option_d,
-            option_a_hi, option_b_hi, option_c_hi, option_d_hi,
-            correct_option, explanation, subject_code, difficulty, sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-        [examId, q.questionText, q.questionHi || null,
-         q.optionA, q.optionB, q.optionC, q.optionD,
-         q.optionAHi || null, q.optionBHi || null, q.optionCHi || null, q.optionDHi || null,
-         q.correctOption, q.explanation || null, q.subjectCode || null, q.difficulty || 'MEDIUM', i + 1],
+        `INSERT INTO exam_questions (
+           exam_id, question_text, question_hi, option_a, option_b, option_c, option_d,
+           option_a_hi, option_b_hi, option_c_hi, option_d_hi, correct_option, explanation,
+           subject_code, difficulty, sequence_no
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        [
+          examId, question.questionText, question.questionHi || null,
+          question.optionA, question.optionB, question.optionC, question.optionD,
+          question.optionAHi || null, question.optionBHi || null, question.optionCHi || null, question.optionDHi || null,
+          question.correctOption, question.explanation || null, question.subjectCode || null,
+          question.difficulty || 'MEDIUM', count + 1,
+        ],
       );
+      count += 1;
     }
-    await client.query('UPDATE exams SET total_questions = $1 WHERE id = $2', [questions.length, examId]);
-    return { added: questions.length };
+    await client.query('UPDATE exams SET total_questions=$2 WHERE id=$1', [examId, count]);
   });
+  return { added: count };
+}
+
+export async function updateStatus(examId: UUID, status: string) {
+  const { rows: [exam] } = await query<ExamRow>('UPDATE exams SET status=$2 WHERE id=$1 RETURNING *', [examId, status]);
+  if (!exam) throw Object.assign(new Error('Exam not found'), { statusCode: 404 });
+  return exam;
+}
+
+export async function deleteExam(examId: UUID) {
+  const { rows: [deleted] } = await query<IdRow>("DELETE FROM exams WHERE id=$1 AND status='DRAFT' RETURNING id", [examId]);
+  if (!deleted) throw Object.assign(new Error('Only draft exams can be deleted'), { statusCode: 400 });
+  return { deleted: true };
 }
