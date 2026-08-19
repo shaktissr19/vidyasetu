@@ -16,6 +16,13 @@ async function getStudent(req) {
   return student || null;
 }
 
+async function assertExamAdministrationAccess(req, examId) {
+  if (req.user.role === 'SUPER_ADMIN') return true;
+  if (req.user.role !== 'SCHOOL_ADMIN' || !req.user.schoolId) return false;
+  const { rows } = await query('SELECT 1 FROM exams WHERE id=$1 AND school_id=$2 LIMIT 1', [examId, req.user.schoolId]);
+  return rows.length > 0;
+}
+
 async function list(req, res, next) {
   try {
     const { rows } = await query(
@@ -85,18 +92,29 @@ async function getLeaderboard(req, res, next) {
 async function createExam(req, res, next) {
   try {
     const body = { ...req.body };
-    if (req.user.role === 'SCHOOL_ADMIN' && !body.schoolId) body.schoolId = req.user.schoolId;
+    if (req.user.role === 'SCHOOL_ADMIN') {
+      if (!req.user.schoolId) return R.forbidden(res, 'School context is unavailable');
+      body.schoolId = req.user.schoolId;
+      body.type = 'SCHOOL_TEST';
+    }
     return R.created(res, await competitionService.createExam(body, req.user.userId));
   } catch (err) { next(err); }
 }
 
 async function addQuestions(req, res, next) {
-  try { return R.ok(res, await competitionService.addQuestions(req.params.examId, req.body.questions || [])); }
-  catch (err) { next(err); }
+  try {
+    if (!(await assertExamAdministrationAccess(req, req.params.examId))) {
+      return R.forbidden(res, 'You cannot modify an exam owned by another school');
+    }
+    return R.ok(res, await competitionService.addQuestions(req.params.examId, req.body.questions || []));
+  } catch (err) { next(err); }
 }
 
 async function updateStatus(req, res, next) {
   try {
+    if (!(await assertExamAdministrationAccess(req, req.params.examId))) {
+      return R.forbidden(res, 'You cannot modify an exam owned by another school');
+    }
     const { rows: [exam] } = await query(
       `UPDATE exams SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, title, status`,
       [req.body.status, req.params.examId]

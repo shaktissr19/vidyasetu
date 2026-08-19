@@ -10,7 +10,7 @@ const NAV = [
   ['Home', '/'],
   ['🏆 Olympiad', '/competition'],
   ['Student', '/student'],
-  ['School ERP', '/school/overview'],
+  ['School', '/school/overview'],
   ['Parent', '/parent/dashboard'],
   ['Admin', '/admin/analytics'],
 ];
@@ -18,6 +18,13 @@ const NAV = [
 function isActive(pathname, href) {
   if (href === '/') return pathname === '/';
   return pathname === href || pathname?.startsWith(`${href}/`) || (href === '/student' && pathname?.startsWith('/student'));
+}
+
+function accountPath(role) {
+  if (role === 'STUDENT') return '/student/profile';
+  if (['SCHOOL_ADMIN','SUPER_ADMIN','TEACHER'].includes(role)) return role === 'SUPER_ADMIN' ? '/admin/analytics' : '/school/profile';
+  if (role === 'PARENT') return '/parent/dashboard';
+  return '/';
 }
 
 export default function GlobalTopbar() {
@@ -69,7 +76,7 @@ export default function GlobalTopbar() {
         </button>
         {isLoggedIn ? (
           <>
-            <button onClick={() => router.push(user?.role === 'STUDENT' ? '/student/profile' : '/')} style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => router.push(accountPath(user?.role))} style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
               {user?.name?.split(' ')[0] || 'Account'}
             </button>
             <button onClick={handleLogout} style={{ border: '2px solid #FF6B00', background: '#fff', color: '#FF6B00', padding: '8px 16px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Logout</button>

@@ -6,6 +6,7 @@ import useAuthStore from '@/store/authStore';
 const ROLE_DASHBOARDS = {
   STUDENT:      '/student',
   SCHOOL_ADMIN: '/school/overview',
+  TEACHER:      '/school/overview',
   PARENT:       '/parent/dashboard',
   SUPER_ADMIN:  '/admin/analytics',
 };

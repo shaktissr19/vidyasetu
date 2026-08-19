@@ -1,0 +1,186 @@
+name: School Management Native CI
+
+on:
+  push:
+    branches: [school-management-e2e]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  school-management-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Validate release scripts
+        run: |
+          bash -n scripts/school-e2e-smoke.sh
+          bash -n scripts/school-production-smoke.sh
+          bash -n scripts/student-production-smoke.sh
+          bash -n scripts/deploy-main-native.sh
+          grep -q '017_school_management_core.sql' scripts/deploy-main-native.sh
+          grep -q 'school-production-smoke.sh' scripts/deploy-main-native.sh
+          if grep -Eq 'docker compose down.*-v|docker-compose down.*-v' scripts/deploy-main-native.sh; then
+            echo 'Destructive Docker volume deletion is forbidden in deployment scripts.'
+            exit 1
+          fi
+
+      - name: Install and start native PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build database and apply Student plus School migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+          # School migration must remain safe when a production deploy is re-run.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+
+      - name: Validate School Management schema and realistic baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teachers t JOIN users u ON u.id=t.user_id WHERE u.role <> 'TEACHER';")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teachers;")" -ge 4
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE school_id='10000000-0000-0000-0000-000000000001' AND status='ACTIVE' AND school_link_status='APPROVED';")" -ge 10
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM schools WHERE academic_year <> '2026-27';")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='school_classes' AND column_name='is_active';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='fee_payments' AND column_name='receipt_number';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE username ~ '\\.[0-9a-f]{32}$';")" = "0"
+
+      - name: Install and syntax-check backend
+        working-directory: backend
+        run: |
+          npm ci
+          find src -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Start backend natively
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: development
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: ci_access_secret_vidyasetu_school_2026
+          JWT_REFRESH_SECRET: ci_refresh_secret_vidyasetu_school_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-school-backend.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-school-backend.log
+          exit 1
+
+      - name: Complete School Management API E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/school-e2e-smoke.sh
+
+      - name: Validate School database invariants after E2E
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "
+          SELECT sch.name, sch.academic_year, sch.total_students, sch.total_teachers,
+                 COUNT(DISTINCT sc.id) FILTER (WHERE sc.is_active) AS active_classes
+          FROM schools sch
+          LEFT JOIN school_classes sc ON sc.school_id=sch.id
+          WHERE sch.id='10000000-0000-0000-0000-000000000001'
+          GROUP BY sch.id;"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE mobile='9298880001' AND role='TEACHER';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teachers t JOIN users u ON u.id=t.user_id WHERE u.mobile='9298880001' AND t.status='INACTIVE';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students s JOIN users u ON u.id=s.user_id WHERE u.mobile IN ('9398880001','9398880002','9398880003','9398880099') AND s.school_link_status='APPROVED';")" = "4"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM parent_student_links p JOIN students s ON s.id=p.student_id JOIN users u ON u.id=s.user_id JOIN users pu ON pu.id=p.parent_user_id WHERE u.mobile='9398880001' AND pu.mobile='9400000001';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM attendance a JOIN students s ON s.id=a.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9398880001' AND a.status='ABSENT';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM notifications n JOIN users u ON u.id=n.user_id WHERE u.mobile='9400000001' AND n.type='ATTENDANCE_ABSENT';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM fee_payments fp JOIN students s ON s.id=fp.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9398880001' AND fp.receipt_number IS NOT NULL;")" = "2"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM fee_invoices fi JOIN students s ON s.id=fi.student_id JOIN users u ON u.id=s.user_id WHERE u.mobile='9398880001' AND fi.status='PAID';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM timetable_periods tp JOIN school_classes sc ON sc.id=tp.class_id WHERE sc.class_name='7' AND sc.section='C' AND tp.academic_year='2026-27';")" = "2"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM school_classes WHERE class_name='7' AND section='D' AND is_active=FALSE;")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exam_attempts ea JOIN exams e ON e.id=ea.exam_id JOIN students s ON s.id=ea.student_id JOIN users u ON u.id=s.user_id WHERE e.title='CI Class 7 Mathematics Test' AND u.mobile='9398880001' AND ea.status='SCORED' AND ea.total_marks=4;")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM announcements WHERE title='CI Parent Meeting' AND 'PARENT'=ANY(target_roles);")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM notifications n JOIN announcements a ON a.id=n.reference_id WHERE a.title='CI Parent Meeting' AND n.type='ANNOUNCEMENT';")" -ge 1
+
+      - name: Install and build Next.js frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          unset NODE_ENV || true
+          rm -rf .next node_modules package-lock.json
+          npm install --no-audit --no-fund
+          NODE_ENV=production npm run build
+
+      - name: Start production Next.js and verify School routes
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vidyasetu-school-frontend.log 2>&1 &
+          for i in {1..30}; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/school/overview || true)"
+            if [[ "$code" =~ ^(200|301|302|307|308)$ ]]; then break; fi
+            sleep 1
+            [[ "$i" -lt 30 ]] || { cat /tmp/vidyasetu-school-frontend.log; exit 1; }
+          done
+          for path in / /login /school/overview /school/enrollments /school/students /school/classes /school/teachers /school/attendance /school/fees /school/timetable /school/exams /school/results /school/announcements /school/profile /school/onboarding /student /parent/dashboard /admin/analytics; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$path")"
+            echo "$path -> $code"
+            [[ "$code" =~ ^(200|301|302|307|308)$ ]] || exit 1
+          done
+
+      - name: Application logs on failure
+        if: failure()
+        run: |
+          echo '--- Backend ---'
+          cat /tmp/vidyasetu-school-backend.log || true
+          echo '--- Frontend ---'
+          cat /tmp/vidyasetu-school-frontend.log || true
