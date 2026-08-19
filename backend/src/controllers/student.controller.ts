@@ -29,10 +29,6 @@ interface NotificationRow extends QueryResultRow {
   created_at: string | Date;
 }
 
-interface ReportStudentWithCode extends studentService.ReportStudentRow {
-  student_code?: string | null;
-}
-
 function queryString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
@@ -139,7 +135,7 @@ export async function getReportCard(
       `SELECT student_code FROM students WHERE user_id = $1`,
       [user.userId],
     );
-    const reportStudent: ReportStudentWithCode = data.student;
+    const reportStudent: typeof data.student & { student_code?: string | null } = data.student;
     reportStudent.student_code = identity?.student_code || null;
     return R.ok(res, data);
   } catch (err: unknown) {
