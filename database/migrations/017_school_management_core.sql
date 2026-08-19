@@ -40,38 +40,41 @@ SET academic_year = '2026-27'
 WHERE ta.school_id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002'
-);
+)
+  AND ta.academic_year <> '2026-27';
 
 UPDATE timetable_periods tp
 SET academic_year = '2026-27', updated_at = NOW()
 WHERE tp.school_id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002'
-);
+)
+  AND tp.academic_year <> '2026-27';
 
 UPDATE fee_structures fs
 SET academic_year = '2026-27', updated_at = NOW()
 WHERE fs.school_id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002'
-);
+)
+  AND fs.academic_year <> '2026-27';
 
 UPDATE fee_invoices fi
 SET academic_year = '2026-27', updated_at = NOW()
 WHERE fi.school_id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002'
-);
+)
+  AND fi.academic_year <> '2026-27';
 
--- Keep denormalised school staff totals coherent.
+-- Recompute every School, including Schools with zero Teacher rows.
 UPDATE schools s
-SET total_teachers = COALESCE(x.cnt, 0), updated_at = NOW()
-FROM (
-  SELECT school_id, COUNT(*) FILTER (WHERE status = 'ACTIVE')::INTEGER AS cnt
-  FROM teachers
-  GROUP BY school_id
-) x
-WHERE s.id = x.school_id;
+SET total_teachers = (
+      SELECT COUNT(*)::INTEGER
+      FROM teachers t
+      WHERE t.school_id = s.id AND t.status = 'ACTIVE'
+    ),
+    updated_at = NOW();
 
 COMMENT ON COLUMN schools.board IS 'School board, e.g. CBSE, ICSE, UP Board, State Board';
 COMMENT ON COLUMN schools.affiliation_number IS 'Board affiliation/reference number when applicable';
