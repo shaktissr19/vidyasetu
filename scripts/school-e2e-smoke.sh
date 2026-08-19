@@ -182,7 +182,7 @@ expect_status 200 DELETE "$API_BASE/school/classes/$CLASS_D_ID" '' "$ADMIN_TOKEN
 log "School Exam creation, Student participation, server scoring and School Results"
 START_TIME="$(date -u -d '1 minute ago' +%Y-%m-%dT%H:%M:%SZ)"
 END_TIME="$(date -u -d '60 minutes' +%Y-%m-%dT%H:%M:%SZ)"
-EXAM_PAYLOAD="$(jq -nc --arg start "$START_TIME" --arg end "$END_TIME" '{title:"CI Class 7 Mathematics Test",description:"School Management E2E",classNames:["7"],subjectCodes:["MATH"],status:"LIVE",startTime:$start,endTime:$end,durationMins:30,marksPerQuestion:2,negativeMarks:0,instructions:"Answer both questions",questions:[{questionText:"What is 12 + 8?",optionA:"20",optionB:"18",optionC:"22",optionD:"16",correctOption:"A",subjectCode:"MATH",difficulty:"EASY"},{questionText:"What is 9 × 6?",optionA:"45",optionB:"54",optionC:"56",optionD:"63",correctOption:"B",subjectCode:"MATH",difficulty:"EASY"}]}')"
+EXAM_PAYLOAD="$(jq -nc --arg start "$START_TIME" --arg examEnd "$END_TIME" '{title:"CI Class 7 Mathematics Test",description:"School Management E2E",classNames:["7"],subjectCodes:["MATH"],status:"LIVE",startTime:$start,endTime:$examEnd,durationMins:30,marksPerQuestion:2,negativeMarks:0,instructions:"Answer both questions",questions:[{questionText:"What is 12 + 8?",optionA:"20",optionB:"18",optionC:"22",optionD:"16",correctOption:"A",subjectCode:"MATH",difficulty:"EASY"},{questionText:"What is 9 × 6?",optionA:"45",optionB:"54",optionC:"56",optionD:"63",correctOption:"B",subjectCode:"MATH",difficulty:"EASY"}]}')"
 EXAM="$(request POST "$API_BASE/school/exams" "$EXAM_PAYLOAD" "$ADMIN_TOKEN")"
 EXAM_ID="$(json_get "$EXAM" '.data.id')"
 [[ "$(json_get "$EXAM" '.data.questions | length')" == "2" ]] || fail "School Exam questions were not persisted"
