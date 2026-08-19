@@ -1,11 +1,15 @@
 import rateLimit from 'express-rate-limit';
 
+function requestIpKey(req: { ip?: string; socket: { remoteAddress?: string } }): string {
+  return req.ip || req.socket.remoteAddress || 'unknown';
+}
+
 export const otpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
   keyGenerator: (req) => {
     const mobile = typeof req.body?.mobile === 'string' ? req.body.mobile : undefined;
-    return mobile || req.ip;
+    return mobile || requestIpKey(req);
   },
   message: {
     success: false,
@@ -29,7 +33,7 @@ export const apiLimiter = rateLimit({
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.user?.userId || req.ip,
+  keyGenerator: (req) => req.user?.userId || requestIpKey(req),
   message: {
     success: false,
     error: { code: 'RATE_LIMIT', message: 'AI request limit reached. Try again in a minute.' },
