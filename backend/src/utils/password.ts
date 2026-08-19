@@ -33,7 +33,7 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(
-  password: string,
+  password: string | null | undefined,
   storedHash: string | null | undefined,
 ): Promise<boolean> {
   try {
