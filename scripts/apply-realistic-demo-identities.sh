@@ -35,18 +35,22 @@ export PGPASSWORD="$DB_PASSWORD"
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc 'SELECT 1' >/dev/null \
   || fail "Database credentials do not authenticate"
 
-log "1/3 Create safety backup"
+log "1/4 Create safety backup"
 mkdir -p "$BACKUP_DIR"
-BACKUP_FILE="$BACKUP_DIR/vidyasetu_pre_realistic_identities_$(date +%F_%H%M%S).dump"
+BACKUP_FILE="$BACKUP_DIR/vidyasetu_pre_realistic_demo_cleanup_$(date +%F_%H%M%S).dump"
 pg_dump -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc > "$BACKUP_FILE"
 test -s "$BACKUP_FILE" || fail "Backup is empty"
 printf 'Backup: %s\n' "$BACKUP_FILE"
 
-log "2/3 Apply realistic identity migration"
+log "2/4 Apply realistic identity migration"
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
 
-log "3/3 Verify representative integrated accounts"
+log "3/4 Align known demo schools to academic year 2026-27"
+psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+
+log "4/4 Verify representative integrated accounts and schools"
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -P pager=off -c "
 SELECT u.role,
        u.name,
@@ -56,7 +60,8 @@ SELECT u.role,
        s.student_code,
        sch.name AS school,
        sc.class_name,
-       sc.section
+       sc.section,
+       COALESCE(s.academic_year, sch.academic_year) AS academic_year
 FROM users u
 LEFT JOIN students s ON s.user_id = u.id
 LEFT JOIN schools sch ON sch.id = s.school_id
@@ -64,9 +69,18 @@ LEFT JOIN school_classes sc ON sc.id = s.class_id
 WHERE u.mobile IN ('9300000001','9100000001','9400000001')
 ORDER BY CASE u.role WHEN 'STUDENT' THEN 1 WHEN 'SCHOOL_ADMIN' THEN 2 WHEN 'PARENT' THEN 3 ELSE 4 END;"
 
+psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -P pager=off -c "
+SELECT name, city, academic_year, total_students
+FROM schools
+WHERE id IN (
+  '10000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000002'
+)
+ORDER BY name;"
+
 LEGACY_COUNT="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM users WHERE username ~ '\\.[0-9a-f]{32}$';")"
 [[ "$LEGACY_COUNT" == "0" ]] || fail "$LEGACY_COUNT UUID-style usernames remain"
 
-printf '\n\033[1;32mIdentity cleanup completed successfully.\033[0m\n'
+printf '\n\033[1;32mRealistic demo-data cleanup completed successfully.\033[0m\n'
 printf 'Backup retained: %s\n' "$BACKUP_FILE"
-printf 'No passwords, Student IDs, academic data, School links or Parent links were changed.\n'
+printf 'Passwords, Student IDs, School approval state and Parent links were preserved.\n'
