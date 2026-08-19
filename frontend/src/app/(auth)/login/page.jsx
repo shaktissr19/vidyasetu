@@ -17,12 +17,14 @@ const ROLES = [
   { key: 'STUDENT', label: '🎓 Student' },
   { key: 'PARENT', label: '👩 Parent' },
   { key: 'SCHOOL_ADMIN', label: '🏫 School' },
+  { key: 'TEACHER', label: '👩‍🏫 Teacher' },
   { key: 'SUPER_ADMIN', label: '⚙️ Admin' },
 ];
 
 const ROLE_DASHBOARDS = {
   STUDENT: '/student',
   SCHOOL_ADMIN: '/school/overview',
+  TEACHER: '/school/overview',
   PARENT: '/parent/dashboard',
   SUPER_ADMIN: '/admin/analytics',
 };
@@ -30,6 +32,7 @@ const ROLE_DASHBOARDS = {
 function roleFromParam(params) {
   const value = params.get('role');
   if (value === 'school') return 'SCHOOL_ADMIN';
+  if (value === 'teacher') return 'TEACHER';
   if (value === 'parent') return 'PARENT';
   if (value === 'admin') return 'SUPER_ADMIN';
   return 'STUDENT';
@@ -56,19 +59,22 @@ export default function LoginPage() {
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  const identifierLabel = role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email';
+  const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email';
+
   function completeLogin(payload) {
     const { accessToken, refreshToken, user } = payload;
     if (user.role !== role) {
       throw Object.assign(new Error(`This account is registered as ${user.role.replaceAll('_', ' ').toLowerCase()}. Select the matching login tab.`), { roleMismatch: true });
     }
     setAuth(user, accessToken, refreshToken);
-    toast.success(`Welcome back, ${user.name?.split(' ')[0] || 'Student'}! 👋`);
-    router.replace(ROLE_DASHBOARDS[user.role] || '/student');
+    toast.success(`Welcome back, ${user.name?.split(' ')[0] || 'User'}! 👋`);
+    router.replace(ROLE_DASHBOARDS[user.role] || '/');
   }
 
   async function handlePasswordLogin(event) {
     event.preventDefault();
-    if (identifier.trim().length < 3 || !password) return toast.error('Enter your username/email/Student ID and password');
+    if (identifier.trim().length < 3 || !password) return toast.error(`Enter your ${identifierLabel.toLowerCase()} and password`);
     setLoading(true);
     try {
       const response = await loginWithPassword(identifier.trim(), password, navigator.userAgent);
@@ -112,7 +118,7 @@ export default function LoginPage() {
 
   async function handleRecoverySend(event) {
     event.preventDefault();
-    if (identifier.trim().length < 3) return toast.error('Enter your username, email or Student ID first');
+    if (identifier.trim().length < 3) return toast.error(`Enter your ${identifierLabel.toLowerCase()} first`);
     setLoading(true);
     try {
       const response = await forgotPassword(identifier.trim());
@@ -172,11 +178,11 @@ export default function LoginPage() {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-[440px]">
+        <div className="w-full max-w-[470px]">
           <h2 className="font-display font-extrabold text-3xl mb-1" style={{ color: 'var(--navy)' }}>Welcome back! 👋</h2>
           <p className="text-sm mb-5" style={{ color: 'var(--slate)' }}>Choose your account type and sign-in method.</p>
 
-          <div className="grid grid-cols-4 gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--saffron-pale)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--saffron-pale)' }}>
             {ROLES.map(item => (
               <button key={item.key} onClick={() => setRole(item.key)} className="py-2 px-1 rounded-lg text-xs font-bold"
                 style={{ background: role === item.key ? 'white' : 'transparent', color: role === item.key ? 'var(--saffron)' : 'var(--slate)', boxShadow: role === item.key ? '0 2px 8px rgba(255,107,0,.15)' : 'none' }}>
@@ -202,8 +208,8 @@ export default function LoginPage() {
             <form onSubmit={recoverySent ? handleReset : handleRecoverySend}>
               <h3 className="font-display font-bold text-xl mb-1" style={{ color: 'var(--navy)' }}>Reset password</h3>
               <p className="text-sm mb-4" style={{ color: 'var(--slate)' }}>We will verify the registered mobile number with OTP.</p>
-              <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Username / Email / Student ID</label>
-              <input className="input mb-4" value={identifier} onChange={e => setIdentifier(e.target.value)} disabled={recoverySent} placeholder="e.g. aarav.sharma or VS26-0100001" />
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>{identifierLabel}</label>
+              <input className="input mb-4" value={identifier} onChange={e => setIdentifier(e.target.value)} disabled={recoverySent} placeholder={identifierPlaceholder} />
               {recoverySent && (
                 <>
                   <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Recovery OTP</label>
@@ -217,10 +223,8 @@ export default function LoginPage() {
             </form>
           ) : method === 'password' ? (
             <form onSubmit={handlePasswordLogin}>
-              <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>
-                {role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email'}
-              </label>
-              <input className="input mb-4" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email'} autoFocus />
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>{identifierLabel}</label>
+              <input className="input mb-4" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={identifierPlaceholder} autoFocus />
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-semibold" style={{ color: 'var(--navy)' }}>Password</label>
                 <button type="button" onClick={() => setRecovery(true)} className="text-xs font-semibold" style={{ color: 'var(--saffron)' }}>Forgot password?</button>
