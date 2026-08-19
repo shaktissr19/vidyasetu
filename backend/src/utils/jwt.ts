@@ -23,7 +23,10 @@ export function signAccessToken(payload: SignableClaims): string {
 }
 
 export function signRefreshToken(payload: SignableClaims): string {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: expiryToSeconds(REFRESH_EXPIRY) });
+  return jwt.sign(payload, REFRESH_SECRET, {
+    expiresIn: expiryToSeconds(REFRESH_EXPIRY),
+    jwtid: crypto.randomUUID(),
+  });
 }
 
 function asClaims(decoded: string | JwtPayload): AuthTokenClaims {
