@@ -62,13 +62,18 @@ jobs:
           npm run typecheck
           NODE_ENV=production npm run build
 
-      - name: Track remaining JS and JSX migration surface
+      - name: Enforce backend TypeScript-only source and track frontend migration
         run: |
           backend_js="$(find backend/src -type f -name '*.js' | wc -l)"
           frontend_js="$(find frontend/src -type f \( -name '*.js' -o -name '*.jsx' \) | wc -l)"
           echo "Remaining backend application JS: $backend_js"
           echo "Remaining frontend application JS/JSX: $frontend_js"
-          test "$backend_js" -le 57
+          test "$backend_js" = "0"
+          grep -q '"allowJs": false' backend/tsconfig.json
+          if grep -RPn --include='*.ts' --include='*.tsx' '(@ts-ignore|\bany\b)' backend/src; then
+            echo 'Backend source contains forbidden @ts-ignore or explicit any.'
+            exit 1
+          fi
           test "$frontend_js" -le 90
 
   student-e2e:
