@@ -70,10 +70,50 @@ jobs:
           echo "Remaining frontend application JS/JSX: $frontend_js"
           test "$backend_js" = "0"
           grep -q '"allowJs": false' backend/tsconfig.json
-          if grep -RPn --include='*.ts' --include='*.tsx' '(@ts-ignore|\bany\b)' backend/src; then
-            echo 'Backend source contains forbidden @ts-ignore or explicit any.'
-            exit 1
-          fi
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const ts = require('./backend/node_modules/typescript');
+
+          const failures = [];
+          function scanDirectory(directory) {
+            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+              const fullPath = path.join(directory, entry.name);
+              if (entry.isDirectory()) {
+                scanDirectory(fullPath);
+                continue;
+              }
+              if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue;
+
+              const sourceText = fs.readFileSync(fullPath, 'utf8');
+              if (sourceText.includes('@ts-ignore')) {
+                failures.push(`${fullPath}: forbidden @ts-ignore`);
+              }
+
+              const sourceFile = ts.createSourceFile(
+                fullPath,
+                sourceText,
+                ts.ScriptTarget.Latest,
+                true,
+                entry.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+              );
+              function visit(node) {
+                if (node.kind === ts.SyntaxKind.AnyKeyword) {
+                  const position = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+                  failures.push(`${fullPath}:${position.line + 1}:${position.character + 1}: explicit any`);
+                }
+                ts.forEachChild(node, visit);
+              }
+              visit(sourceFile);
+            }
+          }
+
+          scanDirectory('backend/src');
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          NODE
           test "$frontend_js" -le 90
 
   student-e2e:
