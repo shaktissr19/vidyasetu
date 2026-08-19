@@ -57,7 +57,7 @@ async function getFeePayments(req,res,next){try{const id=requireSchoolId(req,res
 async function sendFeeReminders(req,res,next){try{const id=requireSchoolId(req,res);if(!id)return;return R.ok(res,await schoolService.sendFeeReminders(id));}catch(e){next(e);}}
 
 async function getTimetable(req,res,next){try{const id=requireSchoolId(req,res);if(!id)return;return R.ok(res,await schoolService.getTimetable(id,req.params.classId));}catch(e){next(e);}}
-async function saveTimetable(req,res,next){try{const id=requireSchoolId(req,res);if(!id)return;return R.ok(res,await schoolService.saveTimetable(req.params.classId,id,req.body.periods));}catch(e){next(e);}}
+async function saveTimetable(req,res,next){try{const id=requireSchoolId(req,res);if(!id)return;await schoolService.saveTimetable(req.params.classId,id,req.body.periods);return R.ok(res,await schoolService.getTimetable(id,req.params.classId));}catch(e){next(e);}}
 
 async function getExams(req,res,next){try{const id=requireSchoolId(req,res);if(!id)return;return R.ok(res,await schoolService.getExams(id));}catch(e){next(e);}}
 async function getExamDetail(req,res,next){try{const id=requireSchoolId(req,res);if(!id)return;return R.ok(res,await schoolService.getExamDetail(id,req.params.examId));}catch(e){next(e);}}
