@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-/var/www/vidyasetu}"
 TARGET_BRANCH="${TARGET_BRANCH:-main}"
+RELEASES_DIR="${RELEASES_DIR:-/var/www/vidyasetu-releases}"
+CURRENT_LINK="${CURRENT_LINK:-/var/www/vidyasetu-current}"
 BACKUP_DIR="${BACKUP_DIR:-/root/vidyasetu-backups}"
 NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/vidyasetu}"
 BACKEND_ENV="$PROJECT_DIR/backend/.env"
@@ -14,13 +16,13 @@ read_env_value() {
   grep -m1 -E "^${key}=" "$file" 2>/dev/null | cut -d= -f2- || true
 }
 
-trap 'printf "\nERROR: deployment failed at line %s. PM2 was not intentionally changed before the build gate completed.\n" "$LINENO" >&2' ERR
+trap 'printf "\nERROR: deployment failed at line %s. Review the last completed gate before taking any further action.\n" "$LINENO" >&2' ERR
 
 [[ $EUID -eq 0 ]] || fail "Run this script as root."
 [[ -d "$PROJECT_DIR/.git" ]] || fail "Repository not found at $PROJECT_DIR"
 cd "$PROJECT_DIR"
 
-log "1/8 Verify exact release checkout and native services"
+log "1/9 Verify exact release checkout and native services"
 [[ "$(git branch --show-current)" == "$TARGET_BRANCH" ]] || fail "Expected branch '$TARGET_BRANCH'."
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail "Tracked working-tree changes exist."
 for command_name in git node npm pm2 psql pg_dump redis-cli jq nginx curl; do
@@ -35,7 +37,6 @@ systemctl is-active --quiet redis-server || fail "Native Redis is not active."
 pg_isready -h 127.0.0.1 -p 5432 >/dev/null || fail "PostgreSQL is not accepting connections on 5432."
 redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG || fail "Redis is not responding on 6379."
 
-# A deployment must run an already-reviewed main commit. It never deploys a feature branch.
 git fetch origin "$TARGET_BRANCH"
 LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse "origin/$TARGET_BRANCH")"
@@ -58,7 +59,7 @@ export PGPASSWORD="$DB_PASSWORD"
 psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc 'SELECT 1' >/dev/null \
   || fail "Native application database credentials do not authenticate."
 
-log "2/8 Create mandatory pre-release PostgreSQL backup"
+log "2/9 Create mandatory pre-release PostgreSQL backup"
 mkdir -p "$BACKUP_DIR"
 SAFETY_DUMP="$BACKUP_DIR/vidyasetu_pre_release_$(date +%F_%H%M%S).dump"
 pg_dump -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc > "$SAFETY_DUMP" \
@@ -66,7 +67,7 @@ pg_dump -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc > "$SAFETY_DU
 test -s "$SAFETY_DUMP" || fail "PostgreSQL safety dump is empty."
 printf 'Safety DB dump: %s\n' "$SAFETY_DUMP"
 
-log "3/8 Read-only production schema and identity preflight"
+log "3/9 Read-only production schema and identity preflight"
 for table_name in \
   users students schools school_classes teachers teacher_assignments subjects \
   attendance fee_structures fee_invoices fee_payments timetable_periods exams \
@@ -82,15 +83,30 @@ NULL_USERNAMES="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -A
 [[ "$NULL_USERNAMES" == "0" ]] || fail "Users without usernames remain."
 NULL_CODES="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM students WHERE student_code IS NULL OR BTRIM(student_code)='';")"
 [[ "$NULL_CODES" == "0" ]] || fail "Students without Student IDs remain."
-
 printf 'No production migration or seed SQL will be executed by this release.\n'
 
-log "4/8 Run the exact production-equivalent TypeScript build gate"
-PROJECT_DIR="$PROJECT_DIR" bash "$PROJECT_DIR/scripts/build-production-native.sh"
+log "4/9 Create isolated release worktree"
+mkdir -p "$RELEASES_DIR"
+RELEASE_DIR="$RELEASES_DIR/$LOCAL_SHA"
+if [[ -e "$RELEASE_DIR" ]]; then
+  git worktree remove --force "$RELEASE_DIR" >/dev/null 2>&1 || rm -rf "$RELEASE_DIR"
+  git worktree prune
+fi
+git worktree add --detach "$RELEASE_DIR" "$LOCAL_SHA"
+[[ "$(git -C "$RELEASE_DIR" rev-parse HEAD)" == "$LOCAL_SHA" ]] || fail "Release worktree commit mismatch."
 
-log "5/8 Reload native PM2 applications from version-controlled runtime config"
-cd "$PROJECT_DIR"
-pm2 startOrReload ecosystem.config.cjs --update-env
+cp -p "$BACKEND_ENV" "$RELEASE_DIR/backend/.env"
+for env_name in .env .env.local .env.production .env.production.local; do
+  if [[ -f "$PROJECT_DIR/frontend/$env_name" ]]; then
+    cp -p "$PROJECT_DIR/frontend/$env_name" "$RELEASE_DIR/frontend/$env_name"
+  fi
+done
+
+log "5/9 Build and certify the isolated release"
+PROJECT_DIR="$RELEASE_DIR" bash "$RELEASE_DIR/scripts/build-production-native.sh"
+
+log "6/9 Switch PM2 to the certified release"
+pm2 startOrReload "$RELEASE_DIR/ecosystem.config.cjs" --update-env
 pm2 save
 
 for i in {1..40}; do
@@ -107,23 +123,28 @@ for i in {1..40}; do
 done
 
 API_SCRIPT="$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_exec_path' | head -1)"
-[[ "$API_SCRIPT" == "$PROJECT_DIR/backend/dist/index.js" ]] || fail "vs-api is not running compiled dist/index.js; found '$API_SCRIPT'"
+API_CWD="$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_cwd' | head -1)"
+WEB_CWD="$(pm2 jlist | jq -r '.[] | select(.name=="vs-web") | .pm2_env.pm_cwd' | head -1)"
+[[ "$API_SCRIPT" == "$RELEASE_DIR/backend/dist/index.js" ]] || fail "vs-api is not running the staged compiled artifact; found '$API_SCRIPT'"
+[[ "$API_CWD" == "$RELEASE_DIR/backend" ]] || fail "vs-api cwd mismatch: '$API_CWD'"
+[[ "$WEB_CWD" == "$RELEASE_DIR/frontend" ]] || fail "vs-web cwd mismatch: '$WEB_CWD'"
 
-log "6/8 Run local non-destructive role smoke checks"
-cd "$PROJECT_DIR"
+log "7/9 Run local non-destructive role smoke checks"
+cd "$RELEASE_DIR"
 API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/student-production-smoke.sh
 API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/school-production-smoke.sh
 API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/parent-admin-production-smoke.sh
 
-log "7/8 Validate existing Nginx and public routes without rewriting configuration"
+log "8/9 Validate existing Nginx and public routes without rewriting configuration"
 [[ -f "$NGINX_SITE" ]] || fail "Nginx site file not found: $NGINX_SITE"
 nginx -t
 WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/student-production-smoke.sh
 WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/school-production-smoke.sh
 WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/parent-admin-production-smoke.sh
 
-log "8/8 Report release state"
+log "9/9 Record active release and report status"
+ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
 pm2 status
-printf '\nNative release deployment completed.\nCommit: %s\nBackup: %s\n' "$LOCAL_SHA" "$SAFETY_DUMP"
+printf '\nNative release deployment completed.\nCommit: %s\nRelease: %s\nBackup: %s\n' "$LOCAL_SHA" "$RELEASE_DIR" "$SAFETY_DUMP"
 printf 'API runtime: %s\n' "$API_SCRIPT"
 printf 'No Docker command, database migration, seed, or Nginx rewrite was executed.\n'
