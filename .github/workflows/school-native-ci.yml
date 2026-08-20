@@ -76,11 +76,17 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='fee_payments' AND column_name='receipt_number';")" = "1"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE username ~ '\\.[0-9a-f]{32}$';")" = "0"
 
-      - name: Install and syntax-check backend
-        working-directory: backend
+      - name: Build shared contracts and compiled backend
         run: |
+          cd shared/contracts
+          npm install --no-audit --no-fund
+          npm run build
+          cd ../../backend
           npm ci
-          find src -name '*.js' -print0 | xargs -0 -n1 node --check
+          npm run typecheck
+          npm run build
+          test -f dist/index.js
+          find src -name '*.js' -print0 | xargs -0 -r -n1 node --check
 
       - name: Start backend natively
         working-directory: backend

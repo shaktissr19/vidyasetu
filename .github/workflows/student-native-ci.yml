@@ -2,7 +2,7 @@ name: Student Native CI
 
 on:
   push:
-    branches: [student-e2e-identity, phase1-student-foundation, main]
+    branches: [student-e2e-identity, phase1-student-foundation, typescript-migration, main]
   workflow_dispatch:
 
 jobs:
@@ -71,11 +71,17 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.parent_link_requests') IS NOT NULL;")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE school_id IS NOT NULL AND school_link_status <> 'APPROVED';")" = "0"
 
-      - name: Install and syntax-check backend
-        working-directory: backend
+      - name: Build shared contracts and compiled backend
         run: |
+          cd shared/contracts
+          npm install --no-audit --no-fund
+          npm run build
+          cd ../../backend
           npm ci
-          find src -name '*.js' -print0 | xargs -0 -n1 node --check
+          npm run typecheck
+          npm run build
+          test -f dist/index.js
+          find src -name '*.js' -print0 | xargs -0 -r -n1 node --check
 
       - name: Start backend natively
         working-directory: backend
