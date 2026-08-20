@@ -10,6 +10,16 @@ interface CountRow extends QueryResultRow { count: string; }
 interface RevenueRow extends QueryResultRow { mrr: string | number; arr?: string | number; active_subscriptions?: string | number; }
 interface MutableRow extends QueryResultRow { id: UUID; [key: string]: unknown; }
 
+const currentSubscriptionCte = `
+  WITH latest_subscription AS (
+    SELECT DISTINCT ON (school_id)
+           school_id, to_plan, amount_paid, valid_from, valid_until, created_at
+    FROM subscription_events
+    WHERE valid_from <= NOW()
+    ORDER BY school_id, valid_from DESC, created_at DESC
+  )
+`;
+
 export async function getPlatformAnalytics() {
   const [students, schools, revenue, engagement, roleBreakdownResult] = await Promise.all([
     query(`
@@ -24,10 +34,11 @@ export async function getPlatformAnalytics() {
              COUNT(*) FILTER (WHERE plan != 'FREE') AS paid
       FROM schools
     `),
-    query<RevenueRow>(`
-      SELECT COALESCE(SUM(amount), 0) AS mrr
-      FROM subscription_events
-      WHERE starts_at <= NOW() AND expires_at >= NOW()
+    query<RevenueRow>(`${currentSubscriptionCte}
+      SELECT COALESCE(SUM(amount_paid), 0) AS mrr
+      FROM latest_subscription
+      WHERE (valid_until IS NULL OR valid_until >= NOW())
+        AND COALESCE(to_plan::text, 'FREE') != 'FREE'
     `),
     query(`
       SELECT COUNT(DISTINCT student_id) AS dau
@@ -71,17 +82,18 @@ export async function updateSchoolStatus(schoolId: UUID, status: string, adminId
 
   return transaction(async (client) => {
     const { rows: [school] } = await client.query<MutableRow>(
-      `UPDATE schools SET status = $1, ${status === 'ACTIVE' ? 'verified_at = NOW(), verified_by = $3, is_verified = TRUE,' : ''}
-       updated_at = NOW()
-       WHERE id = $2 RETURNING *`,
-      status === 'ACTIVE' ? [status, schoolId, adminId] : [status, schoolId],
+      `UPDATE schools
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [status, schoolId],
     );
     if (!school) throw Object.assign(new Error('School not found'), { statusCode: 404 });
 
     await client.query(
-      `INSERT INTO audit_log (actor_id, action, target_type, target_id, new_value)
-       VALUES ($1, $2, 'SCHOOL', $3, $4)`,
-      [adminId, `SCHOOL_${status}`, schoolId, JSON.stringify({ status })],
+      `INSERT INTO audit_log (actor_id, school_id, action, entity_type, entity_id, new_value)
+       VALUES ($1, $2, $3, 'school', $2, $4)`,
+      [adminId, schoolId, `SCHOOL_${status}`, JSON.stringify({ status })],
     );
     return school;
   });
@@ -138,9 +150,12 @@ export async function getSchoolDetail(schoolId: UUID) {
   if (!school) throw Object.assign(new Error('School not found'), { statusCode: 404 });
 
   const { rows: recentActivity } = await query(
-    `SELECT action, target_type, target_id, created_at
+    `SELECT action,
+            entity_type AS target_type,
+            entity_id AS target_id,
+            created_at
      FROM audit_log
-     WHERE target_id = $1 OR (target_type = 'SCHOOL' AND target_id = $1)
+     WHERE school_id = $1 OR (entity_type = 'school' AND entity_id = $1)
      ORDER BY created_at DESC LIMIT 10`,
     [schoolId],
   );
@@ -186,8 +201,8 @@ export async function updateUserStatus(targetUserId: UUID, status: string, admin
     );
     if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
     await client.query(
-      `INSERT INTO audit_log (actor_id, action, target_type, target_id, new_value)
-       VALUES ($1, $2, 'USER', $3, $4)`,
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, new_value)
+       VALUES ($1, $2, 'user', $3, $4)`,
       [adminId, `USER_${status}`, targetUserId, JSON.stringify({ status })],
     );
     return user;
@@ -195,26 +210,38 @@ export async function updateUserStatus(targetUserId: UUID, status: string, admin
 }
 
 export async function getRevenueAnalytics() {
-  const { rows: [mrr] } = await query<RevenueRow>(`
+  const { rows: [mrr] } = await query<RevenueRow>(`${currentSubscriptionCte}
     SELECT
-      COALESCE(SUM(amount), 0) AS mrr,
-      COALESCE(SUM(amount) * 12, 0) AS arr,
-      COUNT(*) AS active_subscriptions
-    FROM subscription_events
-    WHERE starts_at <= NOW() AND expires_at >= NOW()
+      COALESCE(SUM(amount_paid) FILTER (
+        WHERE (valid_until IS NULL OR valid_until >= NOW())
+          AND COALESCE(to_plan::text, 'FREE') != 'FREE'
+      ), 0) AS mrr,
+      COALESCE(SUM(amount_paid) FILTER (
+        WHERE (valid_until IS NULL OR valid_until >= NOW())
+          AND COALESCE(to_plan::text, 'FREE') != 'FREE'
+      ), 0) * 12 AS arr,
+      COUNT(*) FILTER (
+        WHERE (valid_until IS NULL OR valid_until >= NOW())
+          AND COALESCE(to_plan::text, 'FREE') != 'FREE'
+      ) AS active_subscriptions
+    FROM latest_subscription
   `);
-  const { rows: planBreakdown } = await query(`
-    SELECT plan, COUNT(*) AS school_count,
-           COALESCE(SUM(amount), 0) AS monthly_revenue
-    FROM subscription_events
-    WHERE starts_at <= NOW() AND expires_at >= NOW()
-    GROUP BY plan ORDER BY monthly_revenue DESC
+  const { rows: planBreakdown } = await query(`${currentSubscriptionCte}
+    SELECT COALESCE(to_plan::text, 'FREE') AS plan,
+           COUNT(*) AS school_count,
+           COALESCE(SUM(amount_paid), 0) AS monthly_revenue
+    FROM latest_subscription
+    WHERE valid_until IS NULL OR valid_until >= NOW()
+    GROUP BY COALESCE(to_plan::text, 'FREE')
+    ORDER BY monthly_revenue DESC
   `);
   const { rows: monthlyTrend } = await query(`
-    SELECT TO_CHAR(starts_at, 'YYYY-MM') AS month, SUM(amount) AS revenue
+    SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+           COALESCE(SUM(amount_paid), 0) AS revenue
     FROM subscription_events
-    WHERE starts_at >= NOW() - INTERVAL '12 months'
-    GROUP BY month ORDER BY month
+    WHERE created_at >= NOW() - INTERVAL '12 months'
+    GROUP BY DATE_TRUNC('month', created_at)
+    ORDER BY DATE_TRUNC('month', created_at)
   `);
   return { mrr: mrr?.mrr ?? 0, arr: mrr?.arr ?? 0, activeSubscriptions: mrr?.active_subscriptions ?? 0, planBreakdown, monthlyTrend };
 }
@@ -277,8 +304,8 @@ export async function updatePlatformConfig(key: string, value: unknown, adminId:
   );
   if (!cfg) throw Object.assign(new Error(`Config key '${key}' not found`), { statusCode: 404 });
   await query(
-    `INSERT INTO audit_log (actor_id, action, target_type, new_value)
-     VALUES ($1, 'CONFIG_UPDATE', 'PLATFORM_CONFIG', $2)`,
+    `INSERT INTO audit_log (actor_id, action, entity_type, new_value)
+     VALUES ($1, 'CONFIG_UPDATE', 'platform_config', $2)`,
     [adminId, JSON.stringify({ key, value })],
   );
   return cfg;
