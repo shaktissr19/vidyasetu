@@ -35,7 +35,10 @@ export default function AITutorPage() {
     setLoading(true);
 
     try {
-      const history = messages.slice(-10);
+      const history = messages.slice(-10).map(message => ({
+        role: message.role,
+        content: message.content,
+      }));
       const { data } = await chat(msg, history);
       setMessages(prev => [...prev, { role: 'assistant', content: String(data.data.response) }]);
     } catch (error: unknown) {
