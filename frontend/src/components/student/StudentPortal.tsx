@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import useAuthStore from '@/store/authStore';
 import { getDashboard } from '@/services/studentService';
+import { apiErrorStatus, apiErrorText } from '@/utils/errors';
+import type { StudentDashboard } from '@/types/api';
+import type { StudentSectionProps } from '@/types/studentPortal';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import DashboardSection from './sections/DashboardSection';
 import SubjectsSection from './sections/SubjectsSection';
@@ -18,7 +21,7 @@ import OfflineSection from './sections/OfflineSection';
 import ProfileSecuritySection from './sections/ProfileSecuritySection';
 import styles from './StudentPortal.module.css';
 
-const MENU = [
+const MENU: ReadonlyArray<readonly [string, string, string]> = [
   ['dashboard', '🏠', 'Dashboard'],
   ['subjects', '📚', 'My Subjects'],
   ['ai', '🤖', 'AI Tutor'],
@@ -30,8 +33,6 @@ const MENU = [
   ['offline', '📶', 'Offline Mode'],
   ['profile', '👤', 'Profile & Security'],
 ];
-
-function apiData(response) { return response?.data?.data; }
 
 export default function StudentPortal() {
   const router = useRouter();
@@ -51,24 +52,24 @@ export default function StudentPortal() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const dashboardQuery = useQuery({
+  const dashboardQuery = useQuery<StudentDashboard>({
     queryKey: ['student-dashboard'],
-    queryFn: async () => apiData(await getDashboard()),
+    queryFn: async () => (await getDashboard()).data.data,
     staleTime: 20_000,
     retry: 1,
   });
 
   const dashboard = dashboardQuery.data;
   const student = dashboard?.student;
+  const dashboardStatus = apiErrorStatus(dashboardQuery.error);
 
   useEffect(() => {
-    const status = dashboardQuery.error?.response?.status;
-    if (status === 401 || status === 403) {
+    if (dashboardStatus === 401 || dashboardStatus === 403) {
       router.replace('/login');
       return;
     }
-    if (status === 404) router.replace('/register?complete=1');
-  }, [dashboardQuery.error, router]);
+    if (dashboardStatus === 404) router.replace('/register?complete=1');
+  }, [dashboardStatus, router]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -77,21 +78,21 @@ export default function StudentPortal() {
     return 'Good Evening';
   }, []);
 
-  function goSection(id) {
+  function goSection(id: string): void {
     setSection(id);
     setSidebarOpen(false);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const shared = {
+  const shared: StudentSectionProps = {
     dashboard,
     student,
     notify: setToast,
     goSection,
-    refreshDashboard: dashboardQuery.refetch,
+    refreshDashboard: async () => dashboardQuery.refetch(),
   };
 
-  let content;
+  let content: ReactNode;
   switch (section) {
     case 'subjects': content = <SubjectsSection {...shared} />; break;
     case 'ai': content = <AITutorSection {...shared} />; break;
@@ -105,11 +106,11 @@ export default function StudentPortal() {
     default: content = <DashboardSection {...shared} greeting={greeting} />;
   }
 
-  if (dashboardQuery.isLoading || dashboardQuery.error?.response?.status === 404) {
+  if (dashboardQuery.isLoading || dashboardStatus === 404) {
     return (
       <div className={styles.shell}>
         <GlobalTopbar />
-        <div className={styles.loading}>{dashboardQuery.error?.response?.status === 404 ? 'Opening Student account setup…' : 'Loading your Student workspace…'}</div>
+        <div className={styles.loading}>{dashboardStatus === 404 ? 'Opening Student account setup…' : 'Loading your Student workspace…'}</div>
       </div>
     );
   }
@@ -120,7 +121,7 @@ export default function StudentPortal() {
         <GlobalTopbar />
         <div className={styles.loading}>
           <div>
-            <div className={styles.error}>{dashboardQuery.error?.response?.data?.error?.message || 'Could not load the Student workspace.'}</div>
+            <div className={styles.error}>{apiErrorText(dashboardQuery.error, 'Could not load the Student workspace.')}</div>
             <button className={styles.primary} onClick={() => dashboardQuery.refetch()}>Retry</button>
           </div>
         </div>
