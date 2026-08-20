@@ -1,10 +1,21 @@
 import '@/types/api';
 
 declare module '@/types/api' {
+  interface AdminUser {
+    email?: string | null;
+    language?: string | null;
+    created_at?: string | null;
+  }
+
+  interface AdminAnalytics {
+    roleBreakdown?: Array<{ role: string; count: string | number }>;
+  }
+
   interface CompetitionExam {
     registration_id?: string | null;
     attempt_status?: string | null;
     score?: string | number | null;
+    subject_codes?: string[] | null;
   }
 
   interface CompetitionLeaderboardRow {
