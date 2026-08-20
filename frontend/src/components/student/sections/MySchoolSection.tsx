@@ -1,14 +1,51 @@
 'use client';
 
+import type { StudentDashboard } from '@/types/api';
+import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-const DAY_LABEL = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday' };
+const DAY_LABEL: Record<string, string> = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday' };
 
-export default function MySchoolSection({ dashboard }) {
-  const student = dashboard?.student;
-  const link = dashboard?.schoolLink || {};
-  const timetable = dashboard?.timetable || [];
-  const announcements = dashboard?.announcements || [];
+interface SchoolLinkSummary {
+  school_note?: string | null;
+  request_status?: string | null;
+  requested_at?: string | null;
+  parent_linked?: boolean;
+  parent_link_pending?: boolean;
+}
+
+interface PortalTimetableRow {
+  id: string;
+  day: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  is_break?: boolean;
+  break_label?: string | null;
+  subject_code?: string | null;
+  teacher_name?: string | null;
+  room_number?: string | null;
+}
+
+interface PortalAnnouncement {
+  id: string;
+  is_pinned?: boolean;
+  title?: string | null;
+  body?: string | null;
+  published_at?: string | null;
+}
+
+type PortalDashboard = StudentDashboard & {
+  schoolLink?: SchoolLinkSummary;
+  timetable?: PortalTimetableRow[];
+  announcements?: PortalAnnouncement[];
+};
+
+export default function MySchoolSection({ dashboard }: StudentSectionProps) {
+  const portalDashboard = dashboard as PortalDashboard | undefined;
+  const student = portalDashboard?.student;
+  const link = portalDashboard?.schoolLink;
+  const timetable = portalDashboard?.timetable || [];
+  const announcements = portalDashboard?.announcements || [];
   const days = [...new Set(timetable.map(row => row.day))];
 
   return (
@@ -58,7 +95,7 @@ export default function MySchoolSection({ dashboard }) {
               <div style={{ display: 'grid', gap: 8 }}>
                 {timetable.filter(row => row.day === day).map(row => (
                   <div key={row.id} className={styles.activity}>
-                    <div style={{ minWidth: 82, fontWeight: 700 }}>{String(row.start_time || '').slice(0,5)}–{String(row.end_time || '').slice(0,5)}</div>
+                    <div style={{ minWidth: 82, fontWeight: 700 }}>{String(row.start_time || '').slice(0, 5)}–{String(row.end_time || '').slice(0, 5)}</div>
                     <div>
                       <div className={styles.activityText}>{row.is_break ? (row.break_label || 'Break') : (row.subject_code || 'Class')}</div>
                       <div className={styles.activityMeta}>{row.teacher_name || ''}{row.room_number ? ` · Room ${row.room_number}` : ''}</div>
@@ -76,7 +113,7 @@ export default function MySchoolSection({ dashboard }) {
         {announcements.map(item => (
           <div className={styles.activity} key={item.id}>
             <span className={styles.activityDot} style={{ background: item.is_pinned ? '#ff6b00' : '#1565c0' }} />
-            <div><div className={styles.activityText}>{item.is_pinned ? '📌 ' : ''}{item.title}</div><div className={styles.activityMeta}>{item.body}<br />{new Date(item.published_at).toLocaleString('en-IN')}</div></div>
+            <div><div className={styles.activityText}>{item.is_pinned ? '📌 ' : ''}{item.title}</div><div className={styles.activityMeta}>{item.body}<br />{item.published_at ? new Date(item.published_at).toLocaleString('en-IN') : '—'}</div></div>
           </div>
         ))}
         {!announcements.length && <div className={styles.empty}>{student?.schoolLinkStatus === 'APPROVED' ? 'No current school announcements.' : 'School announcements activate after approval.'}</div>}
