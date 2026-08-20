@@ -1,26 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getMe, setPassword, updateProfile } from '@/services/authService';
+import { useEffect, useState, type FormEvent } from 'react';
+import { getMe, setPassword, updateProfile, type SessionUser } from '@/services/authService';
 import useAuthStore from '@/store/authStore';
+import { apiErrorText } from '@/utils/errors';
+import type { StudentProfile } from '@/types/api';
+import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-const data = response => response?.data?.data;
-const err = error => error?.response?.data?.error?.message || error?.message || 'Request failed';
+type MeProfile = StudentProfile & SessionUser;
 
-export default function ProfileSecuritySection({ student, dashboard, notify, refreshDashboard }) {
+export default function ProfileSecuritySection({ student, dashboard, notify, refreshDashboard }: StudentSectionProps) {
   const { updateUser } = useAuthStore();
-  const [me, setMe] = useState(null);
+  const [me, setMe] = useState<MeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [form, setForm] = useState({ name: '', username: '', email: '', language: 'hi' });
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
-  async function load() {
+  async function load(): Promise<void> {
     setLoading(true);
     try {
-      const result = data(await getMe());
+      const result = (await getMe()).data.data;
       setMe(result);
       setForm({
         name: result?.name || '',
@@ -28,33 +30,33 @@ export default function ProfileSecuritySection({ student, dashboard, notify, ref
         email: result?.email || '',
         language: result?.language || 'hi',
       });
-    } catch (error) {
-      notify(`⚠️ ${err(error)}`);
+    } catch (error: unknown) {
+      notify(`⚠️ ${apiErrorText(error)}`);
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function saveProfile(event) {
+  async function saveProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setSaving(true);
     try {
-      const updated = data(await updateProfile({
+      const updated = (await updateProfile({
         name: form.name.trim(),
         username: form.username.trim().toLowerCase(),
         email: form.email.trim() || null,
         language: form.language,
-      }));
-      setMe(prev => ({ ...prev, ...updated }));
+      })).data.data;
+      setMe(prev => ({ ...(prev || updated as MeProfile), ...updated } as MeProfile));
       updateUser(updated);
       await refreshDashboard();
       notify('✅ Profile updated.');
-    } catch (error) {
-      notify(`⚠️ ${err(error)}`);
+    } catch (error: unknown) {
+      notify(`⚠️ ${apiErrorText(error)}`);
     } finally { setSaving(false); }
   }
 
-  async function changePassword(event) {
+  async function changePassword(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (passwords.newPassword.length < 8 || !/[A-Za-z]/.test(passwords.newPassword) || !/\d/.test(passwords.newPassword)) {
       notify('⚠️ New password needs at least 8 characters, one letter and one number.');
@@ -69,14 +71,15 @@ export default function ProfileSecuritySection({ student, dashboard, notify, ref
       await setPassword(passwords.currentPassword || null, passwords.newPassword);
       setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
       notify('✅ Password changed successfully.');
-    } catch (error) {
-      notify(`⚠️ ${err(error)}`);
+    } catch (error: unknown) {
+      notify(`⚠️ ${apiErrorText(error)}`);
     } finally { setPasswordSaving(false); }
   }
 
   if (loading) return <div className={styles.loading}>Loading Student account…</div>;
 
-  const schoolLink = dashboard?.schoolLink || {};
+  const dashboardWithSchoolLink = dashboard as (typeof dashboard & { schoolLink?: { parent_linked?: boolean; parent_link_pending?: boolean } }) | undefined;
+  const schoolLink = dashboardWithSchoolLink?.schoolLink;
 
   return (
     <>
@@ -100,10 +103,10 @@ export default function ProfileSecuritySection({ student, dashboard, notify, ref
         <div className={styles.card}>
           <div className={styles.cardTitle}>Edit Profile</div>
           <form onSubmit={saveProfile}>
-            <div className={styles.formGroup}><label className={styles.label}>Full Name</label><input className={styles.input} value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} /></div>
-            <div className={styles.formGroup}><label className={styles.label}>Username</label><input className={styles.input} value={form.username} onChange={e => setForm(v => ({ ...v, username: e.target.value.replace(/\s/g, '').toLowerCase() }))} /></div>
-            <div className={styles.formGroup}><label className={styles.label}>Email</label><input type="email" className={styles.input} value={form.email} onChange={e => setForm(v => ({ ...v, email: e.target.value }))} placeholder="Optional email address" /></div>
-            <div className={styles.formGroup}><label className={styles.label}>Preferred Language</label><select className={styles.select} value={form.language} onChange={e => setForm(v => ({ ...v, language: e.target.value }))}><option value="hi">Hindi</option><option value="en">English</option><option value="ta">Tamil</option><option value="te">Telugu</option><option value="mr">Marathi</option><option value="bn">Bengali</option><option value="gu">Gujarati</option><option value="kn">Kannada</option><option value="or">Odia</option></select></div>
+            <div className={styles.formGroup}><label className={styles.label}>Full Name</label><input className={styles.input} value={form.name} onChange={e => setForm(value => ({ ...value, name: e.target.value }))} /></div>
+            <div className={styles.formGroup}><label className={styles.label}>Username</label><input className={styles.input} value={form.username} onChange={e => setForm(value => ({ ...value, username: e.target.value.replace(/\s/g, '').toLowerCase() }))} /></div>
+            <div className={styles.formGroup}><label className={styles.label}>Email</label><input type="email" className={styles.input} value={form.email} onChange={e => setForm(value => ({ ...value, email: e.target.value }))} placeholder="Optional email address" /></div>
+            <div className={styles.formGroup}><label className={styles.label}>Preferred Language</label><select className={styles.select} value={form.language} onChange={e => setForm(value => ({ ...value, language: e.target.value }))}><option value="hi">Hindi</option><option value="en">English</option><option value="ta">Tamil</option><option value="te">Telugu</option><option value="mr">Marathi</option><option value="bn">Bengali</option><option value="gu">Gujarati</option><option value="kn">Kannada</option><option value="or">Odia</option></select></div>
             <button className={styles.primary} disabled={saving}>{saving ? 'Saving…' : 'Save Profile'}</button>
           </form>
         </div>
@@ -112,10 +115,10 @@ export default function ProfileSecuritySection({ student, dashboard, notify, ref
       <div className={styles.card}>
         <div className={styles.cardTitle}>🔐 Change Password</div>
         <form onSubmit={changePassword} style={{ maxWidth: 560 }}>
-          <div className={styles.formGroup}><label className={styles.label}>Current Password</label><input type="password" className={styles.input} value={passwords.currentPassword} onChange={e => setPasswords(v => ({ ...v, currentPassword: e.target.value }))} /></div>
+          <div className={styles.formGroup}><label className={styles.label}>Current Password</label><input type="password" className={styles.input} value={passwords.currentPassword} onChange={e => setPasswords(value => ({ ...value, currentPassword: e.target.value }))} /></div>
           <div className={styles.twoCol}>
-            <div className={styles.formGroup}><label className={styles.label}>New Password</label><input type="password" className={styles.input} value={passwords.newPassword} onChange={e => setPasswords(v => ({ ...v, newPassword: e.target.value }))} placeholder="8+ chars, letter + number" /></div>
-            <div className={styles.formGroup}><label className={styles.label}>Confirm New Password</label><input type="password" className={styles.input} value={passwords.confirmPassword} onChange={e => setPasswords(v => ({ ...v, confirmPassword: e.target.value }))} /></div>
+            <div className={styles.formGroup}><label className={styles.label}>New Password</label><input type="password" className={styles.input} value={passwords.newPassword} onChange={e => setPasswords(value => ({ ...value, newPassword: e.target.value }))} placeholder="8+ chars, letter + number" /></div>
+            <div className={styles.formGroup}><label className={styles.label}>Confirm New Password</label><input type="password" className={styles.input} value={passwords.confirmPassword} onChange={e => setPasswords(value => ({ ...value, confirmPassword: e.target.value }))} /></div>
           </div>
           <button className={styles.primary} disabled={passwordSaving}>{passwordSaving ? 'Changing…' : 'Change Password'}</button>
         </form>
