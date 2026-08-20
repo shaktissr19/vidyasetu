@@ -6,41 +6,52 @@ import { formatDate, formatCurrency } from '@/utils/formatters';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
+const STATUS_NEXT: Record<string, string> = {
+  DRAFT: 'REGISTRATION_OPEN',
+  REGISTRATION_OPEN: 'LIVE',
+  LIVE: 'COMPLETED',
+};
+const STATUS_ACTION: Record<string, string> = {
+  DRAFT: 'Open Registration',
+  REGISTRATION_OPEN: 'Go Live',
+  LIVE: 'End Exam',
+};
+
 export default function AdminCompetitionsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
-    title: '', classNames: ['6','7','8','9','10'], startTime: '', endTime: '',
+    title: '', classNames: ['6', '7', '8', '9', '10'], startTime: '', endTime: '',
     durationMins: 60, totalQuestions: 50, totalMarks: 100, prizePool: '', type: 'COMPETITION',
   });
 
   const { data: exams = [], isLoading } = useQuery({
     queryKey: ['competitions-list'],
-    queryFn:  () => listCompetitions().then(r => r.data.data),
+    queryFn: () => listCompetitions().then((r) => r.data.data),
   });
 
   const createMut = useMutation({
     mutationFn: createExam,
-    onSuccess:  () => { toast.success('🏆 Competition created!'); qc.invalidateQueries(['competitions-list']); setShowForm(false); },
-    onError:    () => toast.error('Failed to create competition'),
+    onSuccess: () => {
+      toast.success('🏆 Competition created!');
+      qc.invalidateQueries({ queryKey: ['competitions-list'] });
+      setShowForm(false);
+    },
+    onError: () => toast.error('Failed to create competition'),
   });
 
   const statusMut = useMutation({
-    mutationFn: ({ id, status }) => updateExamStatus(id, status),
-    onSuccess:  () => { toast.success('Status updated!'); qc.invalidateQueries(['competitions-list']); },
+    mutationFn: ({ id, status }: { id: string; status: string }) => updateExamStatus(id, status),
+    onSuccess: () => {
+      toast.success('Status updated!');
+      qc.invalidateQueries({ queryKey: ['competitions-list'] });
+    },
   });
-
-  const STATUS_NEXT = {
-    DRAFT: 'REGISTRATION_OPEN', REGISTRATION_OPEN: 'LIVE', LIVE: 'COMPLETED',
-  };
-  const STATUS_ACTION = {
-    DRAFT: 'Open Registration', REGISTRATION_OPEN: 'Go Live', LIVE: 'End Exam',
-  };
 
   return (
     <div className="animate-fade-up">
       <SectionHeader title="🏆 Competition Manager">
-        <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
+        <button className="btn-primary" onClick={() => setShowForm((v) => !v)}>
           {showForm ? '✕ Cancel' : '+ Create Competition'}
         </button>
       </SectionHeader>
@@ -51,34 +62,34 @@ export default function AdminCompetitionsPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Exam Title *</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 placeholder="e.g., May Maths Olympiad 2026" className="input"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
             </div>
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Prize Pool (₹)</label>
-              <input type="number" value={form.prizePool} onChange={e => setForm(f => ({ ...f, prizePool: e.target.value }))}
+              <input type="number" value={form.prizePool} onChange={(e) => setForm((f) => ({ ...f, prizePool: e.target.value }))}
                 placeholder="500000" className="input"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
             </div>
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Start Time *</label>
-              <input type="datetime-local" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+              <input type="datetime-local" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
                 className="input" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
             </div>
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)' }}>End Time *</label>
-              <input type="datetime-local" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+              <input type="datetime-local" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
                 className="input" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
             </div>
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Duration (mins)</label>
-              <input type="number" value={form.durationMins} onChange={e => setForm(f => ({ ...f, durationMins: parseInt(e.target.value) }))}
+              <input type="number" value={form.durationMins} onChange={(e) => setForm((f) => ({ ...f, durationMins: parseInt(e.target.value) }))}
                 className="input" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
             </div>
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Total Questions</label>
-              <input type="number" value={form.totalQuestions} onChange={e => setForm(f => ({ ...f, totalQuestions: parseInt(e.target.value) }))}
+              <input type="number" value={form.totalQuestions} onChange={(e) => setForm((f) => ({ ...f, totalQuestions: parseInt(e.target.value) }))}
                 className="input" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
             </div>
           </div>
@@ -90,7 +101,7 @@ export default function AdminCompetitionsPage() {
       )}
 
       <div className="space-y-3">
-        {exams.map(exam => (
+        {exams.map((exam) => (
           <div key={exam.id} className="card-navy">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>

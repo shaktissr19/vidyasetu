@@ -2,37 +2,39 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getConfig, updateConfig } from '@/services/adminService';
-import { SectionHeader, CardSkeleton } from '@/components/ui/index';
+import { SectionHeader } from '@/components/ui/index';
+import type { PlatformConfigItem } from '@/types/api';
 import toast from 'react-hot-toast';
 
-const GROUPS = {
-  'Gamification':  ['XP_PER_LESSON','XP_PER_QUIZ_PASS','XP_PER_QUIZ_PERFECT','XP_STREAK_BONUS_7D','XP_STREAK_BONUS_30D'],
-  'Auth & OTP':    ['OTP_EXPIRY_MINUTES','OTP_MAX_ATTEMPTS','LOCKOUT_DURATION_MINUTES'],
-  'Plans & Limits':['FREE_PLAN_MAX_STUDENTS','BASIC_PLAN_MAX_STUDENTS','PRO_PLAN_MAX_STUDENTS','WHATSAPP_DAILY_LIMIT','CONTENT_MAX_SIZE_MB'],
-  'Payments':      ['RAZORPAY_FEE_PCT'],
-  'Sync':          ['OFFLINE_SYNC_INTERVAL_MINS'],
+const GROUPS: Record<string, string[]> = {
+  Gamification: ['XP_PER_LESSON', 'XP_PER_QUIZ_PASS', 'XP_PER_QUIZ_PERFECT', 'XP_STREAK_BONUS_7D', 'XP_STREAK_BONUS_30D'],
+  'Auth & OTP': ['OTP_EXPIRY_MINUTES', 'OTP_MAX_ATTEMPTS', 'LOCKOUT_DURATION_MINUTES'],
+  'Plans & Limits': ['FREE_PLAN_MAX_STUDENTS', 'BASIC_PLAN_MAX_STUDENTS', 'PRO_PLAN_MAX_STUDENTS', 'WHATSAPP_DAILY_LIMIT', 'CONTENT_MAX_SIZE_MB'],
+  Payments: ['RAZORPAY_FEE_PCT'],
+  Sync: ['OFFLINE_SYNC_INTERVAL_MINS'],
 };
 
 export default function AdminSettingsPage() {
   const qc = useQueryClient();
-  const [editing, setEditing] = useState({});
+  const [editing, setEditing] = useState<Record<string, string | number>>({});
 
   const { data: config = [], isLoading } = useQuery({
     queryKey: ['platform-config'],
-    queryFn:  () => getConfig().then(r => r.data.data),
+    queryFn: () => getConfig().then((r) => r.data.data),
   });
 
   const mut = useMutation({
-    mutationFn: ({ key, value }) => updateConfig(key, value),
+    mutationFn: ({ key, value }: { key: string; value: string | number }) => updateConfig(key, value),
     onSuccess: (_, { key }) => {
       toast.success(`✅ ${key} updated`);
-      setEditing(e => { const n = { ...e }; delete n[key]; return n; });
-      qc.invalidateQueries(['platform-config']);
+      setEditing((current) => { const next = { ...current }; delete next[key]; return next; });
+      qc.invalidateQueries({ queryKey: ['platform-config'] });
     },
     onError: () => toast.error('Update failed'),
   });
 
-  const configMap = Object.fromEntries((config || []).map(c => [c.key, c]));
+  const configMap: Record<string, PlatformConfigItem> = {};
+  for (const item of config) configMap[item.key] = item;
 
   if (isLoading) return (
     <div className="animate-fade-up">
@@ -49,7 +51,7 @@ export default function AdminSettingsPage() {
         <div key={group} className="card-navy mb-5">
           <h3 className="font-display font-bold text-base text-white mb-4">{group}</h3>
           <div className="space-y-3">
-            {keys.map(key => {
+            {keys.map((key) => {
               const cfg = configMap[key];
               if (!cfg) return null;
               const isEditing = key in editing;
@@ -64,7 +66,7 @@ export default function AdminSettingsPage() {
                       <input
                         type="number"
                         value={editing[key]}
-                        onChange={e => setEditing(prev => ({ ...prev, [key]: e.target.value }))}
+                        onChange={(e) => setEditing((prev) => ({ ...prev, [key]: e.target.value }))}
                         style={{ width: 90, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,107,0,0.5)', background: 'rgba(255,107,0,0.1)', color: 'white', fontSize: '0.875rem', textAlign: 'center' }}
                       />
                       <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.75rem' }}
@@ -73,7 +75,7 @@ export default function AdminSettingsPage() {
                         Save
                       </button>
                       <button className="btn-ghost" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}
-                        onClick={() => setEditing(e => { const n = { ...e }; delete n[key]; return n; })}>
+                        onClick={() => setEditing((current) => { const next = { ...current }; delete next[key]; return next; })}>
                         ✕
                       </button>
                     </div>
@@ -83,7 +85,7 @@ export default function AdminSettingsPage() {
                         {cfg.value}
                       </span>
                       <button className="btn-ghost" style={{ padding: '5px 10px', fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}
-                        onClick={() => setEditing(e => ({ ...e, [key]: cfg.value }))}>
+                        onClick={() => setEditing((current) => ({ ...current, [key]: cfg.value }))}>
                         Edit
                       </button>
                     </div>

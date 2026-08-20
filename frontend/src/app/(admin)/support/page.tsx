@@ -4,78 +4,79 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTickets, updateTicket } from '@/services/adminService';
 import { SectionHeader, StatusBadge, TableSkeleton, EmptyState } from '@/components/ui/index';
 import { formatDate, timeAgo } from '@/utils/formatters';
+import type { SupportTicket } from '@/types/api';
 import toast from 'react-hot-toast';
 
-const PRIORITY_COLOR = { LOW: 'badge-blue', MEDIUM: 'badge-orange', HIGH: 'badge-red', CRITICAL: 'badge-red' };
+const PRIORITY_COLOR: Record<string, string> = { LOW: 'badge-blue', MEDIUM: 'badge-orange', HIGH: 'badge-red', CRITICAL: 'badge-red' };
 
 export default function AdminSupportPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState('OPEN');
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<SupportTicket | null>(null);
+  const [resolution, setResolution] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['support-tickets', filter],
-    queryFn:  () => getTickets({ status: filter }).then(r => r.data.data),
+    queryFn: () => getTickets({ status: filter }).then((r) => r.data.data),
   });
 
   const tickets = data || [];
 
   const resolveMut = useMutation({
-    mutationFn: ({ id, resolution }) => updateTicket(id, { status: 'RESOLVED', resolution }),
-    onSuccess: () => { toast.success('Ticket resolved ✅'); setSelected(null); qc.invalidateQueries(['support-tickets']); },
-    onError:   () => toast.error('Failed to update ticket'),
+    mutationFn: ({ id, resolution: note }: { id: string; resolution: string }) => updateTicket(id, { status: 'RESOLVED', resolution: note }),
+    onSuccess: () => {
+      toast.success('Ticket resolved ✅');
+      setSelected(null);
+      qc.invalidateQueries({ queryKey: ['support-tickets'] });
+    },
+    onError: () => toast.error('Failed to update ticket'),
   });
-
-  const [resolution, setResolution] = useState('');
 
   return (
     <div className="animate-fade-up">
       <SectionHeader title="🎧 Support Tickets" sub={`${tickets.length} ${filter.toLowerCase()} tickets`} />
 
-      {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {['OPEN','IN_PROGRESS','RESOLVED','CLOSED'].map(s => (
-          <button key={s} onClick={() => setFilter(s)}
+        {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map((status) => (
+          <button key={status} onClick={() => setFilter(status)}
             style={{
               padding: '6px 14px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
               border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-              background: filter === s ? 'rgba(255,107,0,0.2)' : 'rgba(255,255,255,0.06)',
-              color: filter === s ? 'var(--saffron-light)' : 'rgba(255,255,255,0.5)',
-            }}>{s.replace('_',' ')}</button>
+              background: filter === status ? 'rgba(255,107,0,0.2)' : 'rgba(255,255,255,0.06)',
+              color: filter === status ? 'var(--saffron-light)' : 'rgba(255,255,255,0.5)',
+            }}>{status.replace('_', ' ')}</button>
         ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 380px' : '1fr', gap: 16 }}>
-        {/* Ticket list */}
         <div className="card-navy" style={{ padding: 0, overflow: 'hidden' }}>
           {isLoading ? <TableSkeleton rows={6} cols={4} /> :
            tickets.length === 0 ? <EmptyState icon="🎉" title="No tickets" sub={`No ${filter.toLowerCase()} tickets`} /> : (
-            tickets.map(tk => (
-              <div key={tk.id} onClick={() => { setSelected(tk); setResolution(''); }}
+            tickets.map((ticket) => (
+              <div key={ticket.id} onClick={() => { setSelected(ticket); setResolution(''); }}
                 style={{
                   padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
                   cursor: 'pointer', transition: 'background 0.15s',
-                  background: selected?.id === tk.id ? 'rgba(255,107,0,0.08)' : 'transparent',
+                  background: selected?.id === ticket.id ? 'rgba(255,107,0,0.08)' : 'transparent',
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-                      <span className={`badge ${PRIORITY_COLOR[tk.priority]}`}>{tk.priority}</span>
-                      {tk.category && <span className="badge badge-blue">{tk.category}</span>}
+                      <span className={`badge ${PRIORITY_COLOR[ticket.priority] || 'badge-blue'}`}>{ticket.priority}</span>
+                      {ticket.category && <span className="badge badge-blue">{ticket.category}</span>}
                     </div>
-                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'white' }}>{tk.subject}</p>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'white' }}>{ticket.subject}</p>
                     <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>
-                      {tk.school_name || 'Platform'} · {timeAgo(tk.created_at)}
+                      {ticket.school_name || 'Platform'} · {timeAgo(ticket.created_at)}
                     </p>
                   </div>
-                  <StatusBadge status={tk.status} />
+                  <StatusBadge status={ticket.status} />
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {/* Detail panel */}
         {selected && (
           <div className="card-navy animate-fade-in" style={{ height: 'fit-content' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -99,7 +100,7 @@ export default function AdminSupportPage() {
                 <>
                   <textarea
                     value={resolution}
-                    onChange={e => setResolution(e.target.value)}
+                    onChange={(e) => setResolution(e.target.value)}
                     placeholder="Write resolution note..."
                     rows={3}
                     style={{
