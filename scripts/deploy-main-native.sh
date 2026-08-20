@@ -85,13 +85,11 @@ NULL_CODES="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "
 [[ "$NULL_CODES" == "0" ]] || fail "Students without Student IDs remain."
 printf 'No production migration or seed SQL will be executed by this release.\n'
 
-log "4/9 Create isolated release worktree"
+log "4/9 Create isolated immutable release worktree"
 mkdir -p "$RELEASES_DIR"
-RELEASE_DIR="$RELEASES_DIR/$LOCAL_SHA"
-if [[ -e "$RELEASE_DIR" ]]; then
-  git worktree remove --force "$RELEASE_DIR" >/dev/null 2>&1 || rm -rf "$RELEASE_DIR"
-  git worktree prune
-fi
+RELEASE_ID="$(date +%Y%m%d%H%M%S)-${LOCAL_SHA:0:12}"
+RELEASE_DIR="$RELEASES_DIR/$RELEASE_ID"
+[[ ! -e "$RELEASE_DIR" ]] || fail "Release directory already exists: $RELEASE_DIR"
 git worktree add --detach "$RELEASE_DIR" "$LOCAL_SHA"
 [[ "$(git -C "$RELEASE_DIR" rev-parse HEAD)" == "$LOCAL_SHA" ]] || fail "Release worktree commit mismatch."
 
