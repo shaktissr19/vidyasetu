@@ -3,17 +3,21 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getLeaderboard } from '@/services/studentService';
+import { apiErrorText } from '@/utils/errors';
+import type { LeaderboardRow } from '@/types/api';
+import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-const data = r => r?.data?.data;
-const err = e => e?.response?.data?.error?.message || e?.message || 'Leaderboard could not be loaded';
+type Scope = 'class' | 'school';
 
-export default function LeaderboardSection({ student }) {
-  const [scope, setScope] = useState('class');
-  const leaderboardQuery = useQuery({
+export default function LeaderboardSection({ student }: StudentSectionProps) {
+  const [scope, setScope] = useState<Scope>('class');
+  const leaderboardQuery = useQuery<LeaderboardRow[]>({
     queryKey: ['student-leaderboard', scope],
-    queryFn: async () => data(await getLeaderboard(scope)) || [],
+    queryFn: async () => (await getLeaderboard(scope)).data.data || [],
   });
+
+  const rows = leaderboardQuery.data || [];
 
   return (
     <>
@@ -25,17 +29,21 @@ export default function LeaderboardSection({ student }) {
         <button className={scope === 'school' ? styles.scopeActive : ''} onClick={() => setScope('school')}>Whole School</button>
       </div>
       {leaderboardQuery.isLoading && <div className={styles.loading}>Calculating rankings…</div>}
-      {leaderboardQuery.isError && <div className={styles.error}>{err(leaderboardQuery.error)}</div>}
+      {leaderboardQuery.isError && <div className={styles.error}>{apiErrorText(leaderboardQuery.error, 'Leaderboard could not be loaded')}</div>}
       <div className={styles.card}>
-        {(leaderboardQuery.data || []).map(row => (
-          <div className={`${styles.leaderRow} ${row.is_me ? styles.leaderMe : ''}`} key={row.student_id}>
-            <div className={styles.rank}>{Number(row.rank) === 1 ? '🥇' : Number(row.rank) === 2 ? '🥈' : Number(row.rank) === 3 ? '🥉' : `#${row.rank}`}</div>
-            <div className={styles.leaderAvatar}>{row.name?.toLowerCase().includes('priya') || row.name?.toLowerCase().includes('ananya') ? '👧' : '👦'}</div>
-            <div className={styles.leaderName}>{row.name}{row.is_me ? ' (You)' : ''}<div className={styles.leaderSub}>Class {row.class_name}-{row.section} · Level {row.xp_level} · 🔥 {row.streak_current || 0}</div></div>
-            <div className={styles.leaderXP}>{Number(row.xp_total || 0).toLocaleString('en-IN')} XP</div>
-          </div>
-        ))}
-        {!leaderboardQuery.isLoading && !(leaderboardQuery.data || []).length && <div className={styles.empty}>No ranked students found.</div>}
+        {rows.map((row, index) => {
+          const rank = Number(row.rank || index + 1);
+          const name = row.name || row.student_name || 'Student';
+          return (
+            <div className={`${styles.leaderRow} ${row.is_me || row.is_current_user ? styles.leaderMe : ''}`} key={row.student_id || row.id || `${rank}-${name}`}>
+              <div className={styles.rank}>{rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}</div>
+              <div className={styles.leaderAvatar}>{name.toLowerCase().includes('priya') || name.toLowerCase().includes('ananya') ? '👧' : '👦'}</div>
+              <div className={styles.leaderName}>{name}{row.is_me || row.is_current_user ? ' (You)' : ''}<div className={styles.leaderSub}>Class {row.class_name || '—'}{row.section ? `-${row.section}` : ''} · Level {row.xp_level || '—'} · 🔥 {row.streak_current || 0}</div></div>
+              <div className={styles.leaderXP}>{Number(row.xp_total ?? row.xp ?? 0).toLocaleString('en-IN')} XP</div>
+            </div>
+          );
+        })}
+        {!leaderboardQuery.isLoading && !rows.length && <div className={styles.empty}>No ranked students found.</div>}
       </div>
     </>
   );
