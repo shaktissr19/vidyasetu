@@ -184,7 +184,8 @@ export async function getChildDashboard(parentUserId: UUID, studentId: UUID) {
     ),
     approvedSchool ? query(
       `SELECT fi.id, fi.invoice_number, fi.amount_due, fi.amount_paid, fi.status, fi.due_date, fi.term,
-              fp.payment_mode, fp.payment_date, fp.receipt_number
+              fi.razorpay_payment_link,
+              fp.mode AS payment_mode, fp.paid_at AS payment_date, fp.receipt_url, fp.transaction_ref
        FROM fee_invoices fi
        LEFT JOIN fee_payments fp ON fp.invoice_id = fi.id
        WHERE fi.student_id = $1 AND fi.academic_year = $2
@@ -405,7 +406,8 @@ export async function getChildTeacher(parentUserId: UUID, studentId: UUID) {
 export async function getChildFees(parentUserId: UUID, studentId: UUID) {
   await assertParentLink(parentUserId, studentId);
   const { rows } = await query(
-    `SELECT fi.*, fp.payment_mode, fp.payment_date, fp.receipt_number
+    `SELECT fi.*,
+            fp.mode AS payment_mode, fp.paid_at AS payment_date, fp.receipt_url, fp.transaction_ref
      FROM fee_invoices fi
      LEFT JOIN fee_payments fp ON fp.invoice_id = fi.id
      WHERE fi.student_id = $1
