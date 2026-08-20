@@ -1,19 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import axios from 'axios';
+import type { UserRole } from '@vidyasetu/contracts';
 import {
   loginWithPassword,
   sendOTP,
   verifyOTP,
   forgotPassword,
   resetPassword,
+  type AuthSessionPayload,
 } from '@/services/authService';
 import useAuthStore from '@/store/authStore';
 import { useRedirectIfLoggedIn } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 
-const ROLES = [
+const ROLES: Array<{ key: UserRole; label: string }> = [
   { key: 'STUDENT', label: '🎓 Student' },
   { key: 'PARENT', label: '👩 Parent' },
   { key: 'SCHOOL_ADMIN', label: '🏫 School' },
@@ -21,7 +24,7 @@ const ROLES = [
   { key: 'SUPER_ADMIN', label: '⚙️ Admin' },
 ];
 
-const ROLE_DASHBOARDS = {
+const ROLE_DASHBOARDS: Record<UserRole, string> = {
   STUDENT: '/student',
   SCHOOL_ADMIN: '/school/overview',
   TEACHER: '/school/overview',
@@ -29,7 +32,15 @@ const ROLE_DASHBOARDS = {
   SUPER_ADMIN: '/admin/analytics',
 };
 
-function roleFromParam(params) {
+interface SearchParamsLike {
+  get: (name: string) => string | null;
+}
+
+interface RoleMismatchError extends Error {
+  roleMismatch?: boolean;
+}
+
+function roleFromParam(params: SearchParamsLike): UserRole {
   const value = params.get('role');
   if (value === 'school') return 'SCHOOL_ADMIN';
   if (value === 'teacher') return 'TEACHER';
@@ -38,7 +49,17 @@ function roleFromParam(params) {
   return 'STUDENT';
 }
 
-const errorText = (err, fallback) => err?.response?.data?.error?.message || fallback;
+function errorText(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { error?: { message?: string } } | undefined;
+    return data?.error?.message || fallback;
+  }
+  return err instanceof Error ? err.message || fallback : fallback;
+}
+
+function isRoleMismatchError(err: unknown): err is RoleMismatchError {
+  return err instanceof Error && 'roleMismatch' in err;
+}
 
 export default function LoginPage() {
   useRedirectIfLoggedIn();
@@ -46,8 +67,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
 
-  const [role, setRole] = useState(() => roleFromParam(params));
-  const [method, setMethod] = useState('password');
+  const [role, setRole] = useState<UserRole>(() => roleFromParam(params));
+  const [method, setMethod] = useState<'password' | 'otp'>('password');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [mobile, setMobile] = useState('');
@@ -62,7 +83,7 @@ export default function LoginPage() {
   const identifierLabel = role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email';
   const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email';
 
-  function completeLogin(payload) {
+  function completeLogin(payload: AuthSessionPayload) {
     const { accessToken, refreshToken, user } = payload;
     if (user.role !== role) {
       throw Object.assign(new Error(`This account is registered as ${user.role.replaceAll('_', ' ').toLowerCase()}. Select the matching login tab.`), { roleMismatch: true });
@@ -72,19 +93,19 @@ export default function LoginPage() {
     router.replace(ROLE_DASHBOARDS[user.role] || '/');
   }
 
-  async function handlePasswordLogin(event) {
+  async function handlePasswordLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (identifier.trim().length < 3 || !password) return toast.error(`Enter your ${identifierLabel.toLowerCase()} and password`);
     setLoading(true);
     try {
       const response = await loginWithPassword(identifier.trim(), password, navigator.userAgent);
       completeLogin(response.data.data);
-    } catch (err) {
-      toast.error(err.roleMismatch ? err.message : errorText(err, 'Login failed'));
+    } catch (err: unknown) {
+      toast.error(isRoleMismatchError(err) && err.roleMismatch ? err.message : errorText(err, 'Login failed'));
     } finally { setLoading(false); }
   }
 
-  async function handleSendOTP(event) {
+  async function handleSendOTP(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (mobile.length !== 10) return toast.error('Enter a valid 10-digit mobile number');
     setLoading(true);
@@ -93,12 +114,12 @@ export default function LoginPage() {
       setOtpSent(true);
       toast.success(`OTP sent to +91-${mobile}`);
       if (response.data?.data?.otp) toast(`Dev OTP: ${response.data.data.otp}`, { duration: 10000, icon: '🔑' });
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(errorText(err, 'Failed to send OTP'));
     } finally { setLoading(false); }
   }
 
-  async function handleVerifyOTP(event) {
+  async function handleVerifyOTP(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (otp.length !== 6) return toast.error('Enter the 6-digit OTP');
     setLoading(true);
@@ -111,12 +132,12 @@ export default function LoginPage() {
         return;
       }
       completeLogin(payload);
-    } catch (err) {
-      toast.error(err.roleMismatch ? err.message : errorText(err, 'Invalid OTP'));
+    } catch (err: unknown) {
+      toast.error(isRoleMismatchError(err) && err.roleMismatch ? err.message : errorText(err, 'Invalid OTP'));
     } finally { setLoading(false); }
   }
 
-  async function handleRecoverySend(event) {
+  async function handleRecoverySend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (identifier.trim().length < 3) return toast.error(`Enter your ${identifierLabel.toLowerCase()} first`);
     setLoading(true);
@@ -125,12 +146,12 @@ export default function LoginPage() {
       setRecoverySent(true);
       toast.success(`Recovery OTP sent to ${response.data?.data?.maskedMobile || 'your registered mobile'}`);
       if (response.data?.data?.otp) toast(`Dev OTP: ${response.data.data.otp}`, { duration: 10000, icon: '🔑' });
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(errorText(err, 'Could not start password recovery'));
     } finally { setLoading(false); }
   }
 
-  async function handleReset(event) {
+  async function handleReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     try {
@@ -141,7 +162,7 @@ export default function LoginPage() {
       setRecoveryOtp('');
       setPassword('');
       setNewPassword('');
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(errorText(err, 'Password reset failed'));
     } finally { setLoading(false); }
   }
@@ -183,7 +204,7 @@ export default function LoginPage() {
           <p className="text-sm mb-5" style={{ color: 'var(--slate)' }}>Choose your account type and sign-in method.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--saffron-pale)' }}>
-            {ROLES.map(item => (
+            {ROLES.map((item) => (
               <button key={item.key} onClick={() => setRole(item.key)} className="py-2 px-1 rounded-lg text-xs font-bold"
                 style={{ background: role === item.key ? 'white' : 'transparent', color: role === item.key ? 'var(--saffron)' : 'var(--slate)', boxShadow: role === item.key ? '0 2px 8px rgba(255,107,0,.15)' : 'none' }}>
                 {item.label}
@@ -209,13 +230,13 @@ export default function LoginPage() {
               <h3 className="font-display font-bold text-xl mb-1" style={{ color: 'var(--navy)' }}>Reset password</h3>
               <p className="text-sm mb-4" style={{ color: 'var(--slate)' }}>We will verify the registered mobile number with OTP.</p>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>{identifierLabel}</label>
-              <input className="input mb-4" value={identifier} onChange={e => setIdentifier(e.target.value)} disabled={recoverySent} placeholder={identifierPlaceholder} />
+              <input className="input mb-4" value={identifier} onChange={(e) => setIdentifier(e.target.value)} disabled={recoverySent} placeholder={identifierPlaceholder} />
               {recoverySent && (
                 <>
                   <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Recovery OTP</label>
-                  <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={recoveryOtp} onChange={e => setRecoveryOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" />
+                  <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={recoveryOtp} onChange={(e) => setRecoveryOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" />
                   <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>New password</label>
-                  <input className="input mb-4" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="8+ characters with a letter and number" />
+                  <input className="input mb-4" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="8+ characters with a letter and number" />
                 </>
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : recoverySent ? 'Reset Password' : 'Send Recovery OTP'}</button>
@@ -224,12 +245,12 @@ export default function LoginPage() {
           ) : method === 'password' ? (
             <form onSubmit={handlePasswordLogin}>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>{identifierLabel}</label>
-              <input className="input mb-4" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={identifierPlaceholder} autoFocus />
+              <input className="input mb-4" value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={identifierPlaceholder} autoFocus />
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-semibold" style={{ color: 'var(--navy)' }}>Password</label>
                 <button type="button" onClick={() => setRecovery(true)} className="text-xs font-semibold" style={{ color: 'var(--saffron)' }}>Forgot password?</button>
               </div>
-              <input className="input mb-4" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" />
+              <input className="input mb-4" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">{loading ? 'Signing in…' : 'Sign In →'}</button>
             </form>
           ) : (
@@ -237,10 +258,10 @@ export default function LoginPage() {
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Registered Mobile Number</label>
               <div className="flex gap-2 mb-4">
                 <div className="px-3 py-2.5 rounded-xl text-sm font-semibold" style={{ background: '#F0F4F8', border: '1.5px solid var(--border)' }}>+91</div>
-                <input type="tel" maxLength={10} className="input flex-1" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, ''))} disabled={otpSent} placeholder="10-digit mobile number" />
+                <input type="tel" maxLength={10} className="input flex-1" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))} disabled={otpSent} placeholder="10-digit mobile number" />
               </div>
               {otpSent && (
-                <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoFocus />
+                <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoFocus />
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : otpSent ? 'Verify & Login →' : 'Send OTP →'}</button>
               {otpSent && <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setOtpSent(false); setOtp(''); }}>← Change number</button>}

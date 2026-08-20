@@ -15,7 +15,7 @@ type Payload = Record<string, unknown>;
 
 export const getProfileStatus = () => api.get<ApiEnvelope<{ complete?: boolean; profileComplete?: boolean; student?: StudentProfile }>>('/student/profile/status');
 export const getProfileSetupOptions = () => api.get<ApiEnvelope<Record<string, unknown>>>('/student/profile/setup-options');
-export const completeStudentProfile = (payload: Payload) => api.post<ApiEnvelope<StudentProfile>>('/student/profile/complete', payload);
+export const completeStudentProfile = (payload: Payload) => api.post<ApiEnvelope<{ message?: string; student: StudentProfile & { studentCode?: string | null; schoolLinkStatus?: string | null } }>>('/student/profile/complete', payload);
 
 export const getDashboard = () => api.get<ApiEnvelope<StudentDashboard>>('/student/dashboard');
 export const getAttendance = (year: string | number, month: string | number) => api.get<ApiEnvelope<AttendanceSummary>>(`/student/attendance/${year}/${month}`);
