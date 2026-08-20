@@ -1,15 +1,16 @@
 'use client';
 
+import type { StudentDashboardSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-function formatExamDate(value) {
+function formatExamDate(value: string | number | Date | null | undefined): string {
   if (!value) return 'Date TBA';
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 }
 
-export default function DashboardSection({ dashboard, student, greeting, goSection }) {
-  const attendance = dashboard?.monthlyAttendance || {};
-  const academic = dashboard?.academic || {};
+export default function DashboardSection({ dashboard, student, greeting, goSection }: StudentDashboardSectionProps) {
+  const attendance = dashboard?.monthlyAttendance;
+  const academic = dashboard?.academic;
   const subjects = dashboard?.subjectProgress || [];
   const exams = dashboard?.upcomingExams || [];
   const recentResults = dashboard?.recentResults || [];
@@ -44,18 +45,18 @@ export default function DashboardSection({ dashboard, student, greeting, goSecti
       <div className={styles.statGrid}>
         <div className={styles.stat} style={{ '--accent': '#1565C0' }}>
           <div className={styles.statLabel}>Academic Average</div>
-          <div className={styles.statValue}>{academic.average != null ? `${academic.average}%` : '—'}</div>
-          <div className={styles.statSub}>{academic.scoredSchoolTests || 0} scored school tests</div>
+          <div className={styles.statValue}>{academic?.average != null ? `${academic.average}%` : '—'}</div>
+          <div className={styles.statSub}>{academic?.scoredSchoolTests || 0} scored school tests</div>
         </div>
         <div className={styles.stat} style={{ '--accent': '#138808' }}>
           <div className={styles.statLabel}>Attendance</div>
-          <div className={styles.statValue}>{attendance.percentage != null ? `${Number(attendance.percentage).toFixed(0)}%` : '—'}</div>
-          <div className={styles.statSub}>{student?.schoolLinkStatus === 'APPROVED' ? `${attendance.present_days || 0}/${attendance.working_days || 0} working days this month` : 'Available after school approval'}</div>
+          <div className={styles.statValue}>{attendance?.percentage != null ? `${Number(attendance.percentage).toFixed(0)}%` : '—'}</div>
+          <div className={styles.statSub}>{student?.schoolLinkStatus === 'APPROVED' ? `${attendance?.present_days || 0}/${attendance?.working_days || 0} working days this month` : 'Available after school approval'}</div>
         </div>
         <div className={styles.stat} style={{ '--accent': '#7B1FA2' }}>
           <div className={styles.statLabel}>Academic Rank</div>
-          <div className={styles.statValue}>{academic.classRank ? `#${academic.classRank}` : '—'}</div>
-          <div className={styles.statSub}>{academic.schoolRank ? `School rank #${academic.schoolRank}` : 'Based on scored school tests'}</div>
+          <div className={styles.statValue}>{academic?.classRank ? `#${academic.classRank}` : '—'}</div>
+          <div className={styles.statSub}>{academic?.schoolRank ? `School rank #${academic.schoolRank}` : 'Based on scored school tests'}</div>
         </div>
         <div className={styles.stat} style={{ '--accent': '#FF6B00' }}>
           <div className={styles.statLabel}>Learning Progress</div>
@@ -68,7 +69,7 @@ export default function DashboardSection({ dashboard, student, greeting, goSecti
         <div className={styles.card}>
           <div className={styles.cardTitle}>📚 Subject Progress</div>
           {subjects.length ? subjects.map(subject => (
-            <div className={styles.subjectProgress} key={subject.subject_id}>
+            <div className={styles.subjectProgress} key={subject.subject_id || subject.id}>
               <span className={styles.subjectProgressName}>{subject.name}</span>
               <div className={styles.smallTrack}><div className={styles.smallFill} style={{ width: `${Number(subject.progress_pct || 0)}%`, background: subject.color_hex || '#ff6b00' }} /></div>
               <span className={styles.subjectPct}>{Number(subject.progress_pct || 0)}%</span>
@@ -82,7 +83,7 @@ export default function DashboardSection({ dashboard, student, greeting, goSecti
           {exams.slice(0, 2).map(exam => (
             <div className={styles.activity} key={exam.id}>
               <span className={styles.activityDot} style={{ background: exam.status === 'LIVE' ? '#138808' : '#ff6b00' }} />
-              <div><div className={styles.activityText}>{exam.status === 'LIVE' ? 'Live now: ' : 'Upcoming: '}{exam.title}</div><div className={styles.activityMeta}>{formatExamDate(exam.start_time)} · {exam.duration_mins} mins</div></div>
+              <div><div className={styles.activityText}>{exam.status === 'LIVE' ? 'Live now: ' : 'Upcoming: '}{exam.title}</div><div className={styles.activityMeta}>{formatExamDate(exam.start_time)} · {exam.duration_mins || 0} mins</div></div>
             </div>
           ))}
           {weakest && Number(weakest.progress_pct || 0) < 100 && (
@@ -98,7 +99,7 @@ export default function DashboardSection({ dashboard, student, greeting, goSecti
             </div>
           ))}
           {Number(dashboard?.unreadNotifications || 0) > 0 && (
-            <div className={styles.activity}><span className={styles.activityDot} style={{ background: '#C62828' }} /><div><div className={styles.activityText}>{dashboard.unreadNotifications} unread notification{dashboard.unreadNotifications === 1 ? '' : 's'}</div><div className={styles.activityMeta}>Open My School / account alerts to review them.</div></div></div>
+            <div className={styles.activity}><span className={styles.activityDot} style={{ background: '#C62828' }} /><div><div className={styles.activityText}>{dashboard?.unreadNotifications} unread notification{Number(dashboard?.unreadNotifications) === 1 ? '' : 's'}</div><div className={styles.activityMeta}>Open My School / account alerts to review them.</div></div></div>
           )}
           {!exams.length && !weakest && !announcements.length && !dashboard?.unreadNotifications && <div className={styles.empty}>You are all caught up.</div>}
         </div>
