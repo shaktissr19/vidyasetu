@@ -1,8 +1,12 @@
+const path = require('path');
+
+const releaseRoot = __dirname;
+
 module.exports = {
   apps: [
     {
       name: 'vs-api',
-      cwd: '/var/www/vidyasetu/backend',
+      cwd: path.join(releaseRoot, 'backend'),
       script: 'dist/index.js',
       exec_mode: 'fork',
       instances: 1,
@@ -14,7 +18,7 @@ module.exports = {
     },
     {
       name: 'vs-web',
-      cwd: '/var/www/vidyasetu/frontend',
+      cwd: path.join(releaseRoot, 'frontend'),
       script: 'npm',
       args: 'start',
       exec_mode: 'fork',
