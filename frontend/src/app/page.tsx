@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
 import { logout as apiLogout } from '@/services/authService';
 
-const ROLE_DESTINATIONS = {
+const ROLE_DESTINATIONS: Record<UserRole, string> = {
   STUDENT:      '/student',
   SCHOOL_ADMIN: '/school/overview',
   TEACHER:      '/school/overview',
@@ -26,7 +27,7 @@ export default function LandingPage() {
   useEffect(() => {
     const target = new Date(Date.now() + 3 * 86400000 + 14 * 3600000);
     const timer = setInterval(() => {
-      const diff = target - new Date();
+      const diff = target.getTime() - Date.now();
       if (diff <= 0) return clearInterval(timer);
       setCd({
         d: String(Math.floor(diff / 86400000)).padStart(2, '0'),
@@ -38,9 +39,9 @@ export default function LandingPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const t = (en, hi) => (mounted && lang === 'hi') ? hi : en;
+  const t = (en: string, hi: string): string => (mounted && lang === 'hi') ? hi : en;
   const sessionActive = mounted && isLoggedIn;
-  const dashboardPath = ROLE_DESTINATIONS[user?.role] || '/';
+  const dashboardPath = user?.role ? ROLE_DESTINATIONS[user.role] : '/';
   const go = () => router.push(sessionActive ? dashboardPath : '/login');
 
   async function handleLogout() {
@@ -289,8 +290,8 @@ export default function LandingPage() {
         <div style={{ display: 'flex', gap: 28, justifyContent: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
           {['About', 'Privacy', 'Terms', 'Contact', 'CSR / Govt'].map(l => (
             <a key={l} href="#" style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: '0.85rem', transition: 'color 0.2s' }}
-              onMouseEnter={e => e.target.style.color = '#FF9A3C'}
-              onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.45)'}>{l}</a>
+              onMouseEnter={e => e.currentTarget.style.color = '#FF9A3C'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}>{l}</a>
           ))}
         </div>
         <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem' }}>
