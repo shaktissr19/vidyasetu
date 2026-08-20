@@ -19,6 +19,16 @@ export interface StudentAttendanceData {
   summary: AttendanceSummary | null;
 }
 
+export interface StudentOfflineDownloadsData {
+  items: OfflineDownload[];
+  summary: {
+    itemCount: number;
+    totalSizeKb: number;
+    totalSizeMb: number;
+    syncedCount: number;
+  };
+}
+
 export const getProfileStatus = () => api.get<ApiEnvelope<{ complete?: boolean; profileComplete?: boolean; student?: StudentProfile }>>('/student/profile/status');
 export const getProfileSetupOptions = () => api.get<ApiEnvelope<Record<string, unknown>>>('/student/profile/setup-options');
 export const completeStudentProfile = (payload: Payload) => api.post<ApiEnvelope<{ message?: string; student: StudentProfile & { studentCode?: string | null; schoolLinkStatus?: string | null } }>>('/student/profile/complete', payload);
@@ -31,5 +41,5 @@ export const getReportCard = (term?: string | number | null, year?: string | num
 export const markContentComplete = (itemId: string) => api.post<ApiEnvelope<{ completed?: boolean }>>(`/student/content/${itemId}/complete`);
 export const getNotifications = () => api.get<ApiEnvelope<ParentNotification[]>>('/student/notifications');
 export const markNotifRead = (id: string) => api.patch<ApiEnvelope<{ id: string; is_read?: boolean }>>(`/student/notifications/${id}/read`);
-export const getOfflineDownloads = () => api.get<ApiEnvelope<OfflineDownload[]>>('/student/offline-downloads');
+export const getOfflineDownloads = () => api.get<ApiEnvelope<StudentOfflineDownloadsData>>('/student/offline-downloads');
 export const removeOfflineDownload = (contentItemId: string) => api.delete<ApiEnvelope<{ removed?: boolean }>>(`/student/offline-downloads/${contentItemId}`);
