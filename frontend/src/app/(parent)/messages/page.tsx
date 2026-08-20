@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChildren, getMessages, sendMessage } from '@/services/parentService';
 import { SectionHeader } from '@/components/ui/index';
@@ -12,27 +12,39 @@ export default function MessagesPage() {
   const { t } = useLanguageStore();
   const { user } = useAuthStore();
   const qc = useQueryClient();
-  const [selectedChild, setSelectedChild] = useState(null);
+  const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [msgText, setMsgText] = useState('');
-  const bottomRef = useRef(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const { data: children = [] } = useQuery({
     queryKey: ['parent-children'],
-    queryFn:  () => getChildren().then(r => r.data.data),
-    onSuccess: d => { if (d.length && !selectedChild) setSelectedChild(d[0]?.id); },
+    queryFn: () => getChildren().then((r) => r.data.data),
   });
+
+  useEffect(() => {
+    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
+  }, [children, selectedChild]);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['parent-messages', selectedChild],
-    queryFn:  () => getMessages(selectedChild).then(r => r.data.data),
-    enabled:  !!selectedChild,
+    queryFn: async () => {
+      if (!selectedChild) throw new Error('No child selected');
+      return getMessages(selectedChild).then((r) => r.data.data);
+    },
+    enabled: !!selectedChild,
     refetchInterval: 15000,
   });
 
   const sendMut = useMutation({
-    mutationFn: () => sendMessage(selectedChild, msgText),
-    onSuccess:  () => { qc.invalidateQueries(['parent-messages', selectedChild]); setMsgText(''); },
-    onError:    () => toast.error('Failed to send message'),
+    mutationFn: async () => {
+      if (!selectedChild) throw new Error('No child selected');
+      return sendMessage(selectedChild, msgText);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['parent-messages', selectedChild] });
+      setMsgText('');
+    },
+    onError: () => toast.error('Failed to send message'),
   });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -43,11 +55,11 @@ export default function MessagesPage() {
 
       {children.length > 1 && (
         <div className="flex gap-2 mb-4 flex-wrap">
-          {children.map(c => (
-            <button key={c.id} onClick={() => setSelectedChild(c.id)}
+          {children.map((child) => (
+            <button key={child.id} onClick={() => setSelectedChild(child.id)}
               className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-              style={{ background: selectedChild === c.id ? 'var(--forest)' : 'white', color: selectedChild === c.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === c.id ? 'var(--forest)' : 'var(--border)'}` }}>
-              {c.name.split(' ')[0]}
+              style={{ background: selectedChild === child.id ? 'var(--forest)' : 'white', color: selectedChild === child.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}` }}>
+              {child.name.split(' ')[0]}
             </button>
           ))}
         </div>
@@ -71,17 +83,17 @@ export default function MessagesPage() {
                   <p className="font-semibold" style={{ color: 'var(--navy)' }}>{t('कोई संदेश नहीं', 'No messages yet')}</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>{t('शिक्षक को संदेश भेजें', 'Send a message to the teacher')}</p>
                 </div>
-              ) : messages.map((m, i) => {
-                const isMe = m.sent_by === user?.id;
+              ) : messages.map((message, i) => {
+                const isMe = (message.sent_by ?? message.sender_id) === user?.id;
                 return (
-                  <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div key={message.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                     {!isMe && <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm mr-2 flex-shrink-0" style={{ background: 'var(--forest-pale)' }}>👩‍🏫</div>}
                     <div className="max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed"
                       style={isMe
                         ? { background: 'linear-gradient(135deg, var(--forest), var(--forest-light))', color: 'white', borderRadius: '14px 4px 14px 14px' }
                         : { background: '#F0F7F2', color: 'var(--navy)', borderRadius: '4px 14px 14px 14px' }}>
-                      {m.body}
-                      <p className="text-xs mt-1 opacity-60">{timeAgo(m.created_at)}</p>
+                      {message.body}
+                      <p className="text-xs mt-1 opacity-60">{timeAgo(message.created_at)}</p>
                     </div>
                   </div>
                 );
@@ -90,7 +102,7 @@ export default function MessagesPage() {
           </div>
 
           <div className="p-3 flex gap-2" style={{ borderTop: '1.5px solid var(--border)' }}>
-            <input value={msgText} onChange={e => setMsgText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && msgText.trim() && sendMut.mutate()}
+            <input value={msgText} onChange={(e) => setMsgText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && msgText.trim() && sendMut.mutate()}
               placeholder={t('शिक्षक को संदेश लिखें...', 'Type a message to the teacher...')}
               className="input flex-1" />
             <button onClick={() => msgText.trim() && sendMut.mutate()} disabled={!msgText.trim() || sendMut.isPending}

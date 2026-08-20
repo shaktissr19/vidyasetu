@@ -5,7 +5,7 @@ import { NotifItem } from '@/components/ui/index';
 import { timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
 
-const NOTIF_ICONS = {
+const NOTIF_ICONS: Record<string, string> = {
   ATTENDANCE_ABSENT: '📅', ATTENDANCE_LATE: '⏰',
   FEE_DUE: '💰', FEE_OVERDUE: '🔴', FEE_RECEIVED: '✅',
   EXAM_REMINDER: '📝', RESULT_PUBLISHED: '📊',
@@ -17,10 +17,10 @@ export default function NotificationsPage() {
   const { t } = useLanguageStore();
   const { data: notifs = [], isLoading } = useQuery({
     queryKey: ['parent-notifications'],
-    queryFn:  () => getNotifications().then(r => r.data.data),
+    queryFn: () => getNotifications().then((r) => r.data.data),
   });
 
-  const unreadCount = notifs.filter(n => !n.read_at).length;
+  const unreadCount = notifs.filter((notification) => !notification.read_at).length;
 
   return (
     <div className="animate-fade-up">
@@ -46,14 +46,14 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="stagger">
-          {notifs.map((n, i) => (
-            <div key={n.id} className="animate-fade-up">
+          {notifs.map((notification) => (
+            <div key={notification.id} className="animate-fade-up">
               <NotifItem
-                icon={NOTIF_ICONS[n.type] || '🔔'}
-                title={n.title}
-                body={n.body}
-                time={timeAgo(n.created_at)}
-                unread={!n.read_at}
+                icon={NOTIF_ICONS[notification.type] || '🔔'}
+                title={notification.title}
+                body={notification.body}
+                time={timeAgo(notification.created_at || notification.sent_at)}
+                unread={!notification.read_at}
               />
             </div>
           ))}

@@ -1,4 +1,6 @@
 type DateInput = string | number | Date | null | undefined;
+export type Grade = 'A+' | 'A' | 'B+' | 'B' | 'C' | 'D' | 'F';
+export interface GradeDisplay { grade: Grade; color: string; }
 
 export function formatDate(date: DateInput): string {
   if (!date) return '—';
@@ -31,7 +33,7 @@ export function xpToLevel(xp = 0) {
   return { level, progress, nextXP, current };
 }
 
-export function gradeFromScore(pct: number): 'A+' | 'A' | 'B+' | 'B' | 'C' | 'D' | 'F' {
+function gradeForPercentage(pct: number): Grade {
   if (pct >= 90) return 'A+';
   if (pct >= 80) return 'A';
   if (pct >= 70) return 'B+';
@@ -39,6 +41,23 @@ export function gradeFromScore(pct: number): 'A+' | 'A' | 'B+' | 'B' | 'C' | 'D'
   if (pct >= 50) return 'C';
   if (pct >= 40) return 'D';
   return 'F';
+}
+
+function colorForGrade(grade: Grade): string {
+  if (grade === 'A+' || grade === 'A') return 'var(--forest)';
+  if (grade === 'B+' || grade === 'B') return 'var(--navy)';
+  if (grade === 'C' || grade === 'D') return 'var(--saffron)';
+  return '#C62828';
+}
+
+export function gradeFromScore(pct: number): Grade;
+export function gradeFromScore(score: number | string, total: number | string): GradeDisplay;
+export function gradeFromScore(score: number | string, total?: number | string): Grade | GradeDisplay {
+  const pct = total == null
+    ? Number(score)
+    : Number(total) > 0 ? (Number(score) / Number(total)) * 100 : 0;
+  const grade = gradeForPercentage(pct);
+  return total == null ? grade : { grade, color: colorForGrade(grade) };
 }
 
 export function attendanceColor(pct: number): string {

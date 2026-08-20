@@ -1,7 +1,7 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getChildren, getChildFees } from '@/services/parentService';
-import { useState } from 'react';
 import { SectionHeader, StatusBadge } from '@/components/ui/index';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
@@ -9,22 +9,32 @@ import toast from 'react-hot-toast';
 
 export default function ParentFeesPage() {
   const { t } = useLanguageStore();
-  const [selectedChild, setSelectedChild] = useState(null);
+  const [selectedChild, setSelectedChild] = useState<string | null>(null);
 
   const { data: children = [] } = useQuery({
     queryKey: ['parent-children'],
-    queryFn:  () => getChildren().then(r => r.data.data),
-    onSuccess: d => { if (d.length && !selectedChild) setSelectedChild(d[0]?.id); },
+    queryFn: () => getChildren().then((r) => r.data.data),
   });
+
+  useEffect(() => {
+    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
+  }, [children, selectedChild]);
 
   const { data: fees = [], isLoading } = useQuery({
     queryKey: ['parent-fees', selectedChild],
-    queryFn:  () => getChildFees(selectedChild).then(r => r.data.data),
-    enabled:  !!selectedChild,
+    queryFn: async () => {
+      if (!selectedChild) throw new Error('No child selected');
+      return getChildFees(selectedChild).then((r) => r.data.data);
+    },
+    enabled: !!selectedChild,
   });
 
-  const totalDue  = fees.filter(f => ['PENDING','OVERDUE'].includes(f.status)).reduce((s, f) => s + parseFloat(f.amount_due - f.amount_paid), 0);
-  const totalPaid = fees.filter(f => f.status === 'PAID').reduce((s, f) => s + parseFloat(f.amount_paid), 0);
+  const totalDue = fees
+    .filter((fee) => ['PENDING', 'OVERDUE'].includes(fee.status))
+    .reduce((sum, fee) => sum + (Number(fee.amount_due) - Number(fee.amount_paid)), 0);
+  const totalPaid = fees
+    .filter((fee) => fee.status === 'PAID')
+    .reduce((sum, fee) => sum + Number(fee.amount_paid), 0);
 
   return (
     <div className="animate-fade-up">
@@ -38,11 +48,11 @@ export default function ParentFeesPage() {
 
       {children.length > 1 && (
         <div className="flex gap-2 mb-4 flex-wrap">
-          {children.map(c => (
-            <button key={c.id} onClick={() => setSelectedChild(c.id)}
+          {children.map((child) => (
+            <button key={child.id} onClick={() => setSelectedChild(child.id)}
               className="px-4 py-1.5 rounded-full text-sm font-bold transition-all"
-              style={{ background: selectedChild === c.id ? 'var(--forest)' : 'white', color: selectedChild === c.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === c.id ? 'var(--forest)' : 'var(--border)'}` }}>
-              {c.name.split(' ')[0]}
+              style={{ background: selectedChild === child.id ? 'var(--forest)' : 'white', color: selectedChild === child.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}` }}>
+              {child.name.split(' ')[0]}
             </button>
           ))}
         </div>
@@ -76,15 +86,15 @@ export default function ParentFeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {fees.map((f, i) => (
-                  <tr key={i}>
-                    <td className="font-semibold">{t('टर्म', 'Term')} {f.term}</td>
-                    <td className="font-bold">{formatCurrency(f.amount_due)}</td>
-                    <td style={{ color: 'var(--forest)', fontWeight: 600 }}>{formatCurrency(f.amount_paid)}</td>
-                    <td>{formatDate(f.due_date)}</td>
-                    <td><StatusBadge status={f.status} /></td>
+                {fees.map((fee, i) => (
+                  <tr key={fee.id || i}>
+                    <td className="font-semibold">{t('टर्म', 'Term')} {fee.term}</td>
+                    <td className="font-bold">{formatCurrency(fee.amount_due)}</td>
+                    <td style={{ color: 'var(--forest)', fontWeight: 600 }}>{formatCurrency(fee.amount_paid)}</td>
+                    <td>{formatDate(fee.due_date)}</td>
+                    <td><StatusBadge status={fee.status} /></td>
                     <td>
-                      {f.status === 'PAID' ? (
+                      {fee.status === 'PAID' ? (
                         <button className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ background: 'var(--forest-pale)', color: 'var(--forest)' }}
                           onClick={() => toast('📄 Downloading receipt...')}>
                           {t('रसीद', 'Receipt')}
