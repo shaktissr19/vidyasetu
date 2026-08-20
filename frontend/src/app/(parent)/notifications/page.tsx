@@ -1,6 +1,6 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
-import { getNotifications } from '@/services/parentService';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from '@/services/parentService';
 import { NotifItem } from '@/components/ui/index';
 import { timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
@@ -15,16 +15,26 @@ const NOTIF_ICONS: Record<string, string> = {
 
 export default function NotificationsPage() {
   const { t } = useLanguageStore();
+  const qc = useQueryClient();
   const { data: notifs = [], isLoading } = useQuery({
     queryKey: ['parent-notifications'],
     queryFn: () => getNotifications().then((r) => r.data.data),
+  });
+
+  const markOne = useMutation({
+    mutationFn: (notificationId: string) => markNotificationRead(notificationId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['parent-notifications'] }),
+  });
+  const markAll = useMutation({
+    mutationFn: () => markAllNotificationsRead(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['parent-notifications'] }),
   });
 
   const unreadCount = notifs.filter((notification) => !notification.read_at).length;
 
   return (
     <div className="animate-fade-up">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="font-display font-extrabold text-2xl" style={{ color: 'var(--forest)' }}>
             🔔 {t('सूचनाएँ', 'Notifications')}
@@ -35,6 +45,11 @@ export default function NotificationsPage() {
             </p>
           )}
         </div>
+        {unreadCount > 0 && (
+          <button className="btn-green" disabled={markAll.isPending} onClick={() => markAll.mutate()}>
+            ✓ {t('सभी पढ़ा हुआ', 'Mark all read')}
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -47,7 +62,10 @@ export default function NotificationsPage() {
       ) : (
         <div className="stagger">
           {notifs.map((notification) => (
-            <div key={notification.id} className="animate-fade-up">
+            <button key={notification.id} type="button"
+              className="animate-fade-up block w-full text-left"
+              disabled={Boolean(notification.read_at) || markOne.isPending}
+              onClick={() => !notification.read_at && markOne.mutate(notification.id)}>
               <NotifItem
                 icon={NOTIF_ICONS[notification.type] || '🔔'}
                 title={notification.title}
@@ -55,7 +73,7 @@ export default function NotificationsPage() {
                 time={timeAgo(notification.created_at || notification.sent_at)}
                 unread={!notification.read_at}
               />
-            </div>
+            </button>
           ))}
         </div>
       )}
