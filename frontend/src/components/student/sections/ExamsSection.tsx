@@ -4,19 +4,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listMyExams, registerExam, startAttempt, submitAttempt } from '@/services/competitionService';
 import { apiErrorText } from '@/utils/errors';
-import type { CompetitionExam, ExamAttemptResult } from '@/types/api';
+import type { CompetitionExam, ExamAttempt, ExamAttemptQuestion, ExamAttemptResult } from '@/types/api';
 import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-interface PortalExam extends CompetitionExam {
+type PortalExam = CompetitionExam & {
+  subject_codes?: string[] | null;
   max_marks?: string | number | null;
   marks_per_question?: string | number | null;
-  total_marks?: string | number | null;
   correct_count?: number | null;
   rank_school?: string | number | null;
   rank_overall?: string | number | null;
   attempt_id?: string | null;
-}
+};
+
+type PortalQuestionSource = ExamAttemptQuestion & {
+  option_a?: string | null;
+  option_b?: string | null;
+  option_c?: string | null;
+  option_d?: string | null;
+};
 
 interface PortalQuestion {
   id: string;
@@ -40,6 +47,12 @@ interface PortalAttempt {
   questions: PortalQuestion[];
 }
 
+type PortalAttemptExam = CompetitionExam & {
+  totalQuestions?: number;
+  durationMins?: number;
+  instructions?: string | null;
+};
+
 function niceDate(value: string | number | Date | null | undefined): string {
   if (!value) return 'TBA';
   return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
@@ -49,6 +62,33 @@ function statusClass(status: string): string {
   if (status === 'LIVE') return `${styles.status} ${styles.statusLive}`;
   if (status === 'COMPLETED') return `${styles.status} ${styles.statusCompleted}`;
   return `${styles.status} ${styles.statusRegistration}`;
+}
+
+function normalizeAttempt(payload: ExamAttempt): PortalAttempt {
+  const exam = payload.exam as PortalAttemptExam;
+  const questions = payload.questions.map(question => {
+    const row = question as PortalQuestionSource;
+    return {
+      id: row.id,
+      question_text: row.question_text || row.question || '',
+      option_a: row.option_a || row.options?.[0] || '',
+      option_b: row.option_b || row.options?.[1] || '',
+      option_c: row.option_c || row.options?.[2] || '',
+      option_d: row.option_d || row.options?.[3] || '',
+    };
+  });
+  return {
+    attemptId: payload.attemptId || payload.id || '',
+    endsAt: payload.endsAt,
+    exam: {
+      id: exam.id,
+      title: exam.title,
+      totalQuestions: exam.totalQuestions ?? exam.total_questions ?? questions.length,
+      durationMins: exam.durationMins ?? exam.duration_mins ?? 0,
+      instructions: exam.instructions,
+    },
+    questions,
+  };
 }
 
 export default function ExamsSection({ notify, refreshDashboard }: StudentSectionProps) {
@@ -83,7 +123,7 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
   const startMutation = useMutation({
     mutationFn: (examId: string) => startAttempt(examId),
     onSuccess: response => {
-      setAttempt(response.data.data as PortalAttempt);
+      setAttempt(normalizeAttempt(response.data.data));
       setAnswers({});
       setResult(null);
       setNow(Date.now());
