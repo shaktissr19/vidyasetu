@@ -3,32 +3,64 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listMyExams, registerExam, startAttempt, submitAttempt } from '@/services/competitionService';
+import { apiErrorText } from '@/utils/errors';
+import type { CompetitionExam, ExamAttemptResult } from '@/types/api';
+import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-const data = r => r?.data?.data;
-const err = e => e?.response?.data?.error?.message || e?.message || 'Exam request failed';
+interface PortalExam extends CompetitionExam {
+  max_marks?: string | number | null;
+  marks_per_question?: string | number | null;
+  total_marks?: string | number | null;
+  correct_count?: number | null;
+  rank_school?: string | number | null;
+  rank_overall?: string | number | null;
+  attempt_id?: string | null;
+}
 
-function niceDate(value) {
+interface PortalQuestion {
+  id: string;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+}
+
+interface PortalAttempt {
+  attemptId: string;
+  endsAt: string;
+  exam: {
+    id: string;
+    title: string;
+    totalQuestions: number;
+    durationMins: number;
+    instructions?: string | null;
+  };
+  questions: PortalQuestion[];
+}
+
+function niceDate(value: string | number | Date | null | undefined): string {
   if (!value) return 'TBA';
   return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-function statusClass(status) {
+function statusClass(status: string): string {
   if (status === 'LIVE') return `${styles.status} ${styles.statusLive}`;
   if (status === 'COMPLETED') return `${styles.status} ${styles.statusCompleted}`;
   return `${styles.status} ${styles.statusRegistration}`;
 }
 
-export default function ExamsSection({ notify, refreshDashboard }) {
+export default function ExamsSection({ notify, refreshDashboard }: StudentSectionProps) {
   const qc = useQueryClient();
-  const [attempt, setAttempt] = useState(null);
-  const [answers, setAnswers] = useState({});
-  const [result, setResult] = useState(null);
+  const [attempt, setAttempt] = useState<PortalAttempt | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<ExamAttemptResult | null>(null);
   const [now, setNow] = useState(Date.now());
 
-  const examsQuery = useQuery({
+  const examsQuery = useQuery<PortalExam[]>({
     queryKey: ['my-exams'],
-    queryFn: async () => data(await listMyExams()) || [],
+    queryFn: async () => (await listMyExams()).data.data as PortalExam[],
     refetchInterval: 60_000,
   });
 
@@ -39,47 +71,50 @@ export default function ExamsSection({ notify, refreshDashboard }) {
   }, [attempt]);
 
   const registerMutation = useMutation({
-    mutationFn: examId => registerExam(examId),
+    mutationFn: (examId: string) => registerExam(examId),
     onSuccess: async () => {
       notify('✅ Exam registration confirmed.');
       await qc.invalidateQueries({ queryKey: ['my-exams'] });
       await refreshDashboard();
     },
-    onError: e => notify(`⚠️ ${err(e)}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Exam request failed')}`),
   });
 
   const startMutation = useMutation({
-    mutationFn: examId => startAttempt(examId),
+    mutationFn: (examId: string) => startAttempt(examId),
     onSuccess: response => {
-      setAttempt(data(response));
+      setAttempt(response.data.data as PortalAttempt);
       setAnswers({});
       setResult(null);
       setNow(Date.now());
     },
-    onError: e => notify(`⚠️ ${err(e)}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Exam request failed')}`),
   });
 
   const submitMutation = useMutation({
-    mutationFn: () => submitAttempt(
-      attempt.attemptId,
-      attempt.questions.map(q => ({ questionId: q.id, selectedOption: answers[q.id] || null }))
-    ),
+    mutationFn: () => {
+      if (!attempt) throw new Error('No active exam attempt');
+      return submitAttempt(
+        attempt.attemptId,
+        attempt.questions.map(question => ({ questionId: question.id, selectedOption: answers[question.id] || null }))
+      );
+    },
     onSuccess: async response => {
-      const payload = data(response);
+      const payload = response.data.data;
       setResult(payload);
-      notify(`🎯 Exam submitted · Score ${payload.score}/${payload.maxMarks}`);
+      notify(`🎯 Exam submitted · Score ${payload.score ?? 0}/${payload.maxMarks ?? 0}`);
       await qc.invalidateQueries({ queryKey: ['my-exams'] });
       await refreshDashboard();
     },
-    onError: e => notify(`⚠️ ${err(e)}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Exam request failed')}`),
   });
 
   const remaining = useMemo(() => {
     if (!attempt?.endsAt) return null;
     const seconds = Math.max(0, Math.floor((new Date(attempt.endsAt).getTime() - now) / 1000));
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${String(s).padStart(2, '0')}`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
   }, [attempt?.endsAt, now]);
 
   useEffect(() => {
@@ -95,7 +130,7 @@ export default function ExamsSection({ notify, refreshDashboard }) {
       </div>
 
       {examsQuery.isLoading && <div className={styles.loading}>Loading exams…</div>}
-      {examsQuery.isError && <div className={styles.error}>{err(examsQuery.error)}</div>}
+      {examsQuery.isError && <div className={styles.error}>{apiErrorText(examsQuery.error, 'Exam request failed')}</div>}
       {exams.map(exam => {
         const maxMarks = Number(exam.max_marks || Number(exam.total_questions || 0) * Number(exam.marks_per_question || 0));
         return (
@@ -105,8 +140,8 @@ export default function ExamsSection({ notify, refreshDashboard }) {
                 <div className={styles.examTitle}>{exam.title}</div>
                 <div className={styles.examMeta}>
                   <span>{(exam.subject_codes || []).join(', ') || 'All Subjects'}</span>
-                  <span>⏱ {exam.duration_mins} min</span>
-                  <span>📝 {exam.total_questions} questions</span>
+                  <span>⏱ {exam.duration_mins || 0} min</span>
+                  <span>📝 {exam.total_questions || 0} questions</span>
                   <span>📅 {niceDate(exam.start_time)}</span>
                   {Number(exam.prize_pool || 0) > 0 && <span>🏆 ₹{Number(exam.prize_pool).toLocaleString('en-IN')}</span>}
                 </div>
@@ -140,19 +175,22 @@ export default function ExamsSection({ notify, refreshDashboard }) {
             </div>
 
             {attempt.exam.instructions && <div className={styles.card} style={{ boxShadow: 'none' }}>{attempt.exam.instructions}</div>}
-            {attempt.questions.map((q, index) => (
-              <div className={styles.question} key={q.id}>
-                <div className={styles.questionText}>{index + 1}. {q.question_text}</div>
-                {['A', 'B', 'C', 'D'].map(letter => (
-                  <label className={styles.option} key={letter}>
-                    <input type="radio" disabled={!!result} name={`exam-${q.id}`} checked={answers[q.id] === letter} onChange={() => setAnswers(v => ({ ...v, [q.id]: letter }))} />
-                    <span><b>{letter}.</b> {q[`option_${letter.toLowerCase()}`]}</span>
-                  </label>
-                ))}
+            {attempt.questions.map((question, index) => (
+              <div className={styles.question} key={question.id}>
+                <div className={styles.questionText}>{index + 1}. {question.question_text}</div>
+                {(['A', 'B', 'C', 'D'] as const).map(letter => {
+                  const option = letter === 'A' ? question.option_a : letter === 'B' ? question.option_b : letter === 'C' ? question.option_c : question.option_d;
+                  return (
+                    <label className={styles.option} key={letter}>
+                      <input type="radio" disabled={Boolean(result)} name={`exam-${question.id}`} checked={answers[question.id] === letter} onChange={() => setAnswers(value => ({ ...value, [question.id]: letter }))} />
+                      <span><b>{letter}.</b> {option}</span>
+                    </label>
+                  );
+                })}
               </div>
             ))}
 
-            {result && <div className={styles.success}>Submitted successfully · <b>{result.score}/{result.maxMarks}</b> · {result.correctCount} correct · {result.wrongCount} wrong · {result.skippedCount} skipped{result.rankOverall ? ` · Rank #${result.rankOverall}` : ''}</div>}
+            {result && <div className={styles.success}>Submitted successfully · <b>{result.score ?? 0}/{result.maxMarks ?? 0}</b> · {result.correctCount || 0} correct · {result.wrongCount || 0} wrong · {result.skippedCount || 0} skipped{result.rankOverall ? ` · Rank #${result.rankOverall}` : ''}</div>}
             <div className={styles.buttonRow}>
               {result ? <button className={styles.primary} onClick={() => setAttempt(null)}>Done</button> : <button className={styles.primary} disabled={submitMutation.isPending} onClick={() => submitMutation.mutate()}>{submitMutation.isPending ? 'Submitting…' : 'Submit Exam'}</button>}
             </div>
