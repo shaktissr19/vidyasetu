@@ -1,0 +1,132 @@
+name: Parent and Admin Completion CI
+
+on:
+  push:
+    branches: [parent-admin-completion]
+  pull_request:
+    branches: [typescript-migration, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parent-admin-certification:
+    name: Parent and Admin strict build and E2E
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Parent Admin smoke script
+        run: bash -n scripts/parent-admin-e2e-smoke.sh
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -f dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -f dist/index.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+
+      - name: Install and start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable database baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+
+      - name: Start compiled backend
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: ci_access_secret_parent_admin_2026
+          JWT_REFRESH_SECRET: ci_refresh_secret_parent_admin_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-parent-admin-backend.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-parent-admin-backend.log
+          exit 1
+
+      - name: Run Parent and Admin API E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/parent-admin-e2e-smoke.sh
+
+      - name: Validate Parent and Admin database invariants
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM parent_student_links;")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE role='SUPER_ADMIN' AND status='ACTIVE';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE role='TEACHER';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM content_items;")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM audit_log WHERE actor_id IS NULL;")" = "0"
+
+      - name: Backend logs on failure
+        if: failure()
+        run: cat /tmp/vidyasetu-parent-admin-backend.log || true
