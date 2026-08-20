@@ -6,6 +6,7 @@ import type {
   AdminUser,
   ApiEnvelope,
   ApiListResponse,
+  CompetitionExam,
   PlatformConfigItem,
   SupportTicket,
 } from '@/types/api';
@@ -78,5 +79,5 @@ export const getConfig = () => api.get<ApiEnvelope<PlatformConfigItem[]>>('/admi
 export const updateConfig = (key: string, value: unknown) => api.patch<ApiEnvelope<PlatformConfigItem>>('/admin/config', { key, value });
 export const getRevenue = (params: AdminQueryParams = {}) => api.get<ApiEnvelope<AdminRevenue>>('/admin/revenue', { params });
 export const getContentAnalytics = () => api.get<ApiEnvelope<AdminContentAnalytics>>('/admin/content');
-export const listCompetitions = () => api.get<ApiEnvelope<unknown[]>>('/admin/competitions');
-export const createExam = (body: Payload) => api.post<ApiEnvelope<unknown>>('/admin/competitions', body);
+export const listCompetitions = () => api.get<ApiEnvelope<CompetitionExam[]>>('/admin/competitions');
+export const createExam = (body: Payload) => api.post<ApiEnvelope<CompetitionExam>>('/admin/competitions', body);
