@@ -41,6 +41,11 @@ export async function getRevenue(_req: Request, res: Response, next: NextFunctio
   catch (err: unknown) { next(err); }
 }
 
+export async function getContentAnalytics(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await adminService.getContentAnalytics()); }
+  catch (err: unknown) { next(err); }
+}
+
 export async function listSchools(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     const result = await adminService.listSchools(req.query, {
@@ -51,6 +56,11 @@ export async function listSchools(req: Request, res: Response, next: NextFunctio
     });
     return R.ok(res, result.schools, result.meta);
   } catch (err: unknown) { next(err); }
+}
+
+export async function getSchool(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await adminService.getSchoolDetail(req.params.schoolId)); }
+  catch (err: unknown) { next(err); }
 }
 
 export async function updateSchoolStatus(
@@ -72,6 +82,28 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
       search: queryString(req.query.search),
     });
     return R.ok(res, result.users, result.meta);
+  } catch (err: unknown) { next(err); }
+}
+
+export async function exportUsers(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const conditions = ['1=1'];
+    const params: string[] = [];
+    const role = queryString(req.query.role);
+    const status = queryString(req.query.status);
+    const search = queryString(req.query.search);
+    if (role) { params.push(role); conditions.push(`role = $${params.length}`); }
+    if (status) { params.push(status); conditions.push(`status = $${params.length}`); }
+    if (search) {
+      params.push(`%${search}%`);
+      conditions.push(`(name ILIKE $${params.length} OR mobile ILIKE $${params.length} OR COALESCE(email, '') ILIKE $${params.length})`);
+    }
+    const { rows } = await query(
+      `SELECT id, name, mobile, email, role, status, language, last_login_at, created_at
+       FROM users WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT 50000`,
+      params,
+    );
+    return R.ok(res, rows);
   } catch (err: unknown) { next(err); }
 }
 

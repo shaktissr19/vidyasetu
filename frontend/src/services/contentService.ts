@@ -13,6 +13,28 @@ export interface QuizAnswerInput {
   selectedOption?: string | null;
 }
 
+export interface AdminUploadUrlData {
+  uploadUrl: string;
+  key: string;
+}
+
+export interface SaveContentItemPayload {
+  chapterId: string;
+  type: 'VIDEO' | 'PDF' | 'NOTES' | 'AUDIO' | 'QUIZ';
+  status?: 'DRAFT' | 'PUBLISHED';
+  title: string;
+  titleHi?: string | null;
+  language?: string;
+  fileUrl?: string | null;
+  thumbnailUrl?: string | null;
+  durationSecs?: number | null;
+  fileSizeKb?: number | null;
+  difficulty?: string;
+  xpReward?: number;
+  sortOrder?: number;
+  isOfflineReady?: boolean;
+}
+
 export const getSubjects = (className: string | number) =>
   api.get<ApiEnvelope<ContentSubject[]>>(`/content/subjects?class=${className}`);
 export const getChapters = (subjectId: string, className: string | number) =>
@@ -25,3 +47,8 @@ export const getQuiz = (itemId: string) => api.get<ApiEnvelope<QuizQuestion[]>>(
 export const submitQuiz = (itemId: string, answers: QuizAnswerInput[]) =>
   api.post<ApiEnvelope<QuizResult>>(`/content/items/${itemId}/quiz/submit`, { answers });
 export const downloadOffline = (itemId: string) => api.post<ApiEnvelope<{ url?: string; ttl?: number }>>(`/content/items/${itemId}/download`);
+
+export const getAdminUploadUrl = (params: { fileName: string; contentType: string; chapterId: string; type: string }) =>
+  api.get<ApiEnvelope<AdminUploadUrlData>>('/content/upload-url', { params });
+export const saveAdminContentItem = (payload: SaveContentItemPayload) =>
+  api.post<ApiEnvelope<ContentItem>>('/content/items', payload);

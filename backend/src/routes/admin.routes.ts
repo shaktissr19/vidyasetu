@@ -9,13 +9,16 @@ const router = Router();
 router.use(authenticate);
 router.use(authorize('SUPER_ADMIN'));
 
-const configSchema = z.object({ value: z.string().min(1) });
-const statusSchema = z.object({ status: z.string().min(1) });
+const configSchema = z.object({ value: z.union([z.string(), z.number(), z.boolean()]) });
+const statusSchema = z.object({ status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']) });
 
 router.get('/analytics', ctrl.getAnalytics);
 router.get('/revenue', ctrl.getRevenue);
+router.get('/content', ctrl.getContentAnalytics);
 router.get('/schools', ctrl.listSchools);
+router.get('/schools/:schoolId', ctrl.getSchool);
 router.patch('/schools/:schoolId/status', validate(statusSchema), ctrl.updateSchoolStatus);
+router.get('/users/export', ctrl.exportUsers);
 router.get('/users', ctrl.listUsers);
 router.patch('/users/:userId/status', validate(statusSchema), ctrl.updateUserStatus);
 router.get('/config', ctrl.getConfig);

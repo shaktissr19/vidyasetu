@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChildren, getMessages, sendMessage } from '@/services/parentService';
+import { getChildren, getChildTeacher, getMessages, sendMessage } from '@/services/parentService';
 import { SectionHeader } from '@/components/ui/index';
 import { timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
@@ -25,6 +25,15 @@ export default function MessagesPage() {
     if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
   }, [children, selectedChild]);
 
+  const { data: teacher } = useQuery({
+    queryKey: ['parent-child-teacher', selectedChild],
+    queryFn: async () => {
+      if (!selectedChild) throw new Error('No child selected');
+      return getChildTeacher(selectedChild).then((r) => r.data.data);
+    },
+    enabled: !!selectedChild,
+  });
+
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['parent-messages', selectedChild],
     queryFn: async () => {
@@ -38,13 +47,14 @@ export default function MessagesPage() {
   const sendMut = useMutation({
     mutationFn: async () => {
       if (!selectedChild) throw new Error('No child selected');
-      return sendMessage(selectedChild, msgText);
+      return sendMessage(selectedChild, msgText.trim());
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['parent-messages', selectedChild] });
       setMsgText('');
+      toast.success(`📩 ${t('संदेश भेज दिया गया', 'Message sent')}`);
     },
-    onError: () => toast.error('Failed to send message'),
+    onError: () => toast.error(t('संदेश भेजा नहीं जा सका', 'Failed to send message')),
   });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -53,13 +63,13 @@ export default function MessagesPage() {
     <div className="animate-fade-up flex flex-col h-[calc(100vh-62px-48px)]">
       <SectionHeader title={`💬 ${t('शिक्षक से संदेश', 'Message Teacher')}`} />
 
-      {children.length > 1 && (
+      {children.length > 0 && (
         <div className="flex gap-2 mb-4 flex-wrap">
           {children.map((child) => (
             <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
               style={{ background: selectedChild === child.id ? 'var(--forest)' : 'white', color: selectedChild === child.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}` }}>
-              {child.name.split(' ')[0]}
+              {child.name.split(' ')[0]} ({t('कक्षा', 'Class')} {child.class_name})
             </button>
           ))}
         </div>
@@ -69,10 +79,11 @@ export default function MessagesPage() {
         <div className="flex-1 flex flex-col rounded-2xl overflow-hidden" style={{ background: 'white', border: '1.5px solid var(--border)' }}>
           <div className="px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl" style={{ background: 'rgba(255,255,255,0.2)' }}>👩‍🏫</div>
-            <div>
-              <p className="font-bold text-sm text-white">{t('कक्षा शिक्षक', 'Class Teacher')}</p>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{t('आमतौर पर 24 घंटे में जवाब देते हैं', 'Usually replies within 24 hours')}</p>
+            <div className="flex-1">
+              <p className="font-bold text-sm text-white">{teacher?.name || t('कक्षा शिक्षक', 'Class Teacher')}</p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.65)' }}>{t('आमतौर पर 24 घंटे में जवाब देते हैं', 'Usually replies within 24 hours')}</p>
             </div>
+            {teacher?.mobile && <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>📱 {teacher.mobile}</span>}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
@@ -81,7 +92,7 @@ export default function MessagesPage() {
                 <div className="flex-1 flex flex-col items-center justify-center text-center">
                   <div className="text-4xl mb-3">💬</div>
                   <p className="font-semibold" style={{ color: 'var(--navy)' }}>{t('कोई संदेश नहीं', 'No messages yet')}</p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>{t('शिक्षक को संदेश भेजें', 'Send a message to the teacher')}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>{teacher ? `${teacher.name} ${t('को संदेश भेजें', 'is ready to receive your message')}` : t('कक्षा शिक्षक नियुक्त होने के बाद संदेश भेज सकेंगे', 'Messaging activates once a class teacher is assigned')}</p>
                 </div>
               ) : messages.map((message, i) => {
                 const isMe = (message.sent_by ?? message.sender_id) === user?.id;
@@ -92,6 +103,7 @@ export default function MessagesPage() {
                       style={isMe
                         ? { background: 'linear-gradient(135deg, var(--forest), var(--forest-light))', color: 'white', borderRadius: '14px 4px 14px 14px' }
                         : { background: '#F0F7F2', color: 'var(--navy)', borderRadius: '4px 14px 14px 14px' }}>
+                      {!isMe && message.sender_name && <p className="text-xs font-bold mb-1 opacity-70">{message.sender_name}</p>}
                       {message.body}
                       <p className="text-xs mt-1 opacity-60">{timeAgo(message.created_at)}</p>
                     </div>
@@ -102,11 +114,12 @@ export default function MessagesPage() {
           </div>
 
           <div className="p-3 flex gap-2" style={{ borderTop: '1.5px solid var(--border)' }}>
-            <input value={msgText} onChange={(e) => setMsgText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && msgText.trim() && sendMut.mutate()}
-              placeholder={t('शिक्षक को संदेश लिखें...', 'Type a message to the teacher...')}
+            <input value={msgText} onChange={(e) => setMsgText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && msgText.trim() && teacher && sendMut.mutate()}
+              placeholder={teacher ? `${t('संदेश लिखें', 'Type your message to')} ${teacher.name}...` : t('कक्षा शिक्षक उपलब्ध नहीं है', 'No class teacher assigned yet')}
+              disabled={!teacher}
               className="input flex-1" />
-            <button onClick={() => msgText.trim() && sendMut.mutate()} disabled={!msgText.trim() || sendMut.isPending}
-              className="btn-green px-4" style={{ opacity: !msgText.trim() ? 0.5 : 1 }}>↗</button>
+            <button onClick={() => msgText.trim() && teacher && sendMut.mutate()} disabled={!msgText.trim() || !teacher || sendMut.isPending}
+              className="btn-green px-4" style={{ opacity: !msgText.trim() || !teacher ? 0.5 : 1 }}>↗</button>
           </div>
         </div>
       )}
