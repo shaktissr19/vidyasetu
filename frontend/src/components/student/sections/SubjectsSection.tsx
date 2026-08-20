@@ -12,45 +12,71 @@ import {
   submitQuiz,
   downloadOffline,
 } from '@/services/contentService';
+import { apiErrorText } from '@/utils/errors';
+import type { ContentChapter, ContentItem, ContentSubject, QuizQuestion, QuizResult } from '@/types/api';
+import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-const ICONS = { MATH: '🔢', SCI: '🔬', ENG: '📖', HIN: '🅗', SST: '🌍', SAN: '🕉️' };
-const data = (r) => r?.data?.data;
-const errorText = (e) => e?.response?.data?.error?.message || e?.message || 'Something went wrong';
+const ICONS: Record<string, string> = { MATH: '🔢', SCI: '🔬', ENG: '📖', HIN: '🅗', SST: '🌍', SAN: '🕉️' };
 
-export default function SubjectsSection({ dashboard, student, notify, refreshDashboard }) {
+interface PortalChapter extends ContentChapter {
+  notes_count?: string | number | null;
+}
+
+interface PortalContentItem extends ContentItem {
+  progress_pct?: string | number | null;
+  is_offline_ready?: boolean;
+}
+
+interface PortalQuizQuestion extends QuizQuestion {
+  question_hi?: string | null;
+  option_a_hi?: string | null;
+  option_b_hi?: string | null;
+  option_c_hi?: string | null;
+  option_d_hi?: string | null;
+}
+
+interface PortalQuizResult extends QuizResult {
+  correctCount?: number;
+  totalQuestions?: number;
+}
+
+export default function SubjectsSection({ dashboard, student, notify, refreshDashboard }: StudentSectionProps) {
   const queryClient = useQueryClient();
-  const [subject, setSubject] = useState(null);
-  const [chapter, setChapter] = useState(null);
-  const [quizItem, setQuizItem] = useState(null);
-  const [quizAnswers, setQuizAnswers] = useState({});
-  const [quizResult, setQuizResult] = useState(null);
+  const [subject, setSubject] = useState<ContentSubject | null>(null);
+  const [chapter, setChapter] = useState<PortalChapter | null>(null);
+  const [quizItem, setQuizItem] = useState<PortalContentItem | null>(null);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [quizResult, setQuizResult] = useState<PortalQuizResult | null>(null);
 
   const cls = student?.className || '8';
   const lang = student?.language || 'hi';
+  const subjectId = subject?.id || '';
+  const chapterId = chapter?.id || '';
+  const quizItemId = quizItem?.id || '';
 
-  const subjectsQuery = useQuery({
+  const subjectsQuery = useQuery<ContentSubject[]>({
     queryKey: ['subjects', cls],
-    queryFn: async () => data(await getSubjects(cls)) || [],
+    queryFn: async () => (await getSubjects(cls)).data.data || [],
   });
-  const chaptersQuery = useQuery({
-    queryKey: ['chapters', subject?.id, cls],
-    queryFn: async () => data(await getChapters(subject.id, cls)) || [],
-    enabled: !!subject,
+  const chaptersQuery = useQuery<PortalChapter[]>({
+    queryKey: ['chapters', subjectId, cls],
+    queryFn: async () => (await getChapters(subjectId, cls)).data.data as PortalChapter[],
+    enabled: Boolean(subject),
   });
-  const itemsQuery = useQuery({
-    queryKey: ['content-items', chapter?.id, lang],
-    queryFn: async () => data(await getContentItems(chapter.id, lang)) || [],
-    enabled: !!chapter,
+  const itemsQuery = useQuery<PortalContentItem[]>({
+    queryKey: ['content-items', chapterId, lang],
+    queryFn: async () => (await getContentItems(chapterId, lang)).data.data as PortalContentItem[],
+    enabled: Boolean(chapter),
   });
-  const quizQuery = useQuery({
-    queryKey: ['quiz', quizItem?.id],
-    queryFn: async () => data(await getQuiz(quizItem.id)) || [],
-    enabled: !!quizItem,
+  const quizQuery = useQuery<PortalQuizQuestion[]>({
+    queryKey: ['quiz', quizItemId],
+    queryFn: async () => (await getQuiz(quizItemId)).data.data as PortalQuizQuestion[],
+    enabled: Boolean(quizItem),
   });
 
-  const progressBySubject = useMemo(() => Object.fromEntries(
-    (dashboard?.subjectProgress || []).map(s => [s.subject_id, s])
+  const progressBySubject = useMemo<Record<string, ContentSubject>>(() => Object.fromEntries(
+    (dashboard?.subjectProgress || []).map(item => [item.subject_id || item.id, item])
   ), [dashboard]);
 
   useEffect(() => {
@@ -58,46 +84,48 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
   }, [subject?.id]);
 
   const completeMutation = useMutation({
-    mutationFn: (itemId) => markComplete(itemId),
+    mutationFn: (itemId: string) => markComplete(itemId),
     onSuccess: async () => {
       notify('✅ Lesson marked complete. Learning progress updated.');
       await queryClient.invalidateQueries({ queryKey: ['content-items'] });
       await refreshDashboard();
     },
-    onError: e => notify(`⚠️ ${errorText(e)}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error)}`),
   });
 
   const quizMutation = useMutation({
-    mutationFn: () => submitQuiz(
-      quizItem.id,
-      (quizQuery.data || []).map(q => ({ questionId: q.id, selectedOption: quizAnswers[q.id] || null }))
-    ),
+    mutationFn: () => {
+      if (!quizItem) throw new Error('No quiz selected');
+      return submitQuiz(
+        quizItem.id,
+        (quizQuery.data || []).map(question => ({ questionId: question.id, selectedOption: quizAnswers[question.id] || null }))
+      );
+    },
     onSuccess: async response => {
-      const result = data(response);
+      const result = response.data.data as PortalQuizResult;
       setQuizResult(result);
-      notify(result?.passed ? `🎉 Quiz passed: ${result.score}%` : `Quiz score: ${result?.score || 0}%. Try again.`);
+      notify(result?.passed ? `🎉 Quiz passed: ${result.score || 0}%` : `Quiz score: ${result?.score || 0}%. Try again.`);
       await queryClient.invalidateQueries({ queryKey: ['content-items'] });
       await refreshDashboard();
     },
-    onError: e => notify(`⚠️ ${errorText(e)}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error)}`),
   });
 
-  async function openContent(item) {
+  async function openContent(item: PortalContentItem): Promise<void> {
     try {
-      const response = await getContentUrl(item.id);
-      const payload = data(response);
-      if (!payload?.url) throw new Error('Content URL unavailable');
-      const url = payload.url.startsWith('/') ? `${window.location.origin}${payload.url}` : payload.url;
+      const payload = (await getContentUrl(item.id)).data.data;
+      const itemUrl = payload?.url || payload?.file_url;
+      if (!itemUrl) throw new Error('Content URL unavailable');
+      const url = itemUrl.startsWith('/') ? `${window.location.origin}${itemUrl}` : itemUrl;
       window.open(url, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      notify(`⚠️ ${errorText(e)}`);
+    } catch (error: unknown) {
+      notify(`⚠️ ${apiErrorText(error)}`);
     }
   }
 
-  async function saveOffline(item) {
+  async function saveOffline(item: PortalContentItem): Promise<void> {
     try {
-      const response = await downloadOffline(item.id);
-      const payload = data(response);
+      const payload = (await downloadOffline(item.id)).data.data;
       if (payload?.url && 'caches' in window) {
         const absolute = payload.url.startsWith('/') ? `${window.location.origin}${payload.url}` : payload.url;
         const cache = await caches.open('vidyasetu-learning-v1');
@@ -105,26 +133,26 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
         if (fetched.ok) await cache.put(absolute, fetched.clone());
       }
       notify('📥 Saved to your Offline Mode list.');
-      queryClient.invalidateQueries({ queryKey: ['offline-downloads'] });
-    } catch (e) {
-      notify(`⚠️ ${errorText(e)}`);
+      await queryClient.invalidateQueries({ queryKey: ['offline-downloads'] });
+    } catch (error: unknown) {
+      notify(`⚠️ ${apiErrorText(error)}`);
     }
   }
 
-  function openQuiz(item) {
+  function openQuiz(item: PortalContentItem): void {
     setQuizItem(item);
     setQuizAnswers({});
     setQuizResult(null);
   }
 
-  function closeQuiz() {
+  function closeQuiz(): void {
     setQuizItem(null);
     setQuizAnswers({});
     setQuizResult(null);
   }
 
   if (subjectsQuery.isLoading) return <div className={styles.loading}>Loading your subjects…</div>;
-  if (subjectsQuery.isError) return <div className={styles.error}>{errorText(subjectsQuery.error)}</div>;
+  if (subjectsQuery.isError) return <div className={styles.error}>{apiErrorText(subjectsQuery.error)}</div>;
 
   return (
     <>
@@ -138,14 +166,14 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
       {!subject && (
         <div className={styles.subjectGrid}>
           {(subjectsQuery.data || []).map(sub => {
-            const p = progressBySubject[sub.id] || {};
-            const pct = Number(p.progress_pct || 0);
+            const progress = progressBySubject[sub.id];
+            const pct = Number(progress?.progress_pct || 0);
             return (
               <button className={styles.subjectCard} key={sub.id} onClick={() => setSubject(sub)}>
                 <div className={styles.subjectIcon}>{ICONS[sub.code] || '📘'}</div>
                 <div className={styles.subjectName}>{sub.name}</div>
                 <div className={styles.smallTrack}><div className={styles.smallFill} style={{ width: `${pct}%`, background: sub.color_hex || '#ff6b00' }} /></div>
-                <div className={styles.subjectMeta}><span className={styles.subjectPct}>{pct}% complete</span> · {Number(sub.chapter_count || 0)} chapters<br />{Number(p.completed_items || 0)} / {Number(p.total_items || 0)} learning items completed</div>
+                <div className={styles.subjectMeta}><span className={styles.subjectPct}>{pct}% complete</span> · {Number(sub.chapter_count || 0)} chapters<br />{Number(progress?.completed_items || 0)} / {Number(progress?.total_items || 0)} learning items completed</div>
               </button>
             );
           })}
@@ -158,7 +186,7 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
           <div className={styles.card}>
             <div className={styles.cardTitle}>{ICONS[subject.code] || '📘'} {subject.name} · Class {cls}</div>
             {chaptersQuery.isLoading && <div className={styles.loading}>Loading chapters…</div>}
-            {chaptersQuery.isError && <div className={styles.error}>{errorText(chaptersQuery.error)}</div>}
+            {chaptersQuery.isError && <div className={styles.error}>{apiErrorText(chaptersQuery.error)}</div>}
             <div className={styles.chapterList}>
               {(chaptersQuery.data || []).map(ch => (
                 <button className={styles.chapter} key={ch.id} onClick={() => setChapter(ch)}>
@@ -182,7 +210,7 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
           <div className={styles.card}>
             <div className={styles.cardTitle}>Chapter {chapter.chapter_number}: {lang === 'hi' && chapter.title_hi ? chapter.title_hi : chapter.title}</div>
             {itemsQuery.isLoading && <div className={styles.loading}>Loading learning content…</div>}
-            {itemsQuery.isError && <div className={styles.error}>{errorText(itemsQuery.error)}</div>}
+            {itemsQuery.isError && <div className={styles.error}>{apiErrorText(itemsQuery.error)}</div>}
             <div className={styles.contentGrid}>
               {(itemsQuery.data || []).map(item => (
                 <div className={styles.contentItem} key={item.id}>
@@ -196,10 +224,10 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
                     {item.type === 'QUIZ' ? (
                       <button className={`${styles.miniBtn} ${styles.miniPrimary}`} onClick={() => openQuiz(item)}>Take Quiz</button>
                     ) : (
-                      <button className={`${styles.miniBtn} ${styles.miniPrimary}`} onClick={() => openContent(item)}>Open</button>
+                      <button className={`${styles.miniBtn} ${styles.miniPrimary}`} onClick={() => void openContent(item)}>Open</button>
                     )}
                     {!item.is_completed && item.type !== 'QUIZ' && <button className={styles.miniBtn} disabled={completeMutation.isPending} onClick={() => completeMutation.mutate(item.id)}>Mark Complete</button>}
-                    {item.is_offline_ready && item.type !== 'QUIZ' && <button className={styles.miniBtn} onClick={() => saveOffline(item)}>📥 Offline</button>}
+                    {item.is_offline_ready && item.type !== 'QUIZ' && <button className={styles.miniBtn} onClick={() => void saveOffline(item)}>📥 Offline</button>}
                   </div>
                 </div>
               ))}
@@ -217,23 +245,23 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
               <button className={styles.close} onClick={closeQuiz}>✕</button>
             </div>
             {quizQuery.isLoading && <div className={styles.loading}>Loading quiz…</div>}
-            {quizQuery.isError && <div className={styles.error}>{errorText(quizQuery.error)}</div>}
-            {(quizQuery.data || []).map((q, index) => (
-              <div className={styles.question} key={q.id}>
-                <div className={styles.questionText}>{index + 1}. {lang === 'hi' && q.question_hi ? q.question_hi : q.question_text}</div>
-                {['A', 'B', 'C', 'D'].map(letter => {
-                  const text = q[`option_${letter.toLowerCase()}`];
-                  const hi = q[`option_${letter.toLowerCase()}_hi`];
+            {quizQuery.isError && <div className={styles.error}>{apiErrorText(quizQuery.error)}</div>}
+            {(quizQuery.data || []).map((question, index) => (
+              <div className={styles.question} key={question.id}>
+                <div className={styles.questionText}>{index + 1}. {lang === 'hi' && question.question_hi ? question.question_hi : question.question_text || question.question}</div>
+                {(['A', 'B', 'C', 'D'] as const).map(letter => {
+                  const text = letter === 'A' ? question.option_a : letter === 'B' ? question.option_b : letter === 'C' ? question.option_c : question.option_d;
+                  const hi = letter === 'A' ? question.option_a_hi : letter === 'B' ? question.option_b_hi : letter === 'C' ? question.option_c_hi : question.option_d_hi;
                   return (
                     <label className={styles.option} key={letter}>
-                      <input type="radio" name={q.id} checked={quizAnswers[q.id] === letter} onChange={() => setQuizAnswers(prev => ({ ...prev, [q.id]: letter }))} />
+                      <input type="radio" name={question.id} checked={quizAnswers[question.id] === letter} onChange={() => setQuizAnswers(prev => ({ ...prev, [question.id]: letter }))} />
                       <span><b>{letter}.</b> {lang === 'hi' && hi ? hi : text}</span>
                     </label>
                   );
                 })}
               </div>
             ))}
-            {quizResult && <div className={quizResult.passed ? styles.success : styles.error}>Score: <b>{quizResult.score}%</b> · {quizResult.correctCount}/{quizResult.totalQuestions} correct</div>}
+            {quizResult && <div className={quizResult.passed ? styles.success : styles.error}>Score: <b>{quizResult.score || 0}%</b> · {quizResult.correctCount || 0}/{quizResult.totalQuestions || 0} correct</div>}
             <div className={styles.buttonRow}>
               <button className={styles.secondary} onClick={closeQuiz}>Close</button>
               <button className={styles.primary} disabled={quizMutation.isPending || !(quizQuery.data || []).length} onClick={() => quizMutation.mutate()}>{quizMutation.isPending ? 'Submitting…' : 'Submit Quiz'}</button>
