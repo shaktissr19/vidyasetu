@@ -78,6 +78,47 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
 
+      - name: Prepare Parent messaging E2E fixture
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 <<'SQL'
+          UPDATE teacher_assignments
+          SET is_class_teacher = FALSE
+          WHERE class_id = (
+            SELECT class_id FROM students
+            WHERE id = '30000000-0000-0000-0000-000000000001'
+          );
+
+          WITH candidate AS (
+            SELECT ta.id
+            FROM teacher_assignments ta
+            JOIN students s ON s.class_id = ta.class_id
+            JOIN teachers t ON t.id = ta.teacher_id AND t.status = 'ACTIVE'
+            WHERE s.id = '30000000-0000-0000-0000-000000000001'
+              AND ta.school_id = s.school_id
+            ORDER BY ta.created_at, ta.id
+            LIMIT 1
+          )
+          UPDATE teacher_assignments ta
+          SET is_class_teacher = TRUE
+          FROM candidate c
+          WHERE ta.id = c.id;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM teacher_assignments ta
+              JOIN students s ON s.class_id = ta.class_id
+              WHERE s.id = '30000000-0000-0000-0000-000000000001'
+                AND ta.is_class_teacher = TRUE
+            ) THEN
+              RAISE EXCEPTION 'Parent/Admin E2E fixture could not assign a class teacher';
+            END IF;
+          END $$;
+          SQL
+
       - name: Start compiled backend
         working-directory: backend
         env:
