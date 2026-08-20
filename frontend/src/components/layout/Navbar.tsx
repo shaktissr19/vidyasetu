@@ -1,23 +1,25 @@
 'use client';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 import { logout as apiLogout } from '@/services/authService';
 
-const ROLE_LABEL = {
-  STUDENT:      { en: 'Student', hi: 'छात्र' },
+const ROLE_LABEL: Partial<Record<UserRole, { en: string; hi: string }>> = {
+  STUDENT: { en: 'Student', hi: 'छात्र' },
   SCHOOL_ADMIN: { en: 'School Admin', hi: 'विद्यालय प्रशासक' },
-  PARENT:       { en: 'Parent', hi: 'अभिभावक' },
-  SUPER_ADMIN:  { en: 'Super Admin', hi: 'सुपर एडमिन' },
+  PARENT: { en: 'Parent', hi: 'अभिभावक' },
+  SUPER_ADMIN: { en: 'Super Admin', hi: 'सुपर एडमिन' },
 };
 
-const ROLE_ACCENT = {
-  STUDENT:      'var(--saffron)',
+const ROLE_ACCENT: Partial<Record<UserRole, string>> = {
+  STUDENT: 'var(--saffron)',
   SCHOOL_ADMIN: 'var(--forest)',
-  PARENT:       '#7B1FA2',
-  SUPER_ADMIN:  '#1565C0',
+  PARENT: '#7B1FA2',
+  SUPER_ADMIN: '#1565C0',
 };
 
 export default function Navbar() {
@@ -27,14 +29,14 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    try { await apiLogout(); } catch (_) {}
+    try { await apiLogout(); } catch (_error: unknown) {}
     logout();
     router.replace('/login');
   };
 
-  const roleInfo  = ROLE_LABEL[user?.role] || { en: '', hi: '' };
-  const accent    = ROLE_ACCENT[user?.role] || 'var(--saffron)';
-  const initial   = (user?.name || 'U')[0].toUpperCase();
+  const roleInfo = (user?.role ? ROLE_LABEL[user.role] : undefined) || { en: '', hi: '' };
+  const accent = (user?.role ? ROLE_ACCENT[user.role] : undefined) || 'var(--saffron)';
+  const initial = (user?.name || 'U')[0]?.toUpperCase() || 'U';
 
   return (
     <nav style={{
@@ -42,7 +44,6 @@ export default function Navbar() {
       alignItems: 'center', padding: '0 20px', gap: 12,
       borderBottom: '1px solid rgba(255,255,255,0.07)', position: 'sticky', top: 0, zIndex: 100,
     }}>
-      {/* Logo */}
       <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8,
@@ -55,7 +56,6 @@ export default function Navbar() {
         </span>
       </Link>
 
-      {/* Role chip */}
       <div style={{
         marginLeft: 8, padding: '3px 10px', borderRadius: 20,
         background: `${accent}22`, border: `1px solid ${accent}55`,
@@ -65,11 +65,8 @@ export default function Navbar() {
       </div>
 
       <div style={{ flex: 1 }} />
-
-      {/* Offline indicator */}
       <OfflineDot />
 
-      {/* Lang toggle */}
       <button
         onClick={toggleLang}
         style={{
@@ -81,10 +78,9 @@ export default function Navbar() {
         {lang === 'hi' ? 'EN' : 'हि'}
       </button>
 
-      {/* User menu */}
       <div style={{ position: 'relative' }}>
         <button
-          onClick={() => setMenuOpen(v => !v)}
+          onClick={() => setMenuOpen((value) => !value)}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
@@ -136,7 +132,7 @@ export default function Navbar() {
 function OfflineDot() {
   const [online, setOnline] = useState(true);
   if (typeof window !== 'undefined') {
-    window.addEventListener('online',  () => setOnline(true));
+    window.addEventListener('online', () => setOnline(true));
     window.addEventListener('offline', () => setOnline(false));
   }
   if (online) return null;

@@ -1,15 +1,21 @@
-// services/doubtService.js
 import api from './api';
 
-export const listDoubts = (params = {}) => api.get('/doubts', { params });
-export const createDoubt = (payload) => api.post('/doubts', payload);
-export const getDoubt = (doubtId) => api.get(`/doubts/${doubtId}`);
-export const answerDoubt = (doubtId, payload) => api.post(`/doubts/${doubtId}/answers`, payload);
-export const toggleAnswerUpvote = (doubtId, answerId) => api.post(`/doubts/${doubtId}/answers/${answerId}/upvote`);
-export const resolveDoubt = (doubtId, bestAnswerId) => api.patch(`/doubts/${doubtId}/resolve`, { bestAnswerId });
-export const requestAIAnswer = (doubtId) => api.post(`/doubts/${doubtId}/ai-answer`);
+export type DoubtQueryParams = Record<string, string | number | boolean | null | undefined>;
 
-// Backward-compatible aliases for the legacy standalone Doubts route.
-// The canonical /student portal uses the names above.
+export interface DoubtPayload {
+  [key: string]: unknown;
+}
+
+export const listDoubts = (params: DoubtQueryParams = {}) => api.get('/doubts', { params });
+export const createDoubt = <T extends object>(payload: T) => api.post('/doubts', payload);
+export const getDoubt = (doubtId: string) => api.get(`/doubts/${doubtId}`);
+export const answerDoubt = <T extends object>(doubtId: string, payload: T) =>
+  api.post(`/doubts/${doubtId}/answers`, payload);
+export const toggleAnswerUpvote = (doubtId: string, answerId: string) =>
+  api.post(`/doubts/${doubtId}/answers/${answerId}/upvote`);
+export const resolveDoubt = (doubtId: string, bestAnswerId: string) =>
+  api.patch(`/doubts/${doubtId}/resolve`, { bestAnswerId });
+export const requestAIAnswer = (doubtId: string) => api.post(`/doubts/${doubtId}/ai-answer`);
+
 export const upvoteAnswer = toggleAnswerUpvote;
 export const aiAnswerDoubt = requestAIAnswer;

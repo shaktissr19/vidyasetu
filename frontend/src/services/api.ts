@@ -1,10 +1,17 @@
-import axios from 'axios';
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import type { RefreshTokenResponse } from '@vidyasetu/contracts';
 
-// In Docker: Next.js rewrites /api/v1/* → backend:5000/api/v1/*
-// In local dev (no Docker): direct to localhost:5000
 const BASE_URL = typeof window !== 'undefined'
-  ? '/api/v1'   // browser: use Next.js rewrite proxy
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'); // SSR
+  ? '/api/v1'
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1');
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+interface RefreshEnvelope {
+  data: RefreshTokenResponse;
+}
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -13,38 +20,47 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Attach access token to every request
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('vs_access_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
-}, (err) => Promise.reject(err));
+}, (error: unknown) => Promise.reject(error));
 
-// Auto-refresh on 401
 api.interceptors.response.use(
-  (res) => res,
-  async (err) => {
-    const original = err.config;
-    if (err.response?.status === 401 && !original._retry) {
+  (response) => response,
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) return Promise.reject(error);
+
+    const axiosError = error as AxiosError;
+    const original = axiosError.config as RetryableRequestConfig | undefined;
+
+    if (axiosError.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       try {
-        const refreshToken = localStorage.getItem('vs_refresh_token');
+        const refreshToken = typeof window !== 'undefined'
+          ? localStorage.getItem('vs_refresh_token')
+          : null;
         if (!refreshToken) throw new Error('No refresh token');
-        const { data } = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
+
+        const { data } = await axios.post<RefreshEnvelope>(`${BASE_URL}/auth/refresh`, { refreshToken });
         const newToken = data.data.accessToken;
         localStorage.setItem('vs_access_token', newToken);
         original.headers.Authorization = `Bearer ${newToken}`;
         return api(original);
-      } catch (_) {
-        localStorage.removeItem('vs_access_token');
-        localStorage.removeItem('vs_refresh_token');
-        if (typeof window !== 'undefined') window.location.href = '/login';
+      } catch (refreshError: unknown) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('vs_access_token');
+          localStorage.removeItem('vs_refresh_token');
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
       }
     }
-    return Promise.reject(err);
-  }
+
+    return Promise.reject(error);
+  },
 );
 
 export default api;

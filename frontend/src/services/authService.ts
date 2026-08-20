@@ -1,23 +1,23 @@
-// services/authService.js
+import type { UserRole } from '@vidyasetu/contracts';
 import api from './api';
 
-export const loginWithPassword = (identifier, password, deviceInfo) =>
+export const loginWithPassword = (identifier: string, password: string, deviceInfo?: string) =>
   api.post('/auth/login', { identifier, password, deviceInfo });
 
 export const getStudentRegistrationOptions = () => api.get('/auth/student-registration-options');
-export const registerStudent = (data) => api.post('/auth/register/student', data);
+export const registerStudent = <T extends object>(data: T) => api.post('/auth/register/student', data);
 
-export const sendOTP = (mobile) => api.post('/auth/send-otp', { mobile });
-export const verifyOTP = (mobile, otp, dev, role) =>
+export const sendOTP = (mobile: string) => api.post('/auth/send-otp', { mobile });
+export const verifyOTP = (mobile: string, otp: string, dev?: string, role?: UserRole) =>
   api.post('/auth/verify-otp', { mobile, otp, deviceInfo: dev, role });
 
-export const forgotPassword = (identifier) => api.post('/auth/forgot-password', { identifier });
-export const resetPassword = (identifier, otp, newPassword) =>
+export const forgotPassword = (identifier: string) => api.post('/auth/forgot-password', { identifier });
+export const resetPassword = (identifier: string, otp: string, newPassword: string) =>
   api.post('/auth/reset-password', { identifier, otp, newPassword });
-export const setPassword = (currentPassword, newPassword) =>
+export const setPassword = (currentPassword: string | null | undefined, newPassword: string) =>
   api.post('/auth/set-password', { currentPassword, newPassword });
 
-export const refreshToken = (refreshToken) => api.post('/auth/refresh', { refreshToken });
-export const logout = (refreshToken) => api.post('/auth/logout', { refreshToken });
-export const updateProfile = (data) => api.patch('/auth/profile', data);
+export const refreshToken = (token: string) => api.post('/auth/refresh', { refreshToken: token });
+export const logout = (token?: string | null) => api.post('/auth/logout', { refreshToken: token });
+export const updateProfile = <T extends object>(data: T) => api.patch('/auth/profile', data);
 export const getMe = () => api.get('/auth/me');

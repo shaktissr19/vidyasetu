@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 import { logout as apiLogout } from '@/services/authService';
 
-const NAV = [
+const NAV: ReadonlyArray<readonly [string, string]> = [
   ['Home', '/'],
   ['🏆 Olympiad', '/competition'],
   ['Student', '/student'],
@@ -15,12 +16,12 @@ const NAV = [
   ['Admin', '/admin/analytics'],
 ];
 
-function isActive(pathname, href) {
+function isActive(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/';
-  return pathname === href || pathname?.startsWith(`${href}/`) || (href === '/student' && pathname?.startsWith('/student'));
+  return pathname === href || pathname.startsWith(`${href}/`) || (href === '/student' && pathname.startsWith('/student'));
 }
 
-function accountPath(role) {
+function accountPath(role?: UserRole): string {
   if (role === 'STUDENT') return '/student';
   if (role === 'SCHOOL_ADMIN' || role === 'TEACHER') return '/school/overview';
   if (role === 'PARENT') return '/parent/dashboard';
@@ -35,7 +36,9 @@ export default function GlobalTopbar() {
   const { lang, toggleLang } = useLanguageStore();
 
   async function handleLogout() {
-    try { if (refreshToken) await apiLogout(refreshToken); } catch (_) {}
+    try {
+      if (refreshToken) await apiLogout(refreshToken);
+    } catch (_error: unknown) {}
     logout();
     router.replace('/login');
   }

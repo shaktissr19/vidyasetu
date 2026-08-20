@@ -1,9 +1,35 @@
 'use client';
+
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import useAuthStore from '@/store/authStore';
 
-export default function DashSidebar({ menuItems = [], accentColor = 'var(--saffron)', profile = {} }) {
+export interface SidebarMenuItem {
+  href: string;
+  icon: ReactNode;
+  label: ReactNode;
+  exact?: boolean;
+}
+
+export interface SidebarProfile {
+  avatar?: ReactNode;
+  name?: ReactNode;
+  subtitle?: ReactNode;
+  badge?: ReactNode;
+}
+
+interface DashSidebarProps {
+  menuItems?: readonly SidebarMenuItem[];
+  accentColor?: string;
+  profile?: SidebarProfile;
+}
+
+export default function DashSidebar({
+  menuItems = [],
+  accentColor = 'var(--saffron)',
+  profile = {},
+}: DashSidebarProps) {
   const { user } = useAuthStore();
   const pathname = usePathname();
 
@@ -35,7 +61,7 @@ export default function DashSidebar({ menuItems = [], accentColor = 'var(--saffr
       </div>
       <nav style={{ marginTop: 8, paddingBottom: 40 }}>
         {menuItems.map(({ href, icon, label, exact }) => {
-          const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
+          const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link key={href} href={href} className={`sidebar-link${isActive ? ' active' : ''}`}
               style={{ borderLeftColor: isActive ? accentColor : 'transparent' }}>
