@@ -2,21 +2,21 @@
 
 import { useState } from 'react';
 import { chat } from '@/services/aiService';
+import { apiErrorText } from '@/utils/errors';
+import type { StudentChatMessage, StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-const errorText = (e) => e?.response?.data?.error?.message || e?.message || 'AI Tutor is unavailable right now';
-
-export default function AITutorSection({ student, notify }) {
+export default function AITutorSection({ student, notify }: StudentSectionProps) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<StudentChatMessage[]>([
     { role: 'assistant', content: `Namaste ${student?.name?.split(' ')[0] || 'Student'}! 🙏 I am VidyaBot. Ask me a Class ${student?.className || ''} Maths, Science, English, Hindi or Social Science question. You can ask in Hindi or English.` },
   ]);
 
-  async function send(text = input) {
+  async function send(text: string = input): Promise<void> {
     const message = String(text || '').trim();
     if (!message || sending) return;
-    const nextMessages = [...messages, { role: 'user', content: message }];
+    const nextMessages: StudentChatMessage[] = [...messages, { role: 'user', content: message }];
     setMessages(nextMessages);
     setInput('');
     setSending(true);
@@ -24,9 +24,9 @@ export default function AITutorSection({ student, notify }) {
       const history = nextMessages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const response = await chat(message, history.slice(0, -1));
       const answer = response?.data?.data?.response || 'I could not generate an answer. Please try again.';
-      setMessages(prev => [...prev, { role: 'assistant', content: answer }]);
-    } catch (e) {
-      notify(`⚠️ ${errorText(e)}`);
+      setMessages(prev => [...prev, { role: 'assistant', content: String(answer) }]);
+    } catch (error: unknown) {
+      notify(`⚠️ ${apiErrorText(error, 'AI Tutor is unavailable right now')}`);
       setMessages(prev => [...prev, { role: 'assistant', content: 'I had trouble connecting. Please try your question again.' }]);
     } finally {
       setSending(false);
@@ -61,12 +61,12 @@ export default function AITutorSection({ student, notify }) {
           {sending && <div className={styles.msgAI}>Thinking…</div>}
         </div>
         <div className={styles.chatInput}>
-          <input className={styles.input} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') send(); }} placeholder="Ask your doubt in Hindi or English…" />
-          <button className={styles.primary} disabled={sending} onClick={() => send()}>{sending ? '…' : 'Send ↗'}</button>
+          <input className={styles.input} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void send(); }} placeholder="Ask your doubt in Hindi or English…" />
+          <button className={styles.primary} disabled={sending} onClick={() => void send()}>{sending ? '…' : 'Send ↗'}</button>
         </div>
       </div>
       <div className={styles.quickRow}>
-        {quick.map(q => <button className={styles.secondary} key={q} onClick={() => send(q)}>{q}</button>)}
+        {quick.map(q => <button className={styles.secondary} key={q} onClick={() => void send(q)}>{q}</button>)}
       </div>
     </>
   );
