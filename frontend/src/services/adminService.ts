@@ -65,6 +65,7 @@ export const listSchools = (params: AdminQueryParams = {}) => api.get<ApiListRes
 export const getSchool = (id: string) => api.get<ApiEnvelope<AdminSchoolDetail>>(`/admin/schools/${id}`);
 export const updateSchoolStatus = (id: string, status: string) => api.patch<ApiEnvelope<AdminSchool>>(`/admin/schools/${id}/status`, { status });
 export const listUsers = (params: AdminQueryParams = {}) => api.get<ApiListResponse<AdminUser>>('/admin/users', { params });
+export const exportUsers = (params: AdminQueryParams = {}) => api.get<ApiEnvelope<AdminUser[]>>('/admin/users/export', { params });
 export const updateUserStatus = (id: string, status: string) => api.patch<ApiEnvelope<AdminUser>>(`/admin/users/${id}/status`, { status });
 export const getTickets = (params: AdminQueryParams = {}) => api.get<ApiEnvelope<SupportTicket[]>>('/admin/support', { params });
 export const updateTicket = (id: string, body: Payload) => api.patch<ApiEnvelope<SupportTicket>>(`/admin/support/${id}`, body);
