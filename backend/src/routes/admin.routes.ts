@@ -18,6 +18,7 @@ router.get('/content', ctrl.getContentAnalytics);
 router.get('/schools', ctrl.listSchools);
 router.get('/schools/:schoolId', ctrl.getSchool);
 router.patch('/schools/:schoolId/status', validate(statusSchema), ctrl.updateSchoolStatus);
+router.get('/users/export', ctrl.exportUsers);
 router.get('/users', ctrl.listUsers);
 router.patch('/users/:userId/status', validate(statusSchema), ctrl.updateUserStatus);
 router.get('/config', ctrl.getConfig);
