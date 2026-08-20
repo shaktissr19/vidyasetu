@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
@@ -6,7 +7,9 @@ import DashSidebar from '@/components/layout/DashSidebar';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 
-const MENU = (t) => [
+type Translate = (hi: string, en?: string) => string;
+
+const MENU = (t: Translate) => [
   { href: '/parent/dashboard', icon: '🏠', label: t('डैशबोर्ड', 'Dashboard'), exact: true },
   { href: '/parent/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/parent/fees', icon: '💰', label: t('फीस', 'Fees') },
@@ -14,7 +17,7 @@ const MENU = (t) => [
   { href: '/parent/notifications', icon: '🔔', label: t('सूचनाएँ', 'Notifications') },
 ];
 
-export default function ParentLayout({ children }) {
+export default function ParentLayout({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuthStore();
   const { t } = useLanguageStore();
   const router = useRouter();

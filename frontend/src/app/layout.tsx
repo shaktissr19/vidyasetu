@@ -1,15 +1,16 @@
-// app/layout.jsx
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import './globals.css';
 import Providers from '@/components/layout/Providers';
 
-export const metadata = {
-  title:       'VidyaSetu — Bridging Rural Education',
-  description: 'India\'s first Rural Student OS — Learning + School ERP + Student OS. Works offline, in Hindi and 8 regional languages.',
-  manifest:    '/manifest.json',
+export const metadata: Metadata = {
+  title: 'VidyaSetu — Bridging Rural Education',
+  description: "India's first Rural Student OS — Learning + School ERP + Student OS. Works offline, in Hindi and 8 regional languages.",
+  manifest: '/manifest.json',
   icons: { icon: '/favicon.ico' },
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="hi">
       <head>

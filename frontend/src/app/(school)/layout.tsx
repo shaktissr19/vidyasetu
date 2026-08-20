@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
@@ -6,7 +7,9 @@ import DashSidebar from '@/components/layout/DashSidebar';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 
-const ADMIN_MENU = (t) => [
+type Translate = (hi: string, en?: string) => string;
+
+const ADMIN_MENU = (t: Translate) => [
   { href: '/school/overview', icon: '🏠', label: t('ओवरव्यू', 'Overview'), exact: true },
   { href: '/school/enrollments', icon: '✅', label: t('नामांकन अनुरोध', 'Enrollment Requests') },
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
@@ -21,7 +24,7 @@ const ADMIN_MENU = (t) => [
   { href: '/school/profile', icon: '🏫', label: t('स्कूल प्रोफ़ाइल', 'School Profile') },
 ];
 
-const TEACHER_MENU = (t) => [
+const TEACHER_MENU = (t: Translate) => [
   { href: '/school/overview', icon: '🏠', label: t('ओवरव्यू', 'Overview'), exact: true },
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
@@ -31,19 +34,19 @@ const TEACHER_MENU = (t) => [
   { href: '/school/profile', icon: '🏫', label: t('स्कूल प्रोफ़ाइल', 'School Profile') },
 ];
 
-export default function SchoolLayout({ children }) {
+export default function SchoolLayout({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuthStore();
   const { t } = useLanguageStore();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=school'); return; }
-    if (user?.role && !['SCHOOL_ADMIN','SUPER_ADMIN','TEACHER'].includes(user.role)) {
+    if (user?.role && !['SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(user.role)) {
       router.replace('/login?role=school');
     }
   }, [isLoggedIn, user, router]);
 
-  if (!isLoggedIn || (user?.role && !['SCHOOL_ADMIN','SUPER_ADMIN','TEACHER'].includes(user.role))) return null;
+  if (!isLoggedIn || (user?.role && !['SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(user.role))) return null;
 
   const isTeacher = user?.role === 'TEACHER';
   return (

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 
@@ -9,7 +10,7 @@ function AuthLoading() {
   );
 }
 
-export default function AuthLayout({ children }) {
+export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <GlobalTopbar />

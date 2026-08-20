@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
@@ -14,9 +15,9 @@ const MENU = [
   { href: '/admin/revenue', icon: '💰', label: 'Revenue' },
   { href: '/admin/support', icon: '🎧', label: 'Support' },
   { href: '/admin/settings', icon: '⚙️', label: 'Settings' },
-];
+] as const;
 
-export default function AdminLayout({ children }) {
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuthStore();
   const router = useRouter();
 
