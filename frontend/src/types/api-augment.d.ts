@@ -47,7 +47,20 @@ declare module '@/types/api' {
     schoolLinkStatus?: string | null;
   }
 
+  interface AttendanceRecord {
+    remark?: string | null;
+  }
+
+  interface AttendanceSummary {
+    working_days?: string | number | null;
+    present_days?: string | number | null;
+    absent_days?: string | number | null;
+    late_days?: string | number | null;
+    half_days?: string | number | null;
+  }
+
   interface ContentSubject {
+    subject_id?: string;
     color_hex?: string | null;
     total_items?: string | number | null;
     completed_items?: string | number | null;
@@ -108,6 +121,24 @@ declare module '@/types/api' {
     schoolRank?: number | null;
   }
 
+  interface StudentAcademicSummary {
+    average?: string | number | null;
+    scoredSchoolTests?: string | number | null;
+    classRank?: string | number | null;
+    schoolRank?: string | number | null;
+  }
+
+  interface StudentRecentResult {
+    id: string;
+    title?: string | null;
+    type?: string | null;
+    percentage?: string | number | null;
+    total_marks?: string | number | null;
+    max_marks?: string | number | null;
+    rank_school?: string | number | null;
+    rank_overall?: string | number | null;
+  }
+
   interface StudentDashboard {
     todayAttendance?: string | null;
     monthlyAttendance?: AttendanceSummary | null;
@@ -115,6 +146,9 @@ declare module '@/types/api' {
     subjectProgress?: ContentSubject[];
     ranking?: StudentRanking;
     leaderboard?: LeaderboardRow[];
+    academic?: StudentAcademicSummary;
+    recentResults?: StudentRecentResult[];
+    unreadNotifications?: string | number | null;
   }
 
   interface ReportCardRow {
