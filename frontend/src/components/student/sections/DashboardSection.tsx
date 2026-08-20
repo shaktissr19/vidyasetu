@@ -3,6 +3,17 @@
 import type { StudentDashboardSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
+interface PortalRecentResult {
+  id: string;
+  title?: string | null;
+  percentage?: string | number | null;
+  type?: string | null;
+  total_marks?: string | number | null;
+  max_marks?: string | number | null;
+  rank_school?: string | number | null;
+  rank_overall?: string | number | null;
+}
+
 function formatExamDate(value: string | number | Date | null | undefined): string {
   if (!value) return 'Date TBA';
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(value));
@@ -13,7 +24,7 @@ export default function DashboardSection({ dashboard, student, greeting, goSecti
   const academic = dashboard?.academic;
   const subjects = dashboard?.subjectProgress || [];
   const exams = dashboard?.upcomingExams || [];
-  const recentResults = dashboard?.recentResults || [];
+  const recentResults = (dashboard?.recentResults || []) as PortalRecentResult[];
   const announcements = dashboard?.announcements || [];
   const weakest = [...subjects].sort((a, b) => Number(a.progress_pct || 0) - Number(b.progress_pct || 0))[0];
   const totalItems = subjects.reduce((sum, subject) => sum + Number(subject.total_items || 0), 0);
