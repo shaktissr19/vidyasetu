@@ -22,7 +22,12 @@ export function useOffline() {
     console.log('Download queued for:', subjectId);
   }, []);
 
-  return { isOnline, downloadSubject };
+  // Existing consumers already treat a missing cache list as empty. Exposing
+  // the empty list explicitly keeps that runtime behavior while making the
+  // hook contract strict-TypeScript friendly.
+  const cachedSubjects: string[] = [];
+
+  return { isOnline, downloadSubject, cachedSubjects };
 }
 
 export default useOffline;
