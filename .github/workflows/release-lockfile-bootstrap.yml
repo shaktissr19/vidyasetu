@@ -1,0 +1,47 @@
+name: Release lockfile bootstrap
+
+on:
+  push:
+    branches: [release-hardening]
+
+permissions:
+  contents: write
+
+jobs:
+  generate-lockfiles:
+    if: ${{ !contains(github.event.head_commit.message, '[lockfiles-generated]') }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout release-hardening
+        uses: actions/checkout@v4
+        with:
+          ref: release-hardening
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate exact npm lockfiles
+        run: |
+          set -Eeuo pipefail
+          cd shared/contracts
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          cd ../../frontend
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          cd ..
+          test -s shared/contracts/package-lock.json
+          test -s frontend/package-lock.json
+
+      - name: Commit generated lockfiles
+        run: |
+          set -Eeuo pipefail
+          if git diff --quiet -- shared/contracts/package-lock.json frontend/package-lock.json; then
+            echo 'Lockfiles already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- shared/contracts/package-lock.json frontend/package-lock.json
+          git commit -m 'Add release lockfiles [lockfiles-generated]'
+          git push origin HEAD:release-hardening
