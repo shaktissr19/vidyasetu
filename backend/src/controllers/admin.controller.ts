@@ -41,6 +41,11 @@ export async function getRevenue(_req: Request, res: Response, next: NextFunctio
   catch (err: unknown) { next(err); }
 }
 
+export async function getContentAnalytics(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await adminService.getContentAnalytics()); }
+  catch (err: unknown) { next(err); }
+}
+
 export async function listSchools(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     const result = await adminService.listSchools(req.query, {
@@ -51,6 +56,11 @@ export async function listSchools(req: Request, res: Response, next: NextFunctio
     });
     return R.ok(res, result.schools, result.meta);
   } catch (err: unknown) { next(err); }
+}
+
+export async function getSchool(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await adminService.getSchoolDetail(req.params.schoolId)); }
+  catch (err: unknown) { next(err); }
 }
 
 export async function updateSchoolStatus(
