@@ -7,3 +7,7 @@ export function apiErrorText(error: unknown, fallback = 'Request failed'): strin
   }
   return error instanceof Error ? error.message || fallback : fallback;
 }
+
+export function apiErrorStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined;
+}
