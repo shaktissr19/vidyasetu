@@ -90,20 +90,18 @@ jobs:
             WHERE id = '30000000-0000-0000-0000-000000000001'
           );
 
-          WITH candidate AS (
-            SELECT ta.id
-            FROM teacher_assignments ta
-            JOIN students s ON s.class_id = ta.class_id
-            JOIN teachers t ON t.id = ta.teacher_id AND t.status = 'ACTIVE'
-            WHERE s.id = '30000000-0000-0000-0000-000000000001'
-              AND ta.school_id = s.school_id
-            ORDER BY ta.created_at, ta.id
-            LIMIT 1
+          INSERT INTO teacher_assignments (
+            teacher_id, school_id, class_id, subject_code, academic_year, is_class_teacher
           )
-          UPDATE teacher_assignments ta
-          SET is_class_teacher = TRUE
-          FROM candidate c
-          WHERE ta.id = c.id;
+          SELECT t.id, s.school_id, s.class_id, 'MATH', s.academic_year, TRUE
+          FROM students s
+          JOIN teachers t ON t.school_id = s.school_id AND t.status = 'ACTIVE'
+          WHERE s.id = '30000000-0000-0000-0000-000000000001'
+            AND s.class_id IS NOT NULL
+          ORDER BY t.created_at, t.id
+          LIMIT 1
+          ON CONFLICT (teacher_id, class_id, subject_code, academic_year)
+          DO UPDATE SET is_class_teacher = TRUE;
 
           DO $$
           BEGIN
@@ -114,7 +112,7 @@ jobs:
               WHERE s.id = '30000000-0000-0000-0000-000000000001'
                 AND ta.is_class_teacher = TRUE
             ) THEN
-              RAISE EXCEPTION 'Parent/Admin E2E fixture could not assign a class teacher';
+              RAISE EXCEPTION 'Parent/Admin E2E fixture could not create a class teacher assignment';
             END IF;
           END $$;
           SQL
