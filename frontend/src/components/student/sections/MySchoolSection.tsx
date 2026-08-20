@@ -34,7 +34,7 @@ interface PortalAnnouncement {
   published_at?: string | null;
 }
 
-type PortalDashboard = StudentDashboard & {
+type PortalDashboard = Omit<StudentDashboard, 'timetable' | 'announcements'> & {
   schoolLink?: SchoolLinkSummary;
   timetable?: PortalTimetableRow[];
   announcements?: PortalAnnouncement[];
