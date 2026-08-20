@@ -14,6 +14,12 @@ export interface AuthUser {
   schoolLinkStatus?: string | null;
   mustChangePassword?: boolean;
   profilePhoto?: string | null;
+  schoolId?: string | null;
+  teacherId?: string | null;
+  classId?: string | null;
+  className?: string | number | null;
+  gradeLevel?: string | number | null;
+  rollNumber?: string | number | null;
 }
 
 export interface AuthState {
