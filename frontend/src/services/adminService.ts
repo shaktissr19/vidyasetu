@@ -14,11 +14,16 @@ export type AdminQueryParams = Record<string, string | number | boolean | null |
 type Payload = Record<string, unknown>;
 
 export interface AdminSchoolDetail extends AdminSchool {
+  udise_code?: string | null;
+  address_line1?: string | null;
+  pincode?: string | null;
   admin_name?: string | null;
   admin_mobile?: string | null;
   admin_email?: string | null;
   teacher_count?: number | string | null;
   class_count?: number | string | null;
+  is_verified?: boolean | null;
+  verified_at?: string | null;
   recentActivity?: Array<{
     action: string;
     target_type?: string | null;
