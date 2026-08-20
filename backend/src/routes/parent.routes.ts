@@ -15,10 +15,15 @@ const messageSchema = z.object({
 
 router.get('/children', ctrl.getChildren);
 router.get('/children/:studentId/dashboard', ctrl.getChildDashboard);
+router.get('/children/:studentId/performance', ctrl.getChildPerformance);
 router.get('/children/:studentId/attendance', ctrl.getChildAttendance);
+router.get('/children/:studentId/report-card', ctrl.getChildReportCard);
+router.get('/children/:studentId/teacher', ctrl.getChildTeacher);
 router.get('/children/:studentId/fees', ctrl.getChildFees);
 router.get('/children/:studentId/messages', ctrl.getMessages);
 router.post('/children/:studentId/messages', validate(messageSchema), ctrl.sendMessage);
 router.get('/notifications', ctrl.getNotifications);
+router.patch('/notifications/read-all', ctrl.markAllNotificationsRead);
+router.patch('/notifications/:notificationId/read', ctrl.markNotificationRead);
 
 export = router;
