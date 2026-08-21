@@ -1,0 +1,54 @@
+name: Native Release Path CI
+
+on:
+  push:
+    branches: [release-hardening]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production-path:
+    name: Production-equivalent dependency and build path
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+      INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate release scripts and PM2 config
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/build-production-native.sh
+          bash -n scripts/deploy-main-native.sh
+          bash -n scripts/student-production-smoke.sh
+          bash -n scripts/school-production-smoke.sh
+          bash -n scripts/parent-admin-production-smoke.sh
+          node -e "const c=require('./ecosystem.config.cjs'); if(!c.apps?.some(a=>a.name==='vs-api'&&a.script==='dist/index.js')) process.exit(1)"
+          if grep -Eq 'docker compose|docker-compose|src/index\.js|rm -f package-lock\.json|run_all_migrations|dev_seed' scripts/deploy-main-native.sh; then
+            echo 'Deploy script contains a forbidden stale/destructive release command.'
+            exit 1
+          fi
+
+      - name: Execute exact production-equivalent build path
+        run: PROJECT_DIR="$GITHUB_WORKSPACE" bash scripts/build-production-native.sh
+
+      - name: Verify release artifacts
+        run: |
+          set -Eeuo pipefail
+          test -s shared/contracts/dist/index.d.ts
+          test -s backend/dist/index.js
+          test -s frontend/.next/BUILD_ID
+          test "$(find backend/src -type f -name '*.js' | wc -l)" = "0"
+          test "$(find frontend/src -type f \( -name '*.js' -o -name '*.jsx' \) | wc -l)" = "0"

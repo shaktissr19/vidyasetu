@@ -25,14 +25,18 @@ jobs:
 
       - name: Validate release scripts
         run: |
+          set -Eeuo pipefail
           bash -n scripts/school-e2e-smoke.sh
           bash -n scripts/school-production-smoke.sh
           bash -n scripts/student-production-smoke.sh
+          bash -n scripts/parent-admin-production-smoke.sh
+          bash -n scripts/build-production-native.sh
           bash -n scripts/deploy-main-native.sh
-          grep -q '017_school_management_core.sql' scripts/deploy-main-native.sh
-          grep -q 'school-production-smoke.sh' scripts/deploy-main-native.sh
-          if grep -Eq 'docker compose down.*-v|docker-compose down.*-v' scripts/deploy-main-native.sh; then
-            echo 'Destructive Docker volume deletion is forbidden in deployment scripts.'
+          grep -q 'build-production-native.sh' scripts/deploy-main-native.sh
+          grep -q 'parent-admin-production-smoke.sh' scripts/deploy-main-native.sh
+          node -e "const c=require('./ecosystem.config.cjs'); if(!c.apps?.some(a=>a.name==='vs-api'&&a.script==='dist/index.js')) process.exit(1)"
+          if grep -Eq 'docker compose|docker-compose|src/index\.js|rm -f package-lock\.json|run_all_migrations|dev_seed|017_school_management_core\.sql' scripts/deploy-main-native.sh; then
+            echo 'Routine deployment script contains a stale, mutating, or non-TypeScript release command.'
             exit 1
           fi
 
@@ -60,7 +64,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
-          # School migration must remain safe when a production deploy is re-run.
+          # Disposable CI verifies the historical School migration remains idempotent.
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
 
       - name: Validate School Management schema and realistic baseline
@@ -79,14 +83,14 @@ jobs:
       - name: Build shared contracts and compiled backend
         run: |
           cd shared/contracts
-          npm install --no-audit --no-fund
+          npm install --package-lock=false --no-audit --no-fund
           npm run build
           cd ../../backend
-          npm ci
+          npm ci --no-audit --no-fund
           npm run typecheck
           npm run build
           test -f dist/index.js
-          find src -name '*.js' -print0 | xargs -0 -r -n1 node --check
+          test "$(find src -type f -name '*.js' | wc -l)" = "0"
 
       - name: Start backend natively
         working-directory: backend
@@ -159,8 +163,9 @@ jobs:
           INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
         run: |
           unset NODE_ENV || true
-          rm -rf .next node_modules package-lock.json
-          npm install --no-audit --no-fund
+          rm -rf .next node_modules
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
           NODE_ENV=production npm run build
 
       - name: Start production Next.js and verify School routes
