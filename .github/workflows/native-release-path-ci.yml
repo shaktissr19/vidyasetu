@@ -2,7 +2,7 @@ name: Native Release Path CI
 
 on:
   push:
-    branches: [release-hardening]
+    branches: [release-hardening, release-pm2-handoff-fix]
   pull_request:
     branches: [main]
 
@@ -32,11 +32,13 @@ jobs:
           set -Eeuo pipefail
           bash -n scripts/build-production-native.sh
           bash -n scripts/deploy-main-native.sh
+          bash -n scripts/switch-pm2-release.sh
           bash -n scripts/student-production-smoke.sh
           bash -n scripts/school-production-smoke.sh
           bash -n scripts/parent-admin-production-smoke.sh
           node -e "const c=require('./ecosystem.config.cjs'); if(!c.apps?.some(a=>a.name==='vs-api'&&a.script==='dist/index.js')) process.exit(1)"
-          if grep -Eq 'docker compose|docker-compose|src/index\.js|rm -f package-lock\.json|run_all_migrations|dev_seed' scripts/deploy-main-native.sh; then
+          grep -q 'switch-pm2-release.sh' scripts/deploy-main-native.sh
+          if grep -Eq 'docker compose|docker-compose|src/index\.js|rm -f package-lock\.json|run_all_migrations|dev_seed|startOrReload' scripts/deploy-main-native.sh; then
             echo 'Deploy script contains a forbidden stale/destructive release command.'
             exit 1
           fi
@@ -52,3 +54,46 @@ jobs:
           test -s frontend/.next/BUILD_ID
           test "$(find backend/src -type f -name '*.js' | wc -l)" = "0"
           test "$(find frontend/src -type f \( -name '*.js' -o -name '*.jsx' \) | wc -l)" = "0"
+
+      - name: Verify stale PM2 processes are replaced by the new release
+        run: |
+          set -Eeuo pipefail
+          npm install -g pm2@5 --no-audit --no-fund
+
+          make_dummy_release() {
+            local dir="$1" label="$2"
+            mkdir -p "$dir/backend/dist" "$dir/frontend/.next"
+            cp ecosystem.config.cjs "$dir/ecosystem.config.cjs"
+            printf '%s\n' "$label" > "$dir/frontend/.next/BUILD_ID"
+            cat > "$dir/backend/dist/index.js" <<EOF
+          const http = require('http');
+          http.createServer((_req, res) => res.end('${label}-api')).listen(5000, '127.0.0.1');
+          EOF
+            cat > "$dir/frontend/package.json" <<'EOF'
+          {"scripts":{"start":"node server.js"}}
+          EOF
+            cat > "$dir/frontend/server.js" <<EOF
+          const http = require('http');
+          http.createServer((_req, res) => res.end('${label}-web')).listen(process.env.PORT || 3000, '127.0.0.1');
+          EOF
+          }
+
+          OLD=/tmp/vidyasetu-old-release
+          NEW=/tmp/vidyasetu-new-release
+          make_dummy_release "$OLD" old
+          make_dummy_release "$NEW" new
+
+          bash scripts/switch-pm2-release.sh "$OLD"
+          sleep 2
+          test "$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_exec_path')" = "$OLD/backend/dist/index.js"
+          test "$(curl -fsS http://127.0.0.1:5000/)" = "old-api"
+
+          bash scripts/switch-pm2-release.sh "$NEW"
+          sleep 2
+          test "$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_exec_path')" = "$NEW/backend/dist/index.js"
+          test "$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_cwd')" = "$NEW/backend"
+          test "$(pm2 jlist | jq -r '.[] | select(.name=="vs-web") | .pm2_env.pm_cwd')" = "$NEW/frontend"
+          test "$(curl -fsS http://127.0.0.1:5000/)" = "new-api"
+          test "$(curl -fsS http://127.0.0.1:3000/)" = "new-web"
+
+          pm2 delete all || true
