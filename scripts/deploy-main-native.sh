@@ -103,29 +103,50 @@ done
 log "5/9 Build and certify the isolated release"
 PROJECT_DIR="$RELEASE_DIR" bash "$RELEASE_DIR/scripts/build-production-native.sh"
 
+PREVIOUS_RELEASE=""
+if [[ -L "$CURRENT_LINK" ]]; then
+  PREVIOUS_RELEASE="$(readlink -f "$CURRENT_LINK" || true)"
+fi
+
+rollback_pm2() {
+  if [[ -n "$PREVIOUS_RELEASE" && -s "$PREVIOUS_RELEASE/ecosystem.config.cjs" && -s "$PREVIOUS_RELEASE/scripts/switch-pm2-release.sh" ]]; then
+    printf '\nAttempting PM2 rollback to previous certified release: %s\n' "$PREVIOUS_RELEASE" >&2
+    bash "$PREVIOUS_RELEASE/scripts/switch-pm2-release.sh" "$PREVIOUS_RELEASE" || true
+  else
+    printf '\nNo previous certified release is available for automatic PM2 rollback.\n' >&2
+  fi
+}
+
 log "6/9 Switch PM2 to the certified release"
-pm2 startOrReload "$RELEASE_DIR/ecosystem.config.cjs" --update-env
-pm2 save
+bash "$RELEASE_DIR/scripts/switch-pm2-release.sh" "$RELEASE_DIR"
 
 for i in {1..40}; do
-  if curl -fsS http://127.0.0.1:5000/health >/dev/null; then break; fi
+  if curl -fsS http://127.0.0.1:5000/health >/dev/null 2>&1; then break; fi
   sleep 1
-  [[ "$i" -lt 40 ]] || { pm2 logs vs-api --lines 120 --nostream; fail "Compiled API did not become healthy."; }
+  if [[ "$i" -eq 40 ]]; then
+    pm2 logs vs-api --lines 120 --nostream || true
+    rollback_pm2
+    fail "Compiled API did not become healthy."
+  fi
 done
 
 for i in {1..40}; do
   code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/ || true)"
   [[ "$code" =~ ^(200|301|302|307|308)$ ]] && break
   sleep 1
-  [[ "$i" -lt 40 ]] || { pm2 logs vs-web --lines 120 --nostream; fail "Next.js did not become healthy."; }
+  if [[ "$i" -eq 40 ]]; then
+    pm2 logs vs-web --lines 120 --nostream || true
+    rollback_pm2
+    fail "Next.js did not become healthy."
+  fi
 done
 
 API_SCRIPT="$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_exec_path' | head -1)"
 API_CWD="$(pm2 jlist | jq -r '.[] | select(.name=="vs-api") | .pm2_env.pm_cwd' | head -1)"
 WEB_CWD="$(pm2 jlist | jq -r '.[] | select(.name=="vs-web") | .pm2_env.pm_cwd' | head -1)"
-[[ "$API_SCRIPT" == "$RELEASE_DIR/backend/dist/index.js" ]] || fail "vs-api is not running the staged compiled artifact; found '$API_SCRIPT'"
-[[ "$API_CWD" == "$RELEASE_DIR/backend" ]] || fail "vs-api cwd mismatch: '$API_CWD'"
-[[ "$WEB_CWD" == "$RELEASE_DIR/frontend" ]] || fail "vs-web cwd mismatch: '$WEB_CWD'"
+[[ "$API_SCRIPT" == "$RELEASE_DIR/backend/dist/index.js" ]] || { rollback_pm2; fail "vs-api is not running the staged compiled artifact; found '$API_SCRIPT'"; }
+[[ "$API_CWD" == "$RELEASE_DIR/backend" ]] || { rollback_pm2; fail "vs-api cwd mismatch: '$API_CWD'"; }
+[[ "$WEB_CWD" == "$RELEASE_DIR/frontend" ]] || { rollback_pm2; fail "vs-web cwd mismatch: '$WEB_CWD'"; }
 
 log "7/9 Run local non-destructive role smoke checks"
 cd "$RELEASE_DIR"
