@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/group.controller';
+import * as contextCtrl from '../controllers/groupContext.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -41,6 +42,7 @@ const reportSchema = z.object({
   details: z.string().trim().max(1000).nullable().optional(),
 });
 
+router.get('/context', contextCtrl.getCreationContext);
 router.post('/', validate(createGroupSchema), ctrl.createGroup);
 router.get('/mine', ctrl.myGroups);
 router.get('/discover', ctrl.discover);
