@@ -19,12 +19,6 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: 'Completed',
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  OLYMPIAD: 'Academic Competition',
-  MOCK: 'Mock Challenge',
-  PRACTICE: 'Practice Challenge',
-};
-
 export default function CompetitionPage() {
   const { isLoggedIn } = useAuthStore();
   const { t } = useLanguageStore();
@@ -79,7 +73,7 @@ export default function CompetitionPage() {
                   <div style={{ background: exam.status === 'LIVE' ? 'linear-gradient(135deg, var(--forest), #0A6B06)' : 'linear-gradient(135deg, var(--navy), var(--navy-mid))', padding: '20px' }}>
                     <div className="flex items-center justify-between mb-2"><h3 className="font-display" style={{ fontWeight: 700, color: 'white', fontSize: '1.05rem' }}>{exam.title}</h3></div>
                     <span style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)', fontSize: '0.75rem', padding: '3px 10px', borderRadius: 20 }}>
-                      {TYPE_LABEL[exam.type || ''] || 'Competition'} · {STATUS_LABEL[exam.status] || exam.status} · Class {exam.class_names?.join(', ') || 'All'}
+                      {STATUS_LABEL[exam.status] || exam.status} · Class {exam.class_names?.join(', ') || 'All'}
                     </span>
                   </div>
 
@@ -101,7 +95,7 @@ export default function CompetitionPage() {
                         <button className="btn-outline w-full justify-center" onClick={() => setLbExamId(exam.id === lbExamId ? null : exam.id)}>
                           {lbExamId === exam.id ? 'Hide Leaderboard' : 'View Leaderboard'}
                         </button>
-                      ) : exam.registration_id || exam.registered ? (
+                      ) : exam.registered ? (
                         exam.status === 'LIVE' ? (
                           <button className="btn-primary w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => isLoggedIn ? router.push(`/exams/${exam.id}`) : router.push('/login')}>Start Competition</button>
                         ) : (
@@ -124,7 +118,7 @@ export default function CompetitionPage() {
             <div className="stagger">
               {leaderboard.slice(0, 10).map((row, i) => (
                 <div key={row.id || i} className="animate-fade-up">
-                  <LBRow rank={row.rank ?? i + 1} name={row.name || row.student_name || ''} school={`${row.school_name || ''}${row.state ? ` · ${row.state}` : ''}`} score={row.score ?? '—'} />
+                  <LBRow rank={row.rank ?? i + 1} name={row.name || row.student_name || ''} school={row.school_name || ''} score={row.score ?? '—'} />
                 </div>
               ))}
             </div>
