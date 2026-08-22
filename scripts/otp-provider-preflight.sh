@@ -9,8 +9,15 @@ fail() {
 }
 
 read_env_value() {
-  local key="$1"
-  grep -m1 -E "^${key}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | sed -E 's/^['\"'\'']|['\"'\'']$//g' || true
+  local key="$1" value
+  value="$(grep -m1 -E "^${key}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
+  value="${value%$'\r'}"
+  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+    value="${value:1:${#value}-2}"
+  elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+    value="${value:1:${#value}-2}"
+  fi
+  printf '%s' "$value"
 }
 
 [[ -s "$ENV_FILE" ]] || fail "OTP preflight cannot find environment file: $ENV_FILE"
@@ -27,7 +34,8 @@ fi
 case "$SMS_PROVIDER_VALUE" in
   twofactor)
     [[ -n "$(read_env_value TWOFACTOR_API_KEY)" ]] || fail "TWOFACTOR_API_KEY is required when SMS_PROVIDER=twofactor."
-    printf 'OTP provider preflight: 2Factor configured (template: %s).\n' "$(read_env_value TWOFACTOR_TEMPLATE_NAME | sed 's/^$/LOGIN_OTP/')"
+    template_name="$(read_env_value TWOFACTOR_TEMPLATE_NAME)"
+    printf 'OTP provider preflight: 2Factor configured (template: %s).\n' "${template_name:-LOGIN_OTP}"
     ;;
   kaleyra)
     [[ -n "$(read_env_value KALEYRA_API_KEY)" ]] || fail "KALEYRA_API_KEY is required when SMS_PROVIDER=kaleyra."
