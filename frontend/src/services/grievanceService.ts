@@ -57,6 +57,7 @@ export interface GrievanceHistory {
 export interface GrievanceDetail extends GrievanceSummary {
   messages: GrievanceMessage[];
   history: GrievanceHistory[];
+  reopen_limit: number;
 }
 
 export interface GrievanceAttachment {
