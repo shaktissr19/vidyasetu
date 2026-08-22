@@ -11,15 +11,18 @@ const passwordSchema = z.string().min(8).max(128)
   .regex(/[A-Za-z]/, 'Password must contain a letter')
   .regex(/\d/, 'Password must contain at least one number');
 
+const roleSchema = z.enum(['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER', 'SUPER_ADMIN']);
+
 const sendOtpSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
+  role: roleSchema.optional(),
 });
 
 const verifyOtpSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/),
   otp: z.string().length(6, 'OTP must be 6 digits'),
   deviceInfo: z.string().max(500).optional(),
-  role: z.enum(['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER', 'SUPER_ADMIN']).optional(),
+  role: roleSchema.optional(),
 });
 
 const loginSchema = z.object({
