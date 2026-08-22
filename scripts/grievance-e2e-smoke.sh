@@ -55,11 +55,11 @@ otp_session(){
 
 log "Create isolation identities in disposable database"
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<SQL
-INSERT INTO users (id,mobile,name,role,status,language)
+INSERT INTO users (id,mobile,name,username,role,status,language)
 VALUES
- ('$OTHER_SCHOOL_ADMIN_ID','$OTHER_SCHOOL_ADMIN_MOBILE','Other School Admin','SCHOOL_ADMIN','ACTIVE','en'),
- ('$TEACHER_USER_ID','$TEACHER_MOBILE','Grievance Test Teacher','TEACHER','ACTIVE','en'),
- ('$OTHER_PARENT_ID','$OTHER_PARENT_MOBILE','Other Parent','PARENT','ACTIVE','en')
+ ('$OTHER_SCHOOL_ADMIN_ID','$OTHER_SCHOOL_ADMIN_MOBILE','Other School Admin','other.school.admin','SCHOOL_ADMIN','ACTIVE','en'),
+ ('$TEACHER_USER_ID','$TEACHER_MOBILE','Grievance Test Teacher','grievance.teacher','TEACHER','ACTIVE','en'),
+ ('$OTHER_PARENT_ID','$OTHER_PARENT_MOBILE','Other Parent','other.parent.grievance','PARENT','ACTIVE','en')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO schools (id,name,admin_user_id,status,state,academic_year)
@@ -101,14 +101,40 @@ TICKET="$(json_get "$CREATED" '.data.ticket_number')"
 [[ "$(json_get "$CREATED" '.data.school_id')" == "$PRIMARY_SCHOOL_ID" ]] || fail "Concern routed to wrong school"
 [[ -n "$(json_get "$CREATED" '.data.assigned_to')" ]] || fail "Concern was not assigned to School Admin"
 
-log "Parent and School isolation"
-expect_status 404 GET "$API_BASE/parent/grievances/$GID" '' "$OTHER_PARENT_TOKEN"
-expect_status 404 GET "$API_BASE/school/grievances/$GID" '' "$OTHER_SCHOOL_TOKEN"
-expect_status 403 GET "$API_BASE/school/grievances" '' "$TEACHER_TOKEN"
+log "Parent evidence validation and private upload ticket"
+expect_status 400 POST "$API_BASE/parent/grievances/$GID/attachments/upload-url" '{"fileName":"unsafe.exe","contentType":"application/octet-stream","fileSize":1024}' "$PARENT_TOKEN"
+expect_status 400 POST "$API_BASE/parent/grievances/$GID/attachments/upload-url" '{"fileName":"too-big.pdf","contentType":"application/pdf","fileSize":10485761}' "$PARENT_TOKEN"
+UPLOAD="$(request POST "$API_BASE/parent/grievances/$GID/attachments/upload-url" '{"fileName":"attendance-note.pdf","contentType":"application/pdf","fileSize":2048}' "$PARENT_TOKEN")"
+EVIDENCE_KEY="$(json_get "$UPLOAD" '.data.key')"
+UPLOAD_URL="$(json_get "$UPLOAD" '.data.uploadUrl')"
+[[ "$EVIDENCE_KEY" == "grievances/$GID/$PARENT_USER_ID/"* ]] || fail "Evidence key is outside Parent/grievance namespace"
+[[ "$UPLOAD_URL" == http* ]] || fail "Signed upload URL missing"
+CONFIRM_BODY="$(jq -nc --arg key "$EVIDENCE_KEY" '{key:$key,fileName:"attendance-note.pdf",contentType:"application/pdf",fileSize:2048}')"
+EVIDENCE="$(request POST "$API_BASE/parent/grievances/$GID/attachments" "$CONFIRM_BODY" "$PARENT_TOKEN")"
+ATTACHMENT_ID="$(json_get "$EVIDENCE" '.data.id')"
+[[ "$(json_get "$EVIDENCE" '.data.file_name')" == "attendance-note.pdf" ]] || fail "Evidence metadata was not persisted"
+PARENT_EVIDENCE_LIST="$(request GET "$API_BASE/parent/grievances/$GID/attachments" '' "$PARENT_TOKEN")"
+[[ "$(jq -r --arg id "$ATTACHMENT_ID" '[.data[]|select(.id==$id)]|length' <<<"$PARENT_EVIDENCE_LIST")" == "1" ]] || fail "Parent cannot see attached evidence"
+PARENT_DOWNLOAD="$(request GET "$API_BASE/parent/grievances/$GID/attachments/$ATTACHMENT_ID/url" '' "$PARENT_TOKEN")"
+[[ "$(json_get "$PARENT_DOWNLOAD" '.data.url')" == http* ]] || fail "Parent signed evidence download URL missing"
 
-log "School sees, acknowledges and starts review"
+log "Parent, School and evidence isolation"
+expect_status 404 GET "$API_BASE/parent/grievances/$GID" '' "$OTHER_PARENT_TOKEN"
+expect_status 404 GET "$API_BASE/parent/grievances/$GID/attachments" '' "$OTHER_PARENT_TOKEN"
+expect_status 404 GET "$API_BASE/parent/grievances/$GID/attachments/$ATTACHMENT_ID/url" '' "$OTHER_PARENT_TOKEN"
+expect_status 404 GET "$API_BASE/school/grievances/$GID" '' "$OTHER_SCHOOL_TOKEN"
+expect_status 404 GET "$API_BASE/school/grievances/$GID/attachments" '' "$OTHER_SCHOOL_TOKEN"
+expect_status 404 GET "$API_BASE/school/grievances/$GID/attachments/$ATTACHMENT_ID/url" '' "$OTHER_SCHOOL_TOKEN"
+expect_status 403 GET "$API_BASE/school/grievances" '' "$TEACHER_TOKEN"
+expect_status 403 GET "$API_BASE/school/grievances/$GID/attachments" '' "$TEACHER_TOKEN"
+
+log "School sees evidence, acknowledges and starts review"
 SCHOOL_LIST="$(request GET "$API_BASE/school/grievances" '' "$SCHOOL_TOKEN")"
 [[ "$(jq -r --arg id "$GID" '[.data[]|select(.id==$id)]|length' <<<"$SCHOOL_LIST")" == "1" ]] || fail "School cannot see Parent concern"
+SCHOOL_EVIDENCE="$(request GET "$API_BASE/school/grievances/$GID/attachments" '' "$SCHOOL_TOKEN")"
+[[ "$(jq -r --arg id "$ATTACHMENT_ID" '[.data[]|select(.id==$id)]|length' <<<"$SCHOOL_EVIDENCE")" == "1" ]] || fail "Correct School cannot see Parent evidence"
+SCHOOL_DOWNLOAD="$(request GET "$API_BASE/school/grievances/$GID/attachments/$ATTACHMENT_ID/url" '' "$SCHOOL_TOKEN")"
+[[ "$(json_get "$SCHOOL_DOWNLOAD" '.data.url')" == http* ]] || fail "School signed evidence download URL missing"
 ACK="$(request PATCH "$API_BASE/school/grievances/$GID/action" '{"action":"ACKNOWLEDGE","note":"School received the concern"}' "$SCHOOL_TOKEN")"
 [[ "$(json_get "$ACK" '.data.status')" == "ACKNOWLEDGED" ]] || fail "Acknowledgement failed"
 START="$(request PATCH "$API_BASE/school/grievances/$GID/action" '{"action":"START","note":"Attendance register review started"}' "$SCHOOL_TOKEN")"
@@ -132,18 +158,26 @@ RESOLVED="$(request PATCH "$API_BASE/school/grievances/$GID/action" '{"action":"
 log "Parent closes, reopens and escalates"
 CLOSED="$(request PATCH "$API_BASE/parent/grievances/$GID/action" '{"action":"CLOSE","note":"Parent initially accepted the resolution"}' "$PARENT_TOKEN")"
 [[ "$(json_get "$CLOSED" '.data.status')" == "CLOSED" ]] || fail "Parent close failed"
+expect_status 409 POST "$API_BASE/parent/grievances/$GID/attachments/upload-url" '{"fileName":"closed.pdf","contentType":"application/pdf","fileSize":1024}' "$PARENT_TOKEN"
 REOPENED="$(request PATCH "$API_BASE/parent/grievances/$GID/action" '{"action":"REOPEN","note":"Parent found the issue still visible in the record"}' "$PARENT_TOKEN")"
 [[ "$(json_get "$REOPENED" '.data.status')" == "IN_PROGRESS" ]] || fail "Parent reopen failed"
 [[ "$(json_get "$REOPENED" '.data.reopen_count | tonumber')" == "1" ]] || fail "Reopen count did not increment"
+[[ "$(jq -r '.data.closed_at == null and .data.resolved_at == null' <<<"$REOPENED")" == "true" ]] || fail "Reopen did not clear stale closure/resolution timestamps"
 ESCALATED="$(request PATCH "$API_BASE/parent/grievances/$GID/action" '{"action":"ESCALATE","note":"Please review at Platform level"}' "$PARENT_TOKEN")"
 [[ "$(json_get "$ESCALATED" '.data.status')" == "ESCALATED" ]] || fail "Parent escalation failed"
+[[ "$(jq -r '.data.closed_at == null and .data.resolved_at == null and .data.escalated_at != null' <<<"$ESCALATED")" == "true" ]] || fail "Escalation timestamps are inconsistent"
 
 log "School cannot downgrade an escalated concern"
 expect_status 409 PATCH "$API_BASE/school/grievances/$GID/action" '{"action":"START","note":"School attempts to restart review"}' "$SCHOOL_TOKEN"
+expect_status 409 PATCH "$API_BASE/school/grievances/$GID/action" '{"action":"RESOLVE","note":"School attempts to resolve after escalation"}' "$SCHOOL_TOKEN"
 
-log "Platform Admin oversight, internal note and visible reply"
+log "Platform Admin oversight, evidence, internal note and visible reply"
 ADMIN_LIST="$(request GET "$API_BASE/admin/grievances?status=ESCALATED" '' "$ADMIN_TOKEN")"
 [[ "$(jq -r --arg id "$GID" '[.data[]|select(.id==$id)]|length' <<<"$ADMIN_LIST")" == "1" ]] || fail "Escalated grievance absent from Admin oversight"
+ADMIN_EVIDENCE="$(request GET "$API_BASE/admin/grievances/$GID/attachments" '' "$ADMIN_TOKEN")"
+[[ "$(jq -r --arg id "$ATTACHMENT_ID" '[.data[]|select(.id==$id)]|length' <<<"$ADMIN_EVIDENCE")" == "1" ]] || fail "Platform Admin cannot see grievance evidence"
+ADMIN_DOWNLOAD="$(request GET "$API_BASE/admin/grievances/$GID/attachments/$ATTACHMENT_ID/url" '' "$ADMIN_TOKEN")"
+[[ "$(json_get "$ADMIN_DOWNLOAD" '.data.url')" == http* ]] || fail "Admin signed evidence download URL missing"
 request POST "$API_BASE/admin/grievances/$GID/replies" '{"body":"Internal Admin note: review SLA and school response.","internal":true}' "$ADMIN_TOKEN" >/dev/null
 request POST "$API_BASE/admin/grievances/$GID/replies" '{"body":"Platform Admin has accepted the escalation for review.","internal":false}' "$ADMIN_TOKEN" >/dev/null
 PARENT_AFTER_ADMIN="$(request GET "$API_BASE/parent/grievances/$GID" '' "$PARENT_TOKEN")"
@@ -158,8 +192,8 @@ ADMIN_RESOLVED="$(request PATCH "$API_BASE/admin/grievances/$GID/status" '{"stat
 
 log "Notifications and immutable history"
 NOTIFICATION_COUNT="$(psqlq "SELECT COUNT(*) FROM notifications WHERE reference_id='$GID'::uuid AND reference_type='GRIEVANCE';")"
-(( NOTIFICATION_COUNT >= 6 )) || fail "Expected grievance notifications were not created"
-for action in SUBMITTED ACKNOWLEDGE START SCHOOL_REPLY INTERNAL_NOTE CLOSE REOPEN ESCALATE ADMIN_INTERNAL_NOTE ADMIN_REPLY ADMIN_STATUS; do
+(( NOTIFICATION_COUNT >= 7 )) || fail "Expected grievance notifications were not created"
+for action in SUBMITTED ATTACHMENT_ADDED ACKNOWLEDGE START SCHOOL_REPLY INTERNAL_NOTE CLOSE REOPEN ESCALATE ADMIN_INTERNAL_NOTE ADMIN_REPLY ADMIN_STATUS; do
   COUNT="$(psqlq "SELECT COUNT(*) FROM grievance_history WHERE grievance_id='$GID'::uuid AND action='$action';")"
   (( COUNT >= 1 )) || fail "Missing history action: $action"
 done
@@ -170,5 +204,7 @@ log "Database invariants"
 [[ "$(psqlq "SELECT COUNT(*) FROM (SELECT ticket_number FROM parent_grievances GROUP BY ticket_number HAVING COUNT(*)>1) x;")" == "0" ]] || fail "Duplicate grievance ticket exists"
 [[ "$(psqlq "SELECT COUNT(*) FROM grievance_messages gm LEFT JOIN parent_grievances g ON g.id=gm.grievance_id WHERE g.id IS NULL;")" == "0" ]] || fail "Orphan grievance message exists"
 [[ "$(psqlq "SELECT COUNT(*) FROM grievance_history gh LEFT JOIN parent_grievances g ON g.id=gh.grievance_id WHERE g.id IS NULL;")" == "0" ]] || fail "Orphan grievance history exists"
+[[ "$(psqlq "SELECT COUNT(*) FROM grievance_attachments ga LEFT JOIN parent_grievances g ON g.id=ga.grievance_id WHERE g.id IS NULL;")" == "0" ]] || fail "Orphan grievance evidence exists"
+[[ "$(psqlq "SELECT COUNT(*) FROM grievance_attachments WHERE grievance_id='$GID'::uuid AND object_key NOT LIKE 'grievances/$GID/$PARENT_USER_ID/%';")" == "0" ]] || fail "Evidence object key escaped grievance namespace"
 
 log "Parent Concern & Grievance E2E passed"
