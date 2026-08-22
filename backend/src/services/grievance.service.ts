@@ -72,6 +72,7 @@ interface GrievanceHistoryRow extends QueryResultRow {
 export interface GrievanceDetail extends GrievanceRow {
   messages: GrievanceMessageRow[];
   history: GrievanceHistoryRow[];
+  reopen_limit: number;
 }
 interface ConfigRow extends QueryResultRow { value: string; }
 interface AdminRow extends QueryResultRow { id: UUID; }
@@ -132,15 +133,16 @@ async function detailById(grievanceId: UUID, extraWhere = '', params: unknown[] 
     [grievanceId, ...params],
   );
   if (!g) throw appError('Concern not found', 404);
-  const [messages, history] = await Promise.all([
+  const [messages, history, configuredReopenLimit] = await Promise.all([
     query<GrievanceMessageRow>(`SELECT gm.id, gm.body, gm.is_internal, gm.created_at, gm.author_user_id, u.name AS author_name, u.role AS author_role
            FROM grievance_messages gm JOIN users u ON u.id=gm.author_user_id
            WHERE gm.grievance_id=$1 ORDER BY gm.created_at ASC`, [grievanceId]),
     query<GrievanceHistoryRow>(`SELECT gh.id, gh.action, gh.from_status, gh.to_status, gh.note, gh.created_at, u.name AS actor_name, u.role AS actor_role
            FROM grievance_history gh JOIN users u ON u.id=gh.actor_user_id
            WHERE gh.grievance_id=$1 ORDER BY gh.created_at ASC`, [grievanceId]),
+    reopenLimit(),
   ]);
-  return { ...g, messages: messages.rows, history: history.rows };
+  return { ...g, messages: messages.rows, history: history.rows, reopen_limit: configuredReopenLimit };
 }
 
 export async function create(parentUserId: UUID, input: CreateGrievanceInput) {
