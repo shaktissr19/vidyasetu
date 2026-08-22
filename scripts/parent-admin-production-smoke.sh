@@ -29,7 +29,8 @@ for path in \
   /parent/report-card \
   /parent/fees \
   /parent/notifications \
-  /parent/messages; do
+  /parent/messages \
+  /parent/grievances; do
   check_web "$path"
 done
 
@@ -39,6 +40,8 @@ for path in \
   /admin/schools \
   /admin/users \
   /admin/competitions \
+  /admin/groups \
+  /admin/grievances \
   /admin/content \
   /admin/revenue \
   /admin/support \
@@ -48,8 +51,10 @@ done
 
 log "Parent/Admin authorization boundary"
 check_unauthenticated_api "/parent/children"
+check_unauthenticated_api "/parent/grievances"
 check_unauthenticated_api "/admin/analytics"
 check_unauthenticated_api "/admin/schools"
 check_unauthenticated_api "/admin/users"
+check_unauthenticated_api "/admin/grievances"
 
 printf '\nParent/Admin production smoke passed. No production data was modified.\n'
