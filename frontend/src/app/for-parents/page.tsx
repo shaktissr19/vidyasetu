@@ -2,16 +2,16 @@ import PublicModulePage, { type PublicModuleConfig } from '@/components/public/P
 
 const CONFIG: PublicModuleConfig = {
   eyebrow: 'For Parents & Guardians',
-  title: 'Understand the child journey with',
-  accentTitle: 'clear school-connected visibility',
-  summary: 'VidyaSetu gives parents one protected place to see linked children, attendance, academic performance, report cards, fees, school notifications, teacher communication, moderated Groups and formally tracked school concerns.',
-  audience: 'parents',
+  title: 'Follow your child’s school journey with',
+  accentTitle: 'clear, connected visibility',
+  summary: 'VidyaSetu gives parents one protected place to see linked children, attendance, academic performance, report cards, fees, school notifications, teacher communication, moderated Education Communities and formally tracked school concerns.',
+  audience: 'parents and guardians',
   loginRole: 'parent',
   metrics: [
     { key: 'parents', label: 'Active parent accounts' },
     { key: 'students', label: 'Active students' },
     { key: 'schools', label: 'Active schools' },
-    { key: 'groups', label: 'Active Groups' },
+    { key: 'groups', label: 'Active Communities' },
   ],
   capabilities: [
     {
@@ -20,8 +20,8 @@ const CONFIG: PublicModuleConfig = {
       bullets: ['Multiple child links', 'School and class context', 'Protected family access'],
     },
     {
-      icon: '📊', title: 'Performance tracking',
-      description: 'Parents can review academic performance views rather than waiting only for periodic paper updates.',
+      icon: '📊', title: 'Academic progress',
+      description: 'Parents can review performance and subject-level information rather than depending only on periodic paper updates.',
       bullets: ['Recent performance', 'Subject-level visibility', 'Progress context over time'],
     },
     {
@@ -31,7 +31,7 @@ const CONFIG: PublicModuleConfig = {
     },
     {
       icon: '📄', title: 'Report cards and results',
-      description: 'Parents can open report-card information for a linked child without requiring access to the School Admin workspace.',
+      description: 'Parents can open report-card information for a linked child without requiring School Admin access.',
       bullets: ['Exam result visibility', 'Subject marks', 'Report-card access'],
     },
     {
@@ -41,47 +41,46 @@ const CONFIG: PublicModuleConfig = {
     },
     {
       icon: '💬', title: 'Teacher communication',
-      description: 'Parents can identify the child’s teacher context and exchange messages from the Parent workspace.',
+      description: 'Parents can identify the child’s teacher context and exchange protected messages from the Parent workspace.',
       bullets: ['Teacher lookup', 'Child-specific message thread', 'Protected school-family communication'],
     },
     {
       icon: '🛡️', title: 'Concern & Grievance Centre',
-      description: 'Raise a formal concern linked to a child and school, attach private supporting evidence, receive tracked school responses, accept or reopen a resolution, and escalate unresolved matters to Platform Admin.',
+      description: 'Raise a formal concern linked to a child and school, attach private evidence, receive tracked school responses, accept or reopen a resolution and escalate unresolved matters to Platform Admin.',
       bullets: ['Ticket number, private evidence and complete timeline', 'School acknowledgement, review and resolution', 'Parent reopen / close / escalation controls'],
     },
     {
-      icon: '🔔', title: 'Notifications',
+      icon: '🤝', title: 'Education Communities',
+      description: 'Parents can collaborate in moderated Parent, Parent–Teacher, Parent–School or approved mixed Communities without exposing private child records.',
+      bullets: ['Parent peer support', 'Parent–Teacher and Parent–School discussion', 'Invitation consent, moderation and reporting'],
+    },
+    {
+      icon: '🔔', title: 'Notifications and school updates',
       description: 'School and platform notifications are collected in one Parent view with read-state tracking.',
       bullets: ['Notification inbox', 'Read/unread states', 'School-linked updates'],
     },
     {
-      icon: '👥', title: 'Parent Groups',
-      description: 'Parents can collaborate in moderated Groups where creation, membership and invitations follow explicit approval and consent rules.',
-      bullets: ['Parent or mixed Group types', 'Owner/moderator controls', 'Invitation consent and reporting'],
-    },
-    {
-      icon: '🏫', title: 'School context',
-      description: 'The public platform can show institution-level school information while a parent’s personal child records remain behind authentication.',
-      bullets: ['School identity', 'Child-school relationship', 'Public school discovery without private student data'],
+      icon: '🏫', title: 'School context and discovery',
+      description: 'Public institution-level information can be explored without exposing any private student or family data.',
+      bullets: ['School identity', 'Child-school relationship after login', 'Public school discovery with privacy'],
     },
   ],
   steps: [
     { title: 'Sign in as Parent', description: 'Use the Parent account type so VidyaSetu loads only children linked to that parent identity.' },
-    { title: 'Choose a child', description: 'Open the linked child whose attendance, results, fees, teacher communication or school concern you want to review.' },
-    { title: 'Review school records', description: 'Check performance, attendance, report cards, fees and school notifications from one parent view.' },
-    { title: 'Communicate or raise a tracked concern', description: 'Use teacher messaging for normal communication; use the Concern Centre when you need an accountable school response, private supporting evidence and an auditable resolution.' },
-    { title: 'Collaborate safely', description: 'Use approved Groups for parent-to-parent or mixed collaboration under explicit membership and moderation rules.' },
+    { title: 'Choose a child', description: 'Open the linked child whose attendance, results, fees, messages or school concern you want to review.' },
+    { title: 'Stay informed', description: 'Review performance, attendance, report cards, fees, notifications and teacher communication from one parent view.' },
+    { title: 'Use the right support path', description: 'Use Communities for discussion and peer support; use the Grievance Centre when you need accountable school action, evidence and an auditable resolution.' },
   ],
   proofTitle: 'Parent capabilities backed by current APIs',
-  proofIntro: 'The Parent module is implemented around child-specific data access, protected school-family communication and a formal grievance lifecycle.',
+  proofIntro: 'The Parent module is implemented around child-specific data access, protected school-family communication, moderated Communities and a formal grievance lifecycle.',
   proofs: [
     { icon: '🧒', title: 'Child dashboard', description: 'Linked-child selection plus a child-specific dashboard and performance view.' },
     { icon: '📆', title: 'Attendance & report card', description: 'Dedicated endpoints for child attendance and report-card data.' },
     { icon: '🛡️', title: 'Tracked concerns', description: 'Child-linked grievance tickets, private evidence, replies, status history, resolution, reopen and escalation.' },
-    { icon: '📨', title: 'Messages & notifications', description: 'Teacher messaging and notification read-state flows for the Parent account.' },
+    { icon: '🤝', title: 'Communication & Communities', description: 'Teacher messaging, notifications and moderated Education Communities for family participation.' },
   ],
   loginTitle: 'Login to Parent Dashboard',
-  loginText: 'Children, results, attendance, fees, messages and grievance tickets are private family records. Sign in as Parent to view only the children linked to your account.',
+  loginText: 'Children, results, attendance, fees, messages, Community membership and grievance tickets are private family records. Sign in as Parent to view only the children linked to your account.',
 };
 
 export default function ParentsPublicPage() {
