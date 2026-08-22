@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/group.controller';
 import * as contextCtrl from '../controllers/groupContext.controller';
+import * as governanceCtrl from '../controllers/groupGovernance.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -28,6 +29,7 @@ const invitationSchema = z.object({
 });
 const invitationResponseSchema = z.object({ decision: z.enum(['ACCEPTED', 'DECLINED']) });
 const memberRoleSchema = z.object({ role: z.enum(['MODERATOR', 'MEMBER']) });
+const transferSchema = z.object({ userId: z.string().uuid() });
 const postSchema = z.object({
   body: z.string().trim().min(1).max(5000),
   attachmentUrl: z.string().trim().url().max(2000).nullable().optional(),
@@ -50,6 +52,7 @@ router.get('/invitations', ctrl.myInvitations);
 router.patch('/invitations/:invitationId/respond', validate(invitationResponseSchema), ctrl.respondInvitation);
 
 router.get('/:groupId', ctrl.detail);
+router.patch('/:groupId/owner', validate(transferSchema), governanceCtrl.transferOwnership);
 router.post('/:groupId/join-requests', validate(joinSchema), ctrl.requestJoin);
 router.get('/:groupId/join-requests', ctrl.joinRequests);
 router.patch('/:groupId/join-requests/:requestId', validate(decisionSchema), ctrl.decideJoin);
@@ -67,6 +70,7 @@ router.post('/:groupId/leave', ctrl.leave);
 router.get('/:groupId/posts', ctrl.posts);
 router.post('/:groupId/posts', validate(postSchema), ctrl.createPost);
 router.post('/:groupId/posts/:postId/comments', validate(commentSchema), ctrl.addComment);
+router.delete('/:groupId/comments/:commentId', governanceCtrl.removeComment);
 router.patch('/:groupId/posts/:postId/pin', validate(pinSchema), ctrl.pinPost);
 router.delete('/:groupId/posts/:postId', ctrl.deletePost);
 router.post('/:groupId/reports', validate(reportSchema), ctrl.report);
