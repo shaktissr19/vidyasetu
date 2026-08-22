@@ -140,6 +140,13 @@ export interface AdminGroupReport {
   created_at?: string | null;
 }
 
+export interface GroupCreationContext {
+  allowedKinds: GroupKind[];
+  allowedScopes: GroupScope[];
+  schools: Array<{ id: string; name: string }>;
+  classes: Array<{ id: string; schoolId: string; className: string; section?: string | null }>;
+}
+
 export interface CreateGroupPayload {
   name: string;
   description?: string | null;
@@ -150,6 +157,7 @@ export interface CreateGroupPayload {
   maxMembers?: number;
 }
 
+export const getGroupContext = () => api.get<ApiEnvelope<GroupCreationContext>>('/groups/context');
 export const createGroup = (payload: CreateGroupPayload) => api.post<ApiEnvelope<GroupSummary>>('/groups', payload);
 export const getMyGroups = () => api.get<ApiEnvelope<GroupSummary[]>>('/groups/mine');
 export const discoverGroups = (search = '') => api.get<ApiEnvelope<GroupSummary[]>>('/groups/discover', { params: { search } });
