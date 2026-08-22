@@ -29,12 +29,49 @@ interface GrievanceRow extends QueryResultRow {
   parent_user_id: UUID;
   student_id: UUID;
   school_id: UUID;
+  category: GrievanceCategory;
+  priority: GrievancePriority;
+  subject: string;
+  description: string;
   status: GrievanceStatus;
   assigned_to: UUID | null;
+  due_at: string | Date | null;
+  acknowledged_at: string | Date | null;
+  resolved_at: string | Date | null;
+  closed_at: string | Date | null;
+  escalated_at: string | Date | null;
+  resolution: string | null;
   reopen_count: number;
+  created_at: string | Date;
+  updated_at: string | Date;
   parent_name?: string;
   student_name?: string;
   school_name?: string;
+  assigned_to_name?: string | null;
+  overdue?: boolean;
+}
+interface GrievanceMessageRow extends QueryResultRow {
+  id: UUID;
+  body: string;
+  is_internal: boolean;
+  created_at: string | Date;
+  author_user_id: UUID;
+  author_name: string;
+  author_role: string;
+}
+interface GrievanceHistoryRow extends QueryResultRow {
+  id: UUID;
+  action: string;
+  from_status: GrievanceStatus | null;
+  to_status: GrievanceStatus | null;
+  note: string | null;
+  created_at: string | Date;
+  actor_name: string;
+  actor_role: string;
+}
+export interface GrievanceDetail extends GrievanceRow {
+  messages: GrievanceMessageRow[];
+  history: GrievanceHistoryRow[];
 }
 interface ConfigRow extends QueryResultRow { value: string; }
 interface AdminRow extends QueryResultRow { id: UUID; }
@@ -80,8 +117,8 @@ async function notifyPlatformAdmins(title: string, body: string, grievanceId: UU
   })));
 }
 
-async function detailById(grievanceId: UUID, extraWhere = '', params: unknown[] = []): Promise<any> {
-  const { rows: [g] } = await query(
+async function detailById(grievanceId: UUID, extraWhere = '', params: unknown[] = []): Promise<GrievanceDetail> {
+  const { rows: [g] } = await query<GrievanceRow>(
     `SELECT g.*, pu.name AS parent_name, su.name AS student_name, sch.name AS school_name,
             au.name AS assigned_to_name,
             (g.status NOT IN ('RESOLVED','CLOSED') AND g.due_at IS NOT NULL AND g.due_at < NOW()) AS overdue
@@ -96,10 +133,10 @@ async function detailById(grievanceId: UUID, extraWhere = '', params: unknown[] 
   );
   if (!g) throw appError('Concern not found', 404);
   const [messages, history] = await Promise.all([
-    query(`SELECT gm.id, gm.body, gm.is_internal, gm.created_at, gm.author_user_id, u.name AS author_name, u.role AS author_role
+    query<GrievanceMessageRow>(`SELECT gm.id, gm.body, gm.is_internal, gm.created_at, gm.author_user_id, u.name AS author_name, u.role AS author_role
            FROM grievance_messages gm JOIN users u ON u.id=gm.author_user_id
            WHERE gm.grievance_id=$1 ORDER BY gm.created_at ASC`, [grievanceId]),
-    query(`SELECT gh.id, gh.action, gh.from_status, gh.to_status, gh.note, gh.created_at, u.name AS actor_name, u.role AS actor_role
+    query<GrievanceHistoryRow>(`SELECT gh.id, gh.action, gh.from_status, gh.to_status, gh.note, gh.created_at, u.name AS actor_name, u.role AS actor_role
            FROM grievance_history gh JOIN users u ON u.id=gh.actor_user_id
            WHERE gh.grievance_id=$1 ORDER BY gh.created_at ASC`, [grievanceId]),
   ]);
@@ -127,7 +164,7 @@ export async function create(parentUserId: UUID, input: CreateGrievanceInput) {
 }
 
 export async function listForParent(parentUserId: UUID) {
-  const { rows } = await query(
+  const { rows } = await query<GrievanceRow>(
     `SELECT g.*, su.name AS student_name, sch.name AS school_name,
             (g.status NOT IN ('RESOLVED','CLOSED') AND g.due_at IS NOT NULL AND g.due_at < NOW()) AS overdue
      FROM parent_grievances g
@@ -137,9 +174,9 @@ export async function listForParent(parentUserId: UUID) {
   return rows;
 }
 
-export async function getForParent(parentUserId: UUID, grievanceId: UUID) {
+export async function getForParent(parentUserId: UUID, grievanceId: UUID): Promise<GrievanceDetail> {
   const detail = await detailById(grievanceId, 'AND g.parent_user_id = $2', [parentUserId]);
-  detail.messages = detail.messages.filter((m: { is_internal: boolean }) => !m.is_internal);
+  detail.messages = detail.messages.filter((m) => !m.is_internal);
   return detail;
 }
 
@@ -191,7 +228,7 @@ async function schoolIdForAdmin(adminUserId: UUID): Promise<UUID> {
 
 export async function listForSchool(adminUserId: UUID, status?: string) {
   const schoolId = await schoolIdForAdmin(adminUserId);
-  const { rows } = await query(
+  const { rows } = await query<GrievanceRow>(
     `SELECT g.*, pu.name AS parent_name, su.name AS student_name,
             (g.status NOT IN ('RESOLVED','CLOSED') AND g.due_at IS NOT NULL AND g.due_at < NOW()) AS overdue
      FROM parent_grievances g JOIN users pu ON pu.id=g.parent_user_id JOIN students st ON st.id=g.student_id JOIN users su ON su.id=st.user_id
@@ -201,7 +238,7 @@ export async function listForSchool(adminUserId: UUID, status?: string) {
   return rows;
 }
 
-export async function getForSchool(adminUserId: UUID, grievanceId: UUID) {
+export async function getForSchool(adminUserId: UUID, grievanceId: UUID): Promise<GrievanceDetail> {
   const schoolId = await schoolIdForAdmin(adminUserId);
   return detailById(grievanceId, 'AND g.school_id = $2', [schoolId]);
 }
@@ -237,7 +274,7 @@ export async function schoolAction(adminUserId: UUID, grievanceId: UUID, action:
 }
 
 export async function listForAdmin(status?: string, schoolId?: string) {
-  const { rows } = await query(
+  const { rows } = await query<GrievanceRow>(
     `SELECT g.*, pu.name AS parent_name, su.name AS student_name, sch.name AS school_name,
             (g.status NOT IN ('RESOLVED','CLOSED') AND g.due_at IS NOT NULL AND g.due_at < NOW()) AS overdue
      FROM parent_grievances g JOIN users pu ON pu.id=g.parent_user_id JOIN students st ON st.id=g.student_id JOIN users su ON su.id=st.user_id JOIN schools sch ON sch.id=g.school_id
@@ -248,7 +285,7 @@ export async function listForAdmin(status?: string, schoolId?: string) {
   return rows;
 }
 
-export async function getForAdmin(grievanceId: UUID) { return detailById(grievanceId); }
+export async function getForAdmin(grievanceId: UUID): Promise<GrievanceDetail> { return detailById(grievanceId); }
 
 export async function adminReply(adminUserId: UUID, grievanceId: UUID, body: string, internal = false) {
   const g = await getForAdmin(grievanceId);
