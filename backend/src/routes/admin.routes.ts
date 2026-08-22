@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/admin.controller';
 import * as groupCtrl from '../controllers/group.controller';
+import * as groupAdminCtrl from '../controllers/groupAdminLifecycle.controller';
 import * as governanceCtrl from '../controllers/groupGovernance.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -46,11 +47,11 @@ router.get('/competitions', ctrl.listCompetitions);
 router.post('/competitions', ctrl.createCompetition);
 
 router.get('/groups', groupCtrl.adminGroups);
-router.patch('/groups/:groupId/decision', validate(groupDecisionSchema), groupCtrl.adminDecide);
-router.patch('/groups/:groupId/status', validate(groupStatusSchema), groupCtrl.adminStatus);
+router.patch('/groups/:groupId/decision', validate(groupDecisionSchema), groupAdminCtrl.decideGroup);
+router.patch('/groups/:groupId/status', validate(groupStatusSchema), groupAdminCtrl.updateGroupStatus);
 router.get('/groups/:groupId/members', governanceCtrl.adminMembers);
 router.patch('/groups/:groupId/owner', validate(groupOwnerSchema), governanceCtrl.adminTransferOwnership);
 router.get('/group-reports', groupCtrl.adminReports);
-router.patch('/group-reports/:reportId', validate(groupReportSchema), groupCtrl.adminResolveReport);
+router.patch('/group-reports/:reportId', validate(groupReportSchema), groupAdminCtrl.resolveGroupReport);
 
 export = router;
