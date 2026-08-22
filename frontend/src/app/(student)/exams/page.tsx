@@ -30,11 +30,11 @@ export default function ExamsPage() {
 
   return (
     <div className="animate-fade-up">
-      <h1 className="font-display font-extrabold text-2xl mb-5" style={{ color: 'var(--navy)' }}>📝 {t('परीक्षाएँ', 'Exams & Competitions')}</h1>
+      <h1 className="font-display font-extrabold text-2xl mb-5" style={{ color: 'var(--navy)' }}>🏆 {t('प्रतियोगिताएँ', 'Competitions & Challenges')}</h1>
 
       {upcoming.length > 0 && (
         <div className="mb-6">
-          <h2 className="font-display font-bold text-base mb-3" style={{ color: 'var(--navy)' }}>🔴 {t('आगामी परीक्षाएँ', 'Upcoming Exams')}</h2>
+          <h2 className="font-display font-bold text-base mb-3" style={{ color: 'var(--navy)' }}>🔴 {t('आगामी प्रतियोगिताएँ', 'Upcoming Competitions')}</h2>
           <div className="space-y-3 stagger">
             {upcoming.map(exam => (
               <div key={exam.id} className="card animate-fade-up" style={{ borderLeft: `4px solid ${exam.status === 'LIVE' ? 'var(--forest)' : 'var(--saffron)'}` }}>
@@ -42,12 +42,12 @@ export default function ExamsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-display font-bold text-base truncate" style={{ color: 'var(--navy)' }}>{exam.title}</h3>
-                      <span className={`badge ${exam.status === 'LIVE' ? 'badge-green' : 'badge-orange'} flex-shrink-0`}>{exam.status === 'LIVE' ? '🟢 LIVE' : '📋 Open'}</span>
+                      <span className={`badge ${exam.status === 'LIVE' ? 'badge-green' : 'badge-orange'} flex-shrink-0`}>{exam.status === 'LIVE' ? '🟢 LIVE' : '📋 Registration Open'}</span>
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--slate)' }}>
                       <span>📅 {formatDate(exam.start_time)}</span>
                       <span>⏱ {exam.duration_mins || 0} min</span>
-                      <span>📝 {exam.total_questions || 0} MCQs</span>
+                      <span>📝 {exam.total_questions || 0} questions</span>
                       {exam.prize_pool && <span style={{ color: 'var(--saffron)' }}>🏆 {formatCurrency(exam.prize_pool)} prize</span>}
                       <span>🎓 Class {exam.class_names?.join(', ') || 'All'}</span>
                     </div>
@@ -55,7 +55,7 @@ export default function ExamsPage() {
                   <div className="flex gap-2">
                     {exam.registration_id || exam.registered ? (
                       exam.status === 'LIVE' ? (
-                        <button className="btn-primary" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => router.push(`/exams/${exam.id}`)}>Start Exam →</button>
+                        <button className="btn-primary" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => router.push(`/exams/${exam.id}`)}>Start Challenge →</button>
                       ) : <span className="badge badge-green">✅ Registered</span>
                     ) : (
                       <button className="btn-primary" disabled={registerMut.isPending} onClick={() => registerMut.mutate(exam.id)}>Register Free</button>
@@ -70,7 +70,7 @@ export default function ExamsPage() {
 
       {completed.length > 0 && (
         <div>
-          <h2 className="font-display font-bold text-base mb-3" style={{ color: 'var(--slate)' }}>✅ {t('पिछली परीक्षाएँ', 'Past Exams')}</h2>
+          <h2 className="font-display font-bold text-base mb-3" style={{ color: 'var(--slate)' }}>✅ {t('पिछली प्रतियोगिताएँ', 'Past Competitions')}</h2>
           <div className="space-y-2 stagger">
             {completed.map(exam => (
               <div key={exam.id} className="card flex flex-wrap items-center justify-between gap-3 animate-fade-up">
@@ -92,9 +92,9 @@ export default function ExamsPage() {
 
       {exams.length === 0 && (
         <div className="card text-center py-16">
-          <div className="text-5xl mb-4">📝</div>
-          <p className="font-display font-bold text-lg" style={{ color: 'var(--navy)' }}>{t('कोई परीक्षा नहीं', 'No exams yet')}</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--slate)' }}>{t('जल्द ही Olympiad आएंगे!', 'Olympiads coming soon!')}</p>
+          <div className="text-5xl mb-4">🏆</div>
+          <p className="font-display font-bold text-lg" style={{ color: 'var(--navy)' }}>{t('अभी कोई प्रतियोगिता नहीं', 'No competitions yet')}</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--slate)' }}>{t('नई शैक्षणिक चुनौतियाँ जल्द आएंगी।', 'New academic challenges are coming soon.')}</p>
         </div>
       )}
     </div>

@@ -113,11 +113,11 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
   const registerMutation = useMutation({
     mutationFn: (examId: string) => registerExam(examId),
     onSuccess: async () => {
-      notify('✅ Exam registration confirmed.');
+      notify('✅ Competition registration confirmed.');
       await qc.invalidateQueries({ queryKey: ['my-exams'] });
       await refreshDashboard();
     },
-    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Exam request failed')}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Competition request failed')}`),
   });
 
   const startMutation = useMutation({
@@ -128,12 +128,12 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
       setResult(null);
       setNow(Date.now());
     },
-    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Exam request failed')}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Competition request failed')}`),
   });
 
   const submitMutation = useMutation({
     mutationFn: () => {
-      if (!attempt) throw new Error('No active exam attempt');
+      if (!attempt) throw new Error('No active competition attempt');
       return submitAttempt(
         attempt.attemptId,
         attempt.questions.map(question => ({ questionId: question.id, selectedOption: answers[question.id] || null }))
@@ -142,11 +142,11 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
     onSuccess: async response => {
       const payload = response.data.data;
       setResult(payload);
-      notify(`🎯 Exam submitted · Score ${payload.score ?? 0}/${payload.maxMarks ?? 0}`);
+      notify(`🎯 Competition submitted · Score ${payload.score ?? 0}/${payload.maxMarks ?? 0}`);
       await qc.invalidateQueries({ queryKey: ['my-exams'] });
       await refreshDashboard();
     },
-    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Exam request failed')}`),
+    onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error, 'Competition request failed')}`),
   });
 
   const remaining = useMemo(() => {
@@ -166,11 +166,11 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
   return (
     <>
       <div className={styles.sectionHeader}>
-        <div><h1 className={styles.title}>📝 Exams & Tests</h1><div className={styles.subtitle}>Register, take live tests and see scored attempts from the real exam engine.</div></div>
+        <div><h1 className={styles.title}>🏆 Competitions & Challenges</h1><div className={styles.subtitle}>Register for academic competitions, take live challenges and see scored attempts from the real competition engine.</div></div>
       </div>
 
-      {examsQuery.isLoading && <div className={styles.loading}>Loading exams…</div>}
-      {examsQuery.isError && <div className={styles.error}>{apiErrorText(examsQuery.error, 'Exam request failed')}</div>}
+      {examsQuery.isLoading && <div className={styles.loading}>Loading competitions…</div>}
+      {examsQuery.isError && <div className={styles.error}>{apiErrorText(examsQuery.error, 'Competition request failed')}</div>}
       {exams.map(exam => {
         const maxMarks = Number(exam.max_marks || Number(exam.total_questions || 0) * Number(exam.marks_per_question || 0));
         return (
@@ -198,19 +198,19 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
             <div className={styles.examActions}>
               {exam.status === 'REGISTRATION_OPEN' && !exam.registration_id && <button className={styles.primary} disabled={registerMutation.isPending} onClick={() => registerMutation.mutate(exam.id)}>Register</button>}
               {exam.status === 'REGISTRATION_OPEN' && exam.registration_id && <span className={styles.statusResolved}>✅ Registered</span>}
-              {exam.status === 'LIVE' && exam.attempt_status !== 'SCORED' && <button className={styles.primary} disabled={startMutation.isPending} onClick={() => startMutation.mutate(exam.id)}>{exam.attempt_status === 'IN_PROGRESS' ? 'Continue Exam →' : 'Start Exam →'}</button>}
+              {exam.status === 'LIVE' && exam.attempt_status !== 'SCORED' && <button className={styles.primary} disabled={startMutation.isPending} onClick={() => startMutation.mutate(exam.id)}>{exam.attempt_status === 'IN_PROGRESS' ? 'Continue Challenge →' : 'Start Challenge →'}</button>}
               {exam.status === 'COMPLETED' && !exam.attempt_id && <span className={styles.muted}>No attempt recorded</span>}
             </div>
           </div>
         );
       })}
-      {!examsQuery.isLoading && !exams.length && <div className={styles.empty}>No exams are currently available for your class.</div>}
+      {!examsQuery.isLoading && !exams.length && <div className={styles.empty}>No competitions are currently available for your class.</div>}
 
       {attempt && (
         <div className={styles.modalBackdrop}>
           <div className={`${styles.modal} ${styles.modalWide}`}>
             <div className={styles.modalHeader}>
-              <div><div className={styles.modalTitle}>📝 {attempt.exam.title}</div><div className={styles.muted}>{attempt.exam.totalQuestions} questions · {attempt.exam.durationMins} minutes</div></div>
+              <div><div className={styles.modalTitle}>🏆 {attempt.exam.title}</div><div className={styles.muted}>{attempt.exam.totalQuestions} questions · {attempt.exam.durationMins} minutes</div></div>
               <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 800, color: remaining && remaining.startsWith('0:') ? '#c62828' : '#ff6b00' }}>⏱ {remaining || '—'}</div>{result && <button className={styles.close} style={{ marginTop: 8 }} onClick={() => setAttempt(null)}>✕</button>}</div>
             </div>
 
@@ -232,7 +232,7 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
 
             {result && <div className={styles.success}>Submitted successfully · <b>{result.score ?? 0}/{result.maxMarks ?? 0}</b> · {result.correctCount || 0} correct · {result.wrongCount || 0} wrong · {result.skippedCount || 0} skipped{result.rankOverall ? ` · Rank #${result.rankOverall}` : ''}</div>}
             <div className={styles.buttonRow}>
-              {result ? <button className={styles.primary} onClick={() => setAttempt(null)}>Done</button> : <button className={styles.primary} disabled={submitMutation.isPending} onClick={() => submitMutation.mutate()}>{submitMutation.isPending ? 'Submitting…' : 'Submit Exam'}</button>}
+              {result ? <button className={styles.primary} onClick={() => setAttempt(null)}>Done</button> : <button className={styles.primary} disabled={submitMutation.isPending} onClick={() => submitMutation.mutate()}>{submitMutation.isPending ? 'Submitting…' : 'Submit Competition'}</button>}
             </div>
           </div>
         </div>

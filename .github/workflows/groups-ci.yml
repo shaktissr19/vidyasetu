@@ -1,0 +1,239 @@
+name: Groups Collaboration CI
+
+on:
+  push:
+    branches: [groups-competitions-completion]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  groups-certification:
+    name: Groups strict build, migration and E2E
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Groups smoke script
+        run: bash -n scripts/groups-e2e-smoke.sh
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install and start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable platform database through School Management
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+
+      - name: Apply Groups migration twice to prove idempotence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/018_groups_collaboration.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/018_groups_collaboration.sql
+
+      - name: Prepare deterministic Groups teacher Class fixture
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO teacher_assignments (
+            teacher_id, school_id, class_id, subject_code, academic_year, is_class_teacher
+          ) VALUES (
+            '40000000-0000-0000-0000-000000000001',
+            '10000000-0000-0000-0000-000000000001',
+            '20000000-0000-0000-0000-000000000001',
+            'MATH', '2026-27', TRUE
+          )
+          ON CONFLICT (teacher_id, class_id, subject_code, academic_year)
+          DO UPDATE SET is_class_teacher = TRUE;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM users
+              WHERE id = '00000000-0000-0000-0000-000000000010'
+                AND role = 'TEACHER' AND status = 'ACTIVE'
+            ) THEN
+              RAISE EXCEPTION 'Groups E2E Teacher role fixture is unavailable';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM teacher_assignments
+              WHERE teacher_id = '40000000-0000-0000-0000-000000000001'
+                AND class_id = '20000000-0000-0000-0000-000000000001'
+            ) THEN
+              RAISE EXCEPTION 'Groups E2E Class assignment fixture is unavailable';
+            END IF;
+          END $$;
+          SQL
+
+      - name: Validate Groups schema before application start
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for table in \
+            collaboration_groups \
+            collaboration_group_members \
+            collaboration_group_join_requests \
+            collaboration_group_invitations \
+            collaboration_group_posts \
+            collaboration_group_comments \
+            collaboration_group_reports; do
+            test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT value FROM platform_config WHERE key='GROUPS_ENABLED';")" = "true"
+
+      - name: Start compiled backend
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: ci_access_secret_groups_2026
+          JWT_REFRESH_SECRET: ci_refresh_secret_groups_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-groups-backend.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-groups-backend.log
+          exit 1
+
+      - name: Run full Groups role and moderation E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/groups-e2e-smoke.sh
+
+      - name: Validate Groups database invariants after E2E
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM collaboration_groups g
+            WHERE (SELECT COUNT(*) FROM collaboration_group_members gm
+                   WHERE gm.group_id=g.id AND gm.status='ACTIVE' AND gm.role='OWNER') <> 1;
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM collaboration_groups g
+            WHERE NOT EXISTS (
+              SELECT 1 FROM collaboration_group_members gm
+              WHERE gm.group_id=g.id AND gm.user_id=g.owner_id
+                AND gm.status='ACTIVE' AND gm.role='OWNER'
+            );
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM collaboration_groups g
+            JOIN users u ON u.id=g.owner_id
+            WHERE g.kind='MIXED' AND u.role NOT IN ('TEACHER','SCHOOL_ADMIN');
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM collaboration_groups
+            WHERE (scope='CLASS' AND (school_id IS NULL OR class_id IS NULL))
+               OR (scope='SCHOOL' AND school_id IS NULL)
+               OR (scope='PRIVATE' AND class_id IS NOT NULL);
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM (
+              SELECT group_id,user_id FROM collaboration_group_join_requests
+              WHERE status='PENDING'
+              GROUP BY group_id,user_id HAVING COUNT(*) > 1
+            ) duplicates;
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM (
+              SELECT group_id,invitee_user_id FROM collaboration_group_invitations
+              WHERE status IN ('PENDING_OWNER_APPROVAL','PENDING_RECIPIENT')
+              GROUP BY group_id,invitee_user_id HAVING COUNT(*) > 1
+            ) duplicates;
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
+            SELECT COUNT(*) FROM collaboration_group_invitations gi
+            JOIN collaboration_groups g ON g.id=gi.group_id AND g.name='E2E Student Science Group'
+            JOIN collaboration_group_members gm ON gm.group_id=gi.group_id AND gm.user_id=gi.invitee_user_id AND gm.status='ACTIVE'
+            WHERE gi.status='DECLINED' AND gi.invitee_user_id='00000000-0000-0000-0000-000000000024';
+          ")" = "0"
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM collaboration_group_reports WHERE status='RESOLVED';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM audit_log WHERE action LIKE 'GROUP_%';")" -ge 1
+
+      - name: Backend logs on failure
+        if: failure()
+        run: cat /tmp/vidyasetu-groups-backend.log || true

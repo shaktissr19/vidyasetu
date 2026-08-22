@@ -17,6 +17,7 @@ import competitionRoutes = require('./routes/competition.routes');
 import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
 import aiRoutes = require('./routes/ai.routes');
+import groupRoutes = require('./routes/group.routes');
 
 import './jobs/feeReminder.job';
 import './jobs/attendanceAlert.job';
@@ -52,6 +53,7 @@ app.use(`${API}/competition`, competitionRoutes);
 app.use(`${API}/content`, contentRoutes);
 app.use(`${API}/doubts`, doubtRoutes);
 app.use(`${API}/ai`, aiRoutes);
+app.use(`${API}/groups`, groupRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
