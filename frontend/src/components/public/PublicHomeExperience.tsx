@@ -16,6 +16,7 @@ import styles from './publicExperience.module.css';
 type MetricKey = 'students' | 'schools' | 'teachers' | 'parents' | 'groups' | 'competitions';
 
 interface Slide {
+  icon: string;
   kicker: string;
   title: string;
   accent: string;
@@ -29,98 +30,105 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    kicker: 'VidyaSetu Platform',
-    title: 'Learning, school operations and family visibility',
-    accent: 'connected in one education platform',
-    copy: 'VidyaSetu connects student learning, school administration, parent visibility, competitions and private moderated Groups while keeping personal records behind role-based authentication.',
+    icon: '📚',
+    kicker: 'VidyaSetu · India-first education platform',
+    title: 'Students, schools and families',
+    accent: 'connected through one education bridge',
+    copy: 'VidyaSetu brings learning, school operations, family visibility, competitions, grievances and moderated Education Communities into one connected platform designed around Indian school workflows.',
     href: '/for-students',
     cta: 'Explore the platform',
     metric: 'students',
     metricLabel: 'active students in the current database',
-    points: ['One identity across learning and school records', 'Real school and family workflows', 'Public discovery separated from private dashboards'],
+    points: ['Classes 1–12 learning and school records', 'School operations with parent visibility', 'Hindi/regional-friendly, role-based access'],
   },
   {
+    icon: '🎓',
     kicker: 'For Students',
-    title: 'A student workspace for learning and',
-    accent: 'school-connected progress',
-    copy: 'Students can work with subjects, content, doubts, AI support, attendance, report cards, competitions, offline downloads, gamification and approved Groups from one account.',
+    title: 'Learn, participate and track',
+    accent: 'your school-connected progress',
+    copy: 'Students can move from subjects and study resources to doubts, attendance, report cards, competitions, offline learning and moderated Communities without switching between disconnected systems.',
     href: '/for-students',
     cta: 'See Student capabilities',
     metric: 'students',
     metricLabel: 'active students',
-    points: ['Permanent Student ID and school-link workflow', 'Attendance, results and learning progress', 'Competitions, doubts, XP, badges and Groups'],
+    points: ['Permanent VidyaSetu Student ID', 'Attendance, report cards and learning progress', 'Competitions, doubts and Education Communities'],
   },
   {
+    icon: '🏫',
     kicker: 'For Schools & Teachers',
-    title: 'Operate academics and administration from',
-    accent: 'one school workspace',
-    copy: 'Schools manage students, classes, teachers, attendance, fees, timetables, exams, results, announcements, enrollments and family connectivity without splitting daily work across disconnected tools.',
+    title: 'Run academics and administration',
+    accent: 'from one school workspace',
+    copy: 'Schools manage students, classes, teachers, attendance, fees, timetables, exams, results, announcements, enrollment, parent concerns and school Communities in one operational workspace.',
     href: '/for-schools',
     cta: 'See School capabilities',
     metric: 'schools',
     metricLabel: 'active schools',
-    points: ['Student and teacher administration', 'Attendance, fees, timetable and exams', 'Announcements, enrollment and parent visibility'],
+    points: ['Student and teacher administration', 'Attendance, fees, timetable, exams and results', 'Parent communication, grievances and Communities'],
   },
   {
-    kicker: 'For Parents',
-    title: 'See the child journey with',
+    icon: '👨‍👩‍👧',
+    kicker: 'For Parents & Guardians',
+    title: 'Follow your child’s journey with',
     accent: 'clear school-linked visibility',
-    copy: 'Parents can switch between linked children and review performance, attendance, report cards, fees, teacher messages, notifications and moderated parent Groups.',
+    copy: 'Parents can switch between linked children and review attendance, performance, report cards, fees, teacher communication, notifications, formal grievances and moderated Education Communities.',
     href: '/for-parents',
     cta: 'See Parent capabilities',
     metric: 'parents',
     metricLabel: 'active parent accounts',
-    points: ['Multiple linked children', 'Attendance, results and fee visibility', 'Teacher communication and Parent Groups'],
+    points: ['Multiple linked children', 'Attendance, results, fees and school updates', 'Teacher communication, grievances and Communities'],
   },
   {
+    icon: '🏆',
     kicker: 'Academic Competitions',
-    title: 'Published challenges with',
-    accent: 'real registration and result workflows',
-    copy: 'VidyaSetu Competitions are backed by actual exam records and lifecycle states. Students can discover eligible challenges, register, attempt exams and view leaderboards or results.',
+    title: 'Discover challenges with',
+    accent: 'real registration, attempts and results',
+    copy: 'Students can discover eligible academic competitions, register, attempt published exams and view scores or leaderboards through real competition lifecycle records.',
     href: '/competition',
     cta: 'View Competitions',
     metric: 'competitions',
     metricLabel: 'published competitions',
-    points: ['Registration and live exam states', 'Student attempts and scoring', 'Leaderboards and completed results'],
+    points: ['Eligibility and registration', 'Timed attempts and scoring', 'Results and leaderboards'],
   },
   {
-    kicker: 'Private Collaboration',
-    title: 'Education Groups with',
-    accent: 'approval, consent and moderation',
-    copy: 'Groups are not an open public community feed. Creation is platform-approved, membership is controlled, invitations require consent, and reports are reviewed through governance workflows.',
-    href: '/groups-info',
-    cta: 'Understand Groups',
+    icon: '🤝',
+    kicker: 'Education Communities',
+    title: 'Safe social collaboration for',
+    accent: 'students, parents, teachers and schools',
+    copy: 'Communities support learning, discussion, school-family interaction and peer support while keeping membership controlled, invitations consent-based and moderation built in.',
+    href: '/communities',
+    cta: 'Explore Communities',
     metric: 'groups',
-    metricLabel: 'active Groups',
-    points: ['Student, Parent, Teacher and mixed Groups', 'Private, school and class scope', 'Owner/moderator controls and reporting'],
+    metricLabel: 'active Education Communities',
+    points: ['Student, Parent, Teacher and School communities', 'Teacher–Student and Parent–Teacher collaboration', 'Moderation, reporting and consent controls'],
   },
   {
+    icon: '🛡️',
     kicker: 'Platform Governance',
     title: 'Operate VidyaSetu with',
     accent: 'network-level visibility and control',
-    copy: 'Platform Admin is distinct from School Admin. It covers analytics, schools, users, content, revenue, support, competitions, configuration and Group governance.',
+    copy: 'Platform Admin governs schools, users, content, competitions, Communities, grievances, support, revenue and configuration while School Admin remains focused on individual institution operations.',
     href: '/platform-admin',
     cta: 'See Platform Admin',
     metric: 'schools',
     metricLabel: 'active institutions under platform governance',
-    points: ['Network analytics and school/user controls', 'Support, content and configuration', 'Competition and Group governance'],
+    points: ['Network analytics and school/user controls', 'Grievance, support and content governance', 'Competition and Community moderation'],
   },
 ];
 
 const AUDIENCES = [
-  { icon: '🎓', title: 'Students', text: 'Learning, school records, attendance, report cards, doubts, competitions and progress.', href: '/for-students' },
-  { icon: '🏫', title: 'Schools & Teachers', text: 'Student administration, attendance, fees, timetable, exams, results and communication.', href: '/for-schools' },
-  { icon: '👨‍👩‍👧', title: 'Parents', text: 'Child performance, attendance, report cards, fees, teacher messages and Groups.', href: '/for-parents' },
-  { icon: '🛡️', title: 'Platform Admin', text: 'Analytics, schools, users, support, configuration, competitions and governance.', href: '/platform-admin' },
+  { icon: '🎓', title: 'Students', text: 'Learning, school records, attendance, report cards, doubts, competitions and Communities.', href: '/for-students' },
+  { icon: '🏫', title: 'Schools & Teachers', text: 'Students, classes, teachers, attendance, fees, timetable, exams, results and parent engagement.', href: '/for-schools' },
+  { icon: '👨‍👩‍👧', title: 'Parents', text: 'Child progress, attendance, report cards, fees, teacher communication, grievances and Communities.', href: '/for-parents' },
+  { icon: '🛡️', title: 'Platform Admin', text: 'Analytics, schools, users, support, configuration, competitions, grievances and governance.', href: '/platform-admin' },
 ];
 
 const PLATFORM_AREAS = [
-  ['📚', 'Learning & Content', 'Subjects, chapters, learning items, completion, doubts and AI-assisted study support.'],
+  ['📚', 'Learning & Study Support', 'Subjects, chapters, learning items, completion, doubts and AI-assisted study support for Classes 1–12.'],
   ['🏫', 'School Operations', 'Students, teachers, classes, attendance, fees, timetables, exams, results and announcements.'],
   ['👨‍👩‍👧', 'Family Visibility', 'Linked-child dashboards, attendance, performance, report cards, fees, messages and notifications.'],
   ['🏆', 'Competitions', 'Published academic challenges, registration, attempts, scoring, results and leaderboards.'],
-  ['👥', 'Private Groups', 'Approval-based Groups with controlled membership, consent, posts, comments, moderation and reports.'],
-  ['⚙️', 'Platform Governance', 'Analytics, school/user controls, content, revenue, support, configuration and Group governance.'],
+  ['🤝', 'Education Communities', 'Moderated collaboration for students, parents, teachers and schools with controlled membership and reporting.'],
+  ['🛡️', 'Grievances & Governance', 'Formal parent concerns, school response, escalation, platform oversight and accountable resolution.'],
 ];
 
 function formatCount(overview: PublicOverview | null, key: MetricKey): string {
@@ -176,7 +184,7 @@ export default function PublicHomeExperience() {
         aria-label="VidyaSetu platform overview"
       >
         <div className={styles.homeHeroInner}>
-          <div aria-live="polite">
+          <div aria-live="polite" className={styles.heroStory}>
             <div className={styles.slideKicker}>{slide.kicker}</div>
             <h1 className={styles.slideTitle}>
               {slide.title}<br /><span className={styles.accent}>{slide.accent}</span>
@@ -203,13 +211,19 @@ export default function PublicHomeExperience() {
             </div>
           </div>
 
-          <aside className={styles.slidePanel}>
-            <div className={styles.slideMetric}>{formatCount(overview, slide.metric)}</div>
-            <div className={styles.slideMetricLabel}>{slide.metricLabel}</div>
-            <div className={styles.slidePoints}>
-              {slide.points.map((point) => <div className={styles.slidePoint} key={point}>✓ {point}</div>)}
+          <aside className={styles.heroVisual} aria-label={`${slide.kicker} highlights`}>
+            <div className={styles.heroVisualIcon}>{slide.icon}</div>
+            <div className={styles.heroVisualMetric}>{formatCount(overview, slide.metric)}</div>
+            <div className={styles.heroVisualLabel}>{slide.metricLabel}</div>
+            <div className={styles.heroVisualPoints}>
+              {slide.points.map((point, index) => (
+                <div className={styles.heroVisualPoint} key={point}>
+                  <span>{['📘', '✏️', '🌱'][index % 3]}</span>
+                  <strong>{point}</strong>
+                </div>
+              ))}
             </div>
-            <div className={styles.liveNote}><span className={styles.liveDot} /> Aggregate counts come from the VidyaSetu database</div>
+            <div className={styles.liveNote}><span className={styles.liveDot} /> Live aggregate counts from VidyaSetu data</div>
           </aside>
         </div>
       </section>
@@ -218,7 +232,7 @@ export default function PublicHomeExperience() {
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>Explore VidyaSetu by who you are</h2>
-            <p>Public pages explain what each module does. Dashboards remain protected and only show personal or operational records after role-based login.</p>
+            <p>Understand each module before signing in. Personal records, school operations and family information stay protected behind role-based access.</p>
           </div>
           <div className={styles.audienceGrid}>
             {AUDIENCES.map((audience) => (
@@ -236,8 +250,8 @@ export default function PublicHomeExperience() {
       <section className={styles.sectionAlt}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
-            <h2>One platform, six connected operating areas</h2>
-            <p>These are the major functional domains currently represented in the application and backend APIs.</p>
+            <h2>One platform for the everyday Indian education journey</h2>
+            <p>Learning, school operations, family participation and governance are connected rather than split across separate tools.</p>
           </div>
           <div className={styles.capGrid}>
             {PLATFORM_AREAS.map(([icon, title, copy]) => (
@@ -254,8 +268,8 @@ export default function PublicHomeExperience() {
       <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
-            <h2>Real schools on the platform</h2>
-            <p>The preview below uses active institution records and safe aggregate counts—not demo marketing numbers.</p>
+            <h2>Schools currently connected to VidyaSetu</h2>
+            <p>The preview uses active institution records and safe aggregate counts—not invented marketing numbers.</p>
           </div>
           {schoolPreview.length === 0 ? (
             <div className={styles.empty}>No active school records are currently available for public preview.</div>
@@ -285,7 +299,7 @@ export default function PublicHomeExperience() {
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>Published academic Competitions</h2>
-            <p>This preview comes from the real public Competition API and follows actual exam lifecycle states.</p>
+            <p>Competition previews come from the public Competition API and follow the actual exam lifecycle.</p>
           </div>
           {competitionPreview.length === 0 ? (
             <div className={styles.empty}>There are no published Competitions in an active/public state right now.</div>
@@ -311,8 +325,8 @@ export default function PublicHomeExperience() {
         <div className={styles.shell}>
           <div className={styles.cta}>
             <div>
-              <h2>Understand the platform before you sign in.</h2>
-              <p>Explore the public module pages first, then login to the correct role dashboard when you need personal or operational data.</p>
+              <h2>Learning, school life and family participation—connected.</h2>
+              <p>Explore the public module pages first, then sign in to your role dashboard for personal or operational data.</p>
             </div>
             <div className={styles.twoActions}>
               <Link className={styles.lightButton} href="/login">Login to your dashboard</Link>
@@ -322,7 +336,7 @@ export default function PublicHomeExperience() {
         </div>
       </section>
 
-      <footer className={styles.footer}>© 2026 VidyaSetu · Learning, school operations, family visibility, Competitions and private Groups</footer>
+      <footer className={styles.footer}>© 2026 VidyaSetu · Learning, school operations, family visibility, Competitions, Communities and accountable support</footer>
     </div>
   );
 }
