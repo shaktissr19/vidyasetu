@@ -17,6 +17,7 @@ const MENU = (t: Translate) => [
   { href: '/parent/fees', icon: '💰', label: t('फीस', 'Fees') },
   { href: '/parent/report-card', icon: '📄', label: t('रिपोर्ट कार्ड', 'Report Card') },
   { href: '/parent/messages', icon: '💬', label: t('शिक्षक को संदेश', 'Message Teacher') },
+  { href: '/parent/grievances', icon: '🛡️', label: t('चिंता और शिकायत', 'Concerns & Grievances') },
   { href: '/parent/groups', icon: '👥', label: t('समूह', 'Groups') },
 ];
 
@@ -26,8 +27,8 @@ export default function ParentLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoggedIn) { router.replace('/login'); return; }
-    if (user?.role && user.role !== 'PARENT') router.replace('/login');
+    if (!isLoggedIn) { router.replace('/login?role=parent'); return; }
+    if (user?.role && user.role !== 'PARENT') router.replace('/login?role=parent');
   }, [isLoggedIn, user, router]);
 
   if (!isLoggedIn) return null;
