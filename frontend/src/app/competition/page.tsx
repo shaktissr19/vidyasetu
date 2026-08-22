@@ -11,7 +11,13 @@ import useLanguageStore from '@/store/languageStore';
 import Navbar from '@/components/layout/Navbar';
 import toast from 'react-hot-toast';
 
-const STATUS_LABEL: Record<string, string> = { REGISTRATION_OPEN: 'Registration Open', LIVE: '🟢 LIVE', COMPLETED: 'Completed' };
+const STATUS_LABEL: Record<string, string> = {
+  REGISTRATION_OPEN: 'Registration Open',
+  REGISTRATION_CLOSED: 'Registration Closed',
+  LIVE: '🟢 LIVE',
+  SCORING: 'Scoring',
+  COMPLETED: 'Completed',
+};
 
 export default function CompetitionPage() {
   const { isLoggedIn } = useAuthStore();
@@ -33,7 +39,7 @@ export default function CompetitionPage() {
 
   const registerMut = useMutation({
     mutationFn: (examId: string) => registerExam(examId),
-    onSuccess: async () => { toast.success('✅ Registered successfully!'); await refetch(); },
+    onSuccess: async () => { toast.success('Registered successfully'); await refetch(); },
     onError: (error: unknown) => {
       if (!isLoggedIn) { toast('Please login to register'); router.push('/login'); return; }
       toast.error(apiErrorText(error, 'Failed to register'));
@@ -45,14 +51,20 @@ export default function CompetitionPage() {
       <Navbar />
       <div style={{ paddingTop: 62 }}>
         <div style={{ background: 'linear-gradient(135deg, #1a0533, #2d0a52)', padding: '60px 32px 40px', textAlign: 'center' }}>
-          <h1 className="font-display" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, color: 'white', marginBottom: 12 }}>🏆 {t('मासिक ओलंपियाड परीक्षाएँ', 'Monthly Olympiad Exams')}</h1>
-          <p style={{ color: 'rgba(255,255,255,0.65)', maxWidth: 500, margin: '0 auto' }}>{t('छात्रवृत्ति जीतें, प्रमाणपत्र अर्जित करें, पूरे भारत के छात्रों से प्रतिस्पर्धा करें!', 'Win scholarships, earn certificates, compete with students across Bharat!')}</p>
+          <h1 className="font-display" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, color: 'white', marginBottom: 12 }}>🏆 {t('प्रतियोगिताएँ और शैक्षणिक चुनौतियाँ', 'Competitions & Academic Challenges')}</h1>
+          <p style={{ color: 'rgba(255,255,255,0.65)', maxWidth: 620, margin: '0 auto' }}>{t('प्रकाशित प्रतियोगिताएँ, मॉक चुनौतियाँ और अभ्यास इवेंट देखें।', 'Explore published academic competitions, mock challenges and practice events from VidyaSetu.')}</p>
         </div>
 
         <div className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0' }}>
           {isLoading ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
               {[...Array(3)].map((_, i) => <CardSkeleton key={i} />)}
+            </div>
+          ) : exams.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 38, marginBottom: 10 }}>🏆</div>
+              <h2 className="font-display" style={{ fontWeight: 800, color: 'var(--navy)' }}>{t('अभी कोई प्रकाशित प्रतियोगिता नहीं है', 'No published competitions right now')}</h2>
+              <p style={{ color: 'var(--slate)', marginTop: 8 }}>{t('एडमिन द्वारा नई प्रतियोगिता प्रकाशित होने पर वह यहाँ दिखाई देगी।', 'New competitions will appear here when they are published by the platform Admin.')}</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
@@ -83,14 +95,14 @@ export default function CompetitionPage() {
                         <button className="btn-outline w-full justify-center" onClick={() => setLbExamId(exam.id === lbExamId ? null : exam.id)}>
                           {lbExamId === exam.id ? 'Hide Leaderboard' : 'View Leaderboard'}
                         </button>
-                      ) : exam.registration_id || exam.registered ? (
+                      ) : exam.registered ? (
                         exam.status === 'LIVE' ? (
-                          <button className="btn-primary w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => isLoggedIn ? router.push(`/exams/${exam.id}`) : router.push('/login')}>Start Exam Now →</button>
+                          <button className="btn-primary w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => isLoggedIn ? router.push(`/exams/${exam.id}`) : router.push('/login')}>Start Competition</button>
                         ) : (
                           <button className="w-full py-3 rounded-xl font-display font-bold text-sm" style={{ background: 'var(--forest-pale)', color: 'var(--forest)' }} disabled>✅ Registered</button>
                         )
                       ) : (
-                        <button className="btn-primary w-full justify-center" disabled={registerMut.isPending} onClick={() => isLoggedIn ? registerMut.mutate(exam.id) : router.push('/login')}>Register Free →</button>
+                        <button className="btn-primary w-full justify-center" disabled={registerMut.isPending} onClick={() => isLoggedIn ? registerMut.mutate(exam.id) : router.push('/login')}>Register</button>
                       )}
                     </div>
                   </div>
@@ -106,7 +118,7 @@ export default function CompetitionPage() {
             <div className="stagger">
               {leaderboard.slice(0, 10).map((row, i) => (
                 <div key={row.id || i} className="animate-fade-up">
-                  <LBRow rank={row.rank ?? i + 1} name={row.name || row.student_name || ''} school={`${row.school_name || ''}${row.state ? ` · ${row.state}` : ''}`} score={row.score ?? '—'} />
+                  <LBRow rank={row.rank ?? i + 1} name={row.name || row.student_name || ''} school={row.school_name || ''} score={row.score ?? '—'} />
                 </div>
               ))}
             </div>
@@ -114,7 +126,7 @@ export default function CompetitionPage() {
         )}
 
         <footer style={{ background: 'var(--navy)', color: 'rgba(255,255,255,0.5)', padding: '30px 32px', textAlign: 'center', fontSize: '0.82rem', marginTop: 64 }}>
-          © 2026 VidyaSetu · <span style={{ color: 'var(--saffron-light)' }}>vidyasetu.in</span>
+          © 2026 VidyaSetu · <button onClick={() => router.push('/')} style={{ border: 0, background: 'transparent', color: 'var(--saffron-light)', cursor: 'pointer', fontWeight: 700 }}>Back to Home</button>
         </footer>
       </div>
     </>

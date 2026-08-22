@@ -18,6 +18,7 @@ import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
 import aiRoutes = require('./routes/ai.routes');
 import groupRoutes = require('./routes/group.routes');
+import publicRoutes = require('./routes/public.routes');
 
 import './jobs/feeReminder.job';
 import './jobs/attendanceAlert.job';
@@ -44,6 +45,7 @@ app.get('/health', (_req, res) => {
 });
 
 const API = '/api/v1';
+app.use(`${API}/public`, publicRoutes);
 app.use(`${API}/auth`, authRoutes);
 app.use(`${API}/student`, studentRoutes);
 app.use(`${API}/school`, schoolRoutes);

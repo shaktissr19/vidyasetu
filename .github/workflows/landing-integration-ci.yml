@@ -1,0 +1,167 @@
+name: Landing Integration CI
+
+on:
+  push:
+    branches: [landing-integration-hardening]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  landing-certification:
+    name: Landing real data, routes and strict build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Reject stale landing copy and dead-anchor navigation
+        run: |
+          ! grep -q "'Olympiad'" frontend/src/app/page.tsx
+          ! grep -q "Monthly Olympiads" frontend/src/app/page.tsx
+          ! grep -q "Offline Ready" frontend/src/app/page.tsx
+          ! grep -q "Join Free →" frontend/src/app/page.tsx
+          ! grep -q 'href={`#${label' frontend/src/app/page.tsx
+          grep -q "Competitions" frontend/src/app/page.tsx
+          grep -q "Groups" frontend/src/app/page.tsx
+          grep -q "'/student'" frontend/src/app/page.tsx
+          grep -q "'/school/overview'" frontend/src/app/page.tsx
+          grep -q "'/parent/dashboard'" frontend/src/app/page.tsx
+          grep -q "'/admin/analytics'" frontend/src/app/page.tsx
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable database and Groups schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/018_groups_collaboration.sql
+
+      - name: Start compiled backend
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: landing_ci_access_secret_2026
+          JWT_REFRESH_SECRET: landing_ci_refresh_secret_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-landing-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5000/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vidyasetu-landing-api.log
+          exit 1
+
+      - name: Certify public metrics equal database counts
+        env:
+          PGPASSWORD: postgres
+        run: |
+          curl -fsS http://127.0.0.1:5000/api/v1/public/overview > /tmp/overview.json
+          jq -e '.success == true' /tmp/overview.json >/dev/null
+
+          STUDENTS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE status='ACTIVE';")
+          SCHOOLS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM schools WHERE status='ACTIVE';")
+          TEACHERS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teachers WHERE status IN ('ACTIVE','ON_LEAVE');")
+          PARENTS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE role='PARENT' AND status='ACTIVE';")
+          ACTIVE_GROUPS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM collaboration_groups WHERE status='ACTIVE';")
+          COMPETITIONS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exams WHERE type IN ('OLYMPIAD','MOCK','PRACTICE') AND status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED');")
+
+          echo "API overview: $(cat /tmp/overview.json)"
+          echo "DB expected: students=$STUDENTS schools=$SCHOOLS teachers=$TEACHERS parents=$PARENTS groups=$ACTIVE_GROUPS competitions=$COMPETITIONS"
+
+          test "$(jq -r '.data.students' /tmp/overview.json)" = "$STUDENTS"
+          test "$(jq -r '.data.schools' /tmp/overview.json)" = "$SCHOOLS"
+          test "$(jq -r '.data.teachers' /tmp/overview.json)" = "$TEACHERS"
+          test "$(jq -r '.data.parents' /tmp/overview.json)" = "$PARENTS"
+          test "$(jq -r '.data.groups' /tmp/overview.json)" = "$ACTIVE_GROUPS"
+          test "$(jq -r '.data.competitions' /tmp/overview.json)" = "$COMPETITIONS"
+
+      - name: Start production frontend and smoke public routes
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          PORT: '3000'
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vidyasetu-landing-web.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:3000/ >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/ >/dev/null
+          curl -fsS http://127.0.0.1:3000/competition >/dev/null
+          for route in /student /school/overview /parent/dashboard /admin/analytics; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$route")
+            [[ "$code" =~ ^(200|301|302|307|308)$ ]]
+          done

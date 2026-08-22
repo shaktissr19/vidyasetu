@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { UserRole } from '@vidyasetu/contracts';
@@ -11,6 +11,7 @@ import { logout as apiLogout } from '@/services/authService';
 const ROLE_LABEL: Partial<Record<UserRole, { en: string; hi: string }>> = {
   STUDENT: { en: 'Student', hi: 'छात्र' },
   SCHOOL_ADMIN: { en: 'School Admin', hi: 'विद्यालय प्रशासक' },
+  TEACHER: { en: 'Teacher', hi: 'शिक्षक' },
   PARENT: { en: 'Parent', hi: 'अभिभावक' },
   SUPER_ADMIN: { en: 'Super Admin', hi: 'सुपर एडमिन' },
 };
@@ -18,25 +19,35 @@ const ROLE_LABEL: Partial<Record<UserRole, { en: string; hi: string }>> = {
 const ROLE_ACCENT: Partial<Record<UserRole, string>> = {
   STUDENT: 'var(--saffron)',
   SCHOOL_ADMIN: 'var(--forest)',
+  TEACHER: '#26A69A',
   PARENT: '#7B1FA2',
   SUPER_ADMIN: '#1565C0',
 };
 
+const ROLE_DESTINATION: Partial<Record<UserRole, string>> = {
+  STUDENT: '/student',
+  SCHOOL_ADMIN: '/school/overview',
+  TEACHER: '/school/overview',
+  PARENT: '/parent/dashboard',
+  SUPER_ADMIN: '/admin/analytics',
+};
+
 export default function Navbar() {
-  const { user, logout } = useAuthStore();
+  const { user, isLoggedIn, refreshToken, logout } = useAuthStore();
   const { lang, toggleLang } = useLanguageStore();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    try { await apiLogout(); } catch (_error: unknown) {}
+    try { if (refreshToken) await apiLogout(refreshToken); } catch (_error: unknown) {}
     logout();
-    router.replace('/login');
+    router.replace('/');
   };
 
   const roleInfo = (user?.role ? ROLE_LABEL[user.role] : undefined) || { en: '', hi: '' };
   const accent = (user?.role ? ROLE_ACCENT[user.role] : undefined) || 'var(--saffron)';
   const initial = (user?.name || 'U')[0]?.toUpperCase() || 'U';
+  const dashboardPath = user?.role ? ROLE_DESTINATION[user.role] : undefined;
 
   return (
     <nav style={{
@@ -56,13 +67,15 @@ export default function Navbar() {
         </span>
       </Link>
 
-      <div style={{
-        marginLeft: 8, padding: '3px 10px', borderRadius: 20,
-        background: `${accent}22`, border: `1px solid ${accent}55`,
-        fontSize: '0.7rem', fontWeight: 700, color: accent, flexShrink: 0,
-      }}>
-        {lang === 'hi' ? roleInfo.hi : roleInfo.en}
-      </div>
+      {isLoggedIn && user?.role && (
+        <div style={{
+          marginLeft: 8, padding: '3px 10px', borderRadius: 20,
+          background: `${accent}22`, border: `1px solid ${accent}55`,
+          fontSize: '0.7rem', fontWeight: 700, color: accent, flexShrink: 0,
+        }}>
+          {lang === 'hi' ? roleInfo.hi : roleInfo.en}
+        </div>
+      )}
 
       <div style={{ flex: 1 }} />
       <OfflineDot />
@@ -78,63 +91,90 @@ export default function Navbar() {
         {lang === 'hi' ? 'EN' : 'हि'}
       </button>
 
-      <div style={{ position: 'relative' }}>
-        <button
-          onClick={() => setMenuOpen((value) => !value)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 10, padding: '5px 10px', cursor: 'pointer',
-          }}
-        >
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: `linear-gradient(135deg,${accent},${accent}88)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 13, color: 'white',
-          }}>{initial}</div>
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'white', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user?.name?.split(' ')[0] || 'User'}
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>▾</span>
-        </button>
-
-        {menuOpen && (
-          <>
-            <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+      {!isLoggedIn ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => router.push('/login')} style={{ border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: 'white', borderRadius: 9, padding: '7px 13px', fontWeight: 700, cursor: 'pointer' }}>
+            {lang === 'hi' ? 'लॉगिन' : 'Login'}
+          </button>
+          <button onClick={() => router.push('/register')} style={{ border: 0, background: 'var(--saffron)', color: 'white', borderRadius: 9, padding: '8px 13px', fontWeight: 800, cursor: 'pointer' }}>
+            {lang === 'hi' ? 'खाता बनाएँ' : 'Create Account'}
+          </button>
+        </div>
+      ) : (
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setMenuOpen((value) => !value)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 10, padding: '5px 10px', cursor: 'pointer',
+            }}
+          >
             <div style={{
-              position: 'absolute', right: 0, top: 44, zIndex: 10, minWidth: 180,
-              background: 'white', borderRadius: 12, boxShadow: 'var(--shadow-lg)',
-              overflow: 'hidden', border: '1px solid var(--border)',
-            }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--navy)' }}>{user?.name}</p>
-                <p style={{ fontSize: '0.72rem', color: 'var(--slate)', marginTop: 2 }}>{user?.mobile}</p>
+              width: 28, height: 28, borderRadius: '50%',
+              background: `linear-gradient(135deg,${accent},${accent}88)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 800, fontSize: 13, color: 'white',
+            }}>{initial}</div>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'white', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user?.name?.split(' ')[0] || 'Account'}
+            </span>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>▾</span>
+          </button>
+
+          {menuOpen && (
+            <>
+              <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+              <div style={{
+                position: 'absolute', right: 0, top: 44, zIndex: 10, minWidth: 190,
+                background: 'white', borderRadius: 12, boxShadow: 'var(--shadow-lg)',
+                overflow: 'hidden', border: '1px solid var(--border)',
+              }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--navy)' }}>{user?.name}</p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--slate)', marginTop: 2 }}>{user?.mobile}</p>
+                </div>
+                {dashboardPath && (
+                  <button
+                    onClick={() => { setMenuOpen(false); router.push(dashboardPath); }}
+                    style={{ width: '100%', padding: '11px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '0.875rem', color: 'var(--navy)', fontWeight: 650 }}
+                  >
+                    🏠 {lang === 'hi' ? 'डैशबोर्ड' : 'Dashboard'}
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    width: '100%', padding: '11px 16px', background: 'none', border: 'none',
+                    textAlign: 'left', cursor: 'pointer', fontSize: '0.875rem',
+                    color: '#C62828', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  🚪 {lang === 'hi' ? 'लॉग आउट' : 'Log out'}
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                style={{
-                  width: '100%', padding: '11px 16px', background: 'none', border: 'none',
-                  textAlign: 'left', cursor: 'pointer', fontSize: '0.875rem',
-                  color: '#C62828', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
-                }}
-              >
-                🚪 {lang === 'hi' ? 'लॉग आउट' : 'Log out'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      )}
     </nav>
   );
 }
 
 function OfflineDot() {
   const [online, setOnline] = useState(true);
-  if (typeof window !== 'undefined') {
-    window.addEventListener('online', () => setOnline(true));
-    window.addEventListener('offline', () => setOnline(false));
-  }
+
+  useEffect(() => {
+    const sync = () => setOnline(window.navigator.onLine);
+    sync();
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', sync);
+    };
+  }, []);
+
   if (online) return null;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#FFEBEE', borderRadius: 20, padding: '3px 10px' }}>
