@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -11,7 +11,9 @@ import {
   adminUpdateGroupStatus,
   type AdminGroupReport,
   type AdminGroupSummary,
+  type GroupMember,
 } from '@/services/groupService';
+import { adminGetGroupMembers, adminTransferGroupOwnership } from '@/services/groupGovernanceService';
 import { apiErrorText } from '@/utils/errors';
 import { formatDate } from '@/utils/formatters';
 
@@ -43,6 +45,7 @@ export default function AdminGroupsPage() {
   const [selectedReport, setSelectedReport] = useState<AdminGroupReport | null>(null);
   const [note, setNote] = useState('');
   const [resolution, setResolution] = useState('');
+  const [ownerTarget, setOwnerTarget] = useState('');
 
   const pendingQuery = useQuery({
     queryKey: ['admin-groups', 'PENDING', search],
@@ -59,11 +62,30 @@ export default function AdminGroupsPage() {
     queryFn: () => adminListGroupReports(reportStatus).then((r) => r.data.data),
     enabled: tab === 'reports',
   });
+  const membersQuery = useQuery<GroupMember[]>({
+    queryKey: ['admin-group-members', selectedGroup?.id],
+    queryFn: async () => {
+      if (!selectedGroup) return [];
+      return adminGetGroupMembers(selectedGroup.id).then((r) => r.data.data);
+    },
+    enabled: Boolean(selectedGroup && ['ACTIVE', 'SUSPENDED'].includes(selectedGroup.status)),
+  });
+
+  const eligibleOwners = useMemo(() => {
+    const members = membersQuery.data || [];
+    if (!selectedGroup) return [];
+    return members.filter((member) => {
+      if (member.user_id === selectedGroup.owner_id || member.role === 'OWNER') return false;
+      if (selectedGroup.kind === 'MIXED') return ['TEACHER', 'SCHOOL_ADMIN'].includes(member.user_role || '');
+      return true;
+    });
+  }, [membersQuery.data, selectedGroup]);
 
   async function invalidate() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ['admin-groups'] }),
       qc.invalidateQueries({ queryKey: ['admin-group-reports'] }),
+      qc.invalidateQueries({ queryKey: ['admin-group-members'] }),
     ]);
   }
 
@@ -71,14 +93,25 @@ export default function AdminGroupsPage() {
     mutationFn: ({ group, decision }: { group: AdminGroupSummary; decision: 'ACTIVE' | 'REJECTED' }) => adminDecideGroup(group.id, decision, note || undefined),
     onSuccess: async (_, variables) => {
       toast.success(variables.decision === 'ACTIVE' ? 'Group approved' : 'Group request rejected');
-      setSelectedGroup(null); setNote(''); await invalidate();
+      setSelectedGroup(null); setNote(''); setOwnerTarget(''); await invalidate();
     },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not update Group')),
   });
   const statusMutation = useMutation({
     mutationFn: ({ group, status }: { group: AdminGroupSummary; status: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED' }) => adminUpdateGroupStatus(group.id, status, note || undefined),
-    onSuccess: async () => { toast.success('Group status updated'); setSelectedGroup(null); setNote(''); await invalidate(); },
+    onSuccess: async () => { toast.success('Group status updated'); setSelectedGroup(null); setNote(''); setOwnerTarget(''); await invalidate(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not update Group status')),
+  });
+  const ownershipMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedGroup || !ownerTarget) throw new Error('Choose an active Group member');
+      return adminTransferGroupOwnership(selectedGroup.id, ownerTarget);
+    },
+    onSuccess: async () => {
+      toast.success('Group ownership recovered successfully');
+      setSelectedGroup(null); setOwnerTarget(''); await invalidate();
+    },
+    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not transfer Group ownership')),
   });
   const reportMutation = useMutation({
     mutationFn: ({ report, status }: { report: AdminGroupReport; status: 'REVIEWING' | 'RESOLVED' | 'DISMISSED' }) => adminResolveGroupReport(report.id, status, resolution || undefined),
@@ -89,12 +122,18 @@ export default function AdminGroupsPage() {
   const rows = tab === 'pending' ? pendingQuery.data || [] : groupsQuery.data || [];
   const loading = tab === 'pending' ? pendingQuery.isLoading : groupsQuery.isLoading;
 
+  function openGroup(group: AdminGroupSummary) {
+    setSelectedGroup(group);
+    setNote(group.admin_note || '');
+    setOwnerTarget('');
+  }
+
   return (
     <div className="animate-fade-up">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="font-display font-extrabold text-2xl text-white">👥 Groups Management</h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>Approve Group creation, control lifecycle and review member reports.</p>
+          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>Approve Group creation, control lifecycle, recover ownership and review member reports.</p>
         </div>
         {tab !== 'reports' && <input value={search} onChange={(e) => setSearch(e.target.value)} className="input" placeholder="Search Groups or owners…" style={{ width: 280, background: 'rgba(255,255,255,0.06)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }} />}
       </div>
@@ -119,13 +158,13 @@ export default function AdminGroupsPage() {
         </>
       ) : (
         <div className="card-navy">
-          {loading ? <div className="skeleton h-44 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} /> : rows.length === 0 ? <div className="text-center py-12"><div className="text-4xl mb-3">👥</div><p className="font-display font-bold text-white">{tab === 'pending' ? 'No pending Group requests' : 'No Groups found'}</p></div> : <div className="overflow-x-auto"><table className="tbl" style={{ color: 'rgba(255,255,255,0.72)' }}><thead><tr>{['Group','Owner','Type / Scope','Members','School / Class','Reports','Status','Action'].map((h) => <th key={h} style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)' }}>{h}</th>)}</tr></thead><tbody>{rows.map((group) => <tr key={group.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}><td><div className="font-semibold text-white">{group.name}</div><div className="text-xs max-w-[260px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{group.description || '—'}</div></td><td>{group.owner_name || '—'}<div className="text-xs opacity-60">{group.owner_role}</div></td><td>{group.kind}<div className="text-xs opacity-60">{group.scope}</div></td><td>{Number(group.member_count || 0)}/{group.max_members}</td><td>{group.school_name || 'Private'}{group.class_name ? <div className="text-xs opacity-60">Class {group.class_name}{group.section ? `-${group.section}` : ''}</div> : null}</td><td>{Number(group.open_report_count || 0)}</td><td><Badge value={group.status} /></td><td><button className="text-xs font-bold" style={{ color: '#81D4FA' }} onClick={() => { setSelectedGroup(group); setNote(group.admin_note || ''); }}>Manage</button></td></tr>)}</tbody></table></div>}
+          {loading ? <div className="skeleton h-44 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} /> : rows.length === 0 ? <div className="text-center py-12"><div className="text-4xl mb-3">👥</div><p className="font-display font-bold text-white">{tab === 'pending' ? 'No pending Group requests' : 'No Groups found'}</p></div> : <div className="overflow-x-auto"><table className="tbl" style={{ color: 'rgba(255,255,255,0.72)' }}><thead><tr>{['Group','Owner','Type / Scope','Members','School / Class','Reports','Status','Action'].map((h) => <th key={h} style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)' }}>{h}</th>)}</tr></thead><tbody>{rows.map((group) => <tr key={group.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}><td><div className="font-semibold text-white">{group.name}</div><div className="text-xs max-w-[260px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{group.description || '—'}</div></td><td>{group.owner_name || '—'}<div className="text-xs opacity-60">{group.owner_role}</div></td><td>{group.kind}<div className="text-xs opacity-60">{group.scope}</div></td><td>{Number(group.member_count || 0)}/{group.max_members}</td><td>{group.school_name || 'Private'}{group.class_name ? <div className="text-xs opacity-60">Class {group.class_name}{group.section ? `-${group.section}` : ''}</div> : null}</td><td>{Number(group.open_report_count || 0)}</td><td><Badge value={group.status} /></td><td><button className="text-xs font-bold" style={{ color: '#81D4FA' }} onClick={() => openGroup(group)}>Manage</button></td></tr>)}</tbody></table></div>}
         </div>
       )}
 
       {selectedGroup && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4" style={{ background: 'rgba(3,8,22,0.82)' }} onMouseDown={(e) => e.currentTarget === e.target && setSelectedGroup(null)}>
-          <div className="card-navy w-full max-w-xl" style={{ border: '1px solid rgba(79,195,247,0.3)' }}>
+          <div className="card-navy w-full max-w-2xl max-h-[90vh] overflow-y-auto" style={{ border: '1px solid rgba(79,195,247,0.3)' }}>
             <div className="flex justify-between gap-3"><div><h2 className="font-display font-extrabold text-xl text-white">{selectedGroup.name}</h2><p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>{selectedGroup.kind} · {selectedGroup.scope} · Owner: {selectedGroup.owner_name}</p></div><button className="text-xl" style={{ background: 'none', border: 0, color: 'rgba(255,255,255,0.55)' }} onClick={() => setSelectedGroup(null)}>✕</button></div>
             <div className="mt-4 p-3 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.72)' }}>{selectedGroup.description || 'No description provided.'}</div>
             <label className="block text-xs font-bold mt-4" style={{ color: 'rgba(255,255,255,0.5)' }}>Admin note<textarea className="input mt-1.5" rows={3} value={note} onChange={(e) => setNote(e.target.value)} style={{ background: 'rgba(255,255,255,0.06)', color: 'white', resize: 'vertical' }} placeholder="Optional reason or moderation note" /></label>
@@ -134,6 +173,22 @@ export default function AdminGroupsPage() {
               {selectedGroup.status === 'ACTIVE' && <><button className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: 'rgba(239,83,80,0.18)', color: '#EF9A9A', border: '1px solid rgba(239,83,80,0.2)' }} onClick={() => statusMutation.mutate({ group: selectedGroup, status: 'SUSPENDED' })}>Suspend</button><button className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.68)' }} onClick={() => statusMutation.mutate({ group: selectedGroup, status: 'ARCHIVED' })}>Archive</button></>}
               {selectedGroup.status === 'SUSPENDED' && <><button className="btn-primary" onClick={() => statusMutation.mutate({ group: selectedGroup, status: 'ACTIVE' })}>Reactivate</button><button className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.68)' }} onClick={() => statusMutation.mutate({ group: selectedGroup, status: 'ARCHIVED' })}>Archive</button></>}
             </div>
+
+            {['ACTIVE', 'SUSPENDED'].includes(selectedGroup.status) && (
+              <div className="mt-6 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <h3 className="font-display font-bold text-white">🔐 Ownership Recovery</h3>
+                <p className="text-xs mt-1 mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Emergency Admin control only. The new owner must already be an active member. Mixed Groups can only be owned by a Teacher or School Admin.</p>
+                {membersQuery.isLoading ? <div className="skeleton h-12 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} /> : eligibleOwners.length === 0 ? <div className="text-xs p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}>No eligible replacement owner is currently an active member.</div> : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select className="input select flex-1" value={ownerTarget} onChange={(e) => setOwnerTarget(e.target.value)} style={{ background: '#111A31', color: 'white' }}>
+                      <option value="">Select replacement owner</option>
+                      {eligibleOwners.map((member) => <option key={member.user_id} value={member.user_id}>{member.name || member.mobile} · {member.user_role} · {member.role}</option>)}
+                    </select>
+                    <button className="btn-primary" disabled={!ownerTarget || ownershipMutation.isPending} onClick={() => window.confirm('Transfer Group ownership to this active member?') && ownershipMutation.mutate()}>{ownershipMutation.isPending ? 'Transferring…' : 'Transfer Ownership'}</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
