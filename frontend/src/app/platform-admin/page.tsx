@@ -2,56 +2,56 @@ import PublicModulePage, { type PublicModuleConfig } from '@/components/public/P
 
 const CONFIG: PublicModuleConfig = {
   eyebrow: 'For Platform Administrators',
-  title: 'Govern the VidyaSetu network with',
-  accentTitle: 'visibility and operational control',
-  summary: 'The Platform Admin experience is for VidyaSetu operations—not School Admins. It covers platform analytics, schools, users, content, revenue, support, competitions, configuration, Group governance and escalated Parent grievance oversight.',
+  title: 'Govern the VidyaSetu education network with',
+  accentTitle: 'visibility, safety and operational control',
+  summary: 'Platform Admin is distinct from School Admin. It provides network-level oversight for schools, users, learning content, competitions, Education Communities, grievances, support, revenue and configuration across VidyaSetu.',
   audience: 'Platform Administrators',
   loginRole: 'admin',
   metrics: [
     { key: 'schools', label: 'Active schools' },
     { key: 'students', label: 'Active students' },
-    { key: 'groups', label: 'Active Groups' },
+    { key: 'groups', label: 'Active Communities' },
     { key: 'competitions', label: 'Published competitions' },
   ],
   capabilities: [
     {
       icon: '📊', title: 'Platform analytics',
-      description: 'Review top-level adoption and operational indicators across the VidyaSetu platform.',
+      description: 'Review top-level adoption and operational indicators across the VidyaSetu education network.',
       bullets: ['Student and school metrics', 'State-level visibility', 'Recent platform activity context'],
     },
     {
       icon: '🏫', title: 'School governance',
-      description: 'Platform Admin can list schools, inspect institution records and control school account status.',
+      description: 'List schools, inspect institution records and manage school account lifecycle where authorised.',
       bullets: ['School directory', 'School detail', 'Activate / suspend / pending states'],
     },
     {
       icon: '👤', title: 'User administration',
-      description: 'Search and review platform users, export user data and manage account status where authorised.',
+      description: 'Search and review platform users, export data and manage account status where authorised.',
       bullets: ['User listing', 'Status management', 'User export'],
     },
     {
-      icon: '📚', title: 'Content oversight',
-      description: 'The Admin module includes content analytics and management entry points for the learning catalogue.',
+      icon: '📚', title: 'Learning-content oversight',
+      description: 'Monitor and manage the learning catalogue that powers student subject and chapter experiences.',
       bullets: ['Content analytics', 'Learning catalogue visibility', 'Platform content operations'],
     },
     {
       icon: '🏆', title: 'Competition administration',
-      description: 'Platform Admin can review and create platform-level competitions in addition to the public competition catalogue.',
+      description: 'Review and create platform-level academic competitions in addition to the public catalogue.',
       bullets: ['Competition listing', 'Competition creation', 'Published lifecycle visibility'],
     },
     {
-      icon: '👥', title: 'Group governance',
-      description: 'Approve new Groups, change Group status, review members, transfer ownership and resolve reports.',
+      icon: '🤝', title: 'Education Community governance',
+      description: 'Approve new Communities, change lifecycle status, review membership, transfer ownership and resolve reports.',
       bullets: ['Creation decisions', 'Suspend/archive controls', 'Reports and ownership recovery'],
     },
     {
-      icon: '🛡️', title: 'Escalated Parent grievance oversight',
-      description: 'Platform Admin can review grievances across schools, prioritise escalated or overdue cases, inspect the complete audit timeline and intervene when school-level resolution needs platform oversight.',
-      bullets: ['Escalated and overdue queue', 'Cross-school audit context', 'Visible replies, internal notes and status intervention'],
+      icon: '🛡️', title: 'Parent grievance oversight',
+      description: 'Review grievances across schools, prioritise escalated or overdue cases, inspect audit history and intervene when school-level resolution needs platform oversight.',
+      bullets: ['Escalated and overdue queue', 'Cross-school audit context', 'Replies, internal notes and status intervention'],
     },
     {
       icon: '🎫', title: 'Support operations',
-      description: 'The Admin workspace includes support-ticket review and update flows for platform issues.',
+      description: 'Review and update platform support tickets for users and institutions.',
       bullets: ['Support queue', 'Ticket detail', 'Resolution updates'],
     },
     {
@@ -66,21 +66,21 @@ const CONFIG: PublicModuleConfig = {
     },
   ],
   steps: [
-    { title: 'Authenticate as Platform Admin', description: 'Only the SUPER_ADMIN role can access the Platform Admin APIs and dashboard.' },
-    { title: 'Observe the network', description: 'Start from analytics, schools, users, content, revenue, support and governance queues.' },
-    { title: 'Take governed actions', description: 'Change account states, manage configuration, create competitions, review Group lifecycle decisions and intervene in escalated Parent grievances.' },
-    { title: 'Audit platform health', description: 'Use operational views to monitor adoption, unresolved issues, overdue school responses, governance queues and platform configuration.' },
+    { title: 'Authenticate as Platform Admin', description: 'Only the SUPER_ADMIN role can access Platform Admin APIs and dashboard functions.' },
+    { title: 'Observe the network', description: 'Start from analytics, schools, users, content, revenue, support, grievances and Community governance queues.' },
+    { title: 'Take governed actions', description: 'Manage account states, configuration, competitions, Community lifecycle decisions and escalated Parent grievances.' },
+    { title: 'Audit platform health', description: 'Monitor adoption, unresolved issues, overdue school responses, moderation queues and operational configuration.' },
   ],
   proofTitle: 'Protected platform operations already implemented',
-  proofIntro: 'These areas map directly to SUPER_ADMIN routes and are intentionally separated from School Admin functionality.',
+  proofIntro: 'These areas map directly to SUPER_ADMIN routes and are intentionally separated from individual School Admin functionality.',
   proofs: [
     { icon: '📈', title: 'Analytics & revenue', description: 'Platform analytics, revenue summary and content analytics are protected admin endpoints.' },
     { icon: '🏢', title: 'Schools & users', description: 'School and user listing, detail, export and status controls are available.' },
     { icon: '🛡️', title: 'Grievance oversight', description: 'Escalated/overdue Parent concerns, audit history, internal notes and platform status intervention are centrally governed.' },
-    { icon: '👥', title: 'Competitions & Groups', description: 'Platform-level competition creation and full Group governance are part of Admin.' },
+    { icon: '🤝', title: 'Competitions & Communities', description: 'Platform-level competition creation and full Education Community governance are part of Admin.' },
   ],
   loginTitle: 'Login to Platform Admin',
-  loginText: 'Platform analytics, user controls, support tickets, grievances and governance actions are restricted to authorised Platform Administrators.',
+  loginText: 'Platform analytics, user controls, support tickets, grievances, Community governance and other network-level actions are restricted to authorised Platform Administrators.',
 };
 
 export default function PlatformAdminPublicPage() {

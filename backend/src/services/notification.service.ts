@@ -5,6 +5,14 @@ import { query } from '../config/db';
 import logger = require('../utils/logger');
 
 type TemplateVariable = string | number;
+type SmsProvider = 'mock' | 'kaleyra' | 'twofactor';
+
+export interface SmsDeliveryResult {
+  provider: SmsProvider;
+  accepted: boolean;
+  providerStatus?: string | null;
+  providerMessageId?: string | null;
+}
 
 interface NotificationInsertInput {
   userId: UUID;
@@ -28,38 +36,138 @@ interface NotificationReadRow extends QueryResultRow {
   read_at: string | Date | null;
 }
 
-export async function sendSMS(mobile: string, message: string): Promise<unknown> {
-  const provider = process.env.SMS_PROVIDER || 'mock';
+function providerError(message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode: 503 });
+}
+
+function maskedMobile(mobile: string): string {
+  return mobile.length >= 4 ? `******${mobile.slice(-4)}` : mobile;
+}
+
+function normalizeProviderStatus(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function acceptedStatus(value: unknown): boolean {
+  const status = normalizeProviderStatus(value);
+  return ['success', 'sent', 'accepted', 'ok', 'queued', '200'].includes(status);
+}
+
+export async function sendSMS(mobile: string, message: string): Promise<SmsDeliveryResult> {
+  const provider = (process.env.SMS_PROVIDER || 'mock') as SmsProvider;
+
   if (provider === 'mock' || process.env.NODE_ENV === 'test') {
-    logger.info(`[MOCK SMS] To: ${mobile} | Msg: ${message}`);
-    return { success: true };
+    if (process.env.NODE_ENV === 'production') {
+      throw providerError('SMS delivery is not configured on the production server. Please contact VidyaSetu support.');
+    }
+    logger.info(`[MOCK SMS] To: ${maskedMobile(mobile)} | Msg: ${message}`);
+    return { provider: 'mock', accepted: true, providerStatus: 'mock' };
   }
 
   if (provider === 'kaleyra') {
-    if (!process.env.KALEYRA_API_KEY) throw new Error('KALEYRA_API_KEY is required');
-    const response = await axios.get<unknown>('https://api.kaleyra.io/v1/messages', {
-      params: {
-        apikey: process.env.KALEYRA_API_KEY,
-        method: 'sms',
-        message,
+    const apiKey = process.env.KALEYRA_API_KEY;
+    const accountSid = process.env.KALEYRA_ACCOUNT_SID;
+    const sender = process.env.KALEYRA_SENDER_ID || process.env.KALEYRA_SID;
+    const entityId = process.env.KALEYRA_ENTITY_ID;
+    const templateId = process.env.KALEYRA_TEMPLATE_ID;
+    if (!apiKey || !accountSid || !sender || !entityId || !templateId) {
+      throw providerError('Kaleyra SMS requires KALEYRA_API_KEY, KALEYRA_ACCOUNT_SID, KALEYRA_SENDER_ID, KALEYRA_ENTITY_ID and KALEYRA_TEMPLATE_ID.');
+    }
+
+    const response = await axios.post<unknown>(
+      `https://api.in.kaleyra.io/v1/${encodeURIComponent(accountSid)}/sms`,
+      {
         to: `+91${mobile}`,
-        sender: process.env.KALEYRA_SID || 'VSETU',
+        sender,
+        type: 'OTP',
+        prefix: '+91',
+        body: message,
+        template_id: templateId,
+        entity_id: entityId,
       },
-    });
-    return response.data;
+      {
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 12_000,
+      },
+    );
+
+    const data = response.data as {
+      id?: unknown;
+      status?: unknown;
+      message?: unknown;
+      data?: Array<{ message_id?: unknown; id?: unknown; recipient?: unknown }>;
+      error?: Record<string, unknown> | null;
+    };
+    const delivery = Array.isArray(data?.data) ? data.data[0] : undefined;
+    const hasProviderError = Boolean(data?.error && Object.keys(data.error).length > 0);
+    const accepted = !hasProviderError && (Boolean(delivery?.message_id || delivery?.id || data?.id) || acceptedStatus(data?.status));
+    if (!accepted) {
+      logger.error(`Kaleyra rejected SMS to ${maskedMobile(mobile)}: ${JSON.stringify(data)}`);
+      throw providerError(`SMS provider rejected the OTP request${data?.message ? `: ${String(data.message)}` : ''}`);
+    }
+
+    return {
+      provider: 'kaleyra',
+      accepted: true,
+      providerStatus: String(data?.status ?? 'accepted'),
+      providerMessageId: delivery?.message_id
+        ? String(delivery.message_id)
+        : delivery?.id
+          ? String(delivery.id)
+          : data?.id
+            ? String(data.id)
+            : null,
+    };
   }
 
   if (provider === 'twofactor') {
-    if (!process.env.TWOFACTOR_API_KEY) throw new Error('TWOFACTOR_API_KEY is required');
+    const apiKey = process.env.TWOFACTOR_API_KEY;
+    if (!apiKey) throw providerError('2Factor SMS is selected but TWOFACTOR_API_KEY is not configured.');
+
     const otp = message.match(/\b(\d{6})\b/)?.[1];
-    if (!otp) throw new Error('A 6-digit OTP is required for the 2Factor OTP provider');
-    const response = await axios.post<unknown>(
-      `https://2factor.in/API/V1/${encodeURIComponent(process.env.TWOFACTOR_API_KEY)}/SMS/+91${encodeURIComponent(mobile)}/${encodeURIComponent(otp)}`,
-    );
-    return response.data;
+    if (!otp) throw providerError('A 6-digit OTP is required for the 2Factor OTP provider.');
+
+    const templateName = (process.env.TWOFACTOR_TEMPLATE_NAME || '').trim();
+    const endpointParts = [
+      'https://2factor.in/API/V1',
+      encodeURIComponent(apiKey),
+      'SMS',
+      encodeURIComponent(`+91${mobile}`),
+      encodeURIComponent(otp),
+    ];
+    if (templateName) endpointParts.push(encodeURIComponent(templateName));
+
+    const response = await axios.get<unknown>(endpointParts.join('/'), { timeout: 12_000 });
+    const data = response.data as {
+      Status?: unknown;
+      status?: unknown;
+      Details?: unknown;
+      details?: unknown;
+      message?: unknown;
+    };
+    const status = data?.Status ?? data?.status;
+    const accepted = acceptedStatus(status);
+    if (!accepted) {
+      logger.error(`2Factor rejected SMS to ${maskedMobile(mobile)}: ${JSON.stringify(data)}`);
+      throw providerError(`SMS provider rejected the OTP request${data?.message ? `: ${String(data.message)}` : ''}`);
+    }
+
+    return {
+      provider: 'twofactor',
+      accepted: true,
+      providerStatus: String(status ?? 'accepted'),
+      providerMessageId: data?.Details
+        ? String(data.Details)
+        : data?.details
+          ? String(data.details)
+          : null,
+    };
   }
 
-  throw new Error(`Unknown SMS provider: ${provider}`);
+  throw providerError(`Unknown SMS provider: ${provider}`);
 }
 
 export async function sendWhatsApp(

@@ -52,10 +52,10 @@ interface GroupsHubProps {
 }
 
 const KIND_LABEL: Record<GroupKind, string> = {
-  STUDENT: 'Student Group',
-  PARENT: 'Parent Group',
-  TEACHER: 'Teacher Group',
-  MIXED: 'Mixed School Group',
+  STUDENT: 'Student Community',
+  PARENT: 'Parent Community',
+  TEACHER: 'Teacher Community',
+  MIXED: 'Mixed Education Community',
 };
 
 const STATUS_STYLE: Record<string, CSSProperties> = {
@@ -79,8 +79,8 @@ function Badge({ children, style }: { children: string; style?: CSSProperties })
 
 function scopeText(group: GroupSummary): string {
   if (group.scope === 'CLASS') return `${group.school_name || 'School'} · Class ${group.class_name || '—'}${group.section ? `-${group.section}` : ''}`;
-  if (group.scope === 'SCHOOL') return group.school_name || 'School Group';
-  return 'Private invitation-based Group';
+  if (group.scope === 'SCHOOL') return group.school_name || 'School Community';
+  return 'Private invitation-based Community';
 }
 
 function canOwnMixed(member: GroupMember): boolean {
@@ -96,14 +96,14 @@ function GroupCard({ group, onOpen }: { group: GroupSummary; onOpen: () => void 
             <h3 className="font-display font-bold text-base" style={{ color: 'var(--navy)' }}>{group.name}</h3>
             <Badge style={STATUS_STYLE[group.status]}>{group.status}</Badge>
           </div>
-          <p className="text-sm mt-2 line-clamp-2" style={{ color: 'var(--slate)' }}>{group.description || 'Private VidyaSetu collaboration Group.'}</p>
+          <p className="text-sm mt-2 line-clamp-2" style={{ color: 'var(--slate)' }}>{group.description || 'Private VidyaSetu Education Community.'}</p>
           <div className="flex flex-wrap gap-2 mt-3">
             <Badge>{KIND_LABEL[group.kind]}</Badge>
             <Badge>{group.scope}</Badge>
             {group.membership_role && <Badge style={{ background: '#E8F5E9', color: '#176B2C' }}>{group.membership_role}</Badge>}
           </div>
         </div>
-        <span className="text-2xl">👥</span>
+        <span className="text-2xl">🤝</span>
       </div>
       <div className="flex flex-wrap justify-between gap-2 mt-4 pt-3 text-xs" style={{ borderTop: '1px solid var(--border)', color: 'var(--slate)' }}>
         <span>Owner: {group.owner_name || '—'}</span>
@@ -115,7 +115,7 @@ function GroupCard({ group, onOpen }: { group: GroupSummary; onOpen: () => void 
   );
 }
 
-export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moderated collaboration spaces', accent = 'var(--forest)' }: GroupsHubProps) {
+export default function GroupsHub({ title = 'Education Communities', subtitle = 'Private, moderated education collaboration spaces', accent = 'var(--forest)' }: GroupsHubProps) {
   const qc = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const [tab, setTab] = useState<WorkspaceTab>('mine');
@@ -144,7 +144,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const detailQuery = useQuery({
     queryKey: ['group-detail', selectedId],
     queryFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return getGroupDetail(selectedId).then((r) => r.data.data);
     },
     enabled: Boolean(selectedId),
@@ -158,7 +158,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const postsQuery = useQuery({
     queryKey: ['group-posts', selectedId],
     queryFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return getPosts(selectedId).then((r) => r.data.data);
     },
     enabled: Boolean(selectedId && isMember && detailTab === 'feed'),
@@ -166,7 +166,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const membersQuery = useQuery({
     queryKey: ['group-members', selectedId],
     queryFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return getMembers(selectedId).then((r) => r.data.data);
     },
     enabled: Boolean(selectedId && isMember && ['members', 'invite'].includes(detailTab)),
@@ -174,7 +174,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const joinRequestsQuery = useQuery({
     queryKey: ['group-join-requests', selectedId],
     queryFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return getJoinRequests(selectedId).then((r) => r.data.data);
     },
     enabled: Boolean(selectedId && isModerator && detailTab === 'requests'),
@@ -182,7 +182,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const nominationsQuery = useQuery({
     queryKey: ['group-nominations', selectedId],
     queryFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return getNominations(selectedId).then((r) => r.data.data);
     },
     enabled: Boolean(selectedId && isModerator && detailTab === 'requests'),
@@ -190,7 +190,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const eligibleQuery = useQuery({
     queryKey: ['group-eligible-users', selectedId, inviteSearch],
     queryFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return searchEligibleUsers(selectedId, inviteSearch).then((r) => r.data.data);
     },
     enabled: Boolean(selectedId && isMember && detailTab === 'invite' && inviteSearch.trim().length >= 2),
@@ -218,27 +218,27 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   const createMutation = useMutation({
     mutationFn: () => createGroup(form),
     onSuccess: async () => {
-      toast.success('Group request sent for Admin approval');
+      toast.success('Community request sent for Admin approval');
       setShowCreate(false);
       setForm((current) => ({ ...current, name: '', description: '', scope: 'PRIVATE', schoolId: null, classId: null, maxMembers: 100 }));
       await refreshGroup();
       setTab('mine');
     },
-    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not request Group')),
+    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not request Community')),
   });
   const joinMutation = useMutation({
     mutationFn: (groupId: string) => requestJoin(groupId),
-    onSuccess: async () => { toast.success('Join request sent to the Group owner'); await refreshGroup(); },
+    onSuccess: async () => { toast.success('Join request sent to the Community owner'); await refreshGroup(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not request to join')),
   });
   const inviteResponseMutation = useMutation({
     mutationFn: ({ id, decision }: { id: string; decision: 'ACCEPTED' | 'DECLINED' }) => respondInvitation(id, decision),
-    onSuccess: async (_, variables) => { toast.success(variables.decision === 'ACCEPTED' ? 'You joined the Group' : 'Invitation declined'); await refreshGroup(); },
+    onSuccess: async (_, variables) => { toast.success(variables.decision === 'ACCEPTED' ? 'You joined the Community' : 'Invitation declined'); await refreshGroup(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not respond to invitation')),
   });
   const joinDecisionMutation = useMutation({
     mutationFn: ({ requestId, decision }: { requestId: string; decision: 'APPROVED' | 'REJECTED' }) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return decideJoinRequest(selectedId, requestId, decision);
     },
     onSuccess: async () => { toast.success('Join request updated'); await refreshGroup(); },
@@ -246,7 +246,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   });
   const nominationDecisionMutation = useMutation({
     mutationFn: ({ invitationId, decision }: { invitationId: string; decision: 'APPROVED' | 'REJECTED' }) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return decideNomination(selectedId, invitationId, decision);
     },
     onSuccess: async () => { toast.success('Nomination updated'); await refreshGroup(); },
@@ -254,7 +254,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   });
   const inviteMutation = useMutation({
     mutationFn: (userId: string) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return proposeInvitation(selectedId, userId);
     },
     onSuccess: async () => { toast.success(isModerator ? 'Invitation sent' : 'Nomination sent for owner approval'); setInviteSearch(''); await refreshGroup(); },
@@ -262,10 +262,10 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   });
   const postMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       let attachment: string | undefined;
       if (attachmentFile) {
-        if (attachmentFile.size > MAX_ATTACHMENT_BYTES) throw new Error('Group attachments are limited to 10 MB');
+        if (attachmentFile.size > MAX_ATTACHMENT_BYTES) throw new Error('Community attachments are limited to 10 MB');
         if (!ALLOWED_ATTACHMENT_TYPES.has(attachmentFile.type)) throw new Error('Use an image, PDF, text, Word or PowerPoint file');
         attachment = await uploadGroupFile(selectedId, attachmentFile);
       } else if (resourceUrl.trim()) {
@@ -283,7 +283,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   });
   const commentMutation = useMutation({
     mutationFn: ({ postId, body }: { postId: string; body: string }) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return addComment(selectedId, postId, body);
     },
     onSuccess: async (_, variables) => {
@@ -293,7 +293,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   });
   const removeCommentMutation = useMutation({
     mutationFn: (commentId: string) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return removeGroupComment(selectedId, commentId);
     },
     onSuccess: async () => { toast.success('Comment removed'); await qc.invalidateQueries({ queryKey: ['group-posts', selectedId] }); },
@@ -301,51 +301,51 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   });
   const pinMutation = useMutation({
     mutationFn: ({ postId, pinned }: { postId: string; pinned: boolean }) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return setPostPinned(selectedId, postId, pinned);
     },
     onSuccess: async () => qc.invalidateQueries({ queryKey: ['group-posts', selectedId] }),
   });
   const deletePostMutation = useMutation({
     mutationFn: (postId: string) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return deletePost(selectedId, postId);
     },
     onSuccess: async () => { toast.success('Post removed'); await qc.invalidateQueries({ queryKey: ['group-posts', selectedId] }); },
   });
   const roleMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: 'MODERATOR' | 'MEMBER' }) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return updateMemberRole(selectedId, userId, role);
     },
     onSuccess: async () => { toast.success('Member role updated'); await refreshGroup(); },
   });
   const removeMemberMutation = useMutation({
     mutationFn: (userId: string) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return removeMember(selectedId, userId);
     },
     onSuccess: async () => { toast.success('Member removed'); await refreshGroup(); },
   });
   const transferMutation = useMutation({
     mutationFn: (userId: string) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return transferGroupOwnership(selectedId, userId);
     },
-    onSuccess: async () => { toast.success('Group ownership transferred'); await refreshGroup(); },
+    onSuccess: async () => { toast.success('Community ownership transferred'); await refreshGroup(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not transfer ownership')),
   });
   const leaveMutation = useMutation({
     mutationFn: () => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return leaveGroup(selectedId);
     },
-    onSuccess: async () => { toast.success('You left the Group'); setSelectedId(null); await refreshGroup(); },
-    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not leave Group')),
+    onSuccess: async () => { toast.success('You left the Community'); setSelectedId(null); await refreshGroup(); },
+    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not leave Community')),
   });
   const reportMutation = useMutation({
     mutationFn: ({ targetType, targetId }: { targetType: 'GROUP' | 'POST' | 'COMMENT' | 'MEMBER'; targetId: string }) => {
-      if (!selectedId) throw new Error('No Group selected');
+      if (!selectedId) throw new Error('No Community selected');
       return reportGroupContent(selectedId, targetType, targetId, 'INAPPROPRIATE_CONTENT');
     },
     onSuccess: () => toast.success('Report sent to VidyaSetu Admin'),
@@ -384,27 +384,27 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
 
     return (
       <div className="animate-fade-up">
-        <button type="button" className="btn-ghost mb-4" onClick={() => { setSelectedId(null); setDetailTab('feed'); }}>← Back to Groups</button>
+        <button type="button" className="btn-ghost mb-4" onClick={() => { setSelectedId(null); setDetailTab('feed'); }}>← Back to Communities</button>
         {detailQuery.isLoading || !activeGroup ? <div className="card"><div className="skeleton h-48 rounded-xl" /></div> : (
           <>
             <div className="card mb-5" style={{ borderTop: `4px solid ${accent}` }}>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="font-display font-extrabold text-2xl" style={{ color: 'var(--navy)' }}>👥 {activeGroup.name}</h1>
+                    <h1 className="font-display font-extrabold text-2xl" style={{ color: 'var(--navy)' }}>🤝 {activeGroup.name}</h1>
                     <Badge style={STATUS_STYLE[activeGroup.status]}>{activeGroup.status}</Badge>
                     <Badge>{KIND_LABEL[activeGroup.kind]}</Badge>
                   </div>
-                  <p className="text-sm mt-2" style={{ color: 'var(--slate)' }}>{activeGroup.description || 'Private VidyaSetu collaboration Group.'}</p>
+                  <p className="text-sm mt-2" style={{ color: 'var(--slate)' }}>{activeGroup.description || 'Private VidyaSetu Education Community.'}</p>
                   <p className="text-xs mt-2" style={{ color: 'var(--slate)' }}>Owner: {activeGroup.owner_name || '—'} · {scopeText(activeGroup)} · {Number(activeGroup.member_count || 0)}/{activeGroup.max_members} members</p>
                 </div>
                 <div className="flex gap-2">
-                  {isMember && !isOwner && <button className="btn-ghost" onClick={() => window.confirm('Leave this Group?') && leaveMutation.mutate()}>Leave</button>}
+                  {isMember && !isOwner && <button className="btn-ghost" onClick={() => window.confirm('Leave this Community?') && leaveMutation.mutate()}>Leave</button>}
                   {isMember && <button className="btn-ghost" onClick={() => reportMutation.mutate({ targetType: 'GROUP', targetId: activeGroup.id })}>Report</button>}
                 </div>
               </div>
               {activeGroup.status === 'PENDING' && <div className="mt-4 p-3 rounded-xl text-sm" style={{ background: '#FFF3E0', color: '#8B4A00' }}>⏳ Waiting for VidyaSetu Admin approval. Posts and membership open only after approval.</div>}
-              {activeGroup.status === 'REJECTED' && <div className="mt-4 p-3 rounded-xl text-sm" style={{ background: '#FFEBEE', color: '#8D2525' }}>This request was not approved.{activeGroup.admin_note ? ` ${activeGroup.admin_note}` : ''}</div>}
+              {activeGroup.status === 'REJECTED' && <div className="mt-4 p-3 rounded-xl text-sm" style={{ background: '#FFEBEE', color: '#8D2525' }}>This Community request was not approved.{activeGroup.admin_note ? ` ${activeGroup.admin_note}` : ''}</div>}
               {activeGroup.status === 'ACTIVE' && !isMember && (
                 <div className="mt-4">
                   {activeGroup.invitation_status === 'PENDING_RECIPIENT' ? <span className="text-sm" style={{ color: 'var(--saffron)' }}>You have an invitation. Accept it from the Invitations tab.</span>
@@ -435,7 +435,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
                       </div>
                       {attachmentFile && <p className="text-xs mt-2" style={{ color: 'var(--slate)' }}>📎 {attachmentFile.name} · {(attachmentFile.size / 1024 / 1024).toFixed(1)} MB (max 10 MB)</p>}
                       <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
-                        {isModerator ? <label className="text-sm flex items-center gap-2" style={{ color: 'var(--slate)' }}><input type="checkbox" checked={announcement} onChange={(e) => setAnnouncement(e.target.checked)} /> Post as announcement</label> : <span className="text-xs" style={{ color: 'var(--slate)' }}>Only Group members can see this feed.</span>}
+                        {isModerator ? <label className="text-sm flex items-center gap-2" style={{ color: 'var(--slate)' }}><input type="checkbox" checked={announcement} onChange={(e) => setAnnouncement(e.target.checked)} /> Post as announcement</label> : <span className="text-xs" style={{ color: 'var(--slate)' }}>Only Community members can see this feed.</span>}
                         <button className="btn-green" disabled={!postBody.trim() || postMutation.isPending} onClick={() => postMutation.mutate()}>{postMutation.isPending ? 'Publishing…' : 'Publish'}</button>
                       </div>
                     </div>
@@ -476,7 +476,7 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
 
                 {detailTab === 'members' && (
                   <div className="card">
-                    <div className="flex flex-wrap justify-between gap-3 mb-4"><div><h3 className="font-display font-bold" style={{ color: 'var(--navy)' }}>Group Members</h3><p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>Owner manages moderators and membership. Ownership can be transferred to an eligible active member.</p></div></div>
+                    <div className="flex flex-wrap justify-between gap-3 mb-4"><div><h3 className="font-display font-bold" style={{ color: 'var(--navy)' }}>Community Members</h3><p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>The Community owner manages moderators and membership. Ownership can be transferred to an eligible active member.</p></div></div>
                     <div className="space-y-2">
                       {(membersQuery.data || []).map((member) => {
                         const transferAllowed = isOwner && member.user_id !== user?.id && member.role !== 'OWNER' && (activeGroup.kind !== 'MIXED' || canOwnMixed(member));
@@ -531,26 +531,26 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
   return (
     <div className="animate-fade-up">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-        <div><h1 className="font-display font-extrabold text-2xl" style={{ color: accent }}>👥 {title}</h1><p className="text-sm mt-1" style={{ color: 'var(--slate)' }}>{subtitle}</p></div>
-        <button className="btn-green" onClick={() => setShowCreate((value) => !value)}>{showCreate ? '✕ Cancel' : '+ Request New Group'}</button>
+        <div><h1 className="font-display font-extrabold text-2xl" style={{ color: accent }}>🤝 {title}</h1><p className="text-sm mt-1" style={{ color: 'var(--slate)' }}>{subtitle}</p></div>
+        <button className="btn-green" onClick={() => setShowCreate((value) => !value)}>{showCreate ? '✕ Cancel' : '+ Request New Community'}</button>
       </div>
 
       <div className="card mb-5" style={{ background: '#F6FBF7', borderLeft: `4px solid ${accent}` }}>
         <div className="font-semibold text-sm" style={{ color: 'var(--navy)' }}>🔒 Private and moderated by design</div>
-        <p className="text-xs mt-1 leading-5" style={{ color: 'var(--slate)' }}>New Groups require VidyaSetu Admin approval. Join requests require owner/moderator approval. Invitations never force-add a user. Mixed Student/Adult Groups can only be owned by a Teacher or School Admin.</p>
+        <p className="text-xs mt-1 leading-5" style={{ color: 'var(--slate)' }}>New Communities require VidyaSetu Admin approval. Join requests require owner/moderator approval. Invitations never force-add a user. Mixed Student/Adult Communities can only be owned by a Teacher or School Admin.</p>
       </div>
 
       {showCreate && (
         <div className="card mb-5" style={{ border: `1.5px solid ${accent}` }}>
-          <h2 className="font-display font-bold text-lg mb-4" style={{ color: 'var(--navy)' }}>Request a New Group</h2>
+          <h2 className="font-display font-bold text-lg mb-4" style={{ color: 'var(--navy)' }}>Request a New Community</h2>
           <div className="grid md:grid-cols-2 gap-4">
-            <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Group name<input className="input mt-1.5" maxLength={160} value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="e.g. Class 8 Science Revision" /></label>
-            <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Group type<select className="input select mt-1.5" value={form.kind} onChange={(e) => setForm((current) => ({ ...current, kind: e.target.value as GroupKind }))}>{(context?.allowedKinds || []).map((kind) => <option key={kind} value={kind}>{KIND_LABEL[kind]}</option>)}</select></label>
+            <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Community name<input className="input mt-1.5" maxLength={160} value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="e.g. Class 8 Science Revision" /></label>
+            <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Community type<select className="input select mt-1.5" value={form.kind} onChange={(e) => setForm((current) => ({ ...current, kind: e.target.value as GroupKind }))}>{(context?.allowedKinds || []).map((kind) => <option key={kind} value={kind}>{KIND_LABEL[kind]}</option>)}</select></label>
             <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Scope<select className="input select mt-1.5" value={form.scope} onChange={(e) => setForm((current) => ({ ...current, scope: e.target.value as GroupScope, schoolId: null, classId: null }))}><option value="PRIVATE">Private</option>{(context?.schools || []).length > 0 && <option value="SCHOOL">School</option>}{(context?.classes || []).length > 0 && <option value="CLASS">Class</option>}</select></label>
             <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Member limit<input type="number" min={2} max={500} className="input mt-1.5" value={form.maxMembers || 100} onChange={(e) => setForm((current) => ({ ...current, maxMembers: Number(e.target.value) }))} /></label>
             {form.scope !== 'PRIVATE' && <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>School<select className="input select mt-1.5" value={form.schoolId || ''} onChange={(e) => setForm((current) => ({ ...current, schoolId: e.target.value || null, classId: null }))}><option value="">Select school</option>{(context?.schools || []).map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}</select></label>}
             {form.scope === 'CLASS' && <label className="text-xs font-bold" style={{ color: 'var(--slate)' }}>Class<select className="input select mt-1.5" value={form.classId || ''} onChange={(e) => setForm((current) => ({ ...current, classId: e.target.value || null }))}><option value="">Select class</option>{filteredClasses.map((item) => <option key={item.id} value={item.id}>Class {item.className}{item.section ? `-${item.section}` : ''}</option>)}</select></label>}
-            <label className="text-xs font-bold md:col-span-2" style={{ color: 'var(--slate)' }}>Purpose / description<textarea className="input mt-1.5" rows={3} maxLength={3000} value={form.description || ''} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} placeholder="What will members discuss or collaborate on?" style={{ resize: 'vertical' }} /></label>
+            <label className="text-xs font-bold md:col-span-2" style={{ color: 'var(--slate)' }}>Purpose / description<textarea className="input mt-1.5" rows={3} maxLength={3000} value={form.description || ''} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} placeholder="What will members discuss, learn or collaborate on?" style={{ resize: 'vertical' }} /></label>
           </div>
           <div className="flex justify-end mt-4"><button className="btn-green" disabled={createMutation.isPending || form.name.trim().length < 3 || (form.scope !== 'PRIVATE' && !form.schoolId) || (form.scope === 'CLASS' && !form.classId)} onClick={() => createMutation.mutate()}>{createMutation.isPending ? 'Submitting…' : 'Submit for Admin Approval'}</button></div>
         </div>
@@ -558,15 +558,15 @@ export default function GroupsHub({ title = 'Groups', subtitle = 'Private, moder
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex gap-2 flex-wrap">
-          {(['mine', 'discover', 'invitations'] as WorkspaceTab[]).map((item) => <button key={item} type="button" className="px-4 py-2 rounded-xl text-sm font-bold" onClick={() => setTab(item)} style={{ background: tab === item ? accent : 'white', color: tab === item ? 'white' : 'var(--slate)', border: `1px solid ${tab === item ? accent : 'var(--border)'}` }}>{item === 'mine' ? 'My Groups' : item === 'discover' ? 'Discover' : `Invitations${(invitationsQuery.data || []).length ? ` (${(invitationsQuery.data || []).length})` : ''}`}</button>)}
+          {(['mine', 'discover', 'invitations'] as WorkspaceTab[]).map((item) => <button key={item} type="button" className="px-4 py-2 rounded-xl text-sm font-bold" onClick={() => setTab(item)} style={{ background: tab === item ? accent : 'white', color: tab === item ? 'white' : 'var(--slate)', border: `1px solid ${tab === item ? accent : 'var(--border)'}` }}>{item === 'mine' ? 'My Communities' : item === 'discover' ? 'Discover' : `Invitations${(invitationsQuery.data || []).length ? ` (${(invitationsQuery.data || []).length})` : ''}`}</button>)}
         </div>
-        {tab === 'discover' && <input className="input" style={{ width: 280 }} value={discoverSearch} onChange={(e) => setDiscoverSearch(e.target.value)} placeholder="Search Groups…" />}
+        {tab === 'discover' && <input className="input" style={{ width: 280 }} value={discoverSearch} onChange={(e) => setDiscoverSearch(e.target.value)} placeholder="Search Communities…" />}
       </div>
 
       {tab === 'invitations' ? (
-        <div className="space-y-3">{invitationsQuery.isLoading ? <div className="card"><div className="skeleton h-24 rounded-xl" /></div> : (invitationsQuery.data || []).length === 0 ? <div className="card text-center py-10" style={{ color: 'var(--slate)' }}>No pending invitations.</div> : (invitationsQuery.data || []).map((invitation: GroupInvitation) => <div key={invitation.id} className="card flex flex-wrap items-center justify-between gap-4"><div><div className="font-display font-bold" style={{ color: 'var(--navy)' }}>✉️ {invitation.group_name || 'Group invitation'}</div><div className="text-sm mt-1" style={{ color: 'var(--slate)' }}>Invited by {invitation.proposed_by_name || 'a Group member'}. You join only if you accept.</div></div><div className="flex gap-2"><button className="btn-green" onClick={() => inviteResponseMutation.mutate({ id: invitation.id, decision: 'ACCEPTED' })}>Accept</button><button className="btn-ghost" onClick={() => inviteResponseMutation.mutate({ id: invitation.id, decision: 'DECLINED' })}>Decline</button></div></div>)}</div>
+        <div className="space-y-3">{invitationsQuery.isLoading ? <div className="card"><div className="skeleton h-24 rounded-xl" /></div> : (invitationsQuery.data || []).length === 0 ? <div className="card text-center py-10" style={{ color: 'var(--slate)' }}>No pending invitations.</div> : (invitationsQuery.data || []).map((invitation: GroupInvitation) => <div key={invitation.id} className="card flex flex-wrap items-center justify-between gap-4"><div><div className="font-display font-bold" style={{ color: 'var(--navy)' }}>✉️ {invitation.group_name || 'Community invitation'}</div><div className="text-sm mt-1" style={{ color: 'var(--slate)' }}>Invited by {invitation.proposed_by_name || 'a Community member'}. You join only if you accept.</div></div><div className="flex gap-2"><button className="btn-green" onClick={() => inviteResponseMutation.mutate({ id: invitation.id, decision: 'ACCEPTED' })}>Accept</button><button className="btn-ghost" onClick={() => inviteResponseMutation.mutate({ id: invitation.id, decision: 'DECLINED' })}>Decline</button></div></div>)}</div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{(tab === 'mine' ? mineQuery.isLoading : discoverQuery.isLoading) ? [...Array(3)].map((_, index) => <div key={index} className="card"><div className="skeleton h-36 rounded-xl" /></div>) : list.length === 0 ? <div className="card md:col-span-2 xl:col-span-3 text-center py-12"><div className="text-4xl mb-3">👥</div><div className="font-display font-bold" style={{ color: 'var(--navy)' }}>{tab === 'mine' ? 'No Groups yet' : 'No eligible Groups found'}</div><p className="text-sm mt-1" style={{ color: 'var(--slate)' }}>{tab === 'mine' ? 'Request a new Group or discover an approved Group.' : 'Try another search or request a private Group.'}</p></div> : list.map((item) => <GroupCard key={item.id} group={item} onOpen={() => { setSelectedId(item.id); setDetailTab('feed'); }} />)}</div>
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{(tab === 'mine' ? mineQuery.isLoading : discoverQuery.isLoading) ? [...Array(3)].map((_, index) => <div key={index} className="card"><div className="skeleton h-36 rounded-xl" /></div>) : list.length === 0 ? <div className="card md:col-span-2 xl:col-span-3 text-center py-12"><div className="text-4xl mb-3">🤝</div><div className="font-display font-bold" style={{ color: 'var(--navy)' }}>{tab === 'mine' ? 'No Communities yet' : 'No eligible Communities found'}</div><p className="text-sm mt-1" style={{ color: 'var(--slate)' }}>{tab === 'mine' ? 'Request a new Community or discover an approved Community.' : 'Try another search or request a private Community.'}</p></div> : list.map((item) => <GroupCard key={item.id} group={item} onOpen={() => { setSelectedId(item.id); setDetailTab('feed'); }} />)}</div>
       )}
     </div>
   );

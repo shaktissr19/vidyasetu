@@ -52,16 +52,20 @@ export default function CompetitionPage() {
     <>
       <GlobalTopbar />
       <div>
-        <div style={{ background: 'linear-gradient(135deg, #1a0533, #2d0a52)', padding: '60px 32px 44px', textAlign: 'center' }}>
-          <h1 className="font-display" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, color: 'white', marginBottom: 12 }}>🏆 {t('प्रतियोगिताएँ और शैक्षणिक चुनौतियाँ', 'Competitions & Academic Challenges')}</h1>
-          <p style={{ color: 'rgba(255,255,255,0.68)', maxWidth: 680, margin: '0 auto' }}>{t('प्रकाशित प्रतियोगिताएँ, मॉक चुनौतियाँ और अभ्यास इवेंट देखें।', 'Explore published academic competitions, mock challenges and practice events backed by the VidyaSetu exam system.')}</p>
+        <div style={{ background: 'linear-gradient(135deg, #10264f, #244f88)', padding: '52px 32px 42px', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🏆📚</div>
+          <h1 className="font-display" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, color: 'white', marginBottom: 12 }}>{t('शैक्षणिक प्रतियोगिताएँ और चुनौतियाँ', 'Academic Competitions & Challenges')}</h1>
+          <p style={{ color: 'rgba(255,255,255,0.76)', maxWidth: 760, margin: '0 auto', lineHeight: 1.65 }}>{t('कक्षा-आधारित शैक्षणिक चुनौतियाँ खोजें, पात्र प्रतियोगिताओं के लिए पंजीकरण करें और अपने परिणाम देखें।', 'Discover class-relevant academic challenges, register for eligible competitions, attempt published exams and review results through the same VidyaSetu Student identity.')}</p>
+          <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
+            {['🎯 Class-linked eligibility', '📝 Real exam workflow', '📊 Results & leaderboards'].map(item => <span key={item} style={{ border: '1px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '7px 11px', color: 'rgba(255,255,255,.9)', fontSize: 12 }}>{item}</span>)}
+          </div>
         </div>
 
         <div className="max-w-5xl mx-auto" style={{ padding: '24px 32px 0' }}>
           <div style={{ background: '#FFF8EF', border: '1px solid #FFD7B5', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
             <div>
               <strong style={{ color: 'var(--navy)' }}>Want to register or attempt a Competition?</strong>
-              <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Public visitors can browse published events. Registration, attempts and personal results require a Student account.</div>
+              <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Everyone can browse published academic challenges. Registration, attempts and personal results require a Student account so eligibility and scores remain linked to the right learner.</div>
             </div>
             <button className="btn-primary" onClick={goToStudentLogin}>Login to Student Dashboard</button>
           </div>
@@ -72,9 +76,9 @@ export default function CompetitionPage() {
             </div>
           ) : exams.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-              <div style={{ fontSize: 38, marginBottom: 10 }}>🏆</div>
+              <div style={{ fontSize: 38, marginBottom: 10 }}>📚</div>
               <h2 className="font-display" style={{ fontWeight: 800, color: 'var(--navy)' }}>{t('अभी कोई प्रकाशित प्रतियोगिता नहीं है', 'No published competitions right now')}</h2>
-              <p style={{ color: 'var(--slate)', marginTop: 8 }}>{t('एडमिन द्वारा नई प्रतियोगिता प्रकाशित होने पर वह यहाँ दिखाई देगी।', 'New competitions will appear here when they are published by the Platform Admin.')}</p>
+              <p style={{ color: 'var(--slate)', marginTop: 8 }}>{t('प्लेटफ़ॉर्म एडमिन द्वारा नई शैक्षणिक प्रतियोगिता प्रकाशित होने पर वह यहाँ दिखाई देगी।', 'New academic competitions will appear here when they are published by the Platform Admin.')}</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
@@ -92,11 +96,11 @@ export default function CompetitionPage() {
                       ['📅 Date', formatDate(exam.start_time)],
                       ['⏱ Duration', `${exam.duration_mins || 0} minutes`],
                       ['📝 Questions', `${exam.total_questions || 0} MCQs`],
-                      ['🏆 Prize Pool', formatCurrency(exam.prize_pool)],
+                      ['🏆 Recognition / Prize', formatCurrency(exam.prize_pool)],
                     ].map(([label, value]) => (
                       <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
                         <span style={{ color: 'var(--slate)' }}>{label}</span>
-                        <span style={{ fontWeight: 700, color: label.includes('Prize') ? 'var(--saffron)' : 'var(--navy)' }}>{value}</span>
+                        <span style={{ fontWeight: 700, color: label.includes('Recognition') ? 'var(--saffron)' : 'var(--navy)' }}>{value}</span>
                       </div>
                     ))}
 

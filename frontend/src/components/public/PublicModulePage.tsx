@@ -128,7 +128,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
               ))}
             </div>
             <div className={styles.liveNote}>
-              <span className={styles.liveDot} /> Live aggregate counts from the VidyaSetu database
+              <span className={styles.liveDot} /> Live aggregate counts from VidyaSetu
             </div>
           </div>
         </div>
@@ -152,8 +152,8 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
-            <h2>What VidyaSetu does for {config.audience}</h2>
-            <p>These are functional areas backed by the current VidyaSetu application—not placeholder marketing cards.</p>
+            <h2>How VidyaSetu helps {config.audience}</h2>
+            <p>Explore the practical capabilities that connect learning, school operations and family participation across the platform.</p>
           </div>
           <div className={styles.capGrid}>
             {config.capabilities.map((capability) => (
@@ -173,8 +173,8 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       <section className={styles.sectionAlt}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
-            <h2>How the experience works end to end</h2>
-            <p>Public pages explain the capability. Personal records and operational actions remain protected inside the authenticated dashboard.</p>
+            <h2>How the experience works</h2>
+            <p>Public pages explain the platform. Personal records, school actions and family information remain protected inside the authenticated role workspace.</p>
           </div>
           <div className={styles.steps}>
             {config.steps.map((step) => (
@@ -212,7 +212,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
           <div className={styles.shell}>
             <div className={styles.sectionHeader}>
               <h2>Schools currently on VidyaSetu</h2>
-              <p>This directory uses active school records from the production data model and only exposes safe institution-level information.</p>
+              <p>Browse active institution records by school name, board, district or state. Only safe institution-level information is shown publicly.</p>
             </div>
             <div className={styles.directoryTools}>
               <input
@@ -264,8 +264,8 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         <div className={styles.shell}>
           <div className={styles.cta}>
             <div>
-              <h2>Public information first. Personal details after login.</h2>
-              <p>Sign in to access records, actions, messages and dashboard-specific information for your role.</p>
+              <h2>Explore publicly. Sign in for your own records and actions.</h2>
+              <p>Use the role dashboard to access personal learning data, school operations, family records, Communities and support workflows.</p>
             </div>
             <div className={styles.twoActions}>
               <Link className={styles.lightButton} href={loginHref}>{config.loginTitle}</Link>
@@ -275,7 +275,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         </div>
       </section>
 
-      <footer className={styles.footer}>© 2026 VidyaSetu · Connected learning, school operations and family visibility</footer>
+      <footer className={styles.footer}>© 2026 VidyaSetu · Learning, schools, families, Competitions, Communities and accountable support</footer>
     </div>
   );
 }
