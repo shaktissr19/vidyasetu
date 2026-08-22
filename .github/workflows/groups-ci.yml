@@ -188,9 +188,11 @@ jobs:
 
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
             SELECT COUNT(*) FROM collaboration_groups g
-            JOIN collaboration_group_members gm
-              ON gm.group_id=g.id AND gm.user_id=g.owner_id AND gm.status='ACTIVE'
-            WHERE gm.role <> 'OWNER';
+            WHERE NOT EXISTS (
+              SELECT 1 FROM collaboration_group_members gm
+              WHERE gm.group_id=g.id AND gm.user_id=g.owner_id
+                AND gm.status='ACTIVE' AND gm.role='OWNER'
+            );
           ")" = "0"
 
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
@@ -207,15 +209,19 @@ jobs:
           ")" = "0"
 
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
-            SELECT COUNT(*) FROM collaboration_group_join_requests
-            WHERE status='PENDING'
-            GROUP BY group_id,user_id HAVING COUNT(*) > 1;
+            SELECT COUNT(*) FROM (
+              SELECT group_id,user_id FROM collaboration_group_join_requests
+              WHERE status='PENDING'
+              GROUP BY group_id,user_id HAVING COUNT(*) > 1
+            ) duplicates;
           ")" = "0"
 
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
-            SELECT COUNT(*) FROM collaboration_group_invitations
-            WHERE status IN ('PENDING_OWNER_APPROVAL','PENDING_RECIPIENT')
-            GROUP BY group_id,invitee_user_id HAVING COUNT(*) > 1;
+            SELECT COUNT(*) FROM (
+              SELECT group_id,invitee_user_id FROM collaboration_group_invitations
+              WHERE status IN ('PENDING_OWNER_APPROVAL','PENDING_RECIPIENT')
+              GROUP BY group_id,invitee_user_id HAVING COUNT(*) > 1
+            ) duplicates;
           ")" = "0"
 
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "
