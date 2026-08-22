@@ -17,6 +17,7 @@ const MENU = (t: Translate) => [
   { href: '/parent/fees', icon: '💰', label: t('फीस', 'Fees') },
   { href: '/parent/report-card', icon: '📄', label: t('रिपोर्ट कार्ड', 'Report Card') },
   { href: '/parent/messages', icon: '💬', label: t('शिक्षक को संदेश', 'Message Teacher') },
+  { href: '/parent/groups', icon: '👥', label: t('समूह', 'Groups') },
 ];
 
 export default function ParentLayout({ children }: { children: ReactNode }) {
