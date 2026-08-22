@@ -8,8 +8,8 @@ export default function SchoolGroupsPage() {
   const isTeacher = role === 'TEACHER';
   return (
     <GroupsHub
-      title={isTeacher ? 'Teacher & Class Groups' : 'School Groups'}
-      subtitle={isTeacher ? 'Create Teacher or moderated mixed Groups for your classes' : 'Create moderated mixed Groups for your School community'}
+      title={isTeacher ? 'Teacher & Learning Community' : 'School Education Community'}
+      subtitle={isTeacher ? 'Create Teacher circles or moderated Student-Teacher learning communities for your school context' : 'Create moderated school, class, Parent or mixed learning communities with controlled membership'}
       accent="var(--saffron)"
     />
   );
