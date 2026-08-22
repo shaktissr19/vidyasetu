@@ -36,6 +36,18 @@ function smsConfigurationError(message: string): Error & { statusCode: number } 
   return Object.assign(new Error(message), { statusCode: 503 });
 }
 
+function requiredEnv(name: string, label: string): string {
+  const value = String(process.env[name] || '').trim();
+  if (!value) throw smsConfigurationError(`${label} is not configured`);
+  return value;
+}
+
+function otpFromMessage(message: string): string {
+  const otp = message.match(/\b(\d{6})\b/)?.[1];
+  if (!otp) throw new Error('A 6-digit OTP is required for the configured OTP provider');
+  return otp;
+}
+
 export function assertSmsDeliveryConfigured(): void {
   if (process.env.NODE_ENV === 'test') return;
   const provider = smsProvider();
@@ -48,12 +60,16 @@ export function assertSmsDeliveryConfigured(): void {
   }
 
   if (provider === 'kaleyra') {
-    if (!process.env.KALEYRA_API_KEY) throw smsConfigurationError('Kaleyra SMS delivery is not configured');
+    requiredEnv('KALEYRA_API_KEY', 'Kaleyra API key');
+    requiredEnv('KALEYRA_ACCOUNT_SID', 'Kaleyra account SID');
+    requiredEnv('KALEYRA_SENDER_ID', 'Kaleyra sender ID');
+    requiredEnv('KALEYRA_TEMPLATE_ID', 'Kaleyra DLT template ID');
     return;
   }
 
   if (provider === 'twofactor') {
-    if (!process.env.TWOFACTOR_API_KEY) throw smsConfigurationError('2Factor SMS delivery is not configured');
+    requiredEnv('TWOFACTOR_API_KEY', '2Factor API key');
+    requiredEnv('TWOFACTOR_TEMPLATE_NAME', '2Factor OTP template name');
     return;
   }
 
@@ -72,31 +88,58 @@ export async function sendSMS(mobile: string, message: string): Promise<unknown>
   }
 
   assertSmsDeliveryConfigured();
+  const maskedMobile = `${mobile.slice(0, 2)}******${mobile.slice(-2)}`;
 
   if (provider === 'kaleyra') {
-    const response = await axios.get<unknown>('https://api.kaleyra.io/v1/messages', {
-      params: {
-        apikey: process.env.KALEYRA_API_KEY,
-        method: 'sms',
-        message,
+    const apiKey = requiredEnv('KALEYRA_API_KEY', 'Kaleyra API key');
+    const accountSid = requiredEnv('KALEYRA_ACCOUNT_SID', 'Kaleyra account SID');
+    const sender = requiredEnv('KALEYRA_SENDER_ID', 'Kaleyra sender ID');
+    const templateId = requiredEnv('KALEYRA_TEMPLATE_ID', 'Kaleyra DLT template ID');
+    const domain = String(process.env.KALEYRA_API_DOMAIN || 'api.in.kaleyra.io').trim();
+
+    const response = await axios.post<unknown>(
+      `https://${domain}/v1/${encodeURIComponent(accountSid)}/sms`,
+      {
         to: `+91${mobile}`,
-        sender: process.env.KALEYRA_SID || 'VSETU',
+        sender,
+        type: 'OTP',
+        prefix: '+91',
+        body: message,
+        template_id: templateId,
       },
-      timeout: 15000,
-    });
-    logger.info(`SMS accepted by Kaleyra for ${mobile.slice(0, 2)}******${mobile.slice(-2)}`);
+      {
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      },
+    );
+    logger.info(`SMS accepted by Kaleyra for ${maskedMobile}`);
     return response.data;
   }
 
   if (provider === 'twofactor') {
-    const otp = message.match(/\b(\d{6})\b/)?.[1];
-    if (!otp) throw new Error('A 6-digit OTP is required for the 2Factor OTP provider');
+    const apiKey = requiredEnv('TWOFACTOR_API_KEY', '2Factor API key');
+    const templateName = requiredEnv('TWOFACTOR_TEMPLATE_NAME', '2Factor OTP template name');
+    const otp = otpFromMessage(message);
+
     const response = await axios.post<unknown>(
-      `https://2factor.in/API/V1/${encodeURIComponent(process.env.TWOFACTOR_API_KEY || '')}/SMS/+91${encodeURIComponent(mobile)}/${encodeURIComponent(otp)}`,
-      undefined,
-      { timeout: 15000 },
+      'https://2factor.in/API/V1/OTP/SEND',
+      {
+        to: `+91${mobile}`,
+        template_name: templateName,
+        var1: otp,
+      },
+      {
+        headers: {
+          'X-API-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      },
     );
-    logger.info(`SMS accepted by 2Factor for ${mobile.slice(0, 2)}******${mobile.slice(-2)}`);
+    logger.info(`SMS accepted by 2Factor for ${maskedMobile}`);
     return response.data;
   }
 
