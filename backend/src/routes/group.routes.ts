@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as ctrl from '../controllers/group.controller';
 import * as contextCtrl from '../controllers/groupContext.controller';
 import * as governanceCtrl from '../controllers/groupGovernance.controller';
+import * as attachmentCtrl from '../controllers/groupAttachment.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -30,9 +31,13 @@ const invitationSchema = z.object({
 const invitationResponseSchema = z.object({ decision: z.enum(['ACCEPTED', 'DECLINED']) });
 const memberRoleSchema = z.object({ role: z.enum(['MODERATOR', 'MEMBER']) });
 const transferSchema = z.object({ userId: z.string().uuid() });
+const uploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(160),
+  contentType: z.string().trim().min(3).max(160),
+});
 const postSchema = z.object({
   body: z.string().trim().min(1).max(5000),
-  attachmentUrl: z.string().trim().url().max(2000).nullable().optional(),
+  attachmentUrl: z.string().trim().max(2000).nullable().optional(),
   isAnnouncement: z.boolean().optional(),
 });
 const commentSchema = z.object({ body: z.string().trim().min(1).max(2000) });
@@ -53,6 +58,8 @@ router.patch('/invitations/:invitationId/respond', validate(invitationResponseSc
 
 router.get('/:groupId', ctrl.detail);
 router.patch('/:groupId/owner', validate(transferSchema), governanceCtrl.transferOwnership);
+router.post('/:groupId/upload-url', validate(uploadSchema), attachmentCtrl.uploadUrl);
+router.get('/:groupId/attachment-url', attachmentCtrl.downloadUrl);
 router.post('/:groupId/join-requests', validate(joinSchema), ctrl.requestJoin);
 router.get('/:groupId/join-requests', ctrl.joinRequests);
 router.patch('/:groupId/join-requests/:requestId', validate(decisionSchema), ctrl.decideJoin);
