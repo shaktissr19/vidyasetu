@@ -117,7 +117,7 @@ export async function create(parentUserId: UUID, input: CreateGrievanceInput) {
     [parentUserId, input.studentId, link.school_id, input.category, input.priority || 'NORMAL', input.subject.trim(), input.description.trim(), link.school_admin_user_id, hours],
   );
   if (!g) throw appError('Could not create concern', 500);
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, to_status, note) VALUES ($1,$2,'SUBMITTED','OPEN',$3)`, [g.id, parentUserId, input.subject.trim()]);
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, to_status, note) VALUES ($1,$2,'SUBMITTED','OPEN'::grievance_status,$3)`, [g.id, parentUserId, input.subject.trim()]);
   await notifications.saveNotification({
     userId: link.school_admin_user_id!, schoolId: link.school_id, type: 'GRIEVANCE_SUBMITTED',
     title: `New Parent concern ${g.ticket_number}`, body: `${link.student_name}: ${input.subject}`,
@@ -147,7 +147,7 @@ export async function parentReply(parentUserId: UUID, grievanceId: UUID, body: s
   const g = await getForParent(parentUserId, grievanceId);
   if (g.status === 'CLOSED') throw appError('Closed concerns cannot receive new replies', 409);
   await query(`INSERT INTO grievance_messages (grievance_id, author_user_id, body) VALUES ($1,$2,$3)`, [grievanceId, parentUserId, body.trim()]);
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,'PARENT_REPLY',$3,$3,$4)`, [grievanceId, parentUserId, g.status, body.trim().slice(0, 500)]);
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,'PARENT_REPLY',$3::grievance_status,$3::grievance_status,$4)`, [grievanceId, parentUserId, g.status, body.trim().slice(0, 500)]);
   if (g.assigned_to) await notifications.saveNotification({ userId: g.assigned_to, schoolId: g.school_id, type: 'GRIEVANCE_REPLY', title: `Parent replied to ${g.ticket_number}`, body: body.trim().slice(0, 180), refId: grievanceId, refType: 'GRIEVANCE' });
   return getForParent(parentUserId, grievanceId);
 }
@@ -168,13 +168,13 @@ export async function parentAction(parentUserId: UUID, grievanceId: UUID, action
   }
   await query(
     `UPDATE parent_grievances SET status=$2::grievance_status,
-       closed_at=CASE WHEN $2='CLOSED' THEN NOW() ELSE closed_at END,
-       escalated_at=CASE WHEN $2='ESCALATED' THEN NOW() ELSE escalated_at END,
-       resolved_at=CASE WHEN $2='IN_PROGRESS' THEN NULL ELSE resolved_at END,
-       reopen_count=reopen_count + CASE WHEN $3='REOPEN' THEN 1 ELSE 0 END
+       closed_at=CASE WHEN $2::grievance_status='CLOSED'::grievance_status THEN NOW() ELSE closed_at END,
+       escalated_at=CASE WHEN $2::grievance_status='ESCALATED'::grievance_status THEN NOW() ELSE escalated_at END,
+       resolved_at=CASE WHEN $2::grievance_status='IN_PROGRESS'::grievance_status THEN NULL ELSE resolved_at END,
+       reopen_count=reopen_count + CASE WHEN $3::text='REOPEN' THEN 1 ELSE 0 END
      WHERE id=$1`, [grievanceId, next, action],
   );
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4,$5,$6)`, [grievanceId, parentUserId, action, g.status, next, note || null]);
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4::grievance_status,$5::grievance_status,$6)`, [grievanceId, parentUserId, action, g.status, next, note || null]);
   if (g.assigned_to) await notifications.saveNotification({ userId: g.assigned_to, schoolId: g.school_id, type: 'GRIEVANCE_UPDATED', title: `${g.ticket_number} ${action.toLowerCase()}`, body: note || `Parent changed status to ${next}`, refId: grievanceId, refType: 'GRIEVANCE' });
   if (next === 'ESCALATED') await notifyPlatformAdmins(`Escalated concern ${g.ticket_number}`, `${g.student_name} · ${g.school_name}: ${g.subject}`, grievanceId);
   return getForParent(parentUserId, grievanceId);
@@ -192,7 +192,7 @@ export async function listForSchool(adminUserId: UUID, status?: string) {
     `SELECT g.*, pu.name AS parent_name, su.name AS student_name,
             (g.status NOT IN ('RESOLVED','CLOSED') AND g.due_at IS NOT NULL AND g.due_at < NOW()) AS overdue
      FROM parent_grievances g JOIN users pu ON pu.id=g.parent_user_id JOIN students st ON st.id=g.student_id JOIN users su ON su.id=st.user_id
-     WHERE g.school_id=$1 AND ($2::text IS NULL OR g.status::text=$2) ORDER BY (g.status='ESCALATED') DESC, g.created_at DESC`,
+     WHERE g.school_id=$1 AND ($2::text IS NULL OR g.status::text=$2::text) ORDER BY (g.status='ESCALATED') DESC, g.created_at DESC`,
     [schoolId, status || null],
   );
   return rows;
@@ -207,7 +207,7 @@ export async function schoolReply(adminUserId: UUID, grievanceId: UUID, body: st
   const g = await getForSchool(adminUserId, grievanceId);
   if (g.status === 'CLOSED') throw appError('Closed concerns cannot receive replies', 409);
   await query(`INSERT INTO grievance_messages (grievance_id, author_user_id, body, is_internal) VALUES ($1,$2,$3,$4)`, [grievanceId, adminUserId, body.trim(), internal]);
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4,$4,$5)`, [grievanceId, adminUserId, internal ? 'INTERNAL_NOTE' : 'SCHOOL_REPLY', g.status, body.trim().slice(0, 500)]);
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4::grievance_status,$4::grievance_status,$5)`, [grievanceId, adminUserId, internal ? 'INTERNAL_NOTE' : 'SCHOOL_REPLY', g.status, body.trim().slice(0, 500)]);
   if (!internal) await notifications.saveNotification({ userId: g.parent_user_id, schoolId: g.school_id, type: 'GRIEVANCE_REPLY', title: `School replied to ${g.ticket_number}`, body: body.trim().slice(0, 180), refId: grievanceId, refType: 'GRIEVANCE' });
   return getForSchool(adminUserId, grievanceId);
 }
@@ -220,12 +220,12 @@ export async function schoolAction(adminUserId: UUID, grievanceId: UUID, action:
   if (action === 'RESOLVE' && !note?.trim()) throw appError('Resolution is required', 400);
   await query(
     `UPDATE parent_grievances SET status=$2::grievance_status,
-       acknowledged_at=CASE WHEN $2='ACKNOWLEDGED' THEN COALESCE(acknowledged_at,NOW()) ELSE acknowledged_at END,
-       resolved_at=CASE WHEN $2='RESOLVED' THEN NOW() ELSE resolved_at END,
-       resolution=CASE WHEN $2='RESOLVED' THEN $4 ELSE resolution END
-     WHERE id=$1`, [grievanceId, next, action, note || null],
+       acknowledged_at=CASE WHEN $2::grievance_status='ACKNOWLEDGED'::grievance_status THEN COALESCE(acknowledged_at,NOW()) ELSE acknowledged_at END,
+       resolved_at=CASE WHEN $2::grievance_status='RESOLVED'::grievance_status THEN NOW() ELSE resolved_at END,
+       resolution=CASE WHEN $2::grievance_status='RESOLVED'::grievance_status THEN $3::text ELSE resolution END
+     WHERE id=$1`, [grievanceId, next, note || null],
   );
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4,$5,$6)`, [grievanceId, adminUserId, action, g.status, next, note || null]);
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4::grievance_status,$5::grievance_status,$6)`, [grievanceId, adminUserId, action, g.status, next, note || null]);
   await notifications.saveNotification({ userId: g.parent_user_id, schoolId: g.school_id, type: next === 'RESOLVED' ? 'GRIEVANCE_RESOLVED' : 'GRIEVANCE_UPDATED', title: `${g.ticket_number}: ${next.replace('_',' ')}`, body: note || `School updated your concern to ${next}`, refId: grievanceId, refType: 'GRIEVANCE' });
   return getForSchool(adminUserId, grievanceId);
 }
@@ -235,7 +235,7 @@ export async function listForAdmin(status?: string, schoolId?: string) {
     `SELECT g.*, pu.name AS parent_name, su.name AS student_name, sch.name AS school_name,
             (g.status NOT IN ('RESOLVED','CLOSED') AND g.due_at IS NOT NULL AND g.due_at < NOW()) AS overdue
      FROM parent_grievances g JOIN users pu ON pu.id=g.parent_user_id JOIN students st ON st.id=g.student_id JOIN users su ON su.id=st.user_id JOIN schools sch ON sch.id=g.school_id
-     WHERE ($1::text IS NULL OR g.status::text=$1) AND ($2::uuid IS NULL OR g.school_id=$2::uuid)
+     WHERE ($1::text IS NULL OR g.status::text=$1::text) AND ($2::uuid IS NULL OR g.school_id=$2::uuid)
      ORDER BY (g.status='ESCALATED') DESC, (g.due_at < NOW() AND g.status NOT IN ('RESOLVED','CLOSED')) DESC, g.created_at DESC`,
     [status || null, schoolId || null],
   );
@@ -247,15 +247,23 @@ export async function getForAdmin(grievanceId: UUID) { return detailById(grievan
 export async function adminReply(adminUserId: UUID, grievanceId: UUID, body: string, internal = false) {
   const g = await getForAdmin(grievanceId);
   await query(`INSERT INTO grievance_messages (grievance_id, author_user_id, body, is_internal) VALUES ($1,$2,$3,$4)`, [grievanceId, adminUserId, body.trim(), internal]);
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4,$4,$5)`, [grievanceId, adminUserId, internal ? 'ADMIN_INTERNAL_NOTE' : 'ADMIN_REPLY', g.status, body.trim().slice(0, 500)]);
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,$3,$4::grievance_status,$4::grievance_status,$5)`, [grievanceId, adminUserId, internal ? 'ADMIN_INTERNAL_NOTE' : 'ADMIN_REPLY', g.status, body.trim().slice(0, 500)]);
   if (!internal) await notifications.saveNotification({ userId: g.parent_user_id, schoolId: g.school_id, type: 'GRIEVANCE_REPLY', title: `Platform Admin replied to ${g.ticket_number}`, body: body.trim().slice(0, 180), refId: grievanceId, refType: 'GRIEVANCE' });
   return getForAdmin(grievanceId);
 }
 
 export async function adminAction(adminUserId: UUID, grievanceId: UUID, status: GrievanceStatus, note?: string) {
   const g = await getForAdmin(grievanceId);
-  await query(`UPDATE parent_grievances SET status=$2::grievance_status, resolved_at=CASE WHEN $2='RESOLVED' THEN NOW() ELSE resolved_at END, closed_at=CASE WHEN $2='CLOSED' THEN NOW() ELSE closed_at END, escalated_at=CASE WHEN $2='ESCALATED' THEN COALESCE(escalated_at,NOW()) ELSE escalated_at END, resolution=CASE WHEN $2='RESOLVED' AND $3::text IS NOT NULL THEN $3 ELSE resolution END WHERE id=$1`, [grievanceId, status, note || null]);
-  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,'ADMIN_STATUS',$3,$4,$5)`, [grievanceId, adminUserId, g.status, status, note || null]);
+  await query(
+    `UPDATE parent_grievances SET status=$2::grievance_status,
+       resolved_at=CASE WHEN $2::grievance_status='RESOLVED'::grievance_status THEN NOW() ELSE resolved_at END,
+       closed_at=CASE WHEN $2::grievance_status='CLOSED'::grievance_status THEN NOW() ELSE closed_at END,
+       escalated_at=CASE WHEN $2::grievance_status='ESCALATED'::grievance_status THEN COALESCE(escalated_at,NOW()) ELSE escalated_at END,
+       resolution=CASE WHEN $2::grievance_status='RESOLVED'::grievance_status AND $3::text IS NOT NULL THEN $3::text ELSE resolution END
+     WHERE id=$1`,
+    [grievanceId, status, note || null],
+  );
+  await query(`INSERT INTO grievance_history (grievance_id, actor_user_id, action, from_status, to_status, note) VALUES ($1,$2,'ADMIN_STATUS',$3::grievance_status,$4::grievance_status,$5)`, [grievanceId, adminUserId, g.status, status, note || null]);
   await notifications.saveNotification({ userId: g.parent_user_id, schoolId: g.school_id, type: status === 'RESOLVED' ? 'GRIEVANCE_RESOLVED' : 'GRIEVANCE_UPDATED', title: `${g.ticket_number}: Platform Admin update`, body: note || `Status changed to ${status}`, refId: grievanceId, refType: 'GRIEVANCE' });
   if (g.assigned_to) await notifications.saveNotification({ userId: g.assigned_to, schoolId: g.school_id, type: 'GRIEVANCE_UPDATED', title: `${g.ticket_number}: Platform Admin update`, body: note || `Status changed to ${status}`, refId: grievanceId, refType: 'GRIEVANCE' });
   return getForAdmin(grievanceId);
