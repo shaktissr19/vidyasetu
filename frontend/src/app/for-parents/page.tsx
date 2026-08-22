@@ -46,8 +46,8 @@ const CONFIG: PublicModuleConfig = {
     },
     {
       icon: '🛡️', title: 'Concern & Grievance Centre',
-      description: 'Raise a formal concern linked to a child and school, receive tracked school responses, accept or reopen a resolution, and escalate unresolved matters to Platform Admin.',
-      bullets: ['Ticket number and complete timeline', 'School acknowledgement, review and resolution', 'Parent reopen / close / escalation controls'],
+      description: 'Raise a formal concern linked to a child and school, attach private supporting evidence, receive tracked school responses, accept or reopen a resolution, and escalate unresolved matters to Platform Admin.',
+      bullets: ['Ticket number, private evidence and complete timeline', 'School acknowledgement, review and resolution', 'Parent reopen / close / escalation controls'],
     },
     {
       icon: '🔔', title: 'Notifications',
@@ -69,7 +69,7 @@ const CONFIG: PublicModuleConfig = {
     { title: 'Sign in as Parent', description: 'Use the Parent account type so VidyaSetu loads only children linked to that parent identity.' },
     { title: 'Choose a child', description: 'Open the linked child whose attendance, results, fees, teacher communication or school concern you want to review.' },
     { title: 'Review school records', description: 'Check performance, attendance, report cards, fees and school notifications from one parent view.' },
-    { title: 'Communicate or raise a tracked concern', description: 'Use teacher messaging for normal communication; use the Concern Centre when you need an accountable school response and auditable resolution.' },
+    { title: 'Communicate or raise a tracked concern', description: 'Use teacher messaging for normal communication; use the Concern Centre when you need an accountable school response, private supporting evidence and an auditable resolution.' },
     { title: 'Collaborate safely', description: 'Use approved Groups for parent-to-parent or mixed collaboration under explicit membership and moderation rules.' },
   ],
   proofTitle: 'Parent capabilities backed by current APIs',
@@ -77,7 +77,7 @@ const CONFIG: PublicModuleConfig = {
   proofs: [
     { icon: '🧒', title: 'Child dashboard', description: 'Linked-child selection plus a child-specific dashboard and performance view.' },
     { icon: '📆', title: 'Attendance & report card', description: 'Dedicated endpoints for child attendance and report-card data.' },
-    { icon: '🛡️', title: 'Tracked concerns', description: 'Child-linked grievance tickets, replies, status history, resolution, reopen and escalation.' },
+    { icon: '🛡️', title: 'Tracked concerns', description: 'Child-linked grievance tickets, private evidence, replies, status history, resolution, reopen and escalation.' },
     { icon: '📨', title: 'Messages & notifications', description: 'Teacher messaging and notification read-state flows for the Parent account.' },
   ],
   loginTitle: 'Login to Parent Dashboard',
