@@ -13,12 +13,13 @@ const NAV: ReadonlyArray<readonly [string, string]> = [
   ['Schools', '/for-schools'],
   ['Parents', '/for-parents'],
   ['Competitions', '/competition'],
-  ['Groups', '/groups-info'],
+  ['Communities', '/communities'],
   ['Platform Admin', '/platform-admin'],
 ];
 
 function isActive(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/';
+  if (href === '/communities' && pathname === '/groups-info') return true;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
