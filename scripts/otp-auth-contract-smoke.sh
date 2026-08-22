@@ -36,9 +36,14 @@ require_text "$LOGIN" 'Change number' 'Login must expose Change number'
 require_text "$LOGIN" 'sentMobile' 'OTP verification must retain the number that actually received the OTP'
 
 printf '==> SMS provider contract\n'
-require_text "$SMS_SERVICE" 'https://api-alerts.kaleyra.com/v4/' 'Kaleyra integration must use Alerts v4 endpoint'
-require_text "$SMS_SERVICE" 'https://2factor.in/API/V1/OTP/SEND' '2Factor integration must use OTP send endpoint'
-require_text "$SMS_SERVICE" "'X-API-Key': apiKey" '2Factor integration must authenticate with X-API-Key'
+require_text "$SMS_SERVICE" 'https://api.in.kaleyra.io/v1/' 'Kaleyra integration must use the current India SMS API domain'
+require_text "$SMS_SERVICE" 'KALEYRA_ACCOUNT_SID' 'Kaleyra integration must use the account SID'
+require_text "$SMS_SERVICE" "'api-key': apiKey" 'Kaleyra integration must use the api-key header'
+require_text "$SMS_SERVICE" 'KALEYRA_SENDER_ID' 'Kaleyra integration must use an approved sender ID'
+require_text "$SMS_SERVICE" "template_id: templateId" 'Kaleyra integration must send the approved DLT template ID'
+require_text "$SMS_SERVICE" "entity_id: entityId" 'Kaleyra integration must send the DLT entity ID'
+require_text "$SMS_SERVICE" "'https://2factor.in/API/V1'" '2Factor integration must use its manual OTP API base'
+require_text "$SMS_SERVICE" "encodeURIComponent(otp)" '2Factor integration must send the VidyaSetu-generated OTP'
 require_text "$SMS_SERVICE" "process.env.NODE_ENV === 'production'" 'Production SMS path must distinguish production mode'
 require_text "$SMS_SERVICE" 'SMS delivery is not configured on the production server' 'Production mock SMS must fail explicitly'
 
@@ -66,7 +71,10 @@ cat > "$tmp_dir/kaleyra.env" <<'ENV'
 NODE_ENV=production
 SMS_PROVIDER=kaleyra
 KALEYRA_API_KEY=ci-placeholder
-KALEYRA_SID=VSETU
+KALEYRA_ACCOUNT_SID=HXCI_PLACEHOLDER_IN
+KALEYRA_SENDER_ID=VSETU
+KALEYRA_ENTITY_ID=1200000000000000000
+KALEYRA_TEMPLATE_ID=1207000000000000000
 ENV
 bash scripts/otp-provider-preflight.sh "$tmp_dir/kaleyra.env" >/dev/null
 
