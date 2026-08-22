@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/admin.controller';
 import * as groupCtrl from '../controllers/group.controller';
+import * as governanceCtrl from '../controllers/groupGovernance.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -24,6 +25,7 @@ const groupReportSchema = z.object({
   status: z.enum(['REVIEWING', 'RESOLVED', 'DISMISSED']),
   resolution: z.string().trim().max(1000).nullable().optional(),
 });
+const groupOwnerSchema = z.object({ userId: z.string().uuid() });
 
 router.get('/analytics', ctrl.getAnalytics);
 router.get('/revenue', ctrl.getRevenue);
@@ -46,6 +48,8 @@ router.post('/competitions', ctrl.createCompetition);
 router.get('/groups', groupCtrl.adminGroups);
 router.patch('/groups/:groupId/decision', validate(groupDecisionSchema), groupCtrl.adminDecide);
 router.patch('/groups/:groupId/status', validate(groupStatusSchema), groupCtrl.adminStatus);
+router.get('/groups/:groupId/members', governanceCtrl.adminMembers);
+router.patch('/groups/:groupId/owner', validate(groupOwnerSchema), governanceCtrl.adminTransferOwnership);
 router.get('/group-reports', groupCtrl.adminReports);
 router.patch('/group-reports/:reportId', validate(groupReportSchema), groupCtrl.adminResolveReport);
 
