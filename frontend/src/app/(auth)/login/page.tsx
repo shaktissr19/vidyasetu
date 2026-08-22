@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import type { UserRole } from '@vidyasetu/contracts';
@@ -16,12 +16,12 @@ import useAuthStore from '@/store/authStore';
 import { useRedirectIfLoggedIn } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 
-const ROLES: Array<{ key: UserRole; label: string }> = [
-  { key: 'STUDENT', label: '🎓 Student' },
-  { key: 'PARENT', label: '👩 Parent' },
-  { key: 'SCHOOL_ADMIN', label: '🏫 School' },
-  { key: 'TEACHER', label: '👩‍🏫 Teacher' },
-  { key: 'SUPER_ADMIN', label: '⚙️ Platform Admin' },
+const ROLES: Array<{ key: UserRole; label: string; short: string }> = [
+  { key: 'STUDENT', label: '🎓 Student', short: 'student' },
+  { key: 'PARENT', label: '👩 Parent', short: 'parent' },
+  { key: 'SCHOOL_ADMIN', label: '🏫 School', short: 'school' },
+  { key: 'TEACHER', label: '👩‍🏫 Teacher', short: 'teacher' },
+  { key: 'SUPER_ADMIN', label: '⚙️ Platform Admin', short: 'admin' },
 ];
 
 const ROLE_DASHBOARDS: Record<UserRole, string> = {
@@ -40,6 +40,14 @@ const ROLE_PUBLIC_PATHS: Record<UserRole, string> = {
   SUPER_ADMIN: '/platform-admin',
 };
 
+const ROLE_PARAM: Record<UserRole, string> = {
+  STUDENT: 'student',
+  PARENT: 'parent',
+  SCHOOL_ADMIN: 'school',
+  TEACHER: 'teacher',
+  SUPER_ADMIN: 'admin',
+};
+
 const ROLE_INTRO: Record<UserRole, {
   title: string;
   accent: string;
@@ -49,54 +57,54 @@ const ROLE_INTRO: Record<UserRole, {
   STUDENT: {
     title: 'Learning and school progress',
     accent: 'in one student workspace',
-    copy: 'Sign in to your learning content, school-linked identity, attendance, report cards, competitions, doubts, offline resources and progress tools.',
+    copy: 'Sign in for learning content, school-linked identity, attendance, report cards, competitions, doubts, offline resources and your Education Community.',
     cards: [
       ['Student ID', 'Permanent VidyaSetu identity'],
       ['Learning', 'Subjects, content and doubts'],
       ['School Records', 'Attendance and report cards'],
-      ['Participation', 'Competitions, XP and Groups'],
+      ['Community', 'Competitions, peers and study circles'],
     ],
   },
   PARENT: {
     title: 'Your child’s school journey',
     accent: 'visible in one parent workspace',
-    copy: 'Sign in to linked children, performance, attendance, report cards, fees, teacher messages, notifications and moderated Parent Groups.',
+    copy: 'Sign in for linked children, performance, attendance, report cards, fees, teacher communication, grievances, notifications and Parent Communities.',
     cards: [
       ['Children', 'Switch between linked children'],
       ['Progress', 'Performance and report cards'],
       ['Attendance', 'School-record visibility'],
-      ['Communication', 'Teacher messages and Groups'],
+      ['Community', 'Teacher contact and parent networks'],
     ],
   },
   SCHOOL_ADMIN: {
     title: 'School academics and operations',
     accent: 'from one administration workspace',
-    copy: 'Sign in to manage students, classes, teachers, enrollment requests, attendance, fees, timetables, exams, results and announcements.',
+    copy: 'Sign in to manage students, classes, teachers, enrollments, attendance, fees, timetables, exams, results, announcements, parent concerns and School Communities.',
     cards: [
       ['Students', 'Roster and enrollment workflows'],
       ['Teachers', 'Staff and assignments'],
       ['Operations', 'Attendance, fees and timetable'],
-      ['Academics', 'Exams, results and announcements'],
+      ['Community', 'Announcements and school networks'],
     ],
   },
   TEACHER: {
     title: 'Teaching context and school workflows',
     accent: 'inside the School workspace',
-    copy: 'Teacher access uses the School workspace with role-aware permissions for assigned academic and operational activities.',
+    copy: 'Teacher access uses the School workspace with role-aware permissions for assigned classes, attendance, academic records, announcements and Education Communities.',
     cards: [
       ['Assignments', 'Class and subject context'],
       ['Attendance', 'Class roster workflows'],
       ['Academics', 'School exam context'],
-      ['Communication', 'School-linked information'],
+      ['Community', 'Teacher and learning circles'],
     ],
   },
   SUPER_ADMIN: {
     title: 'VidyaSetu network governance',
     accent: 'for authorised Platform Admins',
-    copy: 'Sign in to platform analytics, schools, users, content, revenue, support, configuration, competitions and Group governance.',
+    copy: 'Sign in for platform analytics, schools, users, content, revenue, support, configuration, competitions, grievances and Education Community governance.',
     cards: [
       ['Analytics', 'Platform-level visibility'],
-      ['Governance', 'Schools, users and Groups'],
+      ['Governance', 'Schools, users and Communities'],
       ['Operations', 'Support and configuration'],
       ['Platform', 'Content and competitions'],
     ],
@@ -146,14 +154,26 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
   const [recovery, setRecovery] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  useEffect(() => {
+    if (resendSeconds <= 0) return undefined;
+    const timer = window.setInterval(() => setResendSeconds((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendSeconds]);
+
   const intro = ROLE_INTRO[role];
-  const identifierLabel = role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email';
-  const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email';
+  const identifierLabel = role === 'STUDENT'
+    ? 'Username / Email / Student ID / Mobile'
+    : 'Username / Email / Mobile';
+  const identifierPlaceholder = role === 'STUDENT'
+    ? 'aarav.sharma, VS26-0100001 or mobile'
+    : 'username, email or registered mobile';
+  const roleLabel = ROLES.find((item) => item.key === role)?.label.replace(/^\S+\s/, '') || 'account';
 
   function completeLogin(payload: AuthSessionPayload) {
     const { accessToken, refreshToken, user } = payload;
@@ -163,6 +183,27 @@ export default function LoginPage() {
     setAuth(user, accessToken, refreshToken);
     toast.success(`Welcome back, ${user.name?.split(' ')[0] || 'User'}! 👋`);
     router.replace(ROLE_DASHBOARDS[user.role] || '/');
+  }
+
+  function resetOtpState() {
+    setOtpSent(false);
+    setOtp('');
+    setResendSeconds(0);
+  }
+
+  function selectRole(nextRole: UserRole) {
+    setRole(nextRole);
+    resetOtpState();
+    setRecovery(false);
+    setRecoverySent(false);
+    setRecoveryOtp('');
+    router.replace(`/login?role=${ROLE_PARAM[nextRole]}`, { scroll: false });
+  }
+
+  function changeMobile(value: string) {
+    const next = value.replace(/\D/g, '').slice(0, 10);
+    if (next !== mobile && otpSent) resetOtpState();
+    setMobile(next);
   }
 
   async function handlePasswordLogin(event: FormEvent<HTMLFormElement>) {
@@ -177,22 +218,34 @@ export default function LoginPage() {
     } finally { setLoading(false); }
   }
 
-  async function handleSendOTP(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    if (mobile.length !== 10) return toast.error('Enter a valid 10-digit mobile number');
+  async function requestOtp() {
+    if (mobile.length !== 10) {
+      toast.error('Enter a valid 10-digit mobile number');
+      return false;
+    }
     setLoading(true);
     try {
-      const response = await sendOTP(mobile);
+      const response = await sendOTP(mobile, role);
       setOtpSent(true);
-      toast.success(`OTP sent to +91-${mobile}`);
+      setOtp('');
+      setResendSeconds(30);
+      toast.success(`OTP sent to +91 ${mobile}`);
       if (response.data?.data?.otp) toast(`Dev OTP: ${response.data.data.otp}`, { duration: 10000, icon: '🔑' });
+      return true;
     } catch (err: unknown) {
-      toast.error(errorText(err, 'Failed to send OTP'));
+      toast.error(errorText(err, 'Could not send OTP'));
+      return false;
     } finally { setLoading(false); }
+  }
+
+  async function handleSendOTP(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await requestOtp();
   }
 
   async function handleVerifyOTP(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (mobile.length !== 10) return toast.error('Enter a valid 10-digit mobile number');
     if (otp.length !== 6) return toast.error('Enter the 6-digit OTP');
     setLoading(true);
     try {
@@ -244,14 +297,15 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between w-[42%] p-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1A3A6E 100%)' }}>
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-12">
+          <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-extrabold text-white" style={{ background: 'linear-gradient(135deg,var(--saffron),var(--saffron-light))' }}>V</div>
             <span className="font-display font-extrabold text-2xl text-white">VidyaSetu</span>
           </div>
+          <div className="text-xs font-extrabold tracking-[0.15em] uppercase mb-3" style={{ color: 'var(--saffron-light)' }}>{roleLabel} access</div>
           <h1 className="font-display font-extrabold text-4xl text-white leading-tight mb-4">
             {intro.title}<br /><span style={{ color: 'var(--saffron-light)' }}>{intro.accent}</span>
           </h1>
-          <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.68)' }}>{intro.copy}</p>
+          <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>{intro.copy}</p>
           <button
             onClick={() => router.push(ROLE_PUBLIC_PATHS[role])}
             className="mt-5 text-sm font-bold"
@@ -260,24 +314,24 @@ export default function LoginPage() {
             Learn what this module includes
           </button>
         </div>
-        <div className="relative z-10 grid grid-cols-2 gap-4">
+        <div className="relative z-10 grid grid-cols-2 gap-4 mt-8">
           {intro.cards.map(([name, label]) => (
             <div key={name} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
               <div className="font-display font-extrabold text-lg text-white">{name}</div>
-              <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</div>
+              <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{label}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-[470px]">
+        <div className="w-full max-w-[500px]">
           <h2 className="font-display font-extrabold text-3xl mb-1" style={{ color: 'var(--navy)' }}>Welcome back</h2>
           <p className="text-sm mb-5" style={{ color: 'var(--slate)' }}>Choose your account type and sign-in method.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--saffron-pale)' }}>
             {ROLES.map((item) => (
-              <button key={item.key} onClick={() => setRole(item.key)} className="py-2 px-1 rounded-lg text-xs font-bold"
+              <button key={item.key} type="button" onClick={() => selectRole(item.key)} className="py-2 px-1 rounded-lg text-xs font-bold"
                 style={{ background: role === item.key ? 'white' : 'transparent', color: role === item.key ? 'var(--saffron)' : 'var(--slate)', boxShadow: role === item.key ? '0 2px 8px rgba(255,107,0,.15)' : 'none' }}>
                 {item.label}
               </button>
@@ -286,11 +340,11 @@ export default function LoginPage() {
 
           {!recovery && (
             <div className="grid grid-cols-2 gap-1 p-1 rounded-xl mb-5" style={{ background: '#F0F4F8' }}>
-              <button onClick={() => setMethod('password')} className="py-2 rounded-lg text-sm font-bold"
+              <button type="button" onClick={() => setMethod('password')} className="py-2 rounded-lg text-sm font-bold"
                 style={{ background: method === 'password' ? 'white' : 'transparent', color: method === 'password' ? 'var(--navy)' : 'var(--slate)', boxShadow: method === 'password' ? '0 2px 7px rgba(13,27,62,.08)' : 'none' }}>
                 Password Login
               </button>
-              <button onClick={() => setMethod('otp')} className="py-2 rounded-lg text-sm font-bold"
+              <button type="button" onClick={() => { setMethod('otp'); setRecovery(false); }} className="py-2 rounded-lg text-sm font-bold"
                 style={{ background: method === 'otp' ? 'white' : 'transparent', color: method === 'otp' ? 'var(--navy)' : 'var(--slate)', boxShadow: method === 'otp' ? '0 2px 7px rgba(13,27,62,.08)' : 'none' }}>
                 OTP Login
               </button>
@@ -302,13 +356,13 @@ export default function LoginPage() {
               <h3 className="font-display font-bold text-xl mb-1" style={{ color: 'var(--navy)' }}>Reset password</h3>
               <p className="text-sm mb-4" style={{ color: 'var(--slate)' }}>We will verify the registered mobile number with OTP.</p>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>{identifierLabel}</label>
-              <input className="input mb-4" value={identifier} onChange={(e) => setIdentifier(e.target.value)} disabled={recoverySent} placeholder={identifierPlaceholder} />
+              <input className="input mb-4" value={identifier} onChange={(e) => setIdentifier(e.target.value)} disabled={recoverySent} placeholder={identifierPlaceholder} autoComplete="username" />
               {recoverySent && (
                 <>
                   <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Recovery OTP</label>
-                  <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={recoveryOtp} onChange={(e) => setRecoveryOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" />
+                  <input className="input mb-4 text-center tracking-[0.3em] font-bold" inputMode="numeric" maxLength={6} value={recoveryOtp} onChange={(e) => setRecoveryOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoComplete="one-time-code" />
                   <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>New password</label>
-                  <input className="input mb-4" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="8+ characters with a letter and number" />
+                  <input className="input mb-4" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="8+ characters with a letter and number" autoComplete="new-password" />
                 </>
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : recoverySent ? 'Reset Password' : 'Send Recovery OTP'}</button>
@@ -317,34 +371,61 @@ export default function LoginPage() {
           ) : method === 'password' ? (
             <form onSubmit={handlePasswordLogin}>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>{identifierLabel}</label>
-              <input className="input mb-4" value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={identifierPlaceholder} autoFocus />
+              <input className="input mb-4" value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={identifierPlaceholder} autoComplete="username" autoFocus />
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-semibold" style={{ color: 'var(--navy)' }}>Password</label>
                 <button type="button" onClick={() => setRecovery(true)} className="text-xs font-semibold" style={{ color: 'var(--saffron)' }}>Forgot password?</button>
               </div>
-              <input className="input mb-4" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
+              <input className="input mb-4" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password" />
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">{loading ? 'Signing in…' : 'Sign In'}</button>
+              <p className="text-xs text-center mt-3" style={{ color: 'var(--slate)' }}>No password or forgot it? Use OTP Login with your registered mobile number.</p>
             </form>
           ) : (
             <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP}>
-              <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Registered Mobile Number</label>
-              <div className="flex gap-2 mb-4">
-                <div className="px-3 py-2.5 rounded-xl text-sm font-semibold" style={{ background: '#F0F4F8', border: '1.5px solid var(--border)' }}>+91</div>
-                <input type="tel" maxLength={10} className="input flex-1" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))} disabled={otpSent} placeholder="10-digit mobile number" />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-semibold" style={{ color: 'var(--navy)' }}>Registered Mobile Number</label>
+                {otpSent && <span className="text-xs font-semibold" style={{ color: 'var(--forest)' }}>OTP requested</span>}
               </div>
+              <div className="flex gap-2 mb-2">
+                <div className="px-3 py-2.5 rounded-xl text-sm font-semibold" style={{ background: '#F0F4F8', border: '1.5px solid var(--border)' }}>+91</div>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="input flex-1"
+                  value={mobile}
+                  onChange={(e) => changeMobile(e.target.value)}
+                  placeholder="10-digit mobile number"
+                  autoComplete="tel-national"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs mb-4" style={{ color: 'var(--slate)' }}>
+                {otpSent
+                  ? 'You can edit the number above. Changing it clears the current OTP so you can request a fresh code.'
+                  : `We will send a 6-digit OTP only if this mobile is valid for the selected ${roleLabel} account.`}
+              </p>
               {otpSent && (
-                <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoFocus />
+                <>
+                  <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Enter OTP</label>
+                  <input className="input mb-4 text-center tracking-[0.3em] font-bold" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoComplete="one-time-code" />
+                </>
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : otpSent ? 'Verify & Login' : 'Send OTP'}</button>
-              {otpSent && <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setOtpSent(false); setOtp(''); }}>Change number</button>}
+              {otpSent && (
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <button type="button" className="btn-ghost justify-center" onClick={resetOtpState}>Change number</button>
+                  <button type="button" className="btn-ghost justify-center" disabled={loading || resendSeconds > 0} onClick={() => requestOtp()}>
+                    {resendSeconds > 0 ? `Resend in ${resendSeconds}s` : 'Resend OTP'}
+                  </button>
+                </div>
+              )}
             </form>
           )}
 
-          {role === 'STUDENT' && !recovery && (
-            <p className="text-center text-xs mt-5" style={{ color: 'var(--slate)' }}>
-              New student? <button onClick={() => router.push('/register')} className="font-semibold" style={{ color: 'var(--saffron)' }}>Create Student account</button>
-            </p>
-          )}
+          <div className="mt-6 pt-5 text-center" style={{ borderTop: '1px solid var(--border)' }}>
+            <button type="button" className="text-sm font-semibold" style={{ color: 'var(--saffron)' }} onClick={() => router.push(ROLE_PUBLIC_PATHS[role])}>Learn about {roleLabel} features before login</button>
+          </div>
         </div>
       </div>
     </div>

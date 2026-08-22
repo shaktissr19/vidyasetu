@@ -18,7 +18,7 @@ const MENU = (t: Translate) => [
   { href: '/parent/report-card', icon: '📄', label: t('रिपोर्ट कार्ड', 'Report Card') },
   { href: '/parent/messages', icon: '💬', label: t('शिक्षक को संदेश', 'Message Teacher') },
   { href: '/parent/grievances', icon: '🛡️', label: t('चिंता और शिकायत', 'Concerns & Grievances') },
-  { href: '/parent/groups', icon: '👥', label: t('समूह', 'Groups') },
+  { href: '/parent/groups', icon: '🌐', label: t('शिक्षा समुदाय', 'Community') },
 ];
 
 export default function ParentLayout({ children }: { children: ReactNode }) {

@@ -5,8 +5,8 @@ import GroupsHub from '@/components/groups/GroupsHub';
 export default function ParentGroupsPage() {
   return (
     <GroupsHub
-      title="Parent Groups"
-      subtitle="Create or join private Parent Groups with owner-controlled membership"
+      title="Parent Education Community"
+      subtitle="Connect with other Parents in private, moderated communities without exposing your child’s personal records"
       accent="var(--forest)"
     />
   );

@@ -72,8 +72,8 @@ export const getStudentRegistrationOptions = () =>
 export const registerStudent = (data: Payload) =>
   api.post<ApiEnvelope<StudentRegistrationResult>>('/auth/register/student', data);
 
-export const sendOTP = (mobile: string) =>
-  api.post<ApiEnvelope<{ message?: string; otp?: string }>>('/auth/send-otp', { mobile });
+export const sendOTP = (mobile: string, role?: UserRole | string) =>
+  api.post<ApiEnvelope<{ message?: string; otp?: string }>>('/auth/send-otp', { mobile, role });
 export const verifyOTP = (mobile: string, otp: string, dev?: string, role?: UserRole | string) =>
   api.post<ApiEnvelope<AuthSessionPayload>>('/auth/verify-otp', { mobile, otp, deviceInfo: dev, role });
 

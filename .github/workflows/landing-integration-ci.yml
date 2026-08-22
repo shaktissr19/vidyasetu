@@ -34,20 +34,24 @@ jobs:
           grep -q "\['Schools', '/for-schools'\]" frontend/src/components/layout/GlobalTopbar.tsx
           grep -q "\['Parents', '/for-parents'\]" frontend/src/components/layout/GlobalTopbar.tsx
           grep -q "\['Competitions', '/competition'\]" frontend/src/components/layout/GlobalTopbar.tsx
-          grep -q "\['Groups', '/groups-info'\]" frontend/src/components/layout/GlobalTopbar.tsx
+          grep -q "\['Community', '/community'\]" frontend/src/components/layout/GlobalTopbar.tsx
           grep -q "\['Platform Admin', '/platform-admin'\]" frontend/src/components/layout/GlobalTopbar.tsx
           grep -q "const SLIDES" frontend/src/components/public/PublicHomeExperience.tsx
+          grep -q "Education Community" frontend/src/components/public/PublicHomeExperience.tsx
           grep -q "loginRole: 'student'" frontend/src/app/for-students/page.tsx
           grep -q "loginRole: 'school'" frontend/src/app/for-schools/page.tsx
           grep -q "loginRole: 'parent'" frontend/src/app/for-parents/page.tsx
           grep -q "loginRole: 'admin'" frontend/src/app/platform-admin/page.tsx
           grep -q "schoolDirectory: true" frontend/src/app/for-schools/page.tsx
           grep -q "ROLE_INTRO" 'frontend/src/app/(auth)/login/page.tsx'
+          test -s frontend/src/app/community/page.tsx
+          test -s 'frontend/src/app/(admin)/admin/groups/page.tsx'
 
       - name: Build shared contracts
         working-directory: shared/contracts
         run: |
-          npm install --no-audit --no-fund
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
           npm run build
           test -s dist/index.d.ts
 
@@ -81,7 +85,7 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build disposable database and Groups schema
+      - name: Build disposable database through current schema
         env:
           PGPASSWORD: postgres
         run: |
@@ -89,11 +93,9 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/018_groups_collaboration.sql
+          for migration in 014_student_identity_enrollment.sql 015_realistic_demo_identities.sql 016_demo_academic_year_alignment.sql 017_school_management_core.sql 018_groups_collaboration.sql 019_parent_grievances.sql; do
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
 
       - name: Start compiled backend
         working-directory: backend
@@ -133,19 +135,17 @@ jobs:
         run: |
           curl -fsS http://127.0.0.1:5000/api/v1/public/overview > /tmp/overview.json
           jq -e '.success == true' /tmp/overview.json >/dev/null
-
           STUDENTS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE status='ACTIVE';")
           SCHOOLS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM schools WHERE status='ACTIVE';")
           TEACHERS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teachers WHERE status IN ('ACTIVE','ON_LEAVE');")
           PARENTS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE role='PARENT' AND status='ACTIVE';")
-          ACTIVE_GROUPS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM collaboration_groups WHERE status='ACTIVE';")
+          ACTIVE_COMMUNITIES=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM collaboration_groups WHERE status='ACTIVE';")
           COMPETITIONS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exams WHERE type IN ('OLYMPIAD','MOCK','PRACTICE') AND status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED');")
-
           test "$(jq -r '.data.students' /tmp/overview.json)" = "$STUDENTS"
           test "$(jq -r '.data.schools' /tmp/overview.json)" = "$SCHOOLS"
           test "$(jq -r '.data.teachers' /tmp/overview.json)" = "$TEACHERS"
           test "$(jq -r '.data.parents' /tmp/overview.json)" = "$PARENTS"
-          test "$(jq -r '.data.groups' /tmp/overview.json)" = "$ACTIVE_GROUPS"
+          test "$(jq -r '.data.groups' /tmp/overview.json)" = "$ACTIVE_COMMUNITIES"
           test "$(jq -r '.data.competitions' /tmp/overview.json)" = "$COMPETITIONS"
 
       - name: Certify real public school directory
@@ -172,12 +172,18 @@ jobs:
             curl -fsS http://127.0.0.1:3000/ >/dev/null && break
             sleep 1
           done
-
-          for route in / /for-students /for-schools /for-parents /competition /groups-info /platform-admin '/login?role=parent' '/login?role=school' '/login?role=admin'; do
-            curl -fsS "http://127.0.0.1:3000$route" >/dev/null
+          for route in / /for-students /for-schools /for-parents /competition /community /groups-info /platform-admin '/login?role=parent' '/login?role=school' '/login?role=teacher' '/login?role=admin' /admin/groups; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$route")
+            echo "$route -> $code"
+            [[ "$code" =~ ^(200|301|302|307|308)$ ]]
           done
-
           for route in /student /school/overview /parent/dashboard /admin/analytics; do
             code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$route")
             [[ "$code" =~ ^(200|301|302|307|308)$ ]]
           done
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          cat /tmp/vidyasetu-public-api.log 2>/dev/null || true
+          cat /tmp/vidyasetu-public-web.log 2>/dev/null || true

@@ -22,7 +22,7 @@ const ADMIN_MENU = (t: Translate) => [
   { href: '/school/results', icon: '📊', label: t('परिणाम', 'Results') },
   { href: '/school/announcements', icon: '📢', label: t('घोषणाएँ', 'Announcements') },
   { href: '/school/grievances', icon: '🛡️', label: t('अभिभावक शिकायतें', 'Parent Concerns') },
-  { href: '/school/groups', icon: '👥', label: t('समूह', 'Groups') },
+  { href: '/school/groups', icon: '🌐', label: t('शिक्षा समुदाय', 'Community') },
   { href: '/school/profile', icon: '🏫', label: t('स्कूल प्रोफ़ाइल', 'School Profile') },
 ];
 
@@ -33,7 +33,7 @@ const TEACHER_MENU = (t: Translate) => [
   { href: '/school/timetable', icon: '🗓️', label: t('टाइमटेबल', 'Timetable') },
   { href: '/school/results', icon: '📊', label: t('परिणाम', 'Results') },
   { href: '/school/announcements', icon: '📢', label: t('घोषणाएँ', 'Announcements') },
-  { href: '/school/groups', icon: '👥', label: t('समूह', 'Groups') },
+  { href: '/school/groups', icon: '🌐', label: t('शिक्षा समुदाय', 'Community') },
   { href: '/school/profile', icon: '🏫', label: t('स्कूल प्रोफ़ाइल', 'School Profile') },
 ];
 
