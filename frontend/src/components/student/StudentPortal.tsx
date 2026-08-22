@@ -28,7 +28,7 @@ const MENU: ReadonlyArray<readonly [string, string, string]> = [
   ['ai', '🤖', 'AI Tutor'],
   ['doubts', '💬', 'Doubt Forum'],
   ['exams', '🏆', 'Competitions'],
-  ['groups', '👥', 'Groups'],
+  ['groups', '🌐', 'Community'],
   ['attendance', '📅', 'Attendance'],
   ['school', '🏫', 'My School'],
   ['report', '📄', 'Report Card'],
@@ -100,7 +100,7 @@ export default function StudentPortal() {
     case 'ai': content = <AITutorSection {...shared} />; break;
     case 'doubts': content = <DoubtForumSection {...shared} />; break;
     case 'exams': content = <ExamsSection {...shared} />; break;
-    case 'groups': content = <GroupsHub title="Groups" subtitle="Create or join private study Groups with controlled membership" accent="var(--forest)" />; break;
+    case 'groups': content = <GroupsHub title="Education Community" subtitle="Join study circles and school-linked communities with controlled membership and moderation" accent="var(--forest)" />; break;
     case 'attendance': content = <AttendanceSection {...shared} />; break;
     case 'school': content = <MySchoolSection {...shared} />; break;
     case 'report': content = <ReportCardSection {...shared} />; break;
