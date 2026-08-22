@@ -9,6 +9,7 @@ import { apiErrorStatus, apiErrorText } from '@/utils/errors';
 import type { StudentDashboard } from '@/types/api';
 import type { StudentSectionProps } from '@/types/studentPortal';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
+import GroupsWorkspace from '@/components/groups/GroupsWorkspace';
 import DashboardSection from './sections/DashboardSection';
 import SubjectsSection from './sections/SubjectsSection';
 import AITutorSection from './sections/AITutorSection';
@@ -26,7 +27,8 @@ const MENU: ReadonlyArray<readonly [string, string, string]> = [
   ['subjects', '📚', 'My Subjects'],
   ['ai', '🤖', 'AI Tutor'],
   ['doubts', '💬', 'Doubt Forum'],
-  ['exams', '📝', 'Exams'],
+  ['exams', '🏆', 'Competitions'],
+  ['groups', '👥', 'Groups'],
   ['attendance', '📅', 'Attendance'],
   ['school', '🏫', 'My School'],
   ['report', '📄', 'Report Card'],
@@ -98,6 +100,7 @@ export default function StudentPortal() {
     case 'ai': content = <AITutorSection {...shared} />; break;
     case 'doubts': content = <DoubtForumSection {...shared} />; break;
     case 'exams': content = <ExamsSection {...shared} />; break;
+    case 'groups': content = <GroupsWorkspace title="Groups" subtitle="Create or join private study Groups with controlled membership" accent="var(--forest)" />; break;
     case 'attendance': content = <AttendanceSection {...shared} />; break;
     case 'school': content = <MySchoolSection {...shared} />; break;
     case 'report': content = <ReportCardSection {...shared} />; break;
