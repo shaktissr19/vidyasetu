@@ -11,11 +11,6 @@ require_text() {
   grep -Fq -- "$pattern" "$file" || fail "$description ($file)"
 }
 
-require_regex() {
-  local file="$1" pattern="$2" description="$3"
-  grep -Eq -- "$pattern" "$file" || fail "$description ($file)"
-}
-
 LOGIN='frontend/src/app/(auth)/login/page.tsx'
 AUTH_SERVICE='frontend/src/services/authService.ts'
 AUTH_ROUTES='backend/src/routes/auth.routes.ts'
@@ -23,8 +18,9 @@ AUTH_CONTROLLER='backend/src/controllers/auth.controller.ts'
 SMS_SERVICE='backend/src/services/notification.service.ts'
 TOPBAR='frontend/src/components/layout/GlobalTopbar.tsx'
 HOME='frontend/src/components/public/PublicHomeExperience.tsx'
+STUDENT_PROD_SMOKE='scripts/student-production-smoke.sh'
 
-for file in "$LOGIN" "$AUTH_SERVICE" "$AUTH_ROUTES" "$AUTH_CONTROLLER" "$SMS_SERVICE" "$TOPBAR" "$HOME" scripts/otp-provider-preflight.sh; do
+for file in "$LOGIN" "$AUTH_SERVICE" "$AUTH_ROUTES" "$AUTH_CONTROLLER" "$SMS_SERVICE" "$TOPBAR" "$HOME" "$STUDENT_PROD_SMOKE" scripts/otp-provider-preflight.sh; do
   [[ -s "$file" ]] || fail "Required OTP/public-contract file is missing: $file"
 done
 
@@ -73,6 +69,11 @@ KALEYRA_API_KEY=ci-placeholder
 KALEYRA_SID=VSETU
 ENV
 bash scripts/otp-provider-preflight.sh "$tmp_dir/kaleyra.env" >/dev/null
+
+printf '==> Production smoke must not send a real OTP\n'
+require_text "$STUDENT_PROD_SMOKE" 'ALLOW_MOCK_AUTH_SMOKE="${ALLOW_MOCK_AUTH_SMOKE:-0}"' 'Authenticated mock smoke must be explicit opt-in'
+require_text "$STUDENT_PROD_SMOKE" 'if [[ "$ALLOW_MOCK_AUTH_SMOKE" == "1" ]]' 'OTP send must be guarded by the explicit mock-auth flag'
+require_text "$STUDENT_PROD_SMOKE" 'production/read-only smoke must never send a real SMS' 'Production smoke must document its no-SMS behavior'
 
 printf '==> Communities naming/public route contract\n'
 require_text "$TOPBAR" "['Communities', '/communities']" 'Primary public navigation must use Communities'
