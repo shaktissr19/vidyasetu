@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import type { UserRole } from '@vidyasetu/contracts';
@@ -49,54 +49,54 @@ const ROLE_INTRO: Record<UserRole, {
   STUDENT: {
     title: 'Learning and school progress',
     accent: 'in one student workspace',
-    copy: 'Sign in to your learning content, school-linked identity, attendance, report cards, competitions, doubts, offline resources and progress tools.',
+    copy: 'Sign in to learning resources, school-linked identity, attendance, report cards, competitions, doubts, offline resources and Education Communities.',
     cards: [
       ['Student ID', 'Permanent VidyaSetu identity'],
-      ['Learning', 'Subjects, content and doubts'],
+      ['Learning', 'Subjects, books, content and doubts'],
       ['School Records', 'Attendance and report cards'],
-      ['Participation', 'Competitions, XP and Groups'],
+      ['Participation', 'Competitions and Communities'],
     ],
   },
   PARENT: {
     title: 'Your child’s school journey',
     accent: 'visible in one parent workspace',
-    copy: 'Sign in to linked children, performance, attendance, report cards, fees, teacher messages, notifications and moderated Parent Groups.',
+    copy: 'Sign in to linked children, performance, attendance, report cards, fees, teacher messages, grievances, notifications and moderated Education Communities.',
     cards: [
       ['Children', 'Switch between linked children'],
       ['Progress', 'Performance and report cards'],
-      ['Attendance', 'School-record visibility'],
-      ['Communication', 'Teacher messages and Groups'],
+      ['Concerns', 'Tracked school grievances'],
+      ['Community', 'Parent and school collaboration'],
     ],
   },
   SCHOOL_ADMIN: {
     title: 'School academics and operations',
     accent: 'from one administration workspace',
-    copy: 'Sign in to manage students, classes, teachers, enrollment requests, attendance, fees, timetables, exams, results and announcements.',
+    copy: 'Sign in to manage students, classes, teachers, enrollment requests, attendance, fees, timetables, exams, results, announcements, grievances and Communities.',
     cards: [
       ['Students', 'Roster and enrollment workflows'],
       ['Teachers', 'Staff and assignments'],
       ['Operations', 'Attendance, fees and timetable'],
-      ['Academics', 'Exams, results and announcements'],
+      ['Families', 'Communication and grievances'],
     ],
   },
   TEACHER: {
     title: 'Teaching context and school workflows',
     accent: 'inside the School workspace',
-    copy: 'Teacher access uses the School workspace with role-aware permissions for assigned academic and operational activities.',
+    copy: 'Teacher access uses the School workspace with role-aware permissions for assigned classes, attendance, results, announcements and Education Communities.',
     cards: [
       ['Assignments', 'Class and subject context'],
       ['Attendance', 'Class roster workflows'],
       ['Academics', 'School exam context'],
-      ['Communication', 'School-linked information'],
+      ['Community', 'Teacher and student collaboration'],
     ],
   },
   SUPER_ADMIN: {
     title: 'VidyaSetu network governance',
     accent: 'for authorised Platform Admins',
-    copy: 'Sign in to platform analytics, schools, users, content, revenue, support, configuration, competitions and Group governance.',
+    copy: 'Sign in to platform analytics, schools, users, content, revenue, support, configuration, competitions, grievances and Education Community governance.',
     cards: [
       ['Analytics', 'Platform-level visibility'],
-      ['Governance', 'Schools, users and Groups'],
+      ['Governance', 'Schools, users and Communities'],
       ['Operations', 'Support and configuration'],
       ['Platform', 'Content and competitions'],
     ],
@@ -143,17 +143,41 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [mobile, setMobile] = useState('');
+  const [sentMobile, setSentMobile] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
   const [loading, setLoading] = useState(false);
   const [recovery, setRecovery] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setResendIn((value) => (value <= 1 ? 0 : value - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendIn]);
+
   const intro = ROLE_INTRO[role];
   const identifierLabel = role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email';
   const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email';
+
+  function resetOtpState(clearMobile = false) {
+    setOtpSent(false);
+    setOtp('');
+    setSentMobile('');
+    setResendIn(0);
+    if (clearMobile) setMobile('');
+  }
+
+  function changeRole(nextRole: UserRole) {
+    if (nextRole === role) return;
+    setRole(nextRole);
+    resetOtpState(false);
+  }
 
   function completeLogin(payload: AuthSessionPayload) {
     const { accessToken, refreshToken, user } = payload;
@@ -182,9 +206,13 @@ export default function LoginPage() {
     if (mobile.length !== 10) return toast.error('Enter a valid 10-digit mobile number');
     setLoading(true);
     try {
-      const response = await sendOTP(mobile);
+      const response = await sendOTP(mobile, role);
+      const wait = response.data?.data?.resendAfterSeconds || 30;
+      setSentMobile(mobile);
+      setOtp('');
       setOtpSent(true);
-      toast.success(`OTP sent to +91-${mobile}`);
+      setResendIn(wait);
+      toast.success(`OTP sent by SMS to +91-${mobile}`);
       if (response.data?.data?.otp) toast(`Dev OTP: ${response.data.data.otp}`, { duration: 10000, icon: '🔑' });
     } catch (err: unknown) {
       toast.error(errorText(err, 'Failed to send OTP'));
@@ -194,9 +222,10 @@ export default function LoginPage() {
   async function handleVerifyOTP(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (otp.length !== 6) return toast.error('Enter the 6-digit OTP');
+    const verificationMobile = sentMobile || mobile;
     setLoading(true);
     try {
-      const response = await verifyOTP(mobile, otp, navigator.userAgent, role);
+      const response = await verifyOTP(verificationMobile, otp, navigator.userAgent, role);
       const payload = response.data.data;
       if (payload.isNewUser && role === 'STUDENT') {
         setAuth(payload.user, payload.accessToken, payload.refreshToken);
@@ -277,7 +306,7 @@ export default function LoginPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--saffron-pale)' }}>
             {ROLES.map((item) => (
-              <button key={item.key} onClick={() => setRole(item.key)} className="py-2 px-1 rounded-lg text-xs font-bold"
+              <button key={item.key} onClick={() => changeRole(item.key)} className="py-2 px-1 rounded-lg text-xs font-bold"
                 style={{ background: role === item.key ? 'white' : 'transparent', color: role === item.key ? 'var(--saffron)' : 'var(--slate)', boxShadow: role === item.key ? '0 2px 8px rgba(255,107,0,.15)' : 'none' }}>
                 {item.label}
               </button>
@@ -286,7 +315,7 @@ export default function LoginPage() {
 
           {!recovery && (
             <div className="grid grid-cols-2 gap-1 p-1 rounded-xl mb-5" style={{ background: '#F0F4F8' }}>
-              <button onClick={() => setMethod('password')} className="py-2 rounded-lg text-sm font-bold"
+              <button onClick={() => { setMethod('password'); resetOtpState(false); }} className="py-2 rounded-lg text-sm font-bold"
                 style={{ background: method === 'password' ? 'white' : 'transparent', color: method === 'password' ? 'var(--navy)' : 'var(--slate)', boxShadow: method === 'password' ? '0 2px 7px rgba(13,27,62,.08)' : 'none' }}>
                 Password Login
               </button>
@@ -328,15 +357,42 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP}>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Registered Mobile Number</label>
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-3">
                 <div className="px-3 py-2.5 rounded-xl text-sm font-semibold" style={{ background: '#F0F4F8', border: '1.5px solid var(--border)' }}>+91</div>
-                <input type="tel" maxLength={10} className="input flex-1" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))} disabled={otpSent} placeholder="10-digit mobile number" />
+                <input type="tel" inputMode="numeric" maxLength={10} className="input flex-1" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))} disabled={otpSent} placeholder="10-digit mobile number" />
               </div>
-              {otpSent && (
-                <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoFocus />
+
+              {!otpSent && role !== 'STUDENT' && (
+                <div className="text-xs mb-4 rounded-xl p-3" style={{ color: 'var(--slate)', background: '#F7F9FC', border: '1px solid var(--border)' }}>
+                  OTP is sent only when this number belongs to the selected {role === 'SUPER_ADMIN' ? 'Platform Admin' : role.replaceAll('_', ' ').toLowerCase()} account.
+                </div>
               )}
+
+              {otpSent && (
+                <>
+                  <div className="flex items-center justify-between gap-3 mb-3 text-xs rounded-xl p-3" style={{ background: '#F7F9FC', border: '1px solid var(--border)', color: 'var(--slate)' }}>
+                    <span>SMS sent to <strong style={{ color: 'var(--navy)' }}>+91-{sentMobile}</strong></span>
+                    <button type="button" onClick={() => resetOtpState(false)} style={{ color: 'var(--saffron)', fontWeight: 800 }}>Change number</button>
+                  </div>
+                  <input className="input mb-3 text-center tracking-[0.3em] font-bold" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit OTP" autoFocus />
+                </>
+              )}
+
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : otpSent ? 'Verify & Login' : 'Send OTP'}</button>
-              {otpSent && <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setOtpSent(false); setOtp(''); }}>Change number</button>}
+
+              {otpSent && (
+                <div className="flex items-center justify-center gap-2 mt-3 text-xs" style={{ color: 'var(--slate)' }}>
+                  <span>Didn’t receive it?</span>
+                  <button
+                    type="button"
+                    disabled={loading || resendIn > 0}
+                    onClick={() => void handleSendOTP()}
+                    style={{ color: resendIn > 0 ? 'var(--slate)' : 'var(--saffron)', fontWeight: 800, opacity: resendIn > 0 ? .65 : 1 }}
+                  >
+                    {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend OTP'}
+                  </button>
+                </div>
+              )}
             </form>
           )}
 
