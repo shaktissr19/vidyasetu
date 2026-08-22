@@ -77,6 +77,20 @@ CREATE TABLE IF NOT EXISTS grievance_messages (
 
 CREATE INDEX IF NOT EXISTS idx_gm_grievance ON grievance_messages(grievance_id, created_at ASC);
 
+CREATE TABLE IF NOT EXISTS grievance_attachments (
+  id             UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  grievance_id   UUID        NOT NULL REFERENCES parent_grievances(id) ON DELETE CASCADE,
+  uploaded_by    UUID        NOT NULL REFERENCES users(id),
+  object_key     TEXT        NOT NULL UNIQUE,
+  file_name      VARCHAR(180) NOT NULL,
+  content_type   VARCHAR(120) NOT NULL,
+  file_size      BIGINT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (file_size IS NULL OR (file_size > 0 AND file_size <= 10485760))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ga_grievance ON grievance_attachments(grievance_id, created_at ASC);
+
 CREATE TABLE IF NOT EXISTS grievance_history (
   id             UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
   grievance_id   UUID             NOT NULL REFERENCES parent_grievances(id) ON DELETE CASCADE,
@@ -98,6 +112,7 @@ ON CONFLICT (key) DO NOTHING;
 
 COMMENT ON TABLE parent_grievances IS 'Child-linked Parent concerns routed to the linked School Admin with Platform Admin escalation oversight.';
 COMMENT ON TABLE grievance_messages IS 'Parent/School/Admin conversation. is_internal=true is hidden from Parent.';
+COMMENT ON TABLE grievance_attachments IS 'Private evidence files stored in S3-compatible object storage; only metadata and private object keys are stored here.';
 COMMENT ON TABLE grievance_history IS 'Immutable grievance lifecycle audit trail.';
 
 COMMIT;
