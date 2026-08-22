@@ -11,6 +11,7 @@ const MENU = [
   { href: '/admin/schools', icon: '🏫', label: 'Schools' },
   { href: '/admin/users', icon: '👥', label: 'Users' },
   { href: '/admin/competitions', icon: '🏆', label: 'Competitions' },
+  { href: '/admin/groups', icon: '👥', label: 'Groups' },
   { href: '/admin/content', icon: '📚', label: 'Content' },
   { href: '/admin/revenue', icon: '💰', label: 'Revenue' },
   { href: '/admin/support', icon: '🎧', label: 'Support' },
