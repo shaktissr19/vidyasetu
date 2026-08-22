@@ -19,7 +19,6 @@ const CATEGORIES: Array<[GrievanceCategory,string]> = [
   ['ADMINISTRATION','Administration'],['OTHER','Other'],
 ];
 const STATUS: Record<string,string> = { OPEN:'Open', ACKNOWLEDGED:'Acknowledged', IN_PROGRESS:'In progress', RESOLVED:'Resolved', CLOSED:'Closed', ESCALATED:'Escalated' };
-const REOPEN_LIMIT = 3;
 
 export default function ParentGrievancesPage() {
   const qc = useQueryClient();
@@ -84,10 +83,10 @@ export default function ParentGrievancesPage() {
 
           <div className="flex gap-2 flex-wrap mt-4 pt-4" style={{borderTop:'1px solid var(--border)'}}>
             {detail.status==='RESOLVED' && <button className="btn-green" onClick={()=>actionMut.mutate({action:'CLOSE',note:'Parent accepted the resolution'})}>Accept & close</button>}
-            {['RESOLVED','CLOSED'].includes(detail.status) && Number(detail.reopen_count || 0) < REOPEN_LIMIT && <button className="btn-outline" onClick={()=>actionMut.mutate({action:'REOPEN',note:'Parent requests further review'})}>Reopen</button>}
+            {['RESOLVED','CLOSED'].includes(detail.status) && Number(detail.reopen_count || 0) < detail.reopen_limit && <button className="btn-outline" onClick={()=>actionMut.mutate({action:'REOPEN',note:'Parent requests further review'})}>Reopen</button>}
             {detail.status!=='ESCALATED' && <button className="btn-outline" style={{borderColor:'#C62828',color:'#C62828'}} onClick={()=>actionMut.mutate({action:'ESCALATE',note:'Parent requests Platform Admin review'})}>Escalate to Platform Admin</button>}
           </div>
-          {['RESOLVED','CLOSED'].includes(detail.status) && Number(detail.reopen_count || 0) >= REOPEN_LIMIT && <div className="rounded-xl p-3 mt-3 text-xs" style={{background:'#FFF1F0',border:'1px solid #FFB3AD',color:'#A61B14'}}>Reopen limit reached. This concern can now be escalated directly to VidyaSetu Platform Admin for independent review.</div>}
+          {['RESOLVED','CLOSED'].includes(detail.status) && Number(detail.reopen_count || 0) >= detail.reopen_limit && <div className="rounded-xl p-3 mt-3 text-xs" style={{background:'#FFF1F0',border:'1px solid #FFB3AD',color:'#A61B14'}}>Reopen limit ({detail.reopen_limit}) reached. This concern can now be escalated directly to VidyaSetu Platform Admin for independent review.</div>}
 
           <details className="mt-5"><summary className="text-sm font-bold cursor-pointer">Lifecycle history</summary><div className="mt-2 space-y-2">{detail.history.map(h=><div key={h.id} className="text-xs pl-3" style={{borderLeft:'2px solid var(--border)'}}><strong>{h.action.replaceAll('_',' ')}</strong> · {h.actor_name}<div style={{color:'var(--slate)'}}>{new Date(h.created_at).toLocaleString()} {h.note?`· ${h.note}`:''}</div></div>)}</div></details>
         </>}
