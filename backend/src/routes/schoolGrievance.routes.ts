@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/grievance.controller';
+import * as attachmentCtrl from '../controllers/grievanceAttachment.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -25,5 +26,7 @@ router.get('/', ctrl.schoolList);
 router.get('/:grievanceId', ctrl.schoolGet);
 router.post('/:grievanceId/replies', validate(replySchema), ctrl.schoolReply);
 router.patch('/:grievanceId/action', validate(actionSchema), ctrl.schoolAction);
+router.get('/:grievanceId/attachments', attachmentCtrl.schoolList);
+router.get('/:grievanceId/attachments/:attachmentId/url', attachmentCtrl.schoolDownload);
 
 export = router;
