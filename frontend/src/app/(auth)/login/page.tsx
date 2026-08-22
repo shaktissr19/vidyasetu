@@ -21,7 +21,7 @@ const ROLES: Array<{ key: UserRole; label: string }> = [
   { key: 'PARENT', label: '👩 Parent' },
   { key: 'SCHOOL_ADMIN', label: '🏫 School' },
   { key: 'TEACHER', label: '👩‍🏫 Teacher' },
-  { key: 'SUPER_ADMIN', label: '⚙️ Admin' },
+  { key: 'SUPER_ADMIN', label: '⚙️ Platform Admin' },
 ];
 
 const ROLE_DASHBOARDS: Record<UserRole, string> = {
@@ -30,6 +30,77 @@ const ROLE_DASHBOARDS: Record<UserRole, string> = {
   TEACHER: '/school/overview',
   PARENT: '/parent/dashboard',
   SUPER_ADMIN: '/admin/analytics',
+};
+
+const ROLE_PUBLIC_PATHS: Record<UserRole, string> = {
+  STUDENT: '/for-students',
+  SCHOOL_ADMIN: '/for-schools',
+  TEACHER: '/for-schools',
+  PARENT: '/for-parents',
+  SUPER_ADMIN: '/platform-admin',
+};
+
+const ROLE_INTRO: Record<UserRole, {
+  title: string;
+  accent: string;
+  copy: string;
+  cards: Array<[string, string]>;
+}> = {
+  STUDENT: {
+    title: 'Learning and school progress',
+    accent: 'in one student workspace',
+    copy: 'Sign in to your learning content, school-linked identity, attendance, report cards, competitions, doubts, offline resources and progress tools.',
+    cards: [
+      ['Student ID', 'Permanent VidyaSetu identity'],
+      ['Learning', 'Subjects, content and doubts'],
+      ['School Records', 'Attendance and report cards'],
+      ['Participation', 'Competitions, XP and Groups'],
+    ],
+  },
+  PARENT: {
+    title: 'Your child’s school journey',
+    accent: 'visible in one parent workspace',
+    copy: 'Sign in to linked children, performance, attendance, report cards, fees, teacher messages, notifications and moderated Parent Groups.',
+    cards: [
+      ['Children', 'Switch between linked children'],
+      ['Progress', 'Performance and report cards'],
+      ['Attendance', 'School-record visibility'],
+      ['Communication', 'Teacher messages and Groups'],
+    ],
+  },
+  SCHOOL_ADMIN: {
+    title: 'School academics and operations',
+    accent: 'from one administration workspace',
+    copy: 'Sign in to manage students, classes, teachers, enrollment requests, attendance, fees, timetables, exams, results and announcements.',
+    cards: [
+      ['Students', 'Roster and enrollment workflows'],
+      ['Teachers', 'Staff and assignments'],
+      ['Operations', 'Attendance, fees and timetable'],
+      ['Academics', 'Exams, results and announcements'],
+    ],
+  },
+  TEACHER: {
+    title: 'Teaching context and school workflows',
+    accent: 'inside the School workspace',
+    copy: 'Teacher access uses the School workspace with role-aware permissions for assigned academic and operational activities.',
+    cards: [
+      ['Assignments', 'Class and subject context'],
+      ['Attendance', 'Class roster workflows'],
+      ['Academics', 'School exam context'],
+      ['Communication', 'School-linked information'],
+    ],
+  },
+  SUPER_ADMIN: {
+    title: 'VidyaSetu network governance',
+    accent: 'for authorised Platform Admins',
+    copy: 'Sign in to platform analytics, schools, users, content, revenue, support, configuration, competitions and Group governance.',
+    cards: [
+      ['Analytics', 'Platform-level visibility'],
+      ['Governance', 'Schools, users and Groups'],
+      ['Operations', 'Support and configuration'],
+      ['Platform', 'Content and competitions'],
+    ],
+  },
 };
 
 interface SearchParamsLike {
@@ -80,6 +151,7 @@ export default function LoginPage() {
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  const intro = ROLE_INTRO[role];
   const identifierLabel = role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email';
   const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email';
 
@@ -173,26 +245,26 @@ export default function LoginPage() {
         style={{ background: 'linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1A3A6E 100%)' }}>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: 'linear-gradient(135deg,var(--saffron),var(--saffron-light))' }}>🌉</div>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-extrabold text-white" style={{ background: 'linear-gradient(135deg,var(--saffron),var(--saffron-light))' }}>V</div>
             <span className="font-display font-extrabold text-2xl text-white">VidyaSetu</span>
           </div>
           <h1 className="font-display font-extrabold text-4xl text-white leading-tight mb-4">
-            Bharat ke har<br /><span style={{ color: 'var(--saffron-light)' }}>student</span> ke liye
+            {intro.title}<br /><span style={{ color: 'var(--saffron-light)' }}>{intro.accent}</span>
           </h1>
-          <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.68)' }}>
-            One account for learning, school records, exams and parent connectivity. Students can sign in with username, email or their permanent VidyaSetu Student ID.
-          </p>
+          <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.68)' }}>{intro.copy}</p>
+          <button
+            onClick={() => router.push(ROLE_PUBLIC_PATHS[role])}
+            className="mt-5 text-sm font-bold"
+            style={{ color: 'var(--saffron-light)', background: 'transparent', border: 0, cursor: 'pointer' }}
+          >
+            Learn what this module includes
+          </button>
         </div>
         <div className="relative z-10 grid grid-cols-2 gap-4">
-          {[
-            ['Username', 'Simple everyday login'],
-            ['Student ID', 'Permanent VidyaSetu identity'],
-            ['OTP', 'Recovery / alternate login'],
-            ['School Link', 'School approval workflow'],
-          ].map(([n, l]) => (
-            <div key={n} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <div className="font-display font-extrabold text-lg text-white">{n}</div>
-              <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{l}</div>
+          {intro.cards.map(([name, label]) => (
+            <div key={name} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              <div className="font-display font-extrabold text-lg text-white">{name}</div>
+              <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</div>
             </div>
           ))}
         </div>
@@ -200,7 +272,7 @@ export default function LoginPage() {
 
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-[470px]">
-          <h2 className="font-display font-extrabold text-3xl mb-1" style={{ color: 'var(--navy)' }}>Welcome back! 👋</h2>
+          <h2 className="font-display font-extrabold text-3xl mb-1" style={{ color: 'var(--navy)' }}>Welcome back</h2>
           <p className="text-sm mb-5" style={{ color: 'var(--slate)' }}>Choose your account type and sign-in method.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--saffron-pale)' }}>
@@ -240,7 +312,7 @@ export default function LoginPage() {
                 </>
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : recoverySent ? 'Reset Password' : 'Send Recovery OTP'}</button>
-              <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setRecovery(false); setRecoverySent(false); }}>← Back to login</button>
+              <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setRecovery(false); setRecoverySent(false); }}>Back to login</button>
             </form>
           ) : method === 'password' ? (
             <form onSubmit={handlePasswordLogin}>
@@ -251,7 +323,7 @@ export default function LoginPage() {
                 <button type="button" onClick={() => setRecovery(true)} className="text-xs font-semibold" style={{ color: 'var(--saffron)' }}>Forgot password?</button>
               </div>
               <input className="input mb-4" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
-              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">{loading ? 'Signing in…' : 'Sign In →'}</button>
+              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">{loading ? 'Signing in…' : 'Sign In'}</button>
             </form>
           ) : (
             <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP}>
@@ -263,8 +335,8 @@ export default function LoginPage() {
               {otpSent && (
                 <input className="input mb-4 text-center tracking-[0.3em] font-bold" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="6-digit OTP" autoFocus />
               )}
-              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : otpSent ? 'Verify & Login →' : 'Send OTP →'}</button>
-              {otpSent && <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setOtpSent(false); setOtp(''); }}>← Change number</button>}
+              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">{loading ? 'Please wait…' : otpSent ? 'Verify & Login' : 'Send OTP'}</button>
+              {otpSent && <button type="button" className="w-full text-center text-xs mt-3" style={{ color: 'var(--saffron)' }} onClick={() => { setOtpSent(false); setOtp(''); }}>Change number</button>}
             </form>
           )}
 

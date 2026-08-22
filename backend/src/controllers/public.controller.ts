@@ -13,3 +13,15 @@ export async function overview(
     next(error);
   }
 }
+
+export async function schools(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    return R.ok(res, await publicOverviewService.listPublicSchools());
+  } catch (error: unknown) {
+    next(error);
+  }
+}

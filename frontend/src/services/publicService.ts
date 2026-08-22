@@ -31,8 +31,27 @@ export interface PublicCompetition {
   banner_url?: string | null;
 }
 
+export interface PublicSchool {
+  id: string;
+  name: string;
+  nameHi?: string | null;
+  board?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state: string;
+  academicYear: string;
+  website?: string | null;
+  isUdiseLinked: boolean;
+  students: number;
+  teachers: number;
+  classes: number;
+}
+
 export const getPublicOverview = () =>
   api.get<ApiEnvelope<PublicOverview>>('/public/overview');
 
 export const getPublicCompetitions = () =>
   api.get<ApiEnvelope<PublicCompetition[]>>('/competition');
+
+export const getPublicSchools = () =>
+  api.get<ApiEnvelope<PublicSchool[]>>('/public/schools');

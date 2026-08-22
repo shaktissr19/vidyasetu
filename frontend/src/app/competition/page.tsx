@@ -8,7 +8,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters';
 import { apiErrorText } from '@/utils/errors';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
-import Navbar from '@/components/layout/Navbar';
+import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import toast from 'react-hot-toast';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -37,25 +37,35 @@ export default function CompetitionPage() {
     enabled: Boolean(activeLbExamId),
   });
 
+  const goToStudentLogin = () => router.push('/login?role=student');
+
   const registerMut = useMutation({
     mutationFn: (examId: string) => registerExam(examId),
     onSuccess: async () => { toast.success('Registered successfully'); await refetch(); },
     onError: (error: unknown) => {
-      if (!isLoggedIn) { toast('Please login to register'); router.push('/login'); return; }
+      if (!isLoggedIn) { toast('Please login as Student to register'); goToStudentLogin(); return; }
       toast.error(apiErrorText(error, 'Failed to register'));
     },
   });
 
   return (
     <>
-      <Navbar />
-      <div style={{ paddingTop: 62 }}>
-        <div style={{ background: 'linear-gradient(135deg, #1a0533, #2d0a52)', padding: '60px 32px 40px', textAlign: 'center' }}>
+      <GlobalTopbar />
+      <div>
+        <div style={{ background: 'linear-gradient(135deg, #1a0533, #2d0a52)', padding: '60px 32px 44px', textAlign: 'center' }}>
           <h1 className="font-display" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, color: 'white', marginBottom: 12 }}>🏆 {t('प्रतियोगिताएँ और शैक्षणिक चुनौतियाँ', 'Competitions & Academic Challenges')}</h1>
-          <p style={{ color: 'rgba(255,255,255,0.65)', maxWidth: 620, margin: '0 auto' }}>{t('प्रकाशित प्रतियोगिताएँ, मॉक चुनौतियाँ और अभ्यास इवेंट देखें।', 'Explore published academic competitions, mock challenges and practice events from VidyaSetu.')}</p>
+          <p style={{ color: 'rgba(255,255,255,0.68)', maxWidth: 680, margin: '0 auto' }}>{t('प्रकाशित प्रतियोगिताएँ, मॉक चुनौतियाँ और अभ्यास इवेंट देखें।', 'Explore published academic competitions, mock challenges and practice events backed by the VidyaSetu exam system.')}</p>
         </div>
 
-        <div className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0' }}>
+        <div className="max-w-5xl mx-auto" style={{ padding: '24px 32px 0' }}>
+          <div style={{ background: '#FFF8EF', border: '1px solid #FFD7B5', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+            <div>
+              <strong style={{ color: 'var(--navy)' }}>Want to register or attempt a Competition?</strong>
+              <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Public visitors can browse published events. Registration, attempts and personal results require a Student account.</div>
+            </div>
+            <button className="btn-primary" onClick={goToStudentLogin}>Login to Student Dashboard</button>
+          </div>
+
           {isLoading ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
               {[...Array(3)].map((_, i) => <CardSkeleton key={i} />)}
@@ -64,7 +74,7 @@ export default function CompetitionPage() {
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
               <div style={{ fontSize: 38, marginBottom: 10 }}>🏆</div>
               <h2 className="font-display" style={{ fontWeight: 800, color: 'var(--navy)' }}>{t('अभी कोई प्रकाशित प्रतियोगिता नहीं है', 'No published competitions right now')}</h2>
-              <p style={{ color: 'var(--slate)', marginTop: 8 }}>{t('एडमिन द्वारा नई प्रतियोगिता प्रकाशित होने पर वह यहाँ दिखाई देगी।', 'New competitions will appear here when they are published by the platform Admin.')}</p>
+              <p style={{ color: 'var(--slate)', marginTop: 8 }}>{t('एडमिन द्वारा नई प्रतियोगिता प्रकाशित होने पर वह यहाँ दिखाई देगी।', 'New competitions will appear here when they are published by the Platform Admin.')}</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
@@ -97,12 +107,12 @@ export default function CompetitionPage() {
                         </button>
                       ) : exam.registered ? (
                         exam.status === 'LIVE' ? (
-                          <button className="btn-primary w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => isLoggedIn ? router.push(`/exams/${exam.id}`) : router.push('/login')}>Start Competition</button>
+                          <button className="btn-primary w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))' }} onClick={() => isLoggedIn ? router.push(`/exams/${exam.id}`) : goToStudentLogin()}>Start Competition</button>
                         ) : (
                           <button className="w-full py-3 rounded-xl font-display font-bold text-sm" style={{ background: 'var(--forest-pale)', color: 'var(--forest)' }} disabled>✅ Registered</button>
                         )
                       ) : (
-                        <button className="btn-primary w-full justify-center" disabled={registerMut.isPending} onClick={() => isLoggedIn ? registerMut.mutate(exam.id) : router.push('/login')}>Register</button>
+                        <button className="btn-primary w-full justify-center" disabled={registerMut.isPending} onClick={() => isLoggedIn ? registerMut.mutate(exam.id) : goToStudentLogin()}>Register</button>
                       )}
                     </div>
                   </div>
