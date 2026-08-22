@@ -28,15 +28,52 @@ interface NotificationReadRow extends QueryResultRow {
   read_at: string | Date | null;
 }
 
-export async function sendSMS(mobile: string, message: string): Promise<unknown> {
-  const provider = process.env.SMS_PROVIDER || 'mock';
-  if (provider === 'mock' || process.env.NODE_ENV === 'test') {
-    logger.info(`[MOCK SMS] To: ${mobile} | Msg: ${message}`);
-    return { success: true };
+function smsProvider(): string {
+  return String(process.env.SMS_PROVIDER || '').trim().toLowerCase();
+}
+
+function smsConfigurationError(message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode: 503 });
+}
+
+export function assertSmsDeliveryConfigured(): void {
+  if (process.env.NODE_ENV === 'test') return;
+  const provider = smsProvider();
+
+  if (!provider || provider === 'mock') {
+    if (process.env.NODE_ENV === 'production') {
+      throw smsConfigurationError('OTP SMS delivery is not configured. Please contact VidyaSetu support.');
+    }
+    return;
   }
 
   if (provider === 'kaleyra') {
-    if (!process.env.KALEYRA_API_KEY) throw new Error('KALEYRA_API_KEY is required');
+    if (!process.env.KALEYRA_API_KEY) throw smsConfigurationError('Kaleyra SMS delivery is not configured');
+    return;
+  }
+
+  if (provider === 'twofactor') {
+    if (!process.env.TWOFACTOR_API_KEY) throw smsConfigurationError('2Factor SMS delivery is not configured');
+    return;
+  }
+
+  throw smsConfigurationError(`Unsupported SMS provider: ${provider}`);
+}
+
+export async function sendSMS(mobile: string, message: string): Promise<unknown> {
+  const provider = smsProvider();
+
+  if (process.env.NODE_ENV === 'test' || (!provider && process.env.NODE_ENV !== 'production') || provider === 'mock') {
+    if (process.env.NODE_ENV === 'production') {
+      throw smsConfigurationError('OTP SMS delivery is not configured. Please contact VidyaSetu support.');
+    }
+    logger.info(`[MOCK SMS] To: ${mobile} | Msg: ${message}`);
+    return { success: true, provider: 'mock' };
+  }
+
+  assertSmsDeliveryConfigured();
+
+  if (provider === 'kaleyra') {
     const response = await axios.get<unknown>('https://api.kaleyra.io/v1/messages', {
       params: {
         apikey: process.env.KALEYRA_API_KEY,
@@ -45,21 +82,25 @@ export async function sendSMS(mobile: string, message: string): Promise<unknown>
         to: `+91${mobile}`,
         sender: process.env.KALEYRA_SID || 'VSETU',
       },
+      timeout: 15000,
     });
+    logger.info(`SMS accepted by Kaleyra for ${mobile.slice(0, 2)}******${mobile.slice(-2)}`);
     return response.data;
   }
 
   if (provider === 'twofactor') {
-    if (!process.env.TWOFACTOR_API_KEY) throw new Error('TWOFACTOR_API_KEY is required');
     const otp = message.match(/\b(\d{6})\b/)?.[1];
     if (!otp) throw new Error('A 6-digit OTP is required for the 2Factor OTP provider');
     const response = await axios.post<unknown>(
-      `https://2factor.in/API/V1/${encodeURIComponent(process.env.TWOFACTOR_API_KEY)}/SMS/+91${encodeURIComponent(mobile)}/${encodeURIComponent(otp)}`,
+      `https://2factor.in/API/V1/${encodeURIComponent(process.env.TWOFACTOR_API_KEY || '')}/SMS/+91${encodeURIComponent(mobile)}/${encodeURIComponent(otp)}`,
+      undefined,
+      { timeout: 15000 },
     );
+    logger.info(`SMS accepted by 2Factor for ${mobile.slice(0, 2)}******${mobile.slice(-2)}`);
     return response.data;
   }
 
-  throw new Error(`Unknown SMS provider: ${provider}`);
+  throw smsConfigurationError(`Unsupported SMS provider: ${provider}`);
 }
 
 export async function sendWhatsApp(
