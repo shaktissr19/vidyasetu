@@ -160,8 +160,10 @@ export async function confirmParentAttachment(
   }
   validateEvidence(input.contentType, input.fileSize);
   const expectedPrefix = `grievances/${grievanceId}/${parentUserId}/`;
-  if (!input.key.startsWith(expectedPrefix)) throw appError('Evidence object key does not belong to this concern', 403);
   const fileName = safeFileName(input.fileName);
+  if (!input.key.startsWith(expectedPrefix) || !input.key.endsWith(`_${fileName}`)) {
+    throw appError('Evidence object key does not match this concern and file', 403);
+  }
 
   const { rows: [inserted] } = await query<StoredAttachmentRow>(
     `INSERT INTO grievance_attachments
@@ -175,7 +177,7 @@ export async function confirmParentAttachment(
 
   if (!inserted) {
     const existing = await storedAttachmentByKey(grievanceId, parentUserId, input.key);
-    return stripObjectKey(existing);
+    return visibleAttachment(existing);
   }
 
   await query(
@@ -196,7 +198,7 @@ export async function confirmParentAttachment(
   }
 
   const saved = await storedAttachment(grievanceId, inserted.id);
-  return stripObjectKey(saved);
+  return visibleAttachment(saved);
 }
 
 async function storedAttachmentByKey(grievanceId: UUID, parentUserId: UUID, key: string): Promise<StoredAttachmentRow> {
@@ -212,9 +214,18 @@ async function storedAttachmentByKey(grievanceId: UUID, parentUserId: UUID, key:
   return row;
 }
 
-function stripObjectKey(row: StoredAttachmentRow): GrievanceAttachmentRow {
-  const { object_key: _objectKey, ...visible } = row;
-  return visible;
+function visibleAttachment(row: StoredAttachmentRow): GrievanceAttachmentRow {
+  return {
+    id: row.id,
+    grievance_id: row.grievance_id,
+    uploaded_by: row.uploaded_by,
+    file_name: row.file_name,
+    content_type: row.content_type,
+    file_size: row.file_size,
+    created_at: row.created_at,
+    uploader_name: row.uploader_name,
+    uploader_role: row.uploader_role,
+  };
 }
 
 export async function listForParent(grievanceId: UUID, parentUserId: UUID): Promise<GrievanceAttachmentRow[]> {
