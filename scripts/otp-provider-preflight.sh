@@ -35,12 +35,21 @@ case "$SMS_PROVIDER_VALUE" in
   twofactor)
     [[ -n "$(read_env_value TWOFACTOR_API_KEY)" ]] || fail "TWOFACTOR_API_KEY is required when SMS_PROVIDER=twofactor."
     template_name="$(read_env_value TWOFACTOR_TEMPLATE_NAME)"
-    printf 'OTP provider preflight: 2Factor configured (template: %s).\n' "${template_name:-LOGIN_OTP}"
+    if [[ -n "$template_name" ]]; then
+      printf 'OTP provider preflight: 2Factor configured with custom template name.\n'
+    else
+      printf 'OTP provider preflight: 2Factor configured with provider default OTP template.\n'
+    fi
     ;;
   kaleyra)
     [[ -n "$(read_env_value KALEYRA_API_KEY)" ]] || fail "KALEYRA_API_KEY is required when SMS_PROVIDER=kaleyra."
-    [[ -n "$(read_env_value KALEYRA_SID)" ]] || fail "KALEYRA_SID is required when SMS_PROVIDER=kaleyra."
-    printf 'OTP provider preflight: Kaleyra configured.\n'
+    [[ -n "$(read_env_value KALEYRA_ACCOUNT_SID)" ]] || fail "KALEYRA_ACCOUNT_SID is required when SMS_PROVIDER=kaleyra."
+    sender_id="$(read_env_value KALEYRA_SENDER_ID)"
+    legacy_sender="$(read_env_value KALEYRA_SID)"
+    [[ -n "$sender_id" || -n "$legacy_sender" ]] || fail "KALEYRA_SENDER_ID is required when SMS_PROVIDER=kaleyra."
+    [[ -n "$(read_env_value KALEYRA_ENTITY_ID)" ]] || fail "KALEYRA_ENTITY_ID is required for India DLT-compliant Kaleyra OTP delivery."
+    [[ -n "$(read_env_value KALEYRA_TEMPLATE_ID)" ]] || fail "KALEYRA_TEMPLATE_ID is required for India DLT-compliant Kaleyra OTP delivery."
+    printf 'OTP provider preflight: Kaleyra India account, sender and DLT identifiers configured.\n'
     ;;
   mock)
     printf 'OTP provider preflight: mock provider allowed for non-production environment.\n'
