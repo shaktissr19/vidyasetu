@@ -54,6 +54,7 @@ jobs:
         run: |
           bash -n scripts/otp-provider-preflight.sh
           bash -n scripts/otp-auth-contract-smoke.sh
+          bash -n scripts/otp-runtime-e2e.sh
           bash scripts/otp-auth-contract-smoke.sh
 
       - name: Build shared contracts
@@ -138,6 +139,12 @@ jobs:
           done
           cat /tmp/vidyasetu-public-api.log
           exit 1
+
+      - name: Certify OTP role, resend invalidation and login E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          OTP_E2E_MOBILE: '9300000001'
+        run: bash scripts/otp-runtime-e2e.sh
 
       - name: Certify public metrics equal database counts
         env:
