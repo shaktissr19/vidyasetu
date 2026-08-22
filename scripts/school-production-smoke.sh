@@ -14,6 +14,13 @@ check_web() {
   [[ "$code" =~ ^(200|301|302|307|308)$ ]] || fail "$WEB_BASE$path returned HTTP $code"
 }
 
+check_unauthenticated_api() {
+  local path="$1" code
+  code="$(curl -sS -o /dev/null -w '%{http_code}' "$API_BASE$path" || true)"
+  printf '%-34s %s\n' "$path" "$code"
+  [[ "$code" == "401" || "$code" == "403" ]] || fail "$API_BASE$path must reject unauthenticated access; got HTTP $code"
+}
+
 log "School public/read-only application routes"
 for path in \
   /login?role=school \
@@ -29,10 +36,14 @@ for path in \
   /school/exams \
   /school/results \
   /school/announcements \
+  /school/grievances \
   /school/profile \
   /school/onboarding; do
   check_web "$path"
 done
+
+log "School grievance authorization boundary"
+check_unauthenticated_api "/school/grievances"
 
 log "Read-only API/database discovery contract"
 OPTIONS="$(curl -fsS "$API_BASE/auth/student-registration-options")"

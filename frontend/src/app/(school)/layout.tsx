@@ -21,6 +21,7 @@ const ADMIN_MENU = (t: Translate) => [
   { href: '/school/exams', icon: '📝', label: t('परीक्षाएँ', 'Exams') },
   { href: '/school/results', icon: '📊', label: t('परिणाम', 'Results') },
   { href: '/school/announcements', icon: '📢', label: t('घोषणाएँ', 'Announcements') },
+  { href: '/school/grievances', icon: '🛡️', label: t('अभिभावक शिकायतें', 'Parent Concerns') },
   { href: '/school/groups', icon: '👥', label: t('समूह', 'Groups') },
   { href: '/school/profile', icon: '🏫', label: t('स्कूल प्रोफ़ाइल', 'School Profile') },
 ];
