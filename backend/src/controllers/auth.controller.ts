@@ -9,6 +9,7 @@ type BodyRequest<TBody> = Request<Record<string, string>, unknown, TBody>;
 
 interface SendOtpBody {
   mobile: string;
+  role?: UserRole;
 }
 
 interface VerifyOtpBody {
@@ -99,14 +100,43 @@ interface MeRow extends QueryResultRow {
   section: string | null;
 }
 
+async function validateOtpRole(
+  mobile: string,
+  role: UserRole | undefined,
+  res: Response,
+): Promise<Response | null> {
+  if (!role) return null;
+  const { rows: [existing] } = await query<RoleRow>(
+    'SELECT role FROM users WHERE mobile = $1',
+    [mobile],
+  );
+  if (existing && existing.role !== role) {
+    return R.forbidden(
+      res,
+      `This mobile number belongs to a ${existing.role.replaceAll('_', ' ').toLowerCase()} account`,
+    );
+  }
+  if (!existing && role !== 'STUDENT') {
+    return R.badRequest(res, 'No registered account exists for this role and mobile number');
+  }
+  return null;
+}
+
 export async function sendOTP(
   req: BodyRequest<SendOtpBody>,
   res: Response,
   next: NextFunction,
 ): Promise<Response | void> {
   try {
-    const result = await authService.sendOTP(req.body.mobile);
-    return R.ok(res, { message: 'OTP sent successfully', ...result });
+    const { mobile, role } = req.body;
+    const roleError = await validateOtpRole(mobile, role, res);
+    if (roleError) return roleError;
+    const result = await authService.sendOTP(mobile);
+    return R.ok(res, {
+      message: 'OTP sent successfully',
+      resendAfterSeconds: 30,
+      ...result,
+    });
   } catch (err: unknown) {
     next(err);
   }
@@ -119,21 +149,8 @@ export async function verifyOTP(
 ): Promise<Response | void> {
   try {
     const { mobile, otp, deviceInfo, role } = req.body;
-    if (role) {
-      const { rows: [existing] } = await query<RoleRow>(
-        'SELECT role FROM users WHERE mobile = $1',
-        [mobile],
-      );
-      if (existing && existing.role !== role) {
-        return R.forbidden(
-          res,
-          `This mobile number belongs to a ${existing.role.replaceAll('_', ' ').toLowerCase()} account`,
-        );
-      }
-      if (!existing && role !== 'STUDENT') {
-        return R.badRequest(res, 'No registered account exists for this role and mobile number');
-      }
-    }
+    const roleError = await validateOtpRole(mobile, role, res);
+    if (roleError) return roleError;
     const result = await authService.verifyOTPAndLogin(
       mobile,
       otp,
