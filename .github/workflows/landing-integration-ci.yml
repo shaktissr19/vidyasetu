@@ -133,14 +133,17 @@ jobs:
           SCHOOLS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM schools WHERE status='ACTIVE';")
           TEACHERS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teachers WHERE status IN ('ACTIVE','ON_LEAVE');")
           PARENTS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE role='PARENT' AND status='ACTIVE';")
-          GROUPS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM collaboration_groups WHERE status='ACTIVE';")
+          ACTIVE_GROUPS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM collaboration_groups WHERE status='ACTIVE';")
           COMPETITIONS=$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM exams WHERE type IN ('OLYMPIAD','MOCK','PRACTICE') AND status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED');")
+
+          echo "API overview: $(cat /tmp/overview.json)"
+          echo "DB expected: students=$STUDENTS schools=$SCHOOLS teachers=$TEACHERS parents=$PARENTS groups=$ACTIVE_GROUPS competitions=$COMPETITIONS"
 
           test "$(jq -r '.data.students' /tmp/overview.json)" = "$STUDENTS"
           test "$(jq -r '.data.schools' /tmp/overview.json)" = "$SCHOOLS"
           test "$(jq -r '.data.teachers' /tmp/overview.json)" = "$TEACHERS"
           test "$(jq -r '.data.parents' /tmp/overview.json)" = "$PARENTS"
-          test "$(jq -r '.data.groups' /tmp/overview.json)" = "$GROUPS"
+          test "$(jq -r '.data.groups' /tmp/overview.json)" = "$ACTIVE_GROUPS"
           test "$(jq -r '.data.competitions' /tmp/overview.json)" = "$COMPETITIONS"
 
       - name: Start production frontend and smoke public routes
