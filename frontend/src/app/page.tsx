@@ -1,302 +1,443 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
 import { logout as apiLogout } from '@/services/authService';
+import {
+  getPublicCompetitions,
+  getPublicOverview,
+  type PublicCompetition,
+  type PublicOverview,
+} from '@/services/publicService';
+import styles from './landing.module.css';
 
 const ROLE_DESTINATIONS: Record<UserRole, string> = {
-  STUDENT:      '/student',
+  STUDENT: '/student',
   SCHOOL_ADMIN: '/school/overview',
-  TEACHER:      '/school/overview',
-  PARENT:       '/parent/dashboard',
-  SUPER_ADMIN:  '/admin/analytics',
+  TEACHER: '/school/overview',
+  PARENT: '/parent/dashboard',
+  SUPER_ADMIN: '/admin/analytics',
 };
+
+const ROLE_ENTRIES = [
+  {
+    id: 'student',
+    icon: '🎓',
+    title: 'Student',
+    titleHi: 'छात्र',
+    copy: 'Learning, AI Tutor, Doubts, Competitions, Groups, attendance and report cards.',
+    copyHi: 'लर्निंग, AI ट्यूटर, डाउट्स, प्रतियोगिताएँ, समूह, उपस्थिति और रिपोर्ट कार्ड।',
+    href: '/student',
+  },
+  {
+    id: 'school',
+    icon: '🏫',
+    title: 'School & Teacher',
+    titleHi: 'स्कूल और शिक्षक',
+    copy: 'Students, teachers, classes, attendance, fees, timetable, exams, results and Groups.',
+    copyHi: 'छात्र, शिक्षक, कक्षाएँ, उपस्थिति, फीस, समय-सारणी, परीक्षा, परिणाम और समूह।',
+    href: '/school/overview',
+  },
+  {
+    id: 'parent',
+    icon: '👨‍👩‍👧',
+    title: 'Parent',
+    titleHi: 'अभिभावक',
+    copy: 'Performance, attendance, fees, report cards, teacher messages and Parent Groups.',
+    copyHi: 'प्रदर्शन, उपस्थिति, फीस, रिपोर्ट कार्ड, शिक्षक संदेश और अभिभावक समूह।',
+    href: '/parent/dashboard',
+  },
+  {
+    id: 'admin',
+    icon: '🛡️',
+    title: 'Platform Admin',
+    titleHi: 'प्लेटफ़ॉर्म एडमिन',
+    copy: 'Platform analytics, schools, users, Competitions, content, Groups, support and settings.',
+    copyHi: 'प्लेटफ़ॉर्म एनालिटिक्स, स्कूल, उपयोगकर्ता, प्रतियोगिताएँ, कंटेंट, समूह, सपोर्ट और सेटिंग्स।',
+    href: '/admin/analytics',
+  },
+] as const;
+
+const FEATURES = [
+  {
+    id: 'learning', icon: '📚', title: 'AI-Powered Learning', titleHi: 'AI-सक्षम लर्निंग',
+    summary: 'Structured learning with subject progress and AI assistance.',
+    summaryHi: 'विषय प्रगति और AI सहायता के साथ संरचित लर्निंग।',
+    details: ['Subject and chapter progress', 'AI Tutor support', 'Student learning dashboard'],
+    action: '/student',
+  },
+  {
+    id: 'school', icon: '🏫', title: 'Complete School Management', titleHi: 'संपूर्ण स्कूल प्रबंधन',
+    summary: 'Operate students, teachers, attendance, fees, timetable, exams and results from one workspace.',
+    summaryHi: 'एक ही वर्कस्पेस से छात्र, शिक्षक, उपस्थिति, फीस, समय-सारणी, परीक्षा और परिणाम।',
+    details: ['Class and teacher management', 'Attendance and fee operations', 'Timetable, exams and report cards'],
+    action: '/school/overview',
+  },
+  {
+    id: 'parent', icon: '👨‍👩‍👧', title: 'Parent Connect', titleHi: 'पेरेंट कनेक्ट',
+    summary: 'Parents can follow their child’s actual school and learning records.',
+    summaryHi: 'अभिभावक अपने बच्चे के वास्तविक स्कूल और लर्निंग रिकॉर्ड देख सकते हैं।',
+    details: ['Performance and attendance', 'Fees and report cards', 'Teacher messaging and Parent Groups'],
+    action: '/parent/dashboard',
+  },
+  {
+    id: 'performance', icon: '📈', title: 'Progress & Performance', titleHi: 'प्रगति और प्रदर्शन',
+    summary: 'Bring academic activity, results and learning progress into one clear view.',
+    summaryHi: 'शैक्षणिक गतिविधि, परिणाम और लर्निंग प्रगति एक स्पष्ट दृश्य में।',
+    details: ['Learning progress', 'Assessment and result history', 'Role-specific dashboards'],
+    action: '/student',
+  },
+  {
+    id: 'competitions', icon: '🏆', title: 'Competitions & Challenges', titleHi: 'प्रतियोगिताएँ और चुनौतियाँ',
+    summary: 'Academic competitions, mock challenges and practice events from the real competition engine.',
+    summaryHi: 'वास्तविक प्रतियोगिता इंजन से शैक्षणिक प्रतियोगिताएँ, मॉक चुनौतियाँ और अभ्यास इवेंट।',
+    details: ['Registration and attempts', 'Scoring and leaderboards', 'Results through the Competition engine'],
+    action: '/competition',
+  },
+  {
+    id: 'groups', icon: '👥', title: 'Private Groups', titleHi: 'निजी समूह',
+    summary: 'Controlled Student, Parent and Teacher collaboration — not an open social network.',
+    summaryHi: 'नियंत्रित छात्र, अभिभावक और शिक्षक सहयोग — खुला सोशल नेटवर्क नहीं।',
+    details: ['Admin approval for new Groups', 'Owner-controlled join requests and invitations', 'Posts, comments, resources and moderation'],
+    action: '#groups',
+  },
+  {
+    id: 'offline', icon: '📶', title: 'Offline Learning Support', titleHi: 'ऑफलाइन लर्निंग सपोर्ट',
+    summary: 'Offline-capable learning workflows are part of the Student experience; this is a capability, not a connection-status badge.',
+    summaryHi: 'ऑफलाइन-सक्षम लर्निंग छात्र अनुभव का हिस्सा है; यह कनेक्शन-स्टेटस बैज नहीं है।',
+    details: ['Offline learning workspace', 'Sync-oriented Student workflow', 'Designed for variable connectivity'],
+    action: '/student',
+  },
+  {
+    id: 'doubts', icon: '🤖', title: 'AI Doubt Solver', titleHi: 'AI डाउट सॉल्वर',
+    summary: 'Students can use AI Tutor and the Doubt Forum inside their authenticated workspace.',
+    summaryHi: 'छात्र अपने प्रमाणित वर्कस्पेस में AI ट्यूटर और डाउट फोरम का उपयोग कर सकते हैं।',
+    details: ['AI Tutor', 'Doubt Forum', 'Teacher and student learning support'],
+    action: '/student',
+  },
+] as const;
+
+function formatCount(value: number | undefined): string {
+  return value === undefined ? '—' : value.toLocaleString('en-IN');
+}
+
+function competitionType(type: PublicCompetition['type']): string {
+  if (type === 'MOCK') return 'Mock Challenge';
+  if (type === 'PRACTICE') return 'Practice Challenge';
+  return 'Academic Competition';
+}
+
+function competitionDate(value?: string | null): string {
+  if (!value) return 'Schedule to be announced';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Schedule to be announced';
+  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
 
 export default function LandingPage() {
   const router = useRouter();
   const { user, isLoggedIn, refreshToken, logout } = useAuthStore();
-  const [lang, setLang] = useState('en');
   const [mounted, setMounted] = useState(false);
-  const [cd, setCd] = useState({ d: '03', h: '14', m: '22', s: '45' });
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+  const [overview, setOverview] = useState<PublicOverview | null>(null);
+  const [overviewFailed, setOverviewFailed] = useState(false);
+  const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
+  const [competitionsFailed, setCompetitionsFailed] = useState(false);
+  const [activeFeature, setActiveFeature] = useState<string>('school');
 
-  // Prevent hydration mismatch while the persisted auth store rehydrates.
   useEffect(() => { setMounted(true); }, []);
 
-  // Countdown timer
   useEffect(() => {
-    const target = new Date(Date.now() + 3 * 86400000 + 14 * 3600000);
-    const timer = setInterval(() => {
-      const diff = target.getTime() - Date.now();
-      if (diff <= 0) return clearInterval(timer);
-      setCd({
-        d: String(Math.floor(diff / 86400000)).padStart(2, '0'),
-        h: String(Math.floor((diff % 86400000) / 3600000)).padStart(2, '0'),
-        m: String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0'),
-        s: String(Math.floor((diff % 60000) / 1000)).padStart(2, '0'),
-      });
-    }, 1000);
-    return () => clearInterval(timer);
+    let cancelled = false;
+    Promise.allSettled([getPublicOverview(), getPublicCompetitions()]).then(([overviewResult, competitionResult]) => {
+      if (cancelled) return;
+      if (overviewResult.status === 'fulfilled') {
+        setOverview(overviewResult.value.data.data);
+      } else {
+        setOverviewFailed(true);
+      }
+      if (competitionResult.status === 'fulfilled') {
+        setCompetitions(competitionResult.value.data.data || []);
+      } else {
+        setCompetitionsFailed(true);
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  const t = (en: string, hi: string): string => (mounted && lang === 'hi') ? hi : en;
+  const t = (en: string, hi: string): string => (mounted && lang === 'hi' ? hi : en);
   const sessionActive = mounted && isLoggedIn;
   const dashboardPath = user?.role ? ROLE_DESTINATIONS[user.role] : '/';
-  const go = () => router.push(sessionActive ? dashboardPath : '/login');
 
-  async function handleLogout() {
+  const selectedFeature = useMemo(
+    () => FEATURES.find((feature) => feature.id === activeFeature) || FEATURES[0],
+    [activeFeature],
+  );
+
+  const heroMetrics = [
+    ['🎓', formatCount(overview?.students), t('Active Students', 'सक्रिय छात्र')],
+    ['🏫', formatCount(overview?.schools), t('Active Schools', 'सक्रिय स्कूल')],
+    ['👩‍🏫', formatCount(overview?.teachers), t('Teachers', 'शिक्षक')],
+    ['👥', formatCount(overview?.groups), t('Active Groups', 'सक्रिय समूह')],
+  ];
+
+  const allMetrics = [
+    [formatCount(overview?.students), t('Students', 'छात्र')],
+    [formatCount(overview?.schools), t('Schools', 'स्कूल')],
+    [formatCount(overview?.teachers), t('Teachers', 'शिक्षक')],
+    [formatCount(overview?.parents), t('Parents', 'अभिभावक')],
+    [formatCount(overview?.groups), t('Groups', 'समूह')],
+    [formatCount(overview?.competitions), t('Competitions', 'प्रतियोगिताएँ')],
+  ];
+
+  async function handleLogout(): Promise<void> {
     try { if (refreshToken) await apiLogout(refreshToken); } catch (_) {}
     logout();
     router.replace('/');
   }
 
-  const features = [
-    ['📚', 'AI-Powered Learning', 'AI लर्निंग', 'NCERT lessons with AI tutor in Hindi & 8 languages.', 'हिंदी में NCERT और AI ट्यूटर।'],
-    ['🏫', 'Complete School Management', 'स्कूल प्रबंधन', 'Attendance, fees, results — all in one place, free.', 'उपस्थिति, शुल्क, परिणाम — एक जगह।'],
-    ['👨‍👩‍👧', 'Parent Connect', 'पेरेंट कनेक्ट', 'Real-time alerts via WhatsApp. No app download needed.', 'WhatsApp पर रियल-टाइम अलर्ट।'],
-    ['📈', 'Progress & Performance', 'प्रगति और प्रदर्शन', 'Track lessons, quiz scores and academic progress clearly.', 'पाठ, क्विज़ स्कोर और शैक्षणिक प्रगति स्पष्ट रूप से देखें।'],
-    ['🏆', 'Monthly Olympiads', 'मासिक ओलंपियाड', 'Compete across Bharat. Win up to ₹5 lakh monthly.', '₹5 लाख तक जीतें।'],
-    ['🌐', '9 Regional Languages', '9 भाषाएँ', 'Hindi, Tamil, Telugu, Marathi, Bengali and more.', 'हिंदी, तमिल, तेलुगु और अधिक।'],
-    ['📶', 'Offline-First', 'ऑफलाइन', 'Study without internet. Auto-syncs when back online.', 'इंटरनेट के बिना पढ़ें।'],
-    ['🤖', 'AI Doubt Solver', 'AI डाउट सॉल्वर', 'Ask doubts in Hindi. Get instant step-by-step answers.', 'हिंदी में सवाल, तुरंत जवाब।'],
-  ];
+  function scrollTo(id: string): void {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-  const testimonials = [
-    ['"My daughter was struggling in Maths. VidyaSetu\'s AI tutor helped her score 87 in the Olympiad. Hindi explanations made everything clear."', '"मेरी बेटी गणित में कमज़ोर थी। VidyaSetu AI से उसने 87 अंक लिए।"', 'Savita Devi, Parent', 'Muzaffarpur, Bihar'],
-    ['"The school system handles attendance and fees. WhatsApp notifications reduced absenteeism by 30%. Free and easy to use!"', '"स्कूल सिस्टम ने उपस्थिति और फीस आसान की। अनुपस्थिति 30% कम हुई।"', 'Rajendra Gupta, Principal', 'Saraswati Vidyalay, Morena MP'],
-    ['"I can see my quiz scores, lesson progress and exam results in one place. It helps me understand what I should practise next."', '"मैं अपने क्विज़ स्कोर, पाठ की प्रगति और परीक्षा परिणाम एक जगह देख सकता हूँ। इससे मुझे पता चलता है कि आगे क्या अभ्यास करना है।"', 'Arjun Patel, Class 8', 'Shivaji School, Anand Gujarat'],
-  ];
+  function openRole(href: string): void {
+    router.push(href);
+  }
+
+  function openFeature(action: string): void {
+    if (action.startsWith('#')) {
+      scrollTo(action.slice(1));
+      return;
+    }
+    router.push(action);
+  }
+
+  function openGroups(): void {
+    if (!sessionActive || !user?.role) {
+      router.push('/login');
+      return;
+    }
+    if (user.role === 'PARENT') router.push('/parent/groups');
+    else if (user.role === 'SCHOOL_ADMIN' || user.role === 'TEACHER') router.push('/school/groups');
+    else if (user.role === 'SUPER_ADMIN') router.push('/groups');
+    else router.push('/student');
+  }
 
   return (
-    <div style={{ fontFamily: "'Noto Sans', sans-serif", background: '#FAFAF8', color: '#0D1B3E', overflowX: 'hidden' }}>
+    <div className={styles.page}>
+      <nav className={styles.nav} aria-label="VidyaSetu public navigation">
+        <button className={styles.logo} onClick={() => scrollTo('home')} aria-label="VidyaSetu home">
+          <span className={styles.logoMark}>V</span>
+          <span className={styles.logoText}>Vidya<span className={styles.logoAccent}>Setu</span></span>
+        </button>
 
-      {/* ── NAVBAR ── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999,
-        background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(10px)',
-        borderBottom: '2px solid #FF6B00',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 32px', height: 64,
-        boxShadow: '0 2px 12px rgba(255,107,0,0.10)',
-      }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => window.scrollTo(0, 0)}>
-          <div style={{ width: 38, height: 38, background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: 'white', fontSize: 20 }}>V</div>
-          <span style={{ fontFamily: "'Baloo 2', cursive", fontSize: '1.5rem', fontWeight: 800, color: '#0D1B3E' }}>
-            Vidya<span style={{ color: '#FF6B00' }}>Setu</span>
-          </span>
+        <div className={styles.navLinks}>
+          <button className={styles.navLink} onClick={() => scrollTo('home')}>{t('Home', 'होम')}</button>
+          <button className={styles.navLink} onClick={() => router.push('/competition')}>{t('Competitions', 'प्रतियोगिताएँ')}</button>
+          <button className={styles.navLink} onClick={() => scrollTo('groups')}>{t('Groups', 'समूह')}</button>
+          <button className={styles.navLink} onClick={() => openRole('/student')}>{t('Student', 'छात्र')}</button>
+          <button className={styles.navLink} onClick={() => openRole('/school/overview')}>{t('School', 'स्कूल')}</button>
+          <button className={styles.navLink} onClick={() => openRole('/parent/dashboard')}>{t('Parent', 'अभिभावक')}</button>
+          <button className={styles.navLink} onClick={() => openRole('/admin/analytics')}>{t('Admin', 'एडमिन')}</button>
         </div>
 
-        {/* Nav Links */}
-        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {['Home', 'Olympiad', 'Student', 'School', 'Parent', 'Admin'].map((label) => (
-            <a key={label} href={`#${label.toLowerCase().replace(' ', '-')}`}
-              style={{ fontSize: '0.875rem', fontWeight: 600, color: '#5A6278', padding: '8px 14px', borderRadius: 8, textDecoration: 'none', transition: 'all 0.2s', display: 'inline-block' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#FFF3E8'; e.currentTarget.style.color = '#FF6B00'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#5A6278'; }}>
-              {label === 'Home' ? t('Home', 'होम') :
-               label === 'Olympiad' ? t('Olympiad', 'ओलंपियाड') :
-               label === 'Student' ? t('Student', 'छात्र') :
-               label === 'School' ? t('School', 'स्कूल') :
-               label === 'Parent' ? t('Parent', 'अभिभावक') : t('Admin', 'एडमिन')}
-            </a>
-          ))}
-          <button onClick={() => setLang(l => l === 'en' ? 'hi' : 'en')}
-            style={{ background: '#0D1B3E', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', marginLeft: 4 }}>
-            {mounted && lang === 'en' ? 'हिंदी' : 'EN'}
+        <div className={styles.navActions}>
+          <button className={styles.language} onClick={() => setLang((current) => current === 'en' ? 'hi' : 'en')}>
+            {lang === 'en' ? 'हिंदी' : 'EN'}
           </button>
-        </div>
-
-        {/* Session-aware actions */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4CAF50' }} />
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#138808' }}>{t('Offline Ready', 'ऑफलाइन रेडी')}</span>
-          </div>
           {sessionActive ? (
             <>
-              <button onClick={() => router.push(dashboardPath)} title="Back to dashboard"
-                style={{ background: '#F5F7FA', border: 'none', color: '#0D1B3E', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '8px 16px', borderRadius: 9, cursor: 'pointer' }}>
-                {user?.name?.split(' ')[0] || t('Account', 'खाता')}
-              </button>
-              <button onClick={handleLogout}
-                style={{ background: 'none', border: '2px solid #FF6B00', color: '#FF6B00', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '7px 20px', borderRadius: 9, cursor: 'pointer' }}>
-                {t('Logout', 'लॉगआउट')}
-              </button>
+              <button className={styles.account} onClick={() => router.push(dashboardPath)}>{user?.name?.split(' ')[0] || t('Dashboard', 'डैशबोर्ड')}</button>
+              <button className={styles.login} onClick={handleLogout}>{t('Logout', 'लॉगआउट')}</button>
             </>
           ) : (
             <>
-              <button onClick={() => router.push('/login')}
-                style={{ background: 'none', border: '2px solid #FF6B00', color: '#FF6B00', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '7px 20px', borderRadius: 9, cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#FF6B00'; e.currentTarget.style.color = 'white'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#FF6B00'; }}>
-                {t('Login', 'लॉगिन')}
-              </button>
-              <button onClick={() => router.push('/register')}
-                style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: 'none', color: 'white', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '0.9rem', padding: '8px 22px', borderRadius: 9, cursor: 'pointer', boxShadow: '0 4px 16px rgba(255,107,0,0.35)' }}>
-                {t('Join Free →', 'मुफ्त जुड़ें →')}
-              </button>
+              <button className={styles.login} onClick={() => router.push('/login')}>{t('Login', 'लॉगिन')}</button>
+              <button className={styles.primarySmall} onClick={() => router.push('/register')}>{t('Create Account', 'खाता बनाएँ')}</button>
             </>
           )}
         </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <section id="home" style={{ background: 'linear-gradient(135deg,#0D1B3E 0%,#1A2F5E 60%,#1A3A6E 100%)', padding: '130px 48px 90px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -80, right: -100, width: 500, height: 500, background: 'radial-gradient(circle,rgba(255,107,0,0.15) 0%,transparent 70%)', borderRadius: '50%' }} />
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,0,0.15)', border: '1px solid rgba(255,107,0,0.35)', color: '#FF9A3C', fontSize: '0.78rem', fontWeight: 700, padding: '5px 16px', borderRadius: 20, marginBottom: 24, letterSpacing: '0.5px' }}>
-              🇮🇳 {t("India's Rural Education OS", "भारत का ग्रामीण शिक्षा OS")}
-            </div>
-            <h1 style={{ fontFamily: "'Baloo 2', cursive", fontSize: '3.2rem', fontWeight: 900, color: 'white', lineHeight: 1.1, marginBottom: 12 }}>
-              {t('Learning for', 'हर')}{' '}
-              <span style={{ color: '#FF9A3C' }}>{t('Every Student', 'छात्र के लिए')}</span>
-              <br />{t('in Bharat', 'भारत में')}
+      <section id="home" className={styles.hero}>
+        <div className={styles.heroInner}>
+          <div>
+            <div className={styles.eyebrow}>🇮🇳 {t("India's Education & School Platform", 'भारत का शिक्षा और स्कूल प्लेटफ़ॉर्म')}</div>
+            <h1>
+              {t('Learning, School Operations and', 'लर्निंग, स्कूल संचालन और')}<br />
+              <span className={styles.heroAccent}>{t('Connected Support', 'जुड़ा हुआ सहयोग')}</span>
             </h1>
-            <p style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.55)', marginBottom: 12, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
-              भारत के हर गाँव तक शिक्षा पहुँचाना
+            <p className={styles.heroHindi}>भारत के हर गाँव तक शिक्षा पहुँचाना</p>
+            <p className={styles.heroCopy}>
+              {t(
+                'VidyaSetu connects Student learning, School Management, Parent visibility, Competitions and private moderated Groups in one platform.',
+                'VidyaSetu छात्र लर्निंग, स्कूल प्रबंधन, अभिभावक दृश्यता, प्रतियोगिताओं और निजी नियंत्रित समूहों को एक प्लेटफ़ॉर्म में जोड़ता है।',
+              )}
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.05rem', lineHeight: 1.75, marginBottom: 36, maxWidth: 500 }}>
-              {t('School Management + Learning Platform + Student OS. Works offline, in Hindi and 8 regional languages.', 'स्कूल प्रबंधन + लर्निंग प्लेटफॉर्म। हिंदी और 8 भाषाओं में, ऑफलाइन।')}
-            </p>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <button onClick={go} style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', color: 'white', border: 'none', padding: '15px 32px', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', borderRadius: 12, cursor: 'pointer', boxShadow: '0 8px 28px rgba(255,107,0,0.45)' }}>
-                🎓 {t(sessionActive ? 'Go to Dashboard' : 'Start Learning Free', sessionActive ? 'डैशबोर्ड पर जाएँ' : 'मुफ्त शुरू करें')}
+            <div className={styles.heroActions}>
+              <button className={styles.primary} onClick={() => router.push(sessionActive ? dashboardPath : '/register')}>
+                {sessionActive ? t('Open My Dashboard', 'मेरा डैशबोर्ड खोलें') : t('Start with VidyaSetu', 'VidyaSetu शुरू करें')}
               </button>
-              <button onClick={go} style={{ background: 'rgba(255,255,255,0.08)', color: 'white', border: '2px solid rgba(255,255,255,0.25)', padding: '14px 30px', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', borderRadius: 12, cursor: 'pointer' }}>
-                🏫 {t(sessionActive ? 'Open My Account' : 'Register Your School', sessionActive ? 'मेरा खाता खोलें' : 'स्कूल रजिस्टर करें')}
-              </button>
+              <button className={styles.secondary} onClick={() => openRole('/school/overview')}>{t('Open School Workspace', 'स्कूल वर्कस्पेस खोलें')}</button>
             </div>
           </div>
 
-          {/* Stat cards */}
-          <div style={{ flex: '0 0 290px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {[
-              ['🎓', '1.2L+', t('Students Learning', 'छात्र सीख रहे हैं')],
-              ['🏫', '3,412', t('Schools Onboarded', 'स्कूल जुड़े')],
-              ['📶', t('Offline', 'ऑफलाइन'), t('Works Without Internet', 'इंटरनेट के बिना')],
-              ['🌐', '9', t('Regional Languages', 'क्षेत्रीय भाषाएँ')],
-            ].map(([icon, num, label], i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '16px 20px', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <span style={{ fontSize: '1.8rem' }}>{icon}</span>
-                <div>
-                  <div style={{ fontFamily: "'Baloo 2', cursive", fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>{num}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', marginTop: 2 }}>{label}</div>
+          <div className={styles.metricsPanel} aria-label="Live platform metrics">
+            {heroMetrics.map(([icon, value, label]) => (
+              <div className={styles.metricCard} key={label}>
+                <div className={styles.metricIcon}>{icon}</div>
+                <div className={styles.metricValue}>{value}</div>
+                <div className={styles.metricLabel}>{label}</div>
+              </div>
+            ))}
+            <div className={styles.metricFoot}>
+              <span className={styles.liveDot} />
+              {overviewFailed
+                ? t('Live platform metrics are temporarily unavailable — no placeholder numbers are shown.', 'लाइव प्लेटफ़ॉर्म आँकड़े अभी उपलब्ध नहीं हैं — कोई नकली संख्या नहीं दिखाई गई है।')
+                : overview
+                  ? t('Live counts from the VidyaSetu database', 'VidyaSetu डेटाबेस से लाइव संख्या')
+                  : t('Loading live platform counts…', 'लाइव प्लेटफ़ॉर्म संख्या लोड हो रही है…')}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.section} id="capabilities">
+        <div className={styles.sectionInner}>
+          <div className={styles.sectionHeader}>
+            <h2>{t('Everything Your School Community Needs', 'आपके स्कूल समुदाय को जो चाहिए')}</h2>
+            <div className={styles.orangeRule} />
+            <p>{t('These cards now explain what each capability actually does. Hover or click a card to explore the details and open the relevant workspace.', 'अब हर कार्ड स्पष्ट करता है कि यह सुविधा वास्तव में क्या करती है। विवरण देखने के लिए कार्ड पर होवर या क्लिक करें।')}</p>
+          </div>
+
+          <div className={styles.featureGrid}>
+            {FEATURES.map((feature) => (
+              <button
+                type="button"
+                key={feature.id}
+                className={`${styles.featureCard} ${activeFeature === feature.id ? styles.featureCardActive : ''}`}
+                onMouseEnter={() => setActiveFeature(feature.id)}
+                onFocus={() => setActiveFeature(feature.id)}
+                onClick={() => setActiveFeature(feature.id)}
+              >
+                <div className={styles.featureIcon}>{feature.icon}</div>
+                <div className={styles.featureTitle}>{t(feature.title, feature.titleHi)}</div>
+                <div className={styles.featureSummary}>{t(feature.summary, feature.summaryHi)}</div>
+                <div className={styles.featureMore}>{activeFeature === feature.id ? t('Details shown below', 'विवरण नीचे है') : t('View details', 'विवरण देखें')}</div>
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.featureDetail}>
+            <div>
+              <h3>{selectedFeature.icon} {t(selectedFeature.title, selectedFeature.titleHi)}</h3>
+              <p>{t(selectedFeature.summary, selectedFeature.summaryHi)}</p>
+              <button className={styles.primary} onClick={() => openFeature(selectedFeature.action)}>{t('Open this area', 'यह क्षेत्र खोलें')}</button>
+            </div>
+            <ul className={styles.detailList}>
+              {selectedFeature.details.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className={`${styles.section} ${styles.sectionAlt}`} id="roles">
+        <div className={styles.sectionInner}>
+          <div className={styles.sectionHeader}>
+            <h2>{t('Choose Your Workspace', 'अपना वर्कस्पेस चुनें')}</h2>
+            <div className={styles.orangeRule} />
+            <p>{t('Student, School, Parent and Admin are real application entry points now — not dead landing-page anchors.', 'Student, School, Parent और Admin अब वास्तविक एप्लिकेशन एंट्री पॉइंट हैं — निष्क्रिय लैंडिंग लिंक नहीं।')}</p>
+          </div>
+          <div className={styles.roleGrid}>
+            {ROLE_ENTRIES.map((entry) => (
+              <article className={styles.roleCard} key={entry.id}>
+                <div className={styles.roleIcon}>{entry.icon}</div>
+                <h3>{t(entry.title, entry.titleHi)}</h3>
+                <p>{t(entry.copy, entry.copyHi)}</p>
+                <button className={styles.darkButton} onClick={() => openRole(entry.href)}>{t(`Open ${entry.title}`, `${entry.titleHi} खोलें`)}</button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="groups" className={`${styles.section} ${styles.sectionDark}`}>
+        <div className={`${styles.sectionInner} ${styles.groupsWrap}`}>
+          <div className={styles.groupsCopy}>
+            <div className={styles.eyebrow}>👥 {t('Groups — controlled collaboration', 'समूह — नियंत्रित सहयोग')}</div>
+            <h2>{t('A safer alternative to an open “Community” feed', 'खुले “Community” फ़ीड का सुरक्षित विकल्प')}</h2>
+            <p>{t('Students, Parents and Teachers can collaborate in private Groups. New Groups require platform approval, membership is controlled by the Group owner or moderator, and invitations still require the recipient to accept.', 'छात्र, अभिभावक और शिक्षक निजी समूहों में सहयोग कर सकते हैं। नए समूहों के लिए प्लेटफ़ॉर्म स्वीकृति, सदस्यता के लिए समूह मालिक/मॉडरेटर की स्वीकृति और निमंत्रण के लिए प्राप्तकर्ता की सहमति आवश्यक है।')}</p>
+            <div className={styles.heroActions}>
+              <button className={styles.primary} onClick={openGroups}>{t('Open Groups', 'समूह खोलें')}</button>
+              {!sessionActive && <button className={styles.secondary} onClick={() => router.push('/register')}>{t('Create an Account', 'खाता बनाएँ')}</button>}
+            </div>
+          </div>
+          <div className={styles.flow}>
+            <div className={styles.flowStep}><strong>1. {t('Request a Group', 'समूह का अनुरोध करें')}</strong><span>{t('Student, Parent, Teacher or School Admin requests an eligible Group type.', 'योग्य भूमिका वाला उपयोगकर्ता समूह बनाने का अनुरोध करता है।')}</span></div>
+            <div className={styles.flowStep}><strong>2. {t('Admin Approval', 'एडमिन स्वीकृति')}</strong><span>{t('The Group becomes active only after platform approval.', 'प्लेटफ़ॉर्म स्वीकृति के बाद ही समूह सक्रिय होता है।')}</span></div>
+            <div className={styles.flowStep}><strong>3. {t('Controlled Membership', 'नियंत्रित सदस्यता')}</strong><span>{t('Join requests need owner/moderator approval; invitations need recipient acceptance.', 'जॉइन अनुरोध के लिए मालिक/मॉडरेटर स्वीकृति और निमंत्रण के लिए प्राप्तकर्ता की सहमति चाहिए।')}</span></div>
+            <div className={styles.flowStep}><strong>4. {t('Moderated Discussion', 'नियंत्रित चर्चा')}</strong><span>{t('Members can post, comment, share resources and report inappropriate content.', 'सदस्य पोस्ट, कमेंट, संसाधन साझा और अनुचित सामग्री रिपोर्ट कर सकते हैं।')}</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="competitions" className={`${styles.section} ${styles.sectionAlt}`}>
+        <div className={styles.sectionInner}>
+          <div className={styles.sectionHeader}>
+            <h2>{t('Competitions & Academic Challenges', 'प्रतियोगिताएँ और शैक्षणिक चुनौतियाँ')}</h2>
+            <div className={styles.orangeRule} />
+            <p>{t('This section is driven by the real Competition API. No fake countdown and no invented prize claims.', 'यह सेक्शन वास्तविक Competition API से चलता है। कोई नकली काउंटडाउन या बनाई हुई पुरस्कार राशि नहीं।')}</p>
+          </div>
+
+          <div className={styles.competitionGrid}>
+            {competitionsFailed ? (
+              <div className={styles.emptyState}>{t('Competition data is temporarily unavailable.', 'प्रतियोगिता डेटा अभी उपलब्ध नहीं है।')}</div>
+            ) : competitions.length === 0 ? (
+              <div className={styles.emptyState}>{t('There are no published Competitions at the moment. New events will appear here when an Admin publishes them.', 'अभी कोई प्रकाशित प्रतियोगिता नहीं है। एडमिन द्वारा नई प्रतियोगिता प्रकाशित होने पर वह यहाँ दिखाई देगी।')}</div>
+            ) : competitions.slice(0, 3).map((competition) => (
+              <article className={styles.competitionCard} key={competition.id}>
+                <span className={styles.statusPill}>{competition.status.replaceAll('_', ' ')}</span>
+                <h3>{lang === 'hi' && competition.title_hi ? competition.title_hi : competition.title}</h3>
+                <p>{competition.description || competitionType(competition.type)}</p>
+                <div className={styles.competitionMeta}>
+                  <span>🏆 {competitionType(competition.type)}</span>
+                  <span>📅 {competitionDate(competition.start_time)}</span>
+                  {competition.duration_mins ? <span>⏱️ {competition.duration_mins} min</span> : null}
                 </div>
+              </article>
+            ))}
+          </div>
+
+          <div className={styles.heroActions} style={{ justifyContent: 'center' }}>
+            <button className={styles.darkButton} onClick={() => router.push('/competition')}>{t('View All Competitions', 'सभी प्रतियोगिताएँ देखें')}</button>
+          </div>
+
+          <div className={styles.statsStrip} aria-label="Current platform database counts">
+            {allMetrics.map(([value, label]) => (
+              <div className={styles.statMini} key={label}>
+                <strong>{value}</strong>
+                <span>{label}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── FEATURES ── */}
-      <section id="student" style={{ padding: '72px 48px', background: 'white' }}>
-        <h2 style={{ fontFamily: "'Baloo 2', cursive", fontSize: '2.2rem', fontWeight: 800, color: '#0D1B3E', textAlign: 'center', marginBottom: 6 }}>
-          {t('Everything Your School Needs', 'स्कूल को चाहिए सब कुछ')}
-        </h2>
-        <div style={{ width: 64, height: 4, background: 'linear-gradient(to right,#FF6B00,#FF9A3C)', borderRadius: 4, margin: '8px auto 40px' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
-          {features.map(([icon, titleEn, titleHi, descEn, descHi], i) => (
-            <div key={i}
-              style={{ background: 'white', border: '1.5px solid #E5E7F0', borderRadius: 16, padding: '28px 24px', transition: 'all 0.25s', cursor: 'default' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#FF6B00'; e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(13,27,62,0.10)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7F0'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-              <div style={{ fontSize: '2.4rem', marginBottom: 16 }}>{icon}</div>
-              <div style={{ fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', color: '#0D1B3E', marginBottom: 8 }}>{t(titleEn, titleHi)}</div>
-              <div style={{ color: '#5A6278', fontSize: '0.85rem', lineHeight: 1.65 }}>{t(descEn, descHi)}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ── */}
-      <section style={{ background: '#0D1B3E', padding: '72px 48px' }}>
-        <h2 style={{ fontFamily: "'Baloo 2', cursive", fontSize: '2.2rem', fontWeight: 800, color: 'white', textAlign: 'center', marginBottom: 6 }}>
-          {t('How VidyaSetu Works', 'VidyaSetu कैसे काम करता है')}
-        </h2>
-        <div style={{ width: 64, height: 4, background: 'linear-gradient(to right,#FF6B00,#FF9A3C)', borderRadius: 4, margin: '8px auto 48px' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 0, maxWidth: 1000, margin: '0 auto' }}>
-          {[
-            ['1', t('School Registers', 'स्कूल रजिस्टर'), t('Free onboarding in 5 minutes. Upload student list.', '5 मिनट में मुफ्त सेटअप।')],
-            ['2', t('Students Login', 'छात्र लॉगिन'), t('Use username, email or Student ID with password. OTP is also available.', 'यूज़रनेम, ईमेल या Student ID और पासवर्ड से लॉगिन करें। OTP भी उपलब्ध है।')],
-            ['3', t('Learn & Practice', 'पढ़ें और अभ्यास'), t('NCERT videos + AI tutor in Hindi. Download offline.', 'हिंदी में NCERT + AI ट्यूटर।')],
-            ['4', t('Parents Stay Updated', 'माता-पिता अपडेट'), t('WhatsApp alerts for attendance, fees, results.', 'WhatsApp पर उपस्थिति और परिणाम।')],
-          ].map(([n, title, desc], i) => (
-            <div key={i} style={{ textAlign: 'center', padding: '32px 24px', position: 'relative' }}>
-              {i < 3 && <span style={{ position: 'absolute', right: -12, top: '40%', color: 'rgba(255,107,0,0.5)', fontSize: '1.8rem' }}>→</span>}
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Baloo 2', cursive", fontWeight: 900, fontSize: '1.4rem', color: 'white', margin: '0 auto 16px' }}>{n}</div>
-              <div style={{ fontFamily: "'Baloo 2', cursive", fontWeight: 700, color: 'white', fontSize: '1rem', marginBottom: 8 }}>{title}</div>
-              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem', lineHeight: 1.65 }}>{desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── OLYMPIAD BANNER ── */}
-      <section id="olympiad" style={{ padding: '48px', background: '#F0F4F8' }}>
-        <div style={{ background: 'linear-gradient(135deg,#1a0533,#2d0a52)', padding: '40px 32px', textAlign: 'center', borderRadius: 20, maxWidth: 1000, margin: '0 auto', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, background: 'radial-gradient(circle,rgba(255,107,0,0.18),transparent 70%)', borderRadius: '50%' }} />
-          <h2 style={{ fontFamily: "'Baloo 2', cursive", fontSize: '2rem', fontWeight: 800, color: 'white', marginBottom: 8 }}>
-            🏆 {t('April Maths Olympiad 2026', 'अप्रैल गणित ओलंपियाड 2026')}
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24, fontSize: '0.95rem' }}>
-            {t('8,420 students registered · ₹5,00,000 prize pool · Classes 6–10', '8,420 छात्र पंजीकृत · ₹5,00,000 पुरस्कार · कक्षा 6–10')}
-          </p>
-          <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginBottom: 28 }}>
-            {[[cd.d, t('DAYS', 'दिन')], [cd.h, t('HOURS', 'घंटे')], [cd.m, t('MINS', 'मिनट')], [cd.s, t('SECS', 'सेकंड')]].map(([n, l], i) => (
-              <div key={i} style={{ textAlign: 'center' }}>
-                <span style={{ fontFamily: "'Baloo 2', cursive", fontSize: '2.2rem', fontWeight: 900, color: '#FF9A3C', background: 'rgba(255,255,255,0.08)', padding: '10px 18px', borderRadius: 12, display: 'block', minWidth: 72 }}>{n}</span>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>{l}</span>
-              </div>
-            ))}
+      <footer className={styles.footer}>
+        <div className={styles.footerInner}>
+          <div>
+            <strong style={{ color: '#fff' }}>VidyaSetu</strong>
+            <div style={{ marginTop: 5 }}>{t('Learning, school operations and connected support.', 'लर्निंग, स्कूल संचालन और जुड़ा हुआ सहयोग।')}</div>
           </div>
-          <button onClick={go} style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: 'none', color: 'white', padding: '13px 36px', fontFamily: "'Baloo 2', cursive", fontWeight: 700, fontSize: '1rem', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 24px rgba(255,107,0,0.5)' }}>
-            {t(sessionActive ? 'Go to Dashboard →' : 'Register Free →', sessionActive ? 'डैशबोर्ड पर जाएँ →' : 'मुफ्त रजिस्टर करें →')}
-          </button>
+          <div className={styles.footerLinks}>
+            <button onClick={() => router.push('/competition')}>{t('Competitions', 'प्रतियोगिताएँ')}</button>
+            <button onClick={() => scrollTo('groups')}>{t('Groups', 'समूह')}</button>
+            <button onClick={() => router.push('/login')}>{t('Login', 'लॉगिन')}</button>
+            <button onClick={() => router.push('/register')}>{t('Create Account', 'खाता बनाएँ')}</button>
+          </div>
         </div>
-      </section>
-
-      {/* ── TESTIMONIALS ── */}
-      <section style={{ padding: '72px 48px', background: 'white' }}>
-        <h2 style={{ fontFamily: "'Baloo 2', cursive", fontSize: '2.2rem', fontWeight: 800, color: '#0D1B3E', textAlign: 'center', marginBottom: 6 }}>
-          {t('What Students & Schools Say', 'छात्र और स्कूल क्या कहते हैं')}
-        </h2>
-        <div style={{ width: 64, height: 4, background: 'linear-gradient(to right,#FF6B00,#FF9A3C)', borderRadius: 4, margin: '8px auto 40px' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(290px,1fr))', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
-          {testimonials.map(([textEn, textHi, name, loc], i) => (
-            <div key={i} style={{ background: 'white', border: '1.5px solid #E5E7F0', borderRadius: 16, padding: '28px 24px', transition: 'box-shadow 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 8px 28px rgba(13,27,62,0.09)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-              <div style={{ color: '#F5C518', marginBottom: 14, fontSize: '1.1rem', letterSpacing: 3 }}>★★★★★</div>
-              <p style={{ color: '#5A6278', fontSize: '0.9rem', lineHeight: 1.75, marginBottom: 20, fontStyle: 'italic' }}>{t(textEn, textHi)}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#FFF3E8,#FFE0C0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', flexShrink: 0 }}>😊</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0D1B3E' }}>{name}</div>
-                  <div style={{ fontSize: '0.76rem', color: '#5A6278', marginTop: 2 }}>{loc}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── FOOTER ── */}
-      <footer style={{ background: '#0D1B3E', padding: '44px 48px', textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Baloo 2', cursive", fontSize: '1.4rem', fontWeight: 800, color: 'white', marginBottom: 20 }}>
-          Vidya<span style={{ color: '#FF6B00' }}>Setu</span>
-        </div>
-        <div style={{ display: 'flex', gap: 28, justifyContent: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-          {['About', 'Privacy', 'Terms', 'Contact', 'CSR / Govt'].map(l => (
-            <a key={l} href="#" style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: '0.85rem', transition: 'color 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#FF9A3C'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}>{l}</a>
-          ))}
-        </div>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem' }}>
-          © 2026 VidyaSetu · Built with ❤️ for Bharat · <span style={{ color: '#FF9A3C' }}>vidyasetu.sbs</span>
-        </p>
       </footer>
     </div>
   );
