@@ -163,14 +163,17 @@ export async function parentAction(parentUserId: UUID, grievanceId: UUID, action
     if (Number(g.reopen_count || 0) >= await reopenLimit()) throw appError('Reopen limit reached. Escalate this concern to Platform Admin.', 409);
     next = 'IN_PROGRESS';
   } else {
-    if (g.status === 'CLOSED') throw appError('Closed concerns cannot be escalated. Reopen it first.', 409);
+    if (g.status === 'ESCALATED') throw appError('This concern is already escalated to Platform Admin', 409);
     next = 'ESCALATED';
   }
   await query(
     `UPDATE parent_grievances SET status=$2::grievance_status,
-       closed_at=CASE WHEN $2::grievance_status='CLOSED'::grievance_status THEN NOW() ELSE closed_at END,
+       closed_at=CASE
+         WHEN $2::grievance_status='CLOSED'::grievance_status THEN NOW()
+         WHEN $2::grievance_status IN ('IN_PROGRESS'::grievance_status,'ESCALATED'::grievance_status) THEN NULL
+         ELSE closed_at END,
        escalated_at=CASE WHEN $2::grievance_status='ESCALATED'::grievance_status THEN NOW() ELSE escalated_at END,
-       resolved_at=CASE WHEN $2::grievance_status='IN_PROGRESS'::grievance_status THEN NULL ELSE resolved_at END,
+       resolved_at=CASE WHEN $2::grievance_status IN ('IN_PROGRESS'::grievance_status,'ESCALATED'::grievance_status) THEN NULL ELSE resolved_at END,
        reopen_count=reopen_count + CASE WHEN $3::text='REOPEN' THEN 1 ELSE 0 END
      WHERE id=$1`, [grievanceId, next, action],
   );
@@ -215,8 +218,11 @@ export async function schoolReply(adminUserId: UUID, grievanceId: UUID, body: st
 export async function schoolAction(adminUserId: UUID, grievanceId: UUID, action: 'ACKNOWLEDGE'|'START'|'RESOLVE', note?: string) {
   const g = await getForSchool(adminUserId, grievanceId);
   if (g.status === 'CLOSED') throw appError('Closed concern cannot be changed', 409);
+  if (g.status === 'ESCALATED') throw appError('Escalated concerns are controlled by Platform Admin. The School may still reply, but cannot downgrade the status.', 409);
   const next: GrievanceStatus = action === 'ACKNOWLEDGE' ? 'ACKNOWLEDGED' : action === 'START' ? 'IN_PROGRESS' : 'RESOLVED';
-  if (action === 'ACKNOWLEDGE' && !['OPEN','ESCALATED'].includes(g.status)) throw appError('Concern cannot be acknowledged from its current status', 409);
+  if (action === 'ACKNOWLEDGE' && g.status !== 'OPEN') throw appError('Only an open concern can be acknowledged', 409);
+  if (action === 'START' && !['OPEN','ACKNOWLEDGED'].includes(g.status)) throw appError('Concern cannot enter review from its current status', 409);
+  if (action === 'RESOLVE' && !['ACKNOWLEDGED','IN_PROGRESS'].includes(g.status)) throw appError('Concern must be acknowledged or in review before resolution', 409);
   if (action === 'RESOLVE' && !note?.trim()) throw appError('Resolution is required', 400);
   await query(
     `UPDATE parent_grievances SET status=$2::grievance_status,
@@ -256,8 +262,11 @@ export async function adminAction(adminUserId: UUID, grievanceId: UUID, status: 
   const g = await getForAdmin(grievanceId);
   await query(
     `UPDATE parent_grievances SET status=$2::grievance_status,
-       resolved_at=CASE WHEN $2::grievance_status='RESOLVED'::grievance_status THEN NOW() ELSE resolved_at END,
-       closed_at=CASE WHEN $2::grievance_status='CLOSED'::grievance_status THEN NOW() ELSE closed_at END,
+       resolved_at=CASE
+         WHEN $2::grievance_status='RESOLVED'::grievance_status THEN NOW()
+         WHEN $2::grievance_status IN ('OPEN'::grievance_status,'ACKNOWLEDGED'::grievance_status,'IN_PROGRESS'::grievance_status,'ESCALATED'::grievance_status) THEN NULL
+         ELSE resolved_at END,
+       closed_at=CASE WHEN $2::grievance_status='CLOSED'::grievance_status THEN NOW() ELSE NULL END,
        escalated_at=CASE WHEN $2::grievance_status='ESCALATED'::grievance_status THEN COALESCE(escalated_at,NOW()) ELSE escalated_at END,
        resolution=CASE WHEN $2::grievance_status='RESOLVED'::grievance_status AND $3::text IS NOT NULL THEN $3::text ELSE resolution END
      WHERE id=$1`,
