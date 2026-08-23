@@ -25,13 +25,25 @@ function optionalLimit(value: unknown): number | undefined {
   return parsed;
 }
 
+function freshLearningResponse(res: Response): void {
+  // Learning content changes through Admin publishing/imports. Until explicit
+  // cache invalidation/versioning is introduced, never let a browser/proxy keep
+  // an old zero-count catalogue after new public content has been published.
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+}
+
 export async function overview(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await learningService.getPublicLearningOverview()); }
-  catch (error: unknown) { next(error); }
+  try {
+    freshLearningResponse(res);
+    return R.ok(res, await learningService.getPublicLearningOverview());
+  } catch (error: unknown) { next(error); }
 }
 
 export async function resources(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
+    freshLearningResponse(res);
     return R.ok(res, await learningService.listPublicLearningResources({
       className: optionalClass(req.query.class),
       gradeCode: optionalText(req.query.grade),
@@ -44,17 +56,22 @@ export async function resources(req: Request, res: Response, next: NextFunction)
 }
 
 export async function resource(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await learningService.getPublicLearningResource(req.params.slug)); }
-  catch (error: unknown) { next(error); }
+  try {
+    freshLearningResponse(res);
+    return R.ok(res, await learningService.getPublicLearningResource(req.params.slug));
+  } catch (error: unknown) { next(error); }
 }
 
 export async function sources(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await learningService.listLearningSources()); }
-  catch (error: unknown) { next(error); }
+  try {
+    freshLearningResponse(res);
+    return R.ok(res, await learningService.listLearningSources());
+  } catch (error: unknown) { next(error); }
 }
 
 export async function assessments(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
+    freshLearningResponse(res);
     return R.ok(res, await practiceService.listPublicAssessments({
       className: optionalClass(req.query.class),
       board: optionalText(req.query.board),
@@ -65,6 +82,8 @@ export async function assessments(req: Request, res: Response, next: NextFunctio
 }
 
 export async function assessment(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await practiceService.getPublicAssessment(req.params.slug)); }
-  catch (error: unknown) { next(error); }
+  try {
+    freshLearningResponse(res);
+    return R.ok(res, await practiceService.getPublicAssessment(req.params.slug));
+  } catch (error: unknown) { next(error); }
 }
