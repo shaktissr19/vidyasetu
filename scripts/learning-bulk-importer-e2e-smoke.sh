@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 API_BASE="${API_BASE:-http://127.0.0.1:5000/api/v1}"
 ADMIN_MOBILE="${ADMIN_MOBILE:-9000000000}"
+EARLY_STUDENT_MOBILE="${EARLY_STUDENT_MOBILE:-9888800023}"
 
 fail(){ printf 'FAILED: %s\n' "$*" >&2; exit 1; }
 log(){ printf '\n==> %s\n' "$*"; }
@@ -12,6 +13,14 @@ login_admin(){
   send="$(curl -fsS -X POST "$API_BASE/auth/send-otp" -H 'Content-Type: application/json' -d "{\"mobile\":\"$ADMIN_MOBILE\",\"role\":\"SUPER_ADMIN\"}")"
   otp="$(jq -er '.data.otp' <<<"$send")"
   response="$(curl -fsS -X POST "$API_BASE/auth/verify-otp" -H 'Content-Type: application/json' -d "{\"mobile\":\"$ADMIN_MOBILE\",\"otp\":\"$otp\",\"role\":\"SUPER_ADMIN\"}")"
+  jq -er '.data.accessToken' <<<"$response"
+}
+
+login_new_student(){
+  local mobile="$1" send otp response
+  send="$(curl -fsS -X POST "$API_BASE/auth/send-otp" -H 'Content-Type: application/json' -d "{\"mobile\":\"$mobile\",\"role\":\"STUDENT\"}")"
+  otp="$(jq -er '.data.otp' <<<"$send")"
+  response="$(curl -fsS -X POST "$API_BASE/auth/verify-otp" -H 'Content-Type: application/json' -d "{\"mobile\":\"$mobile\",\"otp\":\"$otp\",\"role\":\"STUDENT\"}")"
   jq -er '.data.accessToken' <<<"$response"
 }
 
@@ -69,8 +78,20 @@ jq -e '.data.status=="COMPLETED" and .data.imported_rows==1' <<<"$EY_COMMIT" >/d
 curl -fsS "$API_BASE/public/learning/resources?grade=PRE_NURSERY&limit=100" | jq -e '.data | any(.title=="Let us learn primary colours")' >/dev/null || fail "Pre-Nursery resource missing after import"
 curl -fsS "$API_BASE/public/learning/resources?grade=NURSERY&limit=100" | jq -e '.data | any(.title=="Let us learn primary colours")' >/dev/null || fail "Nursery mapping missing after import"
 
+log "Logged-in Pre-Nursery learner receives canonical early-years Learning, not Class 8 content"
+EARLY_TOKEN="$(login_new_student "$EARLY_STUDENT_MOBILE")"
+EARLY_AUTH=(-H "Authorization: Bearer $EARLY_TOKEN")
+curl -fsS -X POST "${EARLY_AUTH[@]}" "$API_BASE/student/profile/complete" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Importer Early Learner","language":"en","gradeLevel":"PN"}' \
+  | jq -e '.success==true and .data.student.gradeLevel=="PN"' >/dev/null || fail "Could not create Pre-Nursery Student profile"
+EARLY_HOME="$(curl -fsS "${EARLY_AUTH[@]}" "$API_BASE/student/learning/home")"
+jq -e '.data.learner.gradeCode=="PRE_NURSERY" and .data.learner.gradeLabel=="Pre-Nursery"' <<<"$EARLY_HOME" >/dev/null || fail "Student Learning did not resolve Pre-Nursery canonical grade"
+jq -e '.data.recommendedResources | any(.title=="Let us learn primary colours")' <<<"$EARLY_HOME" >/dev/null || fail "Imported early-years resource was not recommended to Pre-Nursery learner"
+jq -e '.data.recommendedResources | all(.title!="Class 8 Science Quick Guide")' <<<"$EARLY_HOME" >/dev/null || fail "Class 8 content leaked into Pre-Nursery recommendations"
+jq -e '.data.assessments | length==0' <<<"$EARLY_HOME" >/dev/null || fail "Formal scored assessments must not be recommended to Pre-Nursery learners"
+
 log "Question rows are mapped to canonical grades"
-# Imported sample question is REGISTERED, so validate through Admin/DB-backed listing rather than public resources.
 QUESTIONS="$(curl -fsS "${AUTH[@]}" "$API_BASE/admin/learning/questions")"
 jq -e '.data | any(.public_code=="VSC5M-Q001") and any(.public_code=="VSC8M-Q001")' <<<"$QUESTIONS" >/dev/null || fail "Imported Class 5/Class 8 questions missing"
 
