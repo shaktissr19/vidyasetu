@@ -19,6 +19,7 @@ import doubtRoutes = require('./routes/doubt.routes');
 import aiRoutes = require('./routes/ai.routes');
 import groupRoutes = require('./routes/group.routes');
 import publicRoutes = require('./routes/public.routes');
+import publicLearningRoutes = require('./routes/publicLearning.routes');
 import schoolGrievanceRoutes = require('./routes/schoolGrievance.routes');
 import adminGrievanceRoutes = require('./routes/adminGrievance.routes');
 
@@ -47,6 +48,7 @@ app.get('/health', (_req, res) => {
 });
 
 const API = '/api/v1';
+app.use(`${API}/public/learning`, publicLearningRoutes);
 app.use(`${API}/public`, publicRoutes);
 app.use(`${API}/auth`, authRoutes);
 app.use(`${API}/student`, studentRoutes);
