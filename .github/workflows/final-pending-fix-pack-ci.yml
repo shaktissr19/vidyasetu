@@ -1,0 +1,176 @@
+name: Final Pending Fix Pack CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-fix-pack:
+    name: Auth fallback, Learning UX and richer public data
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate final UX and auth contracts
+        run: |
+          test -s database/migrations/025_learning_public_validation_pack.sql
+          test -s frontend/src/app/learn/library/page.tsx
+          test -s frontend/src/components/public/PublicLearningCatalogue.tsx
+          grep -q "INITIAL_RESOURCE_LIMIT = 6" frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -q "MAX_HOME_RESOURCE_LIMIT = 24" frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -q "View all learning" frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -q "heroCanvas" frontend/src/components/public/PublicLearningLibrary.tsx
+          ! grep -q "heroLeft" frontend/src/components/public/PublicLearningLibrary.tsx
+          ! grep -q "SymbolicArtwork" frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -q "HERO_PALETTES" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "student:" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "parent:" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "school:" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "teacher:" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "admin:" frontend/src/components/public/PublicModulePage.tsx
+          bash scripts/otp-auth-contract-smoke.sh
+          bash -n scripts/provision-production-demo-logins.sh
+          bash -n scripts/production-auth-data-audit.sh
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+
+      - name: Typecheck and production-build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/020_learning_platform_foundation.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/021_learning_original_academic_starter.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/022_learning_practice_personalization.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/023_global_learning_bulk_importer.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/024_student_global_grade_sync.sql
+
+      - name: Apply validation content pack twice to prove idempotence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for pass in 1 2; do
+            echo "Validation pack pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/025_learning_public_validation_pack.sql
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE id::text LIKE '89500000-0000-0000-0000-%';")" -eq 16
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 28
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources lr JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE egl.code='CLASS_5' AND lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED';")" -ge 5
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources lr JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE egl.code='CLASS_8' AND lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED';")" -ge 8
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources lr JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE egl.code='PRE_NURSERY' AND lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED';")" -ge 2
+
+      - name: Start compiled backend
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: final_fix_pack_access_secret_2026
+          JWT_REFRESH_SECRET: final_fix_pack_refresh_secret_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vs-final-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5000/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vs-final-api.log
+          exit 1
+
+      - name: Certify bounded Learning API preview and richer grades
+        run: |
+          curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?grade=CLASS_5&limit=6' > /tmp/class5.json
+          jq -e '.success == true and (.data | length) >= 5 and (.data | length) <= 6' /tmp/class5.json >/dev/null
+          curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?grade=CLASS_8&limit=6' > /tmp/class8.json
+          jq -e '.success == true and (.data | length) == 6' /tmp/class8.json >/dev/null
+          curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?grade=PRE_NURSERY&limit=6' > /tmp/early.json
+          jq -e '.success == true and (.data | length) >= 2' /tmp/early.json >/dev/null
+
+      - name: Start frontend and smoke new public routes
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          PORT: '3000'
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vs-final-web.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:3000/learn >/dev/null && break
+            sleep 1
+          done
+          for route in /learn '/learn?grade=CLASS_5' '/learn?grade=CLASS_8&category=ACADEMIC' '/learn/library' '/learn/library?grade=CLASS_8' /for-students /for-schools /for-parents /platform-admin; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$route")"
+            printf '%-64s %s\n' "$route" "$code"
+            [[ "$code" =~ ^(200|301|302|307|308)$ ]]
+          done
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          cat /tmp/vs-final-api.log 2>/dev/null || true
+          cat /tmp/vs-final-web.log 2>/dev/null || true
