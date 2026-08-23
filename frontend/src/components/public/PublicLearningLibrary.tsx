@@ -338,7 +338,7 @@ export default function PublicLearningLibrary() {
       <section className={styles.hero}>
         <div className={styles.heroLeft}>
           <div className={styles.heroInner}>
-            <div className={styles.kicker}>VIDYASETU LEARNING · PRE-NURSERY TO CLASS 12 · CROSS-BOARD</div>
+            <div className={styles.kicker}>VidyaSetu Learning · Pre-Nursery to Class 12 · Cross-board</div>
             <h1>Learn with clarity.<br /><span>Practise with purpose.</span><br />Grow for life.</h1>
             <p>
               Academic concepts, practice, reading, video and question papers—alongside the study habits,
