@@ -88,7 +88,7 @@ export default function Navbar() {
           fontWeight: 700, cursor: 'pointer', flexShrink: 0,
         }}
       >
-        {lang === 'hi' ? 'EN' : 'हि'}
+        {lang === 'hi' ? 'EN' : 'हिंदी'}
       </button>
 
       {!isLoggedIn ? (

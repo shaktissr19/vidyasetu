@@ -5,15 +5,19 @@ function requestIpKey(req: { ip?: string; socket: { remoteAddress?: string } }):
 }
 
 export const otpLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 3,
+  windowMs: 10 * 60 * 1000,
+  max: 5,
   keyGenerator: (req) => {
     const mobile = typeof req.body?.mobile === 'string' ? req.body.mobile : undefined;
     return mobile || requestIpKey(req);
   },
+  // Do not burn a user's OTP quota when validation or the SMS provider fails.
+  // Successful sends remain limited to five per ten-minute window, while the
+  // frontend also enforces the normal 30-second resend cooldown.
+  skipFailedRequests: true,
   message: {
     success: false,
-    error: { code: 'RATE_LIMIT', message: 'Too many OTP requests. Try again in 1 hour.' },
+    error: { code: 'RATE_LIMIT', message: 'Too many OTP requests. Try again in 10 minutes.' },
   },
   standardHeaders: true,
   legacyHeaders: false,

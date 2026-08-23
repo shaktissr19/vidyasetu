@@ -1,0 +1,199 @@
+name: Auth Production Repair CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-production-repair:
+    name: OTP failure recovery, demo passwords and login UI
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Certify auth contracts and shell scripts
+        run: |
+          bash -n scripts/provision-production-demo-logins.sh
+          bash -n scripts/production-auth-data-audit.sh
+          bash -n scripts/otp-provider-preflight.sh
+          bash -n scripts/otp-auth-contract-smoke.sh
+          bash scripts/otp-auth-contract-smoke.sh
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+
+      - name: Start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable demo database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+
+      - name: Provision five canonical demo passwords in disposable DB
+        env:
+          PROJECT_DIR: ${{ github.workspace }}
+          BACKEND_ENV: /tmp/vidyasetu-demo-auth.env
+          BACKUP_DIR: /tmp/vidyasetu-demo-backups
+          CREDENTIALS_DIR: /tmp/vidyasetu-demo-credentials
+          ALLOW_NON_ROOT: '1'
+          SKIP_BACKUP: '1'
+          DEMO_PLATFORM_ADMIN_PASSWORD: AdminDemo2026!
+          DEMO_SCHOOL_ADMIN_PASSWORD: SchoolDemo2026!
+          DEMO_TEACHER_PASSWORD: TeacherDemo2026!
+          DEMO_STUDENT_PASSWORD: StudentDemo2026!
+          DEMO_PARENT_PASSWORD: ParentDemo2026!
+        run: |
+          cat > /tmp/vidyasetu-demo-auth.env <<'ENV'
+          DB_HOST=127.0.0.1
+          DB_PORT=5432
+          DB_NAME=vidyasetu_db
+          DB_USER=postgres
+          DB_PASSWORD=postgres
+          REDIS_URL=redis://127.0.0.1:6379
+          ENV
+          bash scripts/provision-production-demo-logins.sh
+          grep -q 'Login ID: vidyasetu.admin' /tmp/vidyasetu-demo-credentials/demo-logins-*.txt
+          grep -q 'Login ID: ramesh.kumar' /tmp/vidyasetu-demo-credentials/demo-logins-*.txt
+          grep -q 'Login ID: anil.verma' /tmp/vidyasetu-demo-credentials/demo-logins-*.txt
+          grep -q 'Login ID: aarav.sharma' /tmp/vidyasetu-demo-credentials/demo-logins-*.txt
+          grep -q 'Login ID: rajesh.sharma' /tmp/vidyasetu-demo-credentials/demo-logins-*.txt
+
+      - name: Start compiled test backend
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: auth_repair_ci_access_secret_2026
+          JWT_REFRESH_SECRET: auth_repair_ci_refresh_secret_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-auth-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5000/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vidyasetu-auth-api.log
+          exit 1
+
+      - name: Password login works for all five roles
+        run: |
+          login_role() {
+            local identifier="$1" password="$2" role="$3"
+            curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/login \
+              -H 'Content-Type: application/json' \
+              -d "$(jq -nc --arg i "$identifier" --arg p "$password" '{identifier:$i,password:$p,deviceInfo:"auth-repair-ci"}')" \
+              | jq -e --arg role "$role" '.success == true and .data.user.role == $role and (.data.accessToken | length > 20)' >/dev/null
+          }
+
+          login_role vidyasetu.admin 'AdminDemo2026!' SUPER_ADMIN
+          login_role ramesh.kumar 'SchoolDemo2026!' SCHOOL_ADMIN
+          login_role anil.verma 'TeacherDemo2026!' TEACHER
+          login_role aarav.sharma 'StudentDemo2026!' STUDENT
+          login_role rajesh.sharma 'ParentDemo2026!' PARENT
+
+      - name: Production SMS failures stay actionable and do not consume quota
+        working-directory: backend
+        env:
+          PORT: '5001'
+          NODE_ENV: production
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: auth_repair_prod_access_secret_2026
+          JWT_REFRESH_SECRET: auth_repair_prod_refresh_secret_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-auth-prod-mock-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5001/health >/dev/null && break
+            sleep 1
+          done
+
+          for attempt in 1 2 3 4; do
+            code="$(curl -sS -o /tmp/otp-failure.json -w '%{http_code}' \
+              -X POST http://127.0.0.1:5001/api/v1/auth/send-otp \
+              -H 'Content-Type: application/json' \
+              -d '{"mobile":"9300000001","role":"STUDENT"}')"
+            test "$code" = '503'
+            jq -e '.success == false and .error.code == "SERVICE_UNAVAILABLE" and (.error.message | contains("OTP SMS service is temporarily unavailable"))' /tmp/otp-failure.json >/dev/null
+          done
+
+      - name: Typecheck and build frontend with corrected login UI
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/GlobalTopbar.tsx
+          grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/Navbar.tsx
+          grep -Fq "role === 'SUPER_ADMIN' ? 'Platform Admin' : role.replaceAll('_', ' ').toLowerCase()" 'src/app/(auth)/login/page.tsx'
