@@ -124,7 +124,11 @@ CREATE INDEX IF NOT EXISTS idx_learning_import_rows_batch ON learning_import_row
 CREATE INDEX IF NOT EXISTS idx_learning_import_rows_validation ON learning_import_rows(batch_id, validation_status);
 
 ALTER TABLE learning_resources ADD COLUMN IF NOT EXISTS import_batch_id UUID REFERENCES learning_import_batches(id) ON DELETE SET NULL;
+ALTER TABLE learning_resources ADD COLUMN IF NOT EXISTS import_key VARCHAR(180);
 ALTER TABLE learning_questions ADD COLUMN IF NOT EXISTS import_batch_id UUID REFERENCES learning_import_batches(id) ON DELETE SET NULL;
+ALTER TABLE learning_questions ADD COLUMN IF NOT EXISTS import_key VARCHAR(180);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_learning_resources_import_key ON learning_resources(import_key) WHERE import_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_learning_questions_import_key ON learning_questions(import_key) WHERE import_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_learning_resources_import_batch ON learning_resources(import_batch_id) WHERE import_batch_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_learning_questions_import_batch ON learning_questions(import_batch_id) WHERE import_batch_id IS NOT NULL;
 
@@ -154,5 +158,7 @@ COMMENT ON TABLE education_grade_levels IS 'Canonical VidyaSetu grade catalogue 
 COMMENT ON TABLE learning_import_batches IS 'Admin-only staged bulk Learning imports with validation and audit history.';
 COMMENT ON TABLE learning_import_rows IS 'Per-row normalized payload, warnings/errors and resulting Learning object IDs.';
 COMMENT ON COLUMN students.grade_code IS 'Canonical grade code such as PRE_NURSERY, LKG, CLASS_5 or CLASS_12; grade_level is retained for backward compatibility.';
+COMMENT ON COLUMN learning_resources.import_key IS 'Idempotent external/admin import key used by the global Learning bulk importer.';
+COMMENT ON COLUMN learning_questions.import_key IS 'Idempotent external/admin import key used by the global Learning bulk importer.';
 
 COMMIT;
