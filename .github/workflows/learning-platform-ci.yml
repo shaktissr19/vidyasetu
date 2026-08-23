@@ -35,11 +35,13 @@ jobs:
           test -s database/migrations/021_learning_original_academic_starter.sql
           test -s database/migrations/022_learning_practice_personalization.sql
           test -s database/migrations/023_global_learning_bulk_importer.sql
+          test -s database/migrations/024_student_global_grade_sync.sql
           grep -q "PRE_NURSERY" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "CLASS_12" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "learning_import_batches" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "learning_import_rows" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "import_key" database/migrations/023_global_learning_bulk_importer.sql
+          grep -q "sync_student_grade_code" database/migrations/024_student_global_grade_sync.sql
           grep -q "Global Learning Bulk Importer" 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
           grep -q "Pre-Nursery to Class 12" frontend/src/components/public/PublicLearningLibrary.tsx
           test -s 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
@@ -103,6 +105,7 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/021_learning_original_academic_starter.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/022_learning_practice_personalization.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/023_global_learning_bulk_importer.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/024_student_global_grade_sync.sql
           done
 
       - name: Validate global Learning database invariants
@@ -116,6 +119,8 @@ jobs:
           for grade in PRE_NURSERY NURSERY LKG UKG CLASS_1 CLASS_5 CLASS_8 CLASS_12; do
             test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM education_grade_levels WHERE code='$grade' AND is_active=TRUE;")" -eq 1
           done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT vidyasetu_grade_code_from_legacy('PN');")" = "PRE_NURSERY"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT vidyasetu_grade_code_from_legacy('8');")" = "CLASS_8"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 12
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_questions WHERE review_status='PUBLISHED';")" -ge 8
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT requires_item_license_check FROM learning_content_sources WHERE code='NROER';")" = "t"
