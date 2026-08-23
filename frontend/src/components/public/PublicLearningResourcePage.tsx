@@ -8,7 +8,7 @@ import { getPublicLearningResource, type PublicLearningResource } from '@/servic
 import styles from './publicLearning.module.css';
 
 function renderBody(body?: string | null): ReactNode[] {
-  if (!body) return [<p key="empty">This learning resource does not have article text yet.</p>];
+  if (!body) return [];
   return body.split('\n').reduce<ReactNode[]>((nodes, raw, index) => {
     const line = raw.trim();
     if (!line) return nodes;
@@ -59,6 +59,7 @@ export default function PublicLearningResourcePage() {
   }
 
   const isExternal = resource.resource_type === 'EXTERNAL_LINK' && (resource.external_url || resource.source_url);
+  const textBody = renderBody(resource.body_markdown);
 
   return (
     <div className={styles.page}>
@@ -77,7 +78,7 @@ export default function PublicLearningResourcePage() {
       </section>
 
       <article className={styles.article}>
-        {resource.resource_type === 'ARTICLE' ? renderBody(resource.body_markdown) : (
+        {textBody.length > 0 ? textBody : (
           <>
             <h2>Learning resource</h2>
             <p>{resource.summary || 'Use the source link below to open this learning resource.'}</p>
@@ -99,7 +100,7 @@ export default function PublicLearningResourcePage() {
         <div className={styles.cta}>
           <div>
             <strong>Continue with personalised learning</strong>
-            <p>Student accounts will connect class, school, board, progress, practice and offline learning.</p>
+            <p>Student accounts connect class, school, board, progress, practice and offline learning.</p>
           </div>
           <div className={styles.actions}>
             <Link className={styles.primary} href="/login?role=student">Student login</Link>
