@@ -47,6 +47,81 @@ export interface PublicSchool {
   classes: number;
 }
 
+export type LearningCategory =
+  | 'ACADEMIC'
+  | 'MOTIVATION'
+  | 'STUDY_SKILLS'
+  | 'WORK_ETHIC'
+  | 'SOCIAL_RESPONSIBILITY'
+  | 'LIFE_SKILLS'
+  | 'WELLBEING'
+  | 'CAREER_AWARENESS'
+  | 'DIGITAL_CITIZENSHIP';
+
+export interface PublicLearningBoard {
+  code: string;
+  name: string;
+  short_name?: string | null;
+  board_type: 'COMMON' | 'NATIONAL' | 'STATE' | 'OTHER';
+  state?: string | null;
+}
+
+export interface PublicLearningOverview {
+  totalResources: number;
+  originalResources: number;
+  openResources: number;
+  featuredResources: number;
+  boards: PublicLearningBoard[];
+  categories: Array<{ category: LearningCategory; count: number }>;
+  classes: Array<{ className: number; resourceCount: number }>;
+}
+
+export interface PublicLearningResource {
+  id: string;
+  public_slug: string;
+  title: string;
+  title_hi?: string | null;
+  summary?: string | null;
+  summary_hi?: string | null;
+  body_markdown?: string | null;
+  body_markdown_hi?: string | null;
+  resource_type: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
+  category: LearningCategory;
+  language: string;
+  class_min?: number | null;
+  class_max?: number | null;
+  thumbnail_url?: string | null;
+  duration_secs?: number | null;
+  is_featured_public?: boolean;
+  published_at?: string | null;
+  external_url?: string | null;
+  source_url?: string | null;
+  source_code: string;
+  source_name: string;
+  source_kind: string;
+  source_homepage?: string | null;
+  licence: string;
+  licence_url?: string | null;
+  attribution_text?: string | null;
+  board_codes?: string[];
+  subject_name?: string | null;
+  subject_code?: string | null;
+  is_offline_ready?: boolean;
+}
+
+export interface PublicLearningSource {
+  code: string;
+  name: string;
+  source_kind: string;
+  homepage_url?: string | null;
+  default_license: string;
+  attribution_required: boolean;
+  allow_rehosting_default: boolean;
+  allow_adaptation_default: boolean;
+  requires_item_license_check: boolean;
+  notes?: string | null;
+}
+
 export const getPublicOverview = () =>
   api.get<ApiEnvelope<PublicOverview>>('/public/overview');
 
@@ -55,3 +130,20 @@ export const getPublicCompetitions = () =>
 
 export const getPublicSchools = () =>
   api.get<ApiEnvelope<PublicSchool[]>>('/public/schools');
+
+export const getPublicLearningOverview = () =>
+  api.get<ApiEnvelope<PublicLearningOverview>>('/public/learning/overview');
+
+export const getPublicLearningResources = (params?: {
+  class?: number;
+  category?: LearningCategory | string;
+  board?: string;
+  featured?: boolean;
+  limit?: number;
+}) => api.get<ApiEnvelope<PublicLearningResource[]>>('/public/learning/resources', { params });
+
+export const getPublicLearningResource = (slug: string) =>
+  api.get<ApiEnvelope<PublicLearningResource>>(`/public/learning/resources/${encodeURIComponent(slug)}`);
+
+export const getPublicLearningSources = () =>
+  api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources');
