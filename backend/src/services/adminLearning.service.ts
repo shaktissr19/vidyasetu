@@ -54,9 +54,19 @@ function slugify(value: string): string {
     .slice(0, 160) || `learning-${Date.now()}`;
 }
 
+function isNroerUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase().replace(/\.$/, '');
+    return hostname === 'nroer.gov.in' || hostname.endsWith('.nroer.gov.in');
+  } catch {
+    return false;
+  }
+}
+
 function assertSourcePolicy(input: SaveLearningResourceInput, source: SourceRow): void {
   if (source.code === 'NROER') {
     if (!input.sourceUrl?.trim()) throw badRequest('NROER resources require the original source URL.');
+    if (!isNroerUrl(input.sourceUrl)) throw badRequest('NROER resources require an original nroer.gov.in source URL.');
     if (!input.attributionText?.trim()) throw badRequest('NROER resources require attribution text.');
     if (!['CC_BY', 'CC_BY_SA', 'PUBLIC_DOMAIN', 'EXTERNAL_LINK_ONLY'].includes(input.licence)) {
       throw badRequest('NROER resources must use a verified open licence or EXTERNAL_LINK_ONLY.');

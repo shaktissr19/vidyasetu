@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as learningService from '../services/publicLearning.service';
+import * as practiceService from '../services/publicLearningPractice.service';
 import * as R from '../utils/response';
 
 function optionalText(value: unknown): string | null {
@@ -24,23 +25,12 @@ function optionalLimit(value: unknown): number | undefined {
   return parsed;
 }
 
-export async function overview(
-  _req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    return R.ok(res, await learningService.getPublicLearningOverview());
-  } catch (error: unknown) {
-    next(error);
-  }
+export async function overview(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await learningService.getPublicLearningOverview()); }
+  catch (error: unknown) { next(error); }
 }
 
-export async function resources(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
+export async function resources(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     return R.ok(res, await learningService.listPublicLearningResources({
       className: optionalClass(req.query.class),
@@ -49,31 +39,31 @@ export async function resources(
       limit: optionalLimit(req.query.limit),
       featuredOnly: req.query.featured === 'true',
     }));
-  } catch (error: unknown) {
-    next(error);
-  }
+  } catch (error: unknown) { next(error); }
 }
 
-export async function resource(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    return R.ok(res, await learningService.getPublicLearningResource(req.params.slug));
-  } catch (error: unknown) {
-    next(error);
-  }
+export async function resource(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await learningService.getPublicLearningResource(req.params.slug)); }
+  catch (error: unknown) { next(error); }
 }
 
-export async function sources(
-  _req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
+export async function sources(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await learningService.listLearningSources()); }
+  catch (error: unknown) { next(error); }
+}
+
+export async function assessments(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
-    return R.ok(res, await learningService.listLearningSources());
-  } catch (error: unknown) {
-    next(error);
-  }
+    return R.ok(res, await practiceService.listPublicAssessments({
+      className: optionalClass(req.query.class),
+      board: optionalText(req.query.board),
+      type: optionalText(req.query.type),
+      limit: optionalLimit(req.query.limit),
+    }));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function assessment(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await practiceService.getPublicAssessment(req.params.slug)); }
+  catch (error: unknown) { next(error); }
 }

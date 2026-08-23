@@ -122,28 +122,51 @@ export interface PublicLearningSource {
   notes?: string | null;
 }
 
-export const getPublicOverview = () =>
-  api.get<ApiEnvelope<PublicOverview>>('/public/overview');
+export interface PublicLearningAssessment {
+  id: string;
+  public_slug: string;
+  title: string;
+  title_hi?: string | null;
+  summary?: string | null;
+  assessment_type: 'PRACTICE' | 'CHAPTER_TEST' | 'UNIT_TEST' | 'MOCK' | 'DAILY';
+  class_min?: number | null;
+  class_max?: number | null;
+  time_limit_mins?: number | null;
+  passing_pct: number;
+  is_featured_public?: boolean;
+  subject_name?: string | null;
+  subject_code?: string | null;
+  question_count: number;
+  total_marks: number;
+  board_codes: string[];
+}
 
-export const getPublicCompetitions = () =>
-  api.get<ApiEnvelope<PublicCompetition[]>>('/competition');
+export interface PublicLearningQuestion {
+  id: string;
+  public_code: string;
+  prompt: string;
+  prompt_hi?: string | null;
+  question_type: string;
+  difficulty: string;
+  marks: number;
+  options: Array<{ key: string; text: string; textHi?: string | null }>;
+}
 
-export const getPublicSchools = () =>
-  api.get<ApiEnvelope<PublicSchool[]>>('/public/schools');
+export interface PublicLearningAssessmentDetail extends PublicLearningAssessment {
+  questions: PublicLearningQuestion[];
+  anonymousMode: boolean;
+  message: string;
+}
 
-export const getPublicLearningOverview = () =>
-  api.get<ApiEnvelope<PublicLearningOverview>>('/public/learning/overview');
-
-export const getPublicLearningResources = (params?: {
-  class?: number;
-  category?: LearningCategory | string;
-  board?: string;
-  featured?: boolean;
-  limit?: number;
-}) => api.get<ApiEnvelope<PublicLearningResource[]>>('/public/learning/resources', { params });
-
-export const getPublicLearningResource = (slug: string) =>
-  api.get<ApiEnvelope<PublicLearningResource>>(`/public/learning/resources/${encodeURIComponent(slug)}`);
-
-export const getPublicLearningSources = () =>
-  api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources');
+export const getPublicOverview = () => api.get<ApiEnvelope<PublicOverview>>('/public/overview');
+export const getPublicCompetitions = () => api.get<ApiEnvelope<PublicCompetition[]>>('/competition');
+export const getPublicSchools = () => api.get<ApiEnvelope<PublicSchool[]>>('/public/schools');
+export const getPublicLearningOverview = () => api.get<ApiEnvelope<PublicLearningOverview>>('/public/learning/overview');
+export const getPublicLearningResources = (params?: { class?: number; category?: LearningCategory | string; board?: string; featured?: boolean; limit?: number }) =>
+  api.get<ApiEnvelope<PublicLearningResource[]>>('/public/learning/resources', { params });
+export const getPublicLearningResource = (slug: string) => api.get<ApiEnvelope<PublicLearningResource>>(`/public/learning/resources/${encodeURIComponent(slug)}`);
+export const getPublicLearningSources = () => api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources');
+export const getPublicLearningAssessments = (params?: { class?: number; board?: string; type?: string; limit?: number }) =>
+  api.get<ApiEnvelope<PublicLearningAssessment[]>>('/public/learning/assessments', { params });
+export const getPublicLearningAssessment = (slug: string) =>
+  api.get<ApiEnvelope<PublicLearningAssessmentDetail>>(`/public/learning/assessments/${encodeURIComponent(slug)}`);

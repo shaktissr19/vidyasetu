@@ -21,12 +21,14 @@ const completeProfileSchema = z.object({
   parentRelation: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'PARENT']).optional(),
 }).superRefine((value, ctx) => {
   if (value.schoolId && !value.classId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['classId'],
-      message: 'Class/section is required when a school is selected',
-    });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['classId'], message: 'Class/section is required when a school is selected' });
   }
+});
+
+const learningProgressSchema = z.object({ progressPct: z.number().min(0).max(100) });
+const learningSubmitSchema = z.object({
+  answers: z.array(z.object({ questionId: z.string().uuid(), answer: z.unknown() })).max(200),
+  timeSpentSecs: z.number().int().min(0).max(86400).nullable().optional(),
 });
 
 router.use(authenticate);
@@ -42,6 +44,16 @@ router.get('/attendance', ctrl.getAttendance);
 router.get('/attendance/:year/:month', ctrl.getAttendance);
 router.get('/report-card', ctrl.getReportCard);
 router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
+
+router.get('/learning/home', ctrl.getLearningHome);
+router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), ctrl.updateLearningResourceProgress);
+router.post('/learning/resources/:resourceId/bookmark', ctrl.addLearningBookmark);
+router.delete('/learning/resources/:resourceId/bookmark', ctrl.removeLearningBookmark);
+router.get('/learning/assessments', ctrl.getLearningAssessments);
+router.get('/learning/assessments/:assessmentId', ctrl.getLearningAssessment);
+router.post('/learning/assessments/:assessmentId/start', ctrl.startLearningAssessment);
+router.post('/learning/attempts/:attemptId/submit', validate(learningSubmitSchema), ctrl.submitLearningAssessment);
+
 router.get('/notifications', ctrl.getNotifications);
 router.patch('/notifications/:id/read', ctrl.markNotifRead);
 router.get('/offline-downloads', ctrl.getOfflineDownloads);

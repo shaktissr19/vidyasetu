@@ -1,8 +1,8 @@
-name: Learning Platform Phase 1 CI
+name: Learning Platform Phase 2 CI
 
 on:
   push:
-    branches: [learning-platform-phase1]
+    branches: [learning-platform-phase2]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,9 +12,9 @@ permissions:
 
 jobs:
   learning-platform-certification:
-    name: Cross-board learning, source governance and public library E2E
+    name: Cross-board learning, practice, progress and OER governance E2E
     runs-on: ubuntu-22.04
-    timeout-minutes: 55
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -28,18 +28,22 @@ jobs:
       - name: Validate Learning Platform contracts
         run: |
           bash -n scripts/learning-platform-e2e-smoke.sh
+          bash -n scripts/learning-platform-phase2-e2e-smoke.sh
+          test -s database/migrations/014_student_identity_enrollment.sql
           test -s database/migrations/020_learning_platform_foundation.sql
           test -s database/migrations/021_learning_original_academic_starter.sql
-          grep -q "VIDYASETU_ORIGINAL" database/migrations/020_learning_platform_foundation.sql
-          grep -q "NROER" database/migrations/020_learning_platform_foundation.sql
-          grep -q "requires_item_license_check" database/migrations/020_learning_platform_foundation.sql
-          grep -q "QUESTION_PAPER" database/migrations/021_learning_original_academic_starter.sql
-          grep -q "\['Learn', '/learn'\]" frontend/src/components/layout/GlobalTopbar.tsx
-          grep -q "Start learning on VidyaSetu" frontend/src/components/public/PublicHomeExperience.tsx
-          grep -q "Browse learning by class and board" frontend/src/components/public/PublicLearningLibrary.tsx
-          test -s frontend/src/app/learn/page.tsx
-          test -s 'frontend/src/app/learn/resource/[slug]/page.tsx'
-          test -s 'frontend/src/app/(admin)/admin/learning/page.tsx'
+          test -s database/migrations/022_learning_practice_personalization.sql
+          grep -q "student_code" database/migrations/014_student_identity_enrollment.sql
+          grep -q "learning_questions" database/migrations/022_learning_practice_personalization.sql
+          grep -q "student_learning_attempts" database/migrations/022_learning_practice_personalization.sql
+          grep -q "learning_source_intake" database/migrations/022_learning_practice_personalization.sql
+          grep -q "NROER" database/migrations/022_learning_practice_personalization.sql
+          grep -q "getStudentLearningHome" frontend/src/services/studentService.ts
+          grep -q "Free practice & self-assessment" frontend/src/components/public/PublicLearningLibrary.tsx
+          test -s 'frontend/src/app/learn/practice/[slug]/page.tsx'
+          test -s 'frontend/src/app/(admin)/admin/learning/practice/page.tsx'
+          test -s 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'
+          bash scripts/admin-route-contract-smoke.sh
 
       - name: Build shared contracts
         working-directory: shared/contracts
@@ -78,12 +82,17 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build disposable database
+      - name: Build disposable database with Student identity contract
         env:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          # The legacy base bundle predates migration 014. Apply the already-established
+          # Student identity migration so the disposable DB matches current auth/session code.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='students' AND column_name='student_code');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE student_code IS NOT NULL AND grade_level IS NOT NULL;")" -ge 1
 
       - name: Apply Learning Platform migrations twice to prove idempotence
         env:
@@ -93,18 +102,20 @@ jobs:
             echo "Learning migration pass $pass"
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/020_learning_platform_foundation.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/021_learning_original_academic_starter.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/022_learning_practice_personalization.sql
           done
 
       - name: Validate Learning Platform database invariants
         env:
           PGPASSWORD: postgres
         run: |
-          for table in education_boards curriculum_versions curriculum_subjects curriculum_units curriculum_topics learning_content_sources learning_resources learning_resource_boards learning_resource_reviews; do
+          for table in education_boards learning_content_sources learning_resources learning_questions learning_question_options learning_assessments learning_assessment_questions student_learning_attempts student_learning_answers student_learning_resource_progress learning_source_intake; do
             test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
           done
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE visibility='PUBLIC' AND review_status='PUBLISHED' AND source_id='83000000-0000-0000-0000-000000000001';")" -ge 12
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE category='ACADEMIC' AND visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 4
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE resource_type='QUESTION_PAPER' AND visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_questions WHERE review_status='PUBLISHED';")" -ge 8
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_assessments WHERE visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 1
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_assessment_questions WHERE assessment_id='86000000-0000-0000-0000-000000000001';")" -eq 4
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT requires_item_license_check FROM learning_content_sources WHERE code='NROER';")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT allow_rehosting_default FROM learning_content_sources WHERE code='NROER';")" = "f"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM education_boards WHERE is_active=TRUE;")" -ge 10
@@ -143,17 +154,15 @@ jobs:
           cat /tmp/vidyasetu-learning-api.log
           exit 1
 
-      - name: Run Learning Platform E2E
+      - name: Run Learning Platform Phase 1 regression E2E
         env:
           API_BASE: http://127.0.0.1:5000/api/v1
         run: bash scripts/learning-platform-e2e-smoke.sh
 
-      - name: Certify public academic starter content
-        run: |
-          curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?class=8&category=ACADEMIC&limit=20' > /tmp/public-academic.json
-          jq -e '.success == true and (.data | length >= 4)' /tmp/public-academic.json >/dev/null
-          jq -e '.data | any(.resource_type == "QUESTION_PAPER")' /tmp/public-academic.json >/dev/null
-          curl -fsS http://127.0.0.1:5000/api/v1/public/learning/resources/class-8-mathematics-practice-paper-set-1 | jq -e '.data.body_markdown | length > 100' >/dev/null
+      - name: Run Learning Platform Phase 2 E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/learning-platform-phase2-e2e-smoke.sh
 
       - name: Start compiled frontend and smoke Learning routes
         working-directory: frontend
@@ -168,9 +177,9 @@ jobs:
             curl -fsS http://127.0.0.1:3000/ >/dev/null && break
             sleep 1
           done
-          for route in / /learn '/learn?class=8&board=CBSE' /learn/resource/progress-not-perfection /learn/resource/class-8-rational-numbers-quick-guide /learn/resource/class-8-mathematics-practice-paper-set-1 /admin/learning /student; do
+          for route in / /learn '/learn?class=8&board=CBSE' /learn/resource/progress-not-perfection /learn/practice/class-8-maths-quick-practice /admin/learning /admin/learning/practice /admin/learning/intake /student; do
             code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$route")"
-            printf '%-58s %s\n' "$route" "$code"
+            printf '%-64s %s\n' "$route" "$code"
             [[ "$code" =~ ^(200|301|302|307|308)$ ]]
           done
 
