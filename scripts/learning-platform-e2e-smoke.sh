@@ -13,6 +13,24 @@ OVERVIEW="$(curl -fsS "$API_BASE/public/learning/overview")"
 (( $(jq -r '.data.totalResources' <<< "$OVERVIEW") >= 8 )) || fail "Expected starter public learning resources"
 (( $(jq -r '.data.originalResources' <<< "$OVERVIEW") >= 8 )) || fail "Expected VidyaSetu Original starter resources"
 (( $(jq -r '.data.boards | length' <<< "$OVERVIEW") >= 10 )) || fail "Cross-board registry is incomplete"
+[[ "$(jq -r '.data.grades | length' <<< "$OVERVIEW")" == "16" ]] || fail "Expected Pre-Nursery through Class 12 grade coverage"
+jq -e '.data.grades | any(.code=="PRE_NURSERY") and any(.code=="CLASS_8") and any(.code=="CLASS_12")' <<< "$OVERVIEW" >/dev/null || fail "Global grade catalogue is incomplete"
+
+log "Concurrent catalogue-read stability"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+for i in 1 2 3 4 5 6; do
+  curl -fsS "$API_BASE/public/learning/overview" > "$TMP_DIR/overview-$i.json" &
+  curl -fsS "$API_BASE/public/learning/resources?grade=CLASS_8&limit=60" > "$TMP_DIR/class8-$i.json" &
+done
+wait
+for i in 1 2 3 4 5 6; do
+  [[ "$(jq -r '.success' "$TMP_DIR/overview-$i.json")" == "true" ]] || fail "Concurrent overview request $i failed"
+  [[ "$(jq -r '.data.grades | length' "$TMP_DIR/overview-$i.json")" == "16" ]] || fail "Concurrent overview request $i returned incomplete grades"
+  [[ "$(jq -r '.success' "$TMP_DIR/class8-$i.json")" == "true" ]] || fail "Concurrent Class 8 request $i failed"
+  jq -e '.data | all(((.grade_codes // []) | index("CLASS_8")) != null or (((.grade_codes // []) | length) == 0 and .class_min == null and .class_max == null))' "$TMP_DIR/class8-$i.json" >/dev/null \
+    || fail "Class 8 response $i leaked a resource outside its grade contract"
+done
 
 log "Featured public motivation / life-skills resources"
 RESOURCES="$(curl -fsS "$API_BASE/public/learning/resources?featured=true&limit=20")"

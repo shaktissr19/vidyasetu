@@ -172,15 +172,25 @@ export interface PublicLearningAssessmentDetail extends PublicLearningAssessment
   message: string;
 }
 
+interface RequestOptions {
+  signal?: AbortSignal;
+}
+
 export const getPublicOverview = () => api.get<ApiEnvelope<PublicOverview>>('/public/overview');
 export const getPublicCompetitions = () => api.get<ApiEnvelope<PublicCompetition[]>>('/competition');
 export const getPublicSchools = () => api.get<ApiEnvelope<PublicSchool[]>>('/public/schools');
-export const getPublicLearningOverview = () => api.get<ApiEnvelope<PublicLearningOverview>>('/public/learning/overview');
-export const getPublicLearningResources = (params?: { class?: number; grade?: string; category?: LearningCategory | string; board?: string; featured?: boolean; limit?: number }) =>
-  api.get<ApiEnvelope<PublicLearningResource[]>>('/public/learning/resources', { params });
+export const getPublicLearningOverview = (options: RequestOptions = {}) =>
+  api.get<ApiEnvelope<PublicLearningOverview>>('/public/learning/overview', { signal: options.signal });
+export const getPublicLearningResources = (
+  params?: { class?: number; grade?: string; category?: LearningCategory | string; board?: string; featured?: boolean; limit?: number },
+  options: RequestOptions = {},
+) => api.get<ApiEnvelope<PublicLearningResource[]>>('/public/learning/resources', { params, signal: options.signal });
 export const getPublicLearningResource = (slug: string) => api.get<ApiEnvelope<PublicLearningResource>>(`/public/learning/resources/${encodeURIComponent(slug)}`);
-export const getPublicLearningSources = () => api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources');
-export const getPublicLearningAssessments = (params?: { class?: number; board?: string; type?: string; limit?: number }) =>
-  api.get<ApiEnvelope<PublicLearningAssessment[]>>('/public/learning/assessments', { params });
+export const getPublicLearningSources = (options: RequestOptions = {}) =>
+  api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources', { signal: options.signal });
+export const getPublicLearningAssessments = (
+  params?: { class?: number; board?: string; type?: string; limit?: number },
+  options: RequestOptions = {},
+) => api.get<ApiEnvelope<PublicLearningAssessment[]>>('/public/learning/assessments', { params, signal: options.signal });
 export const getPublicLearningAssessment = (slug: string) =>
   api.get<ApiEnvelope<PublicLearningAssessmentDetail>>(`/public/learning/assessments/${encodeURIComponent(slug)}`);
