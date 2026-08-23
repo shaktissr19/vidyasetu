@@ -66,6 +66,17 @@ function slugify(value: string): string {
   return value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 160) || `assessment-${Date.now()}`;
 }
 
+function isNroerUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '');
+    return hostname === 'nroer.gov.in' || hostname.endsWith('.nroer.gov.in');
+  } catch {
+    return false;
+  }
+}
+
 export async function listQuestions() {
   const { rows } = await query(
     `SELECT lq.id,lq.public_code,lq.prompt,lq.question_type,lq.difficulty,lq.marks::float,
@@ -92,8 +103,13 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
     `SELECT id,source_kind FROM learning_content_sources WHERE code=$1 AND is_active=TRUE`, [sourceCode],
   );
   if (!source) throw appError('Unknown learning source');
-  if (sourceCode === 'NROER' && (!input.sourceUrl || !input.attributionText || !input.licence)) {
-    throw appError('NROER questions require source URL, verified licence and attribution');
+  if (sourceCode === 'NROER') {
+    if (!input.sourceUrl?.trim()) throw appError('NROER questions require the original source URL');
+    if (!isNroerUrl(input.sourceUrl)) throw appError('NROER questions require an original nroer.gov.in source URL');
+    if (!input.attributionText?.trim()) throw appError('NROER questions require attribution');
+    if (!input.licence || !['CC_BY','CC_BY_SA','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY'].includes(input.licence)) {
+      throw appError('NROER questions require a verified open or link-only licence');
+    }
   }
   const options = input.options || [];
   if (['MCQ_SINGLE','MCQ_MULTIPLE','TRUE_FALSE'].includes(input.questionType) && options.length < 2) {
@@ -122,8 +138,8 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
       [publicCode,input.prompt.trim(),input.promptHi?.trim() || null,input.questionType,input.difficulty,
        input.explanation?.trim() || null,input.explanationHi?.trim() || null,JSON.stringify(input.correctAnswer),
        input.marks || 1,input.negativeMarks || 0,input.classMin || null,input.classMax || null,input.subjectId || null,
-       source.id,input.sourceUrl || null,input.licence || (sourceCode === 'VIDYASETU_ORIGINAL' ? 'VIDYASETU_ORIGINAL' : 'OTHER'),
-       input.attributionText || null,input.visibility || 'REGISTERED',status,createdBy],
+       source.id,input.sourceUrl?.trim() || null,input.licence || (sourceCode === 'VIDYASETU_ORIGINAL' ? 'VIDYASETU_ORIGINAL' : 'OTHER'),
+       input.attributionText?.trim() || null,input.visibility || 'REGISTERED',status,createdBy],
     );
 
     for (let index = 0; index < options.length; index += 1) {
@@ -220,7 +236,7 @@ export async function createIntake(input: SaveIntakeInput, createdBy: UUID) {
     `SELECT id FROM learning_content_sources WHERE code=$1 AND is_active=TRUE`, [sourceCode],
   );
   if (!source) throw appError('Unknown learning source');
-  if (sourceCode === 'NROER' && !input.sourceUrl.includes('nroer.gov.in')) {
+  if (sourceCode === 'NROER' && !isNroerUrl(input.sourceUrl)) {
     throw appError('NROER intake URL must point to nroer.gov.in');
   }
   const { rows: [item] } = await query(
@@ -230,8 +246,8 @@ export async function createIntake(input: SaveIntakeInput, createdBy: UUID) {
      ON CONFLICT(source_id,source_url) DO UPDATE SET
        title=EXCLUDED.title,source_item_id=COALESCE(EXCLUDED.source_item_id,learning_source_intake.source_item_id),updated_at=NOW()
      RETURNING id,title,status,source_url`,
-    [source.id,input.sourceItemId || null,input.title.trim(),input.sourceUrl,input.licenceCandidate || null,
-     input.attributionText || null,input.classHint || null,input.boardHint || null,input.subjectHint || null,createdBy],
+    [source.id,input.sourceItemId?.trim() || null,input.title.trim(),input.sourceUrl.trim(),input.licenceCandidate || null,
+     input.attributionText?.trim() || null,input.classHint?.trim() || null,input.boardHint?.trim() || null,input.subjectHint?.trim() || null,createdBy],
   );
   return item;
 }
