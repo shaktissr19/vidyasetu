@@ -29,9 +29,11 @@ jobs:
         run: |
           bash -n scripts/learning-platform-e2e-smoke.sh
           bash -n scripts/learning-platform-phase2-e2e-smoke.sh
+          test -s database/migrations/014_student_identity_enrollment.sql
           test -s database/migrations/020_learning_platform_foundation.sql
           test -s database/migrations/021_learning_original_academic_starter.sql
           test -s database/migrations/022_learning_practice_personalization.sql
+          grep -q "student_code" database/migrations/014_student_identity_enrollment.sql
           grep -q "learning_questions" database/migrations/022_learning_practice_personalization.sql
           grep -q "student_learning_attempts" database/migrations/022_learning_practice_personalization.sql
           grep -q "learning_source_intake" database/migrations/022_learning_practice_personalization.sql
@@ -80,12 +82,17 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build disposable database
+      - name: Build disposable database with Student identity contract
         env:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          # The legacy base bundle predates migration 014. Apply the already-established
+          # Student identity migration so the disposable DB matches current auth/session code.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='students' AND column_name='student_code');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM students WHERE student_code IS NOT NULL AND grade_level IS NOT NULL;")" -ge 1
 
       - name: Apply Learning Platform migrations twice to prove idempotence
         env:
