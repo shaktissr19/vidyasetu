@@ -8,7 +8,7 @@ import SubjectsSection from './SubjectsSection';
 import styles from '../StudentPortal.module.css';
 
 export default function LearningSection(props: StudentSectionProps) {
-  const cls = Number.parseInt(props.student?.className || props.student?.gradeLevel || '8', 10) || 8;
+  const cls = Number(props.student?.className ?? props.student?.gradeLevel ?? 8) || 8;
   const growthQuery = useQuery({
     queryKey: ['student-growth-learning', cls],
     queryFn: () => getPublicLearningResources({ class: cls, limit: 4 }).then((response) => response.data.data || []),
