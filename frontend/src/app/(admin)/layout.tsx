@@ -11,6 +11,7 @@ const MENU = [
   { href: '/admin/schools', icon: '🏫', label: 'Schools' },
   { href: '/admin/users', icon: '👥', label: 'Users' },
   { href: '/admin/learning', icon: '📚', label: 'Learning Studio', exact: true },
+  { href: '/admin/learning/imports', icon: '📥', label: 'Bulk Learning Import' },
   { href: '/admin/learning/practice', icon: '🧠', label: 'Question Bank' },
   { href: '/admin/learning/intake', icon: '🌐', label: 'OER Intake' },
   { href: '/admin/content', icon: '🗂️', label: 'Academic Content' },

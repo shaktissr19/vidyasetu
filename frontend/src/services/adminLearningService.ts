@@ -93,6 +93,51 @@ export interface SaveLearningStudioIntake {
   attributionText?: string | null; classHint?: string | null; boardHint?: string | null; subjectHint?: string | null;
 }
 
+export interface LearningImportGrade {
+  id: string;
+  code: string;
+  name: string;
+  short_name: string;
+  stage: string;
+  class_number?: number | null;
+  sort_order: number;
+}
+
+export interface LearningImportOptions {
+  grades: LearningImportGrade[];
+  boards: LearningStudioBoard[];
+  sources: Array<Pick<LearningStudioSource, 'code' | 'name' | 'source_kind' | 'default_license' | 'requires_item_license_check'>>;
+}
+
+export interface LearningImportRow {
+  id: string;
+  row_number: number;
+  record_type: 'RESOURCE' | 'QUESTION';
+  normalized_payload: Record<string, unknown>;
+  validation_status: 'VALID' | 'INVALID';
+  errors: string[];
+  warnings: string[];
+  imported_resource_id?: string | null;
+  imported_question_id?: string | null;
+}
+
+export interface LearningImportBatch {
+  id: string;
+  source_filename: string;
+  import_format: 'CSV' | 'JSON';
+  status: 'STAGED' | 'VALIDATED' | 'IMPORTING' | 'COMPLETED' | 'FAILED';
+  total_rows: number;
+  valid_rows: number;
+  error_rows: number;
+  imported_rows: number;
+  summary?: Record<string, unknown>;
+  created_at: string;
+  validated_at?: string | null;
+  completed_at?: string | null;
+  created_by_name?: string | null;
+  rows?: LearningImportRow[];
+}
+
 export const getLearningStudioOptions = () => api.get<ApiEnvelope<LearningStudioOptions>>('/admin/learning/options');
 export const getLearningStudioResources = () => api.get<ApiEnvelope<LearningStudioResource[]>>('/admin/learning/resources');
 export const createLearningStudioResource = (payload: SaveLearningStudioResource) => api.post<ApiEnvelope<{ id: string }>>('/admin/learning/resources', payload);
@@ -105,3 +150,15 @@ export const createLearningStudioAssessment = (payload: SaveLearningStudioAssess
 export const getLearningStudioIntake = () => api.get<ApiEnvelope<LearningStudioIntake[]>>('/admin/learning/intake');
 export const createLearningStudioIntake = (payload: SaveLearningStudioIntake) => api.post<ApiEnvelope<{ id: string; title: string; status: string }>>('/admin/learning/intake', payload);
 export const updateLearningStudioIntakeStatus = (intakeId: string, status: string, note?: string) => api.patch<ApiEnvelope<LearningStudioIntake>>(`/admin/learning/intake/${intakeId}/status`, { status, note });
+
+export const getLearningImportOptions = () => api.get<ApiEnvelope<LearningImportOptions>>('/admin/learning/imports/options');
+export const getLearningImportBatches = () => api.get<ApiEnvelope<LearningImportBatch[]>>('/admin/learning/imports');
+export const getLearningImportBatch = (batchId: string) => api.get<ApiEnvelope<LearningImportBatch>>(`/admin/learning/imports/${batchId}`);
+export const stageLearningImport = (file: File) => {
+  const data = new FormData();
+  data.append('file', file);
+  return api.post<ApiEnvelope<LearningImportBatch>>('/admin/learning/imports/stage', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
+export const commitLearningImport = (batchId: string) => api.post<ApiEnvelope<LearningImportBatch>>(`/admin/learning/imports/${batchId}/commit`);
+export const learningImportTemplateUrl = (format: 'csv' | 'json', sample: 'BLANK' | 'EARLY_YEARS' | 'CLASS_5' | 'CLASS_8' = 'BLANK') =>
+  `/api/v1/admin/learning/imports/template?format=${encodeURIComponent(format)}&sample=${encodeURIComponent(sample)}`;

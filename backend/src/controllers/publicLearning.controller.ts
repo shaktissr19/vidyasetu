@@ -34,6 +34,7 @@ export async function resources(req: Request, res: Response, next: NextFunction)
   try {
     return R.ok(res, await learningService.listPublicLearningResources({
       className: optionalClass(req.query.class),
+      gradeCode: optionalText(req.query.grade),
       category: optionalText(req.query.category),
       board: optionalText(req.query.board),
       limit: optionalLimit(req.query.limit),

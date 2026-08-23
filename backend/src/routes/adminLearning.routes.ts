@@ -1,10 +1,15 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import * as ctrl from '../controllers/adminLearning.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
 const router = Router();
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+});
 
 router.use(authenticate);
 router.use(authorize('SUPER_ADMIN'));
@@ -117,5 +122,14 @@ router.post('/assessments', validate(assessmentSchema), ctrl.createAssessment);
 router.get('/intake', ctrl.intake);
 router.post('/intake', validate(intakeSchema), ctrl.createIntake);
 router.patch('/intake/:intakeId/status', validate(intakeStatusSchema), ctrl.updateIntakeStatus);
+
+// Global Learning Bulk Importer — Platform Admin only.
+// Uploads are staged and validated first; no Learning content is created until commit.
+router.get('/imports/options', ctrl.importOptions);
+router.get('/imports/template', ctrl.importTemplate);
+router.get('/imports', ctrl.importBatches);
+router.get('/imports/:batchId', ctrl.importBatch);
+router.post('/imports/stage', importUpload.single('file'), ctrl.stageImport);
+router.post('/imports/:batchId/commit', ctrl.commitImport);
 
 export = router;

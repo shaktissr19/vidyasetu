@@ -66,6 +66,16 @@ export interface PublicLearningBoard {
   state?: string | null;
 }
 
+export interface PublicLearningGrade {
+  code: string;
+  name: string;
+  shortName: string;
+  stage: 'EARLY_YEARS' | 'FOUNDATIONAL' | 'PRIMARY' | 'MIDDLE' | 'SECONDARY' | 'SENIOR_SECONDARY';
+  classNumber?: number | null;
+  sortOrder: number;
+  resourceCount: number;
+}
+
 export interface PublicLearningOverview {
   totalResources: number;
   originalResources: number;
@@ -74,6 +84,7 @@ export interface PublicLearningOverview {
   boards: PublicLearningBoard[];
   categories: Array<{ category: LearningCategory; count: number }>;
   classes: Array<{ className: number; resourceCount: number }>;
+  grades: PublicLearningGrade[];
 }
 
 export interface PublicLearningResource {
@@ -90,6 +101,9 @@ export interface PublicLearningResource {
   language: string;
   class_min?: number | null;
   class_max?: number | null;
+  grade_codes?: string[];
+  subject_label?: string | null;
+  topic_label?: string | null;
   thumbnail_url?: string | null;
   duration_secs?: number | null;
   is_featured_public?: boolean;
@@ -162,7 +176,7 @@ export const getPublicOverview = () => api.get<ApiEnvelope<PublicOverview>>('/pu
 export const getPublicCompetitions = () => api.get<ApiEnvelope<PublicCompetition[]>>('/competition');
 export const getPublicSchools = () => api.get<ApiEnvelope<PublicSchool[]>>('/public/schools');
 export const getPublicLearningOverview = () => api.get<ApiEnvelope<PublicLearningOverview>>('/public/learning/overview');
-export const getPublicLearningResources = (params?: { class?: number; category?: LearningCategory | string; board?: string; featured?: boolean; limit?: number }) =>
+export const getPublicLearningResources = (params?: { class?: number; grade?: string; category?: LearningCategory | string; board?: string; featured?: boolean; limit?: number }) =>
   api.get<ApiEnvelope<PublicLearningResource[]>>('/public/learning/resources', { params });
 export const getPublicLearningResource = (slug: string) => api.get<ApiEnvelope<PublicLearningResource>>(`/public/learning/resources/${encodeURIComponent(slug)}`);
 export const getPublicLearningSources = () => api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources');

@@ -12,6 +12,7 @@ const passwordSchema = z.string().min(8).max(128)
   .regex(/\d/, 'Password must contain at least one number');
 
 const roleSchema = z.enum(['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER', 'SUPER_ADMIN']);
+const studentGradeSchema = z.string().regex(/^(?:PN|NURSERY|LKG|UKG|[1-9]|1[0-2])$/, 'Grade must be Pre-Nursery, Nursery, LKG, UKG or Class 1-12');
 
 const sendOtpSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
@@ -38,7 +39,7 @@ const registerStudentSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/),
   password: passwordSchema,
   language: z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']).default('hi'),
-  gradeLevel: z.string().regex(/^(?:[1-9]|1[0-2])$/),
+  gradeLevel: studentGradeSchema,
   schoolId: z.string().uuid().nullable().optional(),
   classId: z.string().uuid().nullable().optional(),
   schoolNote: z.string().max(500).optional(),
@@ -51,16 +52,11 @@ const registerStudentSchema = z.object({
   deviceInfo: z.string().max(500).optional(),
 }).superRefine((value, ctx) => {
   if (value.schoolId && !value.classId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['classId'],
-      message: 'Class/section is required when a school is selected',
-    });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['classId'], message: 'Class/section is required when a school is selected' });
   }
 });
 
 const refreshSchema = z.object({ refreshToken: z.string().min(10) });
-
 const profileSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   username: z.string().trim().min(3).max(60).regex(/^[A-Za-z0-9._-]+$/).optional(),
@@ -68,21 +64,9 @@ const profileSchema = z.object({
   language: z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']).optional(),
   profilePhoto: z.string().url().optional(),
 });
-
-const setPasswordSchema = z.object({
-  currentPassword: z.string().max(128).nullable().optional(),
-  newPassword: passwordSchema,
-});
-
-const forgotPasswordSchema = z.object({
-  identifier: z.string().trim().min(3).max(180),
-});
-
-const resetPasswordSchema = z.object({
-  identifier: z.string().trim().min(3).max(180),
-  otp: z.string().length(6),
-  newPassword: passwordSchema,
-});
+const setPasswordSchema = z.object({ currentPassword: z.string().max(128).nullable().optional(), newPassword: passwordSchema });
+const forgotPasswordSchema = z.object({ identifier: z.string().trim().min(3).max(180) });
+const resetPasswordSchema = z.object({ identifier: z.string().trim().min(3).max(180), otp: z.string().length(6), newPassword: passwordSchema });
 
 router.get('/student-registration-options', ctrl.getStudentRegistrationOptions);
 router.post('/register/student', validate(registerStudentSchema), ctrl.registerStudent);
