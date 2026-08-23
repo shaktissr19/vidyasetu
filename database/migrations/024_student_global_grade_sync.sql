@@ -33,7 +33,10 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF NEW.grade_code IS NULL OR NEW.grade_code = '' OR NEW.grade_level IS DISTINCT FROM OLD.grade_level THEN
+  IF TG_OP = 'INSERT'
+     OR NEW.grade_code IS NULL
+     OR NEW.grade_code = ''
+     OR NEW.grade_level IS DISTINCT FROM OLD.grade_level THEN
     NEW.grade_code := vidyasetu_grade_code_from_legacy(NEW.grade_level);
   END IF;
   RETURN NEW;
