@@ -162,8 +162,12 @@ export default function LoginPage() {
   }, [resendIn]);
 
   const intro = ROLE_INTRO[role];
-  const identifierLabel = role === 'STUDENT' ? 'Username / Email / Student ID' : 'Username / Email';
-  const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma or VS26-0100001' : 'username or email';
+  const identifierLabel = role === 'STUDENT'
+    ? 'Username / Email / Mobile / Student ID'
+    : 'Username / Email / Mobile';
+  const identifierPlaceholder = role === 'STUDENT'
+    ? 'aarav.sharma, 9300000001 or VS26-...'
+    : 'username, email or 10-digit mobile';
 
   function resetOtpState(clearMobile = false) {
     setOtpSent(false);
