@@ -8,20 +8,24 @@ import {
   BookOpen,
   Brain,
   BriefcaseBusiness,
+  Calculator,
   CirclePlay,
   CloudSun,
   Compass,
   FileQuestion,
   FileText,
+  FlaskConical,
   GraduationCap,
   HandHeart,
   Headphones,
+  Languages,
   Laptop2,
   Lightbulb,
   NotebookPen,
   RefreshCw,
   Sparkles,
   Target,
+  TrendingUp,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -47,7 +51,7 @@ interface CategoryMeta {
 
 const CATEGORY_META: Record<LearningCategory, CategoryMeta> = {
   ACADEMIC: { label: 'Academic Learning', shortLabel: 'Academic', icon: BookOpen, tone: styles.blue },
-  MOTIVATION: { label: 'Motivation', shortLabel: 'Motivation', icon: Sparkles, tone: styles.green },
+  MOTIVATION: { label: 'Motivation', shortLabel: 'Motivation', icon: TrendingUp, tone: styles.green },
   STUDY_SKILLS: { label: 'Study Skills', shortLabel: 'Study Skills', icon: Target, tone: styles.violet },
   WORK_ETHIC: { label: 'Work Ethic', shortLabel: 'Work Ethic', icon: Compass, tone: styles.gold },
   SOCIAL_RESPONSIBILITY: { label: 'Social Responsibility', shortLabel: 'Social Responsibility', icon: HandHeart, tone: styles.teal },
@@ -69,6 +73,15 @@ const STAGE_META: Array<{ code: StageFilter; label: string }> = [
   { code: 'SECONDARY', label: 'Secondary' },
   { code: 'SENIOR_SECONDARY', label: 'Senior Secondary' },
 ];
+
+const STAGE_TONE: Record<PublicLearningGrade['stage'], string> = {
+  EARLY_YEARS: styles.gradeEarly,
+  FOUNDATIONAL: styles.gradeFoundational,
+  PRIMARY: styles.gradePrimary,
+  MIDDLE: styles.gradeMiddle,
+  SECONDARY: styles.gradeSecondary,
+  SENIOR_SECONDARY: styles.gradeSenior,
+};
 
 const EARLY_GRADES: PublicLearningGrade[] = [
   { code: 'PRE_NURSERY', name: 'Pre-Nursery', shortName: 'Pre-Nursery', stage: 'EARLY_YEARS', classNumber: null, sortOrder: 1, resourceCount: 0 },
@@ -147,7 +160,7 @@ const DEVELOPMENT_PILLARS: Array<{
     eyebrow: 'MOTIVATION & RESILIENCE',
     title: 'Keep moving when progress feels slow',
     copy: 'Confidence, consistency, learning from mistakes and realistic goal-setting without empty motivational slogans.',
-    icon: Sparkles,
+    icon: TrendingUp,
     tone: styles.green,
   },
   {
@@ -169,6 +182,10 @@ function gradeLabel(code: string): string {
 }
 
 function resourceIcon(resource: PublicLearningResource): LucideIcon {
+  const subject = `${resource.subject_name || ''} ${resource.subject_label || ''}`.toLowerCase();
+  if (subject.includes('math')) return Calculator;
+  if (subject.includes('science')) return FlaskConical;
+  if (subject.includes('english') || subject.includes('language')) return Languages;
   if (resource.resource_type === 'VIDEO') return CirclePlay;
   if (resource.resource_type === 'AUDIO') return Headphones;
   if (resource.resource_type === 'PDF') return FileText;
@@ -212,6 +229,19 @@ function scrollToResources(): void {
   window.setTimeout(() => {
     document.getElementById('resources')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 80);
+}
+
+function SymbolicArtwork({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <div className={styles.symbolicArtwork} aria-hidden="true">
+      <div className={styles.symbolicHalo} />
+      <div className={styles.symbolicDotOne} />
+      <div className={styles.symbolicDotTwo} />
+      <div className={styles.symbolicLineOne} />
+      <div className={styles.symbolicLineTwo} />
+      <div className={styles.symbolicIcon}><Icon size={52} strokeWidth={1.65} /></div>
+    </div>
+  );
 }
 
 export default function PublicLearningLibrary() {
@@ -353,19 +383,24 @@ export default function PublicLearningLibrary() {
         </div>
 
         <div className={styles.heroRight}>
-          <div className={styles.pathIntro}>A learning journey that goes beyond finishing a chapter.</div>
+          <div className={styles.pathKicker}>FROM LESSON TO LIFE</div>
+          <div className={styles.pathIntro}>Built around how students actually learn.</div>
           <div className={styles.pathList}>
             <div className={styles.pathRow}>
-              <span>01</span><BookOpen /><div><strong>Understand</strong><small>Concepts, lessons, reading and video</small></div>
+              <div className={styles.pathIcon}><BookOpen /></div>
+              <div><strong>Understand concepts</strong><small>Clear lessons, reading and video</small></div>
             </div>
             <div className={styles.pathRow}>
-              <span>02</span><NotebookPen /><div><strong>Practise</strong><small>Worksheets, questions and papers</small></div>
+              <div className={styles.pathIcon}><NotebookPen /></div>
+              <div><strong>Practise what you learn</strong><small>Worksheets, questions and papers</small></div>
             </div>
             <div className={styles.pathRow}>
-              <span>03</span><Target /><div><strong>Study better</strong><small>Focus, revision and learning routines</small></div>
+              <div className={styles.pathIcon}><Target /></div>
+              <div><strong>Build stronger study habits</strong><small>Focus, revision and learning routines</small></div>
             </div>
             <div className={styles.pathRow}>
-              <span>04</span><Sparkles /><div><strong>Grow</strong><small>Confidence, values and life skills</small></div>
+              <div className={styles.pathIcon}><Sparkles /></div>
+              <div><strong>Grow with confidence</strong><small>Values, responsibility and life skills</small></div>
             </div>
           </div>
         </div>
@@ -376,7 +411,7 @@ export default function PublicLearningLibrary() {
           <div className={styles.sectionHeading}>
             <div className={styles.eyebrow}>FIND THE RIGHT LEARNING PATH</div>
             <h2>Browse by learning level</h2>
-            <p>Start with a stage or grade. Use the board filter only when the curriculum needs to be more specific.</p>
+            <p>Choose a stage or grade first. Narrow by board only when the curriculum needs to be more specific.</p>
           </div>
 
           <div className={styles.stageTabs}>
@@ -397,11 +432,10 @@ export default function PublicLearningLibrary() {
               <button
                 key={grade.code}
                 type="button"
-                className={`${styles.gradeButton} ${selectedGrade === grade.code ? styles.gradeActive : ''}`}
+                className={`${styles.gradeButton} ${STAGE_TONE[grade.stage]} ${selectedGrade === grade.code ? styles.gradeActive : ''}`}
                 onClick={() => chooseGrade(grade)}
               >
                 <span>{grade.shortName}</span>
-                <ArrowRight size={17} />
               </button>
             ))}
           </div>
@@ -433,7 +467,7 @@ export default function PublicLearningLibrary() {
                 <span>LEARNING TYPE</span>
                 <h3>Explore more than the syllabus</h3>
               </div>
-              <p>Academic learning stays central, with practical support for how students study, grow and participate in the world around them.</p>
+              <p>Academic learning stays central, with visible pathways for study habits, confidence, responsibility and life skills.</p>
             </div>
             <div className={styles.categoryGrid}>
               <button
@@ -490,16 +524,14 @@ export default function PublicLearningLibrary() {
                 const Icon = resourceIcon(resource);
                 const duration = durationLabel(resource.duration_secs);
                 return (
-                  <Link key={resource.id} className={styles.resourceCard} href={`/learn/resource/${resource.public_slug}`}>
-                    <div className={`${styles.resourceVisual} ${meta.tone}`}>
+                  <Link key={resource.id} className={`${styles.resourceCard} ${meta.tone}`} href={`/learn/resource/${resource.public_slug}`}>
+                    <div className={styles.resourceVisual}>
                       {resource.thumbnail_url ? (
                         <img src={resource.thumbnail_url} alt="" loading="lazy" />
                       ) : (
-                        <>
-                          <div className={styles.visualOrb}><Icon size={34} /></div>
-                          <span className={styles.visualWord}>{resource.subject_name || resource.subject_label || meta.shortLabel}</span>
-                        </>
+                        <SymbolicArtwork icon={Icon} />
                       )}
+                      <span className={styles.visualWord}>{resource.subject_name || resource.subject_label || meta.shortLabel}</span>
                     </div>
                     <div className={styles.resourceBody}>
                       <div className={styles.resourceEyebrow}>{resource.subject_name || resource.subject_label || meta.shortLabel}</div>
@@ -565,18 +597,16 @@ export default function PublicLearningLibrary() {
         <div className={styles.shell}>
           <div className={styles.developmentHeading}>
             <div className={styles.eyebrow}>BEYOND MARKS</div>
-            <h2>Academic learning and human development belong together</h2>
-            <p>VidyaSetu supports syllabus learning while helping children and young people build curiosity, habits, values and confidence appropriate to their stage of development.</p>
+            <h2>Learning for school. Skills for life.</h2>
+            <p>Academic progress matters, and so do curiosity, habits, values, resilience and confidence at every stage of development.</p>
           </div>
 
           <div className={styles.pillarGrid}>
             {DEVELOPMENT_PILLARS.map((pillar) => {
               const Icon = pillar.icon;
               return (
-                <button key={pillar.category} type="button" className={styles.pillarCard} onClick={() => chooseCategory(pillar.category)}>
-                  <div className={`${styles.pillarVisual} ${pillar.tone}`}>
-                    <Icon size={38} />
-                  </div>
+                <button key={pillar.category} type="button" className={`${styles.pillarCard} ${pillar.tone}`} onClick={() => chooseCategory(pillar.category)}>
+                  <div className={styles.pillarVisual}><SymbolicArtwork icon={Icon} /></div>
                   <div className={styles.pillarBody}>
                     <span>{pillar.eyebrow}</span>
                     <h3>{pillar.title}</h3>
