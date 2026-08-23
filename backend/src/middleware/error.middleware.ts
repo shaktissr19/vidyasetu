@@ -44,16 +44,20 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
 
   const status = appError.statusCode || appError.status || 500;
   const isServerError = status >= 500;
-  const message = process.env.NODE_ENV === 'production' && isServerError
-    ? 'Internal server error'
-    : appError.message || 'Internal server error';
+  const isServiceUnavailable = status === 503;
+  const message = isServiceUnavailable
+    ? 'OTP SMS service is temporarily unavailable. Please try again shortly or use password login.'
+    : process.env.NODE_ENV === 'production' && isServerError
+      ? 'Internal server error'
+      : appError.message || 'Internal server error';
   const code = appError.apiCode
     || (status === 400 ? 'BAD_REQUEST'
       : status === 401 ? 'UNAUTHORIZED'
         : status === 403 ? 'FORBIDDEN'
           : status === 404 ? 'NOT_FOUND'
             : status === 409 ? 'CONFLICT'
-              : 'SERVER_ERROR');
+              : status === 503 ? 'SERVICE_UNAVAILABLE'
+                : 'SERVER_ERROR');
 
   res.status(status).json({
     success: false,
