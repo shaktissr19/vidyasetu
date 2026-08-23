@@ -114,10 +114,10 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
        (public_code,prompt,prompt_hi,question_type,difficulty,explanation,explanation_hi,correct_answer,
         marks,negative_marks,class_min,class_max,subject_id,source_id,source_url,licence,attribution_text,
         visibility,review_status,created_by,reviewed_by,published_at)
-       VALUES($1,$2,$3,$4::learning_question_type,$5::learning_difficulty,$6,$7,$8::jsonb,$9,$10,$11,$12,$13,$14,$15,$16::learning_license_code,$17,
-              $18::learning_visibility,$19::learning_review_status,$20,
-              CASE WHEN $19 IN ('APPROVED','PUBLISHED') THEN $20 ELSE NULL END,
-              CASE WHEN $19='PUBLISHED' THEN NOW() ELSE NULL END)
+       VALUES($1,$2,$3,$4::learning_question_type,$5::learning_difficulty,$6,$7,$8::jsonb,$9,$10,$11,$12,$13::uuid,$14::uuid,$15,$16::learning_license_code,$17,
+              $18::learning_visibility,$19::learning_review_status,$20::uuid,
+              CASE WHEN $19::learning_review_status IN ('APPROVED'::learning_review_status,'PUBLISHED'::learning_review_status) THEN $20::uuid ELSE NULL::uuid END,
+              CASE WHEN $19::learning_review_status='PUBLISHED'::learning_review_status THEN NOW() ELSE NULL::timestamptz END)
        RETURNING id,public_code`,
       [publicCode,input.prompt.trim(),input.promptHi?.trim() || null,input.questionType,input.difficulty,
        input.explanation?.trim() || null,input.explanationHi?.trim() || null,JSON.stringify(input.correctAnswer),
@@ -130,12 +130,12 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
       const option = options[index];
       await client.query(
         `INSERT INTO learning_question_options(question_id,option_key,option_text,option_text_hi,sort_order)
-         VALUES($1,$2,$3,$4,$5)`,
+         VALUES($1::uuid,$2,$3,$4,$5)`,
         [question.id, option.key.trim().toUpperCase(), option.text.trim(), option.textHi?.trim() || null, index + 1],
       );
     }
     for (const board of boards) {
-      await client.query(`INSERT INTO learning_question_boards(question_id,board_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [question.id, board.id]);
+      await client.query(`INSERT INTO learning_question_boards(question_id,board_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`, [question.id, board.id]);
     }
     return question;
   });
@@ -180,20 +180,20 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
       `INSERT INTO learning_assessments
        (public_slug,title,title_hi,summary,assessment_type,visibility,review_status,class_min,class_max,subject_id,
         time_limit_mins,passing_pct,max_attempts,shuffle_questions,is_featured_public,created_by,reviewed_by,published_at)
-       VALUES($1,$2,$3,$4,$5::learning_assessment_type,$6::learning_visibility,$7::learning_review_status,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-              CASE WHEN $7 IN ('APPROVED','PUBLISHED') THEN $16 ELSE NULL END,
-              CASE WHEN $7='PUBLISHED' THEN NOW() ELSE NULL END)
+       VALUES($1,$2,$3,$4,$5::learning_assessment_type,$6::learning_visibility,$7::learning_review_status,$8,$9,$10::uuid,$11,$12,$13,$14,$15,$16::uuid,
+              CASE WHEN $7::learning_review_status IN ('APPROVED'::learning_review_status,'PUBLISHED'::learning_review_status) THEN $16::uuid ELSE NULL::uuid END,
+              CASE WHEN $7::learning_review_status='PUBLISHED'::learning_review_status THEN NOW() ELSE NULL::timestamptz END)
        RETURNING id,public_slug`,
       [slug,input.title.trim(),input.titleHi?.trim() || null,input.summary?.trim() || null,input.assessmentType,input.visibility,status,
        input.classMin || null,input.classMax || null,input.subjectId || null,input.timeLimitMins || null,input.passingPct ?? 40,input.maxAttempts || null,
        Boolean(input.shuffleQuestions),Boolean(input.isFeaturedPublic),createdBy],
     );
     for (const board of boards) {
-      await client.query(`INSERT INTO learning_assessment_boards(assessment_id,board_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [assessment.id, board.id]);
+      await client.query(`INSERT INTO learning_assessment_boards(assessment_id,board_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`, [assessment.id, board.id]);
     }
     for (let index = 0; index < input.questionIds.length; index += 1) {
       await client.query(
-        `INSERT INTO learning_assessment_questions(assessment_id,question_id,sort_order) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`,
+        `INSERT INTO learning_assessment_questions(assessment_id,question_id,sort_order) VALUES($1::uuid,$2::uuid,$3) ON CONFLICT DO NOTHING`,
         [assessment.id,input.questionIds[index],index + 1],
       );
     }
@@ -226,7 +226,7 @@ export async function createIntake(input: SaveIntakeInput, createdBy: UUID) {
   const { rows: [item] } = await query(
     `INSERT INTO learning_source_intake
      (source_id,source_item_id,title,source_url,licence_candidate,attribution_text,class_hint,board_hint,subject_hint,created_by)
-     VALUES($1,$2,$3,$4,$5::learning_license_code,$6,$7,$8,$9,$10)
+     VALUES($1::uuid,$2,$3,$4,$5::learning_license_code,$6,$7,$8,$9,$10::uuid)
      ON CONFLICT(source_id,source_url) DO UPDATE SET
        title=EXCLUDED.title,source_item_id=COALESCE(EXCLUDED.source_item_id,learning_source_intake.source_item_id),updated_at=NOW()
      RETURNING id,title,status,source_url`,
@@ -239,7 +239,7 @@ export async function createIntake(input: SaveIntakeInput, createdBy: UUID) {
 export async function updateIntakeStatus(intakeId: UUID, status: string, reviewerId: UUID, note?: string | null) {
   const { rows: [item] } = await query<{ source_code: string; licence_candidate: string | null; attribution_text: string | null } & QueryResultRow>(
     `SELECT lcs.code AS source_code,lsi.licence_candidate,lsi.attribution_text
-     FROM learning_source_intake lsi JOIN learning_content_sources lcs ON lcs.id=lsi.source_id WHERE lsi.id=$1`, [intakeId],
+     FROM learning_source_intake lsi JOIN learning_content_sources lcs ON lcs.id=lsi.source_id WHERE lsi.id=$1::uuid`, [intakeId],
   );
   if (!item) throw appError('OER intake item not found', 404);
   if (['APPROVED','IMPORTED'].includes(status) && item.source_code === 'NROER') {
@@ -249,8 +249,8 @@ export async function updateIntakeStatus(intakeId: UUID, status: string, reviewe
     if (!item.attribution_text?.trim()) throw appError('NROER approval requires attribution');
   }
   const { rows: [updated] } = await query(
-    `UPDATE learning_source_intake SET status=$2::learning_intake_status,reviewer_note=$3,reviewed_by=$4,reviewed_at=NOW(),updated_at=NOW()
-     WHERE id=$1 RETURNING id,title,status,reviewer_note,reviewed_at`,
+    `UPDATE learning_source_intake SET status=$2::learning_intake_status,reviewer_note=$3,reviewed_by=$4::uuid,reviewed_at=NOW(),updated_at=NOW()
+     WHERE id=$1::uuid RETURNING id,title,status,reviewer_note,reviewed_at`,
     [intakeId,status,note?.trim() || null,reviewerId],
   );
   return updated;
