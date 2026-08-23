@@ -63,9 +63,17 @@ ASSESS_PAYLOAD="$(jq -n --arg slug "$ASLUG" --arg qid "$NEW_QID" '{publicSlug:$s
 curl -fsS -X POST "$API_BASE/admin/learning/assessments" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d "$ASSESS_PAYLOAD" | jq -e '.success==true and .data.id != null' >/dev/null || fail "Admin assessment creation failed"
 curl -fsS "$API_BASE/public/learning/assessments/$ASLUG" | jq -e '.data.questions | length==1' >/dev/null || fail "New published assessment not publicly visible"
 
+log "NROER question source validation rejects spoofed hostname"
+SPOOF_QCODE="$(curl -sS -o /tmp/spoof-question.json -w '%{http_code}' -X POST "$API_BASE/admin/learning/questions" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"publicCode":"CI-NROER-SPOOF-'"$RANDOM"'","prompt":"Spoofed source must fail","questionType":"MCQ_SINGLE","difficulty":"EASY","correctAnswer":{"option":"A"},"marks":1,"classMin":8,"classMax":8,"sourceCode":"NROER","sourceUrl":"https://example.com/?next=https://nroer.gov.in/resource","licence":"CC_BY_SA","attributionText":"Fake attribution","visibility":"REGISTERED","reviewStatus":"DRAFT","boardCodes":["COMMON"],"options":[{"key":"A","text":"A"},{"key":"B","text":"B"}]}')"
+[[ "$SPOOF_QCODE" == "400" ]] || fail "Spoofed NROER hostname in Question Bank must be rejected"
+
 log "Governed NROER intake rejects invalid domain"
 BAD_CODE="$(curl -sS -o /tmp/bad-intake.json -w '%{http_code}' -X POST "$API_BASE/admin/learning/intake" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"sourceCode":"NROER","title":"Bad source","sourceUrl":"https://example.com/resource","licenceCandidate":"CC_BY_SA","attributionText":"Test"}')"
 [[ "$BAD_CODE" == "400" ]] || fail "Invalid NROER domain must be rejected"
+
+log "Governed NROER intake rejects hostname spoofing"
+SPOOF_CODE="$(curl -sS -o /tmp/spoof-intake.json -w '%{http_code}' -X POST "$API_BASE/admin/learning/intake" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"sourceCode":"NROER","title":"Spoofed source","sourceUrl":"https://example.com/?source=https://nroer.gov.in/resource","licenceCandidate":"CC_BY_SA","attributionText":"Test"}')"
+[[ "$SPOOF_CODE" == "400" ]] || fail "Spoofed NROER hostname must be rejected"
 
 log "Governed NROER intake approval requires attribution"
 INTAKE="$(curl -fsS -X POST "$API_BASE/admin/learning/intake" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"sourceCode":"NROER","title":"CI NROER candidate","sourceUrl":"https://nroer.gov.in/ci-test-'"$RANDOM"'","licenceCandidate":"CC_BY_SA","classHint":"8","boardHint":"COMMON","subjectHint":"Science"}')"
