@@ -150,7 +150,7 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
     );
     if (boards.length !== new Set(boardCodes).size) throw badRequest('One or more selected board codes are invalid.');
 
-    const { rows: [resource] } = await client.query<ResourceIdRow & QueryResultRow>(
+    const { rows: [resource] } = await client.query<ResourceIdRow>(
       `INSERT INTO learning_resources
          (public_slug, title, title_hi, summary, summary_hi, body_markdown, body_markdown_hi,
           resource_type, category, visibility, review_status, language, class_min, class_max,
@@ -159,11 +159,11 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
           is_featured_public, created_by, reviewed_by, reviewed_at, published_at)
        VALUES
          ($1,$2,$3,$4,$5,$6,$7,$8::learning_resource_type,$9::learning_category,
-          $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15,$16,$17,
-          $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27,
-          CASE WHEN $11 IN ('APPROVED','PUBLISHED') THEN $27 ELSE NULL END,
-          CASE WHEN $11 IN ('APPROVED','PUBLISHED') THEN NOW() ELSE NULL END,
-          CASE WHEN $11='PUBLISHED' THEN NOW() ELSE NULL END)
+          $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16,$17,
+          $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::uuid,
+          CASE WHEN $11::learning_review_status IN ('APPROVED','PUBLISHED') THEN $27::uuid ELSE NULL::uuid END,
+          CASE WHEN $11::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE NULL::timestamptz END,
+          CASE WHEN $11::learning_review_status='PUBLISHED' THEN NOW() ELSE NULL::timestamptz END)
        RETURNING id`,
       [
         slug, input.title.trim(), input.titleHi?.trim() || null, input.summary?.trim() || null,
@@ -182,14 +182,14 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
     for (const board of boards) {
       await client.query(
         `INSERT INTO learning_resource_boards (resource_id, board_id)
-         VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+         VALUES ($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`,
         [resource.id, board.id],
       );
     }
 
     await client.query(
       `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
-       VALUES ($1,$2,NULL,$3::learning_review_status,$4)`,
+       VALUES ($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`,
       [resource.id, createdBy, requestedStatus, 'Resource created in Learning Studio'],
     );
 
@@ -205,7 +205,7 @@ export async function updateLearningResourceStatus(
 ) {
   return transaction(async (client) => {
     const { rows: [existing] } = await client.query<{ review_status: string; visibility: string; public_slug: string | null }>(
-      `SELECT review_status, visibility, public_slug FROM learning_resources WHERE id=$1 FOR UPDATE`,
+      `SELECT review_status, visibility, public_slug FROM learning_resources WHERE id=$1::uuid FOR UPDATE`,
       [resourceId],
     );
     if (!existing) throw Object.assign(new Error('Learning resource not found'), { statusCode: 404 });
@@ -214,17 +214,17 @@ export async function updateLearningResourceStatus(
     const { rows: [updated] } = await client.query(
       `UPDATE learning_resources
        SET review_status=$2::learning_review_status,
-           reviewed_by=CASE WHEN $2 IN ('APPROVED','PUBLISHED') THEN $3 ELSE reviewed_by END,
-           reviewed_at=CASE WHEN $2 IN ('APPROVED','PUBLISHED') THEN NOW() ELSE reviewed_at END,
-           published_at=CASE WHEN $2='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
-       WHERE id=$1
+           reviewed_by=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN $3::uuid ELSE reviewed_by END,
+           reviewed_at=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE reviewed_at END,
+           published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
+       WHERE id=$1::uuid
        RETURNING id, public_slug, title, review_status, visibility, published_at`,
       [resourceId, nextStatus, reviewerId],
     );
 
     await client.query(
       `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
-       VALUES ($1,$2,$3::learning_review_status,$4::learning_review_status,$5)`,
+       VALUES ($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5)`,
       [resourceId, reviewerId, existing.review_status, nextStatus, note?.trim() || null],
     );
 
