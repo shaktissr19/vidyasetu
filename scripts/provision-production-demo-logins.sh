@@ -4,7 +4,9 @@ set -Eeuo pipefail
 PROJECT_DIR="${PROJECT_DIR:-/var/www/vidyasetu}"
 BACKUP_DIR="${BACKUP_DIR:-/root/vidyasetu-backups}"
 CREDENTIALS_DIR="${CREDENTIALS_DIR:-/root/vidyasetu-credentials}"
-BACKEND_ENV="$PROJECT_DIR/backend/.env"
+BACKEND_ENV="${BACKEND_ENV:-$PROJECT_DIR/backend/.env}"
+ALLOW_NON_ROOT="${ALLOW_NON_ROOT:-0}"
+SKIP_BACKUP="${SKIP_BACKUP:-0}"
 
 log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -30,9 +32,16 @@ crypto.scrypt(password, salt, 64, (err, key) => {
 NODE
 }
 
-[[ $EUID -eq 0 ]] || fail "Run this script as root on the VidyaSetu VPS."
+if [[ $EUID -ne 0 ]]; then
+  [[ "$ALLOW_NON_ROOT" == "1" && "${CI:-}" == "true" ]] \
+    || fail "Run this script as root on the VidyaSetu VPS. Non-root mode is CI-only."
+fi
+if [[ "$SKIP_BACKUP" == "1" ]]; then
+  [[ "${CI:-}" == "true" ]] || fail "SKIP_BACKUP=1 is allowed only in CI. Production provisioning always creates a backup."
+fi
+
 [[ -d "$PROJECT_DIR/.git" ]] || fail "Repository not found at $PROJECT_DIR"
-[[ -s "$BACKEND_ENV" ]] || fail "Missing backend/.env"
+[[ -s "$BACKEND_ENV" ]] || fail "Missing backend environment file: $BACKEND_ENV"
 [[ -s "$PROJECT_DIR/database/migrations/015_realistic_demo_identities.sql" ]] || fail "Migration 015 is missing"
 command -v psql >/dev/null || fail "psql is not installed"
 command -v pg_dump >/dev/null || fail "pg_dump is not installed"
@@ -50,7 +59,7 @@ DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-vidyasetu_db}"
 DB_USER="${DB_USER:-postgres}"
-[[ -n "$DB_PASSWORD" ]] || fail "DB_PASSWORD is missing from backend/.env"
+[[ -n "$DB_PASSWORD" ]] || fail "DB_PASSWORD is missing from backend environment"
 export PGPASSWORD="$DB_PASSWORD"
 
 PSQL=(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -P pager=off)
@@ -62,9 +71,13 @@ mkdir -p "$BACKUP_DIR" "$CREDENTIALS_DIR"
 chmod 700 "$CREDENTIALS_DIR"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_FILE="$BACKUP_DIR/vidyasetu_pre_demo_login_provision_$STAMP.dump"
-pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc > "$BACKUP_FILE"
-test -s "$BACKUP_FILE" || fail "Backup is empty"
-printf 'Backup: %s\n' "$BACKUP_FILE"
+if [[ "$SKIP_BACKUP" == "1" ]]; then
+  printf 'CI mode: backup skipped by explicit CI-only flag.\n'
+else
+  pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc > "$BACKUP_FILE"
+  test -s "$BACKUP_FILE" || fail "Backup is empty"
+  printf 'Backup: %s\n' "$BACKUP_FILE"
+fi
 
 log "2/6 Restore human-friendly legacy usernames"
 "${PSQL[@]}" -f database/migrations/015_realistic_demo_identities.sql >/dev/null
@@ -122,7 +135,7 @@ if command -v redis-cli >/dev/null && [[ -n "$REDIS_URL" ]]; then
     otp:9400000001 otp_attempts:9400000001 otp_lock:9400000001 >/dev/null || true
 fi
 
-log "6/6 Write root-only credential sheet and verify password state"
+log "6/6 Write credential sheet and verify password state"
 CREDENTIALS_FILE="$CREDENTIALS_DIR/demo-logins-$STAMP.txt"
 ADMIN_USERNAME="$("${PSQL[@]}" -Atc "SELECT username FROM users WHERE mobile='9000000000';")"
 SCHOOL_USERNAME="$("${PSQL[@]}" -Atc "SELECT username FROM users WHERE mobile='9100000001';")"
@@ -185,6 +198,6 @@ LONG_USERNAME_COUNT="$("${PSQL[@]}" -Atc "SELECT COUNT(*) FROM users WHERE usern
 [[ "$LONG_USERNAME_COUNT" == "0" ]] || fail "$LONG_USERNAME_COUNT legacy UUID-style usernames remain"
 
 printf '\n\033[1;32mDemo password provisioning completed successfully.\033[0m\n'
-printf 'Credential sheet (root-only): %s\n' "$CREDENTIALS_FILE"
+printf 'Credential sheet: %s\n' "$CREDENTIALS_FILE"
 printf 'Internal UUIDs are intentionally not used as login IDs.\n'
 printf 'The synthetic 90/91/92/93/94 demo mobiles are suitable for password testing; real SMS OTP delivery requires an actual reachable registered mobile number.\n'
