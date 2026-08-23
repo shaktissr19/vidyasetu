@@ -10,82 +10,138 @@ export interface PublicLearningFilters {
   featuredOnly?: boolean;
 }
 
-interface CountRow extends QueryResultRow { count: string; }
+interface OverviewRow extends QueryResultRow {
+  total_resources: number;
+  original_resources: number;
+  open_resources: number;
+  featured_resources: number;
+  boards: Array<Record<string, unknown>>;
+  categories: Array<Record<string, unknown>>;
+  classes: Array<Record<string, unknown>>;
+  grades: Array<Record<string, unknown>>;
+}
 
 const PUBLIC_WHERE = `lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED'`;
 
+/**
+ * Public Learning overview is intentionally executed as ONE PostgreSQL query.
+ *
+ * The first implementation fanned this request out into eight simultaneous pool
+ * queries. The public page also loads resources/sources at the same time, so a
+ * cold page view could create unnecessary connection pressure and a class click
+ * could add another burst before the overview finished. Keeping this catalogue
+ * snapshot on one DB round trip makes the first-load path predictable without
+ * changing the response contract.
+ */
 export async function getPublicLearningOverview() {
-  const [total, originals, openResources, featured, boards, categories, classCoverage, gradeCoverage] = await Promise.all([
-    query<CountRow>(`SELECT COUNT(*)::text AS count FROM learning_resources lr WHERE ${PUBLIC_WHERE}`),
-    query<CountRow>(
-      `SELECT COUNT(*)::text AS count
-       FROM learning_resources lr
-       JOIN learning_content_sources lcs ON lcs.id=lr.source_id
-       WHERE ${PUBLIC_WHERE} AND lcs.source_kind='VIDYASETU_ORIGINAL'`,
-    ),
-    query<CountRow>(
-      `SELECT COUNT(*)::text AS count
-       FROM learning_resources lr
-       JOIN learning_content_sources lcs ON lcs.id=lr.source_id
-       WHERE ${PUBLIC_WHERE} AND lcs.source_kind IN ('NROER','OTHER_OER')`,
-    ),
-    query<CountRow>(`SELECT COUNT(*)::text AS count FROM learning_resources lr WHERE ${PUBLIC_WHERE} AND lr.is_featured_public=TRUE`),
-    query(
-      `SELECT eb.code, eb.name, eb.short_name, eb.board_type, eb.state
-       FROM education_boards eb
-       WHERE eb.is_active=TRUE
-       ORDER BY eb.sort_order, eb.name`,
-    ),
-    query(
-      `SELECT lr.category, COUNT(*)::int AS count
-       FROM learning_resources lr
-       WHERE ${PUBLIC_WHERE}
-       GROUP BY lr.category
-       ORDER BY COUNT(*) DESC, lr.category`,
-    ),
-    query(
-      `SELECT gs.class_name,
-              COUNT(lr.id)::int AS resource_count
-       FROM generate_series(1,12) AS gs(class_name)
-       LEFT JOIN learning_resources lr
-         ON ${PUBLIC_WHERE}
-        AND (lr.class_min IS NULL OR lr.class_min <= gs.class_name)
-        AND (lr.class_max IS NULL OR lr.class_max >= gs.class_name)
-       GROUP BY gs.class_name
-       ORDER BY gs.class_name`,
-    ),
-    query(
-      `SELECT egl.code,egl.name,egl.short_name,egl.stage,egl.class_number,egl.sort_order,
-              COUNT(DISTINCT lr.id)::int AS resource_count
-       FROM education_grade_levels egl
-       LEFT JOIN learning_resource_grades lrg ON lrg.grade_id=egl.id
-       LEFT JOIN learning_resources lr ON lr.id=lrg.resource_id AND ${PUBLIC_WHERE}
-       WHERE egl.is_active=TRUE
-       GROUP BY egl.id
-       ORDER BY egl.sort_order`,
-    ),
-  ]);
+  const { rows: [row] } = await query<OverviewRow>(
+    `SELECT
+       (SELECT COUNT(*)::int
+        FROM learning_resources lr
+        WHERE ${PUBLIC_WHERE}) AS total_resources,
+
+       (SELECT COUNT(*)::int
+        FROM learning_resources lr
+        JOIN learning_content_sources lcs ON lcs.id=lr.source_id
+        WHERE ${PUBLIC_WHERE}
+          AND lcs.source_kind='VIDYASETU_ORIGINAL') AS original_resources,
+
+       (SELECT COUNT(*)::int
+        FROM learning_resources lr
+        JOIN learning_content_sources lcs ON lcs.id=lr.source_id
+        WHERE ${PUBLIC_WHERE}
+          AND lcs.source_kind IN ('NROER','OTHER_OER')) AS open_resources,
+
+       (SELECT COUNT(*)::int
+        FROM learning_resources lr
+        WHERE ${PUBLIC_WHERE}
+          AND lr.is_featured_public=TRUE) AS featured_resources,
+
+       COALESCE((
+         SELECT jsonb_agg(
+           jsonb_build_object(
+             'code', eb.code,
+             'name', eb.name,
+             'short_name', eb.short_name,
+             'board_type', eb.board_type,
+             'state', eb.state
+           )
+           ORDER BY eb.sort_order, eb.name
+         )
+         FROM education_boards eb
+         WHERE eb.is_active=TRUE
+       ), '[]'::jsonb) AS boards,
+
+       COALESCE((
+         SELECT jsonb_agg(
+           jsonb_build_object('category', c.category, 'count', c.resource_count)
+           ORDER BY c.resource_count DESC, c.category
+         )
+         FROM (
+           SELECT lr.category::text AS category, COUNT(*)::int AS resource_count
+           FROM learning_resources lr
+           WHERE ${PUBLIC_WHERE}
+           GROUP BY lr.category
+         ) c
+       ), '[]'::jsonb) AS categories,
+
+       COALESCE((
+         SELECT jsonb_agg(
+           jsonb_build_object('className', c.class_name, 'resourceCount', c.resource_count)
+           ORDER BY c.class_name
+         )
+         FROM (
+           SELECT gs.class_name, COUNT(lr.id)::int AS resource_count
+           FROM generate_series(1,12) AS gs(class_name)
+           LEFT JOIN learning_resources lr
+             ON ${PUBLIC_WHERE}
+            AND (lr.class_min IS NULL OR lr.class_min <= gs.class_name)
+            AND (lr.class_max IS NULL OR lr.class_max >= gs.class_name)
+           GROUP BY gs.class_name
+         ) c
+       ), '[]'::jsonb) AS classes,
+
+       COALESCE((
+         SELECT jsonb_agg(
+           jsonb_build_object(
+             'code', g.code,
+             'name', g.name,
+             'shortName', g.short_name,
+             'stage', g.stage,
+             'classNumber', g.class_number,
+             'sortOrder', g.sort_order,
+             'resourceCount', g.resource_count
+           )
+           ORDER BY g.sort_order
+         )
+         FROM (
+           SELECT egl.code,
+                  egl.name,
+                  egl.short_name,
+                  egl.stage::text AS stage,
+                  egl.class_number,
+                  egl.sort_order,
+                  COUNT(DISTINCT lr.id)::int AS resource_count
+           FROM education_grade_levels egl
+           LEFT JOIN learning_resource_grades lrg ON lrg.grade_id=egl.id
+           LEFT JOIN learning_resources lr
+             ON lr.id=lrg.resource_id
+            AND ${PUBLIC_WHERE}
+           WHERE egl.is_active=TRUE
+           GROUP BY egl.id
+         ) g
+       ), '[]'::jsonb) AS grades`,
+  );
 
   return {
-    totalResources: Number(total.rows[0]?.count || 0),
-    originalResources: Number(originals.rows[0]?.count || 0),
-    openResources: Number(openResources.rows[0]?.count || 0),
-    featuredResources: Number(featured.rows[0]?.count || 0),
-    boards: boards.rows,
-    categories: categories.rows,
-    classes: classCoverage.rows.map((row) => ({
-      className: Number(row.class_name),
-      resourceCount: Number(row.resource_count || 0),
-    })),
-    grades: gradeCoverage.rows.map((row) => ({
-      code: row.code,
-      name: row.name,
-      shortName: row.short_name,
-      stage: row.stage,
-      classNumber: row.class_number == null ? null : Number(row.class_number),
-      sortOrder: Number(row.sort_order),
-      resourceCount: Number(row.resource_count || 0),
-    })),
+    totalResources: Number(row?.total_resources || 0),
+    originalResources: Number(row?.original_resources || 0),
+    openResources: Number(row?.open_resources || 0),
+    featuredResources: Number(row?.featured_resources || 0),
+    boards: Array.isArray(row?.boards) ? row.boards : [],
+    categories: Array.isArray(row?.categories) ? row.categories : [],
+    classes: Array.isArray(row?.classes) ? row.classes : [],
+    grades: Array.isArray(row?.grades) ? row.grades : [],
   };
 }
 
