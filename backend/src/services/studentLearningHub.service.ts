@@ -174,7 +174,14 @@ export async function updateResourceProgress(userId: UUID, resourceId: UUID, pro
   const { rows: [row] } = await query(
     `INSERT INTO student_learning_resource_progress
        (student_id, resource_id, progress_pct, is_completed, last_accessed, completed_at)
-     VALUES ($1,$2,$3,$3>=100,NOW(),CASE WHEN $3>=100 THEN NOW() ELSE NULL END)
+     VALUES (
+       $1,
+       $2,
+       $3::numeric,
+       ($3::numeric >= 100::numeric),
+       NOW(),
+       CASE WHEN $3::numeric >= 100::numeric THEN NOW() ELSE NULL END
+     )
      ON CONFLICT (student_id,resource_id) DO UPDATE SET
        progress_pct=GREATEST(student_learning_resource_progress.progress_pct,EXCLUDED.progress_pct),
        is_completed=student_learning_resource_progress.is_completed OR EXCLUDED.is_completed,
