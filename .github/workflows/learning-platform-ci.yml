@@ -29,11 +29,14 @@ jobs:
         run: |
           bash -n scripts/learning-platform-e2e-smoke.sh
           test -s database/migrations/020_learning_platform_foundation.sql
+          test -s database/migrations/021_learning_original_academic_starter.sql
           grep -q "VIDYASETU_ORIGINAL" database/migrations/020_learning_platform_foundation.sql
           grep -q "NROER" database/migrations/020_learning_platform_foundation.sql
           grep -q "requires_item_license_check" database/migrations/020_learning_platform_foundation.sql
+          grep -q "QUESTION_PAPER" database/migrations/021_learning_original_academic_starter.sql
           grep -q "\['Learn', '/learn'\]" frontend/src/components/layout/GlobalTopbar.tsx
           grep -q "Start learning on VidyaSetu" frontend/src/components/public/PublicHomeExperience.tsx
+          grep -q "Browse learning by class and board" frontend/src/components/public/PublicLearningLibrary.tsx
           test -s frontend/src/app/learn/page.tsx
           test -s 'frontend/src/app/learn/resource/[slug]/page.tsx'
           test -s 'frontend/src/app/(admin)/admin/learning/page.tsx'
@@ -82,12 +85,15 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
 
-      - name: Apply Learning Platform migration twice to prove idempotence
+      - name: Apply Learning Platform migrations twice to prove idempotence
         env:
           PGPASSWORD: postgres
         run: |
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/020_learning_platform_foundation.sql
-          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/020_learning_platform_foundation.sql
+          for pass in 1 2; do
+            echo "Learning migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/020_learning_platform_foundation.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/021_learning_original_academic_starter.sql
+          done
 
       - name: Validate Learning Platform database invariants
         env:
@@ -96,7 +102,9 @@ jobs:
           for table in education_boards curriculum_versions curriculum_subjects curriculum_units curriculum_topics learning_content_sources learning_resources learning_resource_boards learning_resource_reviews; do
             test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
           done
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE visibility='PUBLIC' AND review_status='PUBLISHED' AND source_id='83000000-0000-0000-0000-000000000001';")" -ge 8
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE visibility='PUBLIC' AND review_status='PUBLISHED' AND source_id='83000000-0000-0000-0000-000000000001';")" -ge 12
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE category='ACADEMIC' AND visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 4
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE resource_type='QUESTION_PAPER' AND visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 1
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT requires_item_license_check FROM learning_content_sources WHERE code='NROER';")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT allow_rehosting_default FROM learning_content_sources WHERE code='NROER';")" = "f"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM education_boards WHERE is_active=TRUE;")" -ge 10
@@ -140,6 +148,13 @@ jobs:
           API_BASE: http://127.0.0.1:5000/api/v1
         run: bash scripts/learning-platform-e2e-smoke.sh
 
+      - name: Certify public academic starter content
+        run: |
+          curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?class=8&category=ACADEMIC&limit=20' > /tmp/public-academic.json
+          jq -e '.success == true and (.data | length >= 4)' /tmp/public-academic.json >/dev/null
+          jq -e '.data | any(.resource_type == "QUESTION_PAPER")' /tmp/public-academic.json >/dev/null
+          curl -fsS http://127.0.0.1:5000/api/v1/public/learning/resources/class-8-mathematics-practice-paper-set-1 | jq -e '.data.body_markdown | length > 100' >/dev/null
+
       - name: Start compiled frontend and smoke Learning routes
         working-directory: frontend
         env:
@@ -153,9 +168,9 @@ jobs:
             curl -fsS http://127.0.0.1:3000/ >/dev/null && break
             sleep 1
           done
-          for route in / /learn /learn/resource/progress-not-perfection /admin/learning /student; do
+          for route in / /learn '/learn?class=8&board=CBSE' /learn/resource/progress-not-perfection /learn/resource/class-8-rational-numbers-quick-guide /learn/resource/class-8-mathematics-practice-paper-set-1 /admin/learning /student; do
             code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$route")"
-            printf '%-48s %s\n' "$route" "$code"
+            printf '%-58s %s\n' "$route" "$code"
             [[ "$code" =~ ^(200|301|302|307|308)$ ]]
           done
 
