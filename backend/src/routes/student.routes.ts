@@ -5,11 +5,12 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
 const router = Router();
+const studentGradeSchema = z.string().regex(/^(?:PN|NURSERY|LKG|UKG|[1-9]|1[0-2])$/, 'Grade must be Pre-Nursery, Nursery, LKG, UKG or Class 1-12');
 
 const completeProfileSchema = z.object({
   name: z.string().trim().min(2).max(120),
   language: z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']),
-  gradeLevel: z.string().regex(/^(?:[1-9]|1[0-2])$/),
+  gradeLevel: studentGradeSchema,
   schoolId: z.string().uuid().nullable().optional(),
   classId: z.string().uuid().nullable().optional(),
   schoolNote: z.string().max(500).optional(),
