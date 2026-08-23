@@ -217,7 +217,12 @@ export async function listPublicLearningResources(filters: PublicLearningFilters
      LEFT JOIN education_grade_levels egl ON egl.id=lrg.grade_id
      WHERE ${conditions.join(' AND ')}
      GROUP BY lr.id, sub.id, lcs.id
-     ORDER BY lr.is_featured_public DESC, lr.sort_order, lr.published_at DESC NULLS LAST, lr.created_at DESC
+     ORDER BY
+       CASE WHEN lr.category='ACADEMIC' THEN 0 ELSE 1 END,
+       lr.is_featured_public DESC,
+       lr.sort_order,
+       lr.published_at DESC NULLS LAST,
+       lr.created_at DESC
      LIMIT $${values.length}`,
     values,
   );
