@@ -7,5 +7,7 @@ router.get('/overview', ctrl.overview);
 router.get('/resources', ctrl.resources);
 router.get('/resources/:slug', ctrl.resource);
 router.get('/sources', ctrl.sources);
+router.get('/assessments', ctrl.assessments);
+router.get('/assessments/:slug', ctrl.assessment);
 
 export = router;
