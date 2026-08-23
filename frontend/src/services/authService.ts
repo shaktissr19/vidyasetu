@@ -73,8 +73,13 @@ export interface SendOtpResult {
 export const loginWithPassword = (identifier: string, password: string, deviceInfo?: string) =>
   api.post<ApiEnvelope<AuthSessionPayload>>('/auth/login', { identifier, password, deviceInfo });
 
-export const getStudentRegistrationOptions = () =>
-  api.get<ApiEnvelope<StudentRegistrationOptions>>('/auth/student-registration-options');
+const GLOBAL_STUDENT_GRADES = ['PN', 'NURSERY', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+
+export const getStudentRegistrationOptions = async () => {
+  const response = await api.get<ApiEnvelope<StudentRegistrationOptions>>('/auth/student-registration-options');
+  if (response.data?.data) response.data.data.gradeLevels = GLOBAL_STUDENT_GRADES;
+  return response;
+};
 export const registerStudent = (data: Payload) =>
   api.post<ApiEnvelope<StudentRegistrationResult>>('/auth/register/student', data);
 
