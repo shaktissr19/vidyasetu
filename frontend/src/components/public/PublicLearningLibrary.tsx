@@ -8,11 +8,9 @@ import {
   BookOpen,
   Brain,
   BriefcaseBusiness,
-  CheckCircle2,
   CirclePlay,
   CloudSun,
   Compass,
-  ExternalLink,
   FileQuestion,
   FileText,
   GraduationCap,
@@ -22,7 +20,6 @@ import {
   Lightbulb,
   NotebookPen,
   RefreshCw,
-  ShieldCheck,
   Sparkles,
   Target,
   Wrench,
@@ -33,90 +30,34 @@ import {
   getPublicLearningAssessments,
   getPublicLearningOverview,
   getPublicLearningResources,
-  getPublicLearningSources,
   type LearningCategory,
   type PublicLearningAssessment,
   type PublicLearningGrade,
   type PublicLearningOverview,
   type PublicLearningResource,
-  type PublicLearningSource,
 } from '@/services/publicService';
-import styles from './publicLearning.module.css';
+import styles from './learningEditorial.module.css';
 
 interface CategoryMeta {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
   tone: string;
-  tabTone: string;
 }
 
 const CATEGORY_META: Record<LearningCategory, CategoryMeta> = {
-  ACADEMIC: {
-    label: 'Academic Learning',
-    shortLabel: 'Academic',
-    icon: BookOpen,
-    tone: styles.toneAcademic,
-    tabTone: styles.categoryAcademic,
-  },
-  MOTIVATION: {
-    label: 'Motivation',
-    shortLabel: 'Motivation',
-    icon: Sparkles,
-    tone: styles.toneMotivation,
-    tabTone: styles.categoryMotivation,
-  },
-  STUDY_SKILLS: {
-    label: 'Study Skills',
-    shortLabel: 'Study Skills',
-    icon: Target,
-    tone: styles.toneStudy,
-    tabTone: styles.categoryStudy,
-  },
-  WORK_ETHIC: {
-    label: 'Work Ethic',
-    shortLabel: 'Work Ethic',
-    icon: Compass,
-    tone: styles.toneWork,
-    tabTone: styles.categoryWork,
-  },
-  SOCIAL_RESPONSIBILITY: {
-    label: 'Social Responsibility',
-    shortLabel: 'Social Responsibility',
-    icon: HandHeart,
-    tone: styles.toneSocial,
-    tabTone: styles.categorySocial,
-  },
-  LIFE_SKILLS: {
-    label: 'Life Skills',
-    shortLabel: 'Life Skills',
-    icon: Wrench,
-    tone: styles.toneLife,
-    tabTone: styles.categoryLife,
-  },
-  WELLBEING: {
-    label: 'Well-being',
-    shortLabel: 'Well-being',
-    icon: CloudSun,
-    tone: styles.toneWellbeing,
-    tabTone: styles.categoryWellbeing,
-  },
-  CAREER_AWARENESS: {
-    label: 'Career Awareness',
-    shortLabel: 'Career',
-    icon: BriefcaseBusiness,
-    tone: styles.toneCareer,
-    tabTone: styles.categoryCareer,
-  },
-  DIGITAL_CITIZENSHIP: {
-    label: 'Digital Citizenship',
-    shortLabel: 'Digital Citizenship',
-    icon: Laptop2,
-    tone: styles.toneDigital,
-    tabTone: styles.categoryDigital,
-  },
+  ACADEMIC: { label: 'Academic Learning', shortLabel: 'Academic', icon: BookOpen, tone: styles.blue },
+  MOTIVATION: { label: 'Motivation', shortLabel: 'Motivation', icon: Sparkles, tone: styles.green },
+  STUDY_SKILLS: { label: 'Study Skills', shortLabel: 'Study Skills', icon: Target, tone: styles.violet },
+  WORK_ETHIC: { label: 'Work Ethic', shortLabel: 'Work Ethic', icon: Compass, tone: styles.gold },
+  SOCIAL_RESPONSIBILITY: { label: 'Social Responsibility', shortLabel: 'Social Responsibility', icon: HandHeart, tone: styles.teal },
+  LIFE_SKILLS: { label: 'Life Skills', shortLabel: 'Life Skills', icon: Wrench, tone: styles.lilac },
+  WELLBEING: { label: 'Well-being', shortLabel: 'Well-being', icon: CloudSun, tone: styles.sky },
+  CAREER_AWARENESS: { label: 'Career Awareness', shortLabel: 'Career', icon: BriefcaseBusiness, tone: styles.rose },
+  DIGITAL_CITIZENSHIP: { label: 'Digital Citizenship', shortLabel: 'Digital Citizenship', icon: Laptop2, tone: styles.indigo },
 };
 
+const ALL_CATEGORIES = Object.keys(CATEGORY_META) as LearningCategory[];
 type StageFilter = PublicLearningGrade['stage'] | 'ALL';
 
 const STAGE_META: Array<{ code: StageFilter; label: string }> = [
@@ -128,15 +69,6 @@ const STAGE_META: Array<{ code: StageFilter; label: string }> = [
   { code: 'SECONDARY', label: 'Secondary' },
   { code: 'SENIOR_SECONDARY', label: 'Senior Secondary' },
 ];
-
-const STAGE_TONE: Record<PublicLearningGrade['stage'], string> = {
-  EARLY_YEARS: styles.gradeEarly,
-  FOUNDATIONAL: styles.gradeFoundational,
-  PRIMARY: styles.gradePrimary,
-  MIDDLE: styles.gradeMiddle,
-  SECONDARY: styles.gradeSecondary,
-  SENIOR_SECONDARY: styles.gradeSenior,
-};
 
 const EARLY_GRADES: PublicLearningGrade[] = [
   { code: 'PRE_NURSERY', name: 'Pre-Nursery', shortName: 'Pre-Nursery', stage: 'EARLY_YEARS', classNumber: null, sortOrder: 1, resourceCount: 0 },
@@ -168,9 +100,65 @@ const SCHOOL_GRADES: PublicLearningGrade[] = Array.from({ length: 12 }, (_, inde
 });
 
 const FALLBACK_GRADES: PublicLearningGrade[] = [...EARLY_GRADES, ...SCHOOL_GRADES];
-const ALL_CATEGORIES = Object.keys(CATEGORY_META) as LearningCategory[];
-
 const GRADE_SORT = new Map<string, number>(FALLBACK_GRADES.map((grade) => [grade.code, grade.sortOrder]));
+
+const DEVELOPMENT_PILLARS: Array<{
+  category: LearningCategory;
+  eyebrow: string;
+  title: string;
+  copy: string;
+  icon: LucideIcon;
+  tone: string;
+}> = [
+  {
+    category: 'ACADEMIC',
+    eyebrow: 'ACADEMIC MASTERY',
+    title: 'Build strong concepts, not just answers',
+    copy: 'Board-aware lessons, reading, video, practice and question papers organised around the learner’s stage.',
+    icon: BookOpen,
+    tone: styles.blue,
+  },
+  {
+    category: 'STUDY_SKILLS',
+    eyebrow: 'LEARNING HOW TO LEARN',
+    title: 'Turn effort into a repeatable study habit',
+    copy: 'Focus, revision, planning, exam preparation and practical routines that make everyday learning easier.',
+    icon: Target,
+    tone: styles.violet,
+  },
+  {
+    category: 'WORK_ETHIC',
+    eyebrow: 'WORK ETHIC',
+    title: 'Show up prepared and finish what matters',
+    copy: 'Reliability, preparation, integrity and productive habits for school today and responsibilities later in life.',
+    icon: Compass,
+    tone: styles.gold,
+  },
+  {
+    category: 'SOCIAL_RESPONSIBILITY',
+    eyebrow: 'SOCIAL RESPONSIBILITY',
+    title: 'Grow into a thoughtful member of the community',
+    copy: 'Respect, contribution, digital citizenship and everyday choices that make classrooms and communities better.',
+    icon: HandHeart,
+    tone: styles.teal,
+  },
+  {
+    category: 'MOTIVATION',
+    eyebrow: 'MOTIVATION & RESILIENCE',
+    title: 'Keep moving when progress feels slow',
+    copy: 'Confidence, consistency, learning from mistakes and realistic goal-setting without empty motivational slogans.',
+    icon: Sparkles,
+    tone: styles.green,
+  },
+  {
+    category: 'WELLBEING',
+    eyebrow: 'WELL-BEING',
+    title: 'Make room for balance as well as achievement',
+    copy: 'Age-appropriate guidance around routines, emotional balance and sustainable learning habits.',
+    icon: CloudSun,
+    tone: styles.sky,
+  },
+];
 
 function gradeLabel(code: string): string {
   if (code === 'PRE_NURSERY') return 'Pre-Nursery';
@@ -188,7 +176,6 @@ function resourceIcon(resource: PublicLearningResource): LucideIcon {
   if (resource.resource_type === 'QUESTION_PAPER') return FileQuestion;
   if (resource.resource_type === 'QUIZ') return Brain;
   if (resource.resource_type === 'INTERACTIVE') return Lightbulb;
-  if (resource.resource_type === 'EXTERNAL_LINK') return ExternalLink;
   return CATEGORY_META[resource.category]?.icon || BookOpen;
 }
 
@@ -218,8 +205,13 @@ function resourceGradeText(resource: PublicLearningResource, selectedGrade: stri
 
 function durationLabel(seconds?: number | null): string | null {
   if (!seconds || seconds <= 0) return null;
-  const mins = Math.max(1, Math.round(seconds / 60));
-  return `${mins} min`;
+  return `${Math.max(1, Math.round(seconds / 60))} min`;
+}
+
+function scrollToResources(): void {
+  window.setTimeout(() => {
+    document.getElementById('resources')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
 }
 
 export default function PublicLearningLibrary() {
@@ -243,20 +235,22 @@ export default function PublicLearningLibrary() {
     setFiltersReady(true);
   }, []);
 
+  useEffect(() => {
+    if (!filtersReady) return;
+    const params = new URLSearchParams();
+    if (selectedGrade) params.set('grade', selectedGrade);
+    if (selectedBoard !== 'ALL') params.set('board', selectedBoard);
+    if (category !== 'ALL') params.set('category', category);
+    const next = params.toString() ? `/learn?${params.toString()}` : '/learn';
+    window.history.replaceState({}, '', next);
+  }, [category, filtersReady, selectedBoard, selectedGrade]);
+
   const overviewQuery = useQuery<PublicLearningOverview>({
     queryKey: ['public-learning-overview'],
     queryFn: ({ signal }) => getPublicLearningOverview({ signal }).then((response) => response.data.data),
-    staleTime: 0,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 2,
-    refetchOnWindowFocus: false,
-  });
-
-  const sourcesQuery = useQuery<PublicLearningSource[]>({
-    queryKey: ['public-learning-sources'],
-    queryFn: ({ signal }) => getPublicLearningSources({ signal }).then((response) => response.data.data || []),
-    staleTime: 10 * 60 * 1000,
-    retry: 1,
     refetchOnWindowFocus: false,
   });
 
@@ -269,6 +263,10 @@ export default function PublicLearningLibrary() {
   const selectedGradeMeta = useMemo(
     () => gradeOptions.find((grade) => grade.code === selectedGrade) || null,
     [gradeOptions, selectedGrade],
+  );
+  const boardOptions = useMemo(
+    () => (overview?.boards || []).filter((board) => board.code !== 'OTHER_STATE'),
+    [overview],
   );
 
   useEffect(() => {
@@ -286,9 +284,10 @@ export default function PublicLearningLibrary() {
       board: selectedBoard === 'ALL' ? undefined : selectedBoard,
       limit: 60,
     }, { signal }).then((response) => response.data.data || []),
-    staleTime: 15 * 1000,
+    staleTime: 20 * 1000,
     retry: 2,
     refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   });
 
   const assessmentClass = selectedGradeMeta?.classNumber || null;
@@ -298,34 +297,32 @@ export default function PublicLearningLibrary() {
     queryFn: ({ signal }) => getPublicLearningAssessments({
       class: assessmentClass || undefined,
       board: selectedBoard === 'ALL' ? undefined : selectedBoard,
-      limit: 24,
+      limit: 12,
     }, { signal }).then((response) => response.data.data || []),
     staleTime: 30 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   });
 
   const resources = resourcesQuery.data || [];
   const assessments = assessmentsQuery.data || [];
-  const sources = sourcesQuery.data || [];
-  const boardOptions = useMemo(
-    () => (overview?.boards || []).filter((board) => board.code !== 'OTHER_STATE'),
-    [overview],
-  );
-  const categoryCounts = useMemo(
-    () => new Map((overview?.categories || []).map((item) => [item.category, Number(item.count || 0)])),
-    [overview],
-  );
-  const nroer = sources.find((source) => source.code === 'NROER');
-  const original = sources.find((source) => source.code === 'VIDYASETU_ORIGINAL');
-
-  const countsReady = overviewQuery.isSuccess && Boolean(overview);
-  const activeFilterCount = Number(Boolean(selectedGrade)) + Number(selectedBoard !== 'ALL') + Number(category !== 'ALL');
   const activeGradeLabel = selectedGradeMeta?.shortName || 'All levels';
+  const activeCategoryLabel = category === 'ALL' ? 'All learning' : CATEGORY_META[category].label;
   const activeBoardLabel = selectedBoard === 'ALL'
     ? 'All boards'
     : boardOptions.find((board) => board.code === selectedBoard)?.short_name || selectedBoard;
-  const activeCategoryLabel = category === 'ALL' ? 'All learning' : CATEGORY_META[category].label;
+
+  function chooseGrade(grade: PublicLearningGrade): void {
+    setSelectedGrade(grade.code);
+    setSelectedStage(grade.stage);
+    scrollToResources();
+  }
+
+  function chooseCategory(next: LearningCategory | 'ALL'): void {
+    setCategory(next);
+    scrollToResources();
+  }
 
   function clearFilters(): void {
     setSelectedGrade(null);
@@ -339,300 +336,273 @@ export default function PublicLearningLibrary() {
       <GlobalTopbar />
 
       <section className={styles.hero}>
-        <div className={`${styles.shell} ${styles.heroGrid}`}>
-          <div>
-            <div className={styles.kicker}>VidyaSetu Learning · Pre-Nursery to Class 12 · Cross-board</div>
-            <h1 className={styles.title}>Learn with clarity.<br /><span className={styles.accent}>Practise with purpose. Grow for life.</span></h1>
-            <p className={styles.copy}>One learning space for academic concepts, videos, reading, worksheets, question papers, practice, motivation, study skills, work ethic, social responsibility and life skills—built for Indian learners across boards.</p>
-            <div className={styles.actions}>
-              <a className={styles.primary} href="#browse">Explore free learning</a>
-              <a className={styles.secondary} href="#practice">Practice by class</a>
-              <Link className={styles.secondary} href="/login?role=student">Student login</Link>
+        <div className={styles.heroLeft}>
+          <div className={styles.heroInner}>
+            <div className={styles.kicker}>VIDYASETU LEARNING · PRE-NURSERY TO CLASS 12 · CROSS-BOARD</div>
+            <h1>Learn with clarity.<br /><span>Practise with purpose.</span><br />Grow for life.</h1>
+            <p>
+              Academic concepts, practice, reading, video and question papers—alongside the study habits,
+              confidence, responsibility and life skills that help learners keep moving forward.
+            </p>
+            <div className={styles.heroActions}>
+              <a className={styles.primaryAction} href="#browse">Explore learning</a>
+              <a className={styles.secondaryAction} href="#practice">Practice by class</a>
+              <Link className={styles.secondaryAction} href="/login?role=student">Student login</Link>
             </div>
           </div>
-          <aside className={styles.heroVisual}>
-            <div className={styles.visualTitle}>A complete learning journey</div>
-            <div className={styles.visualGrid}>
-              <div className={styles.visualCard}><BookOpen size={25} /><strong>Concept learning</strong><small>Lessons, reading and video</small></div>
-              <div className={styles.visualCard}><NotebookPen size={25} /><strong>Practice & papers</strong><small>Worksheets and question sets</small></div>
-              <div className={styles.visualCard}><Target size={25} /><strong>Study better</strong><small>Focus, revision and routines</small></div>
-              <div className={styles.visualCard}><Sparkles size={25} /><strong>Grow beyond marks</strong><small>Confidence, values and life skills</small></div>
+        </div>
+
+        <div className={styles.heroRight}>
+          <div className={styles.pathIntro}>A learning journey that goes beyond finishing a chapter.</div>
+          <div className={styles.pathList}>
+            <div className={styles.pathRow}>
+              <span>01</span><BookOpen /><div><strong>Understand</strong><small>Concepts, lessons, reading and video</small></div>
             </div>
-          </aside>
+            <div className={styles.pathRow}>
+              <span>02</span><NotebookPen /><div><strong>Practise</strong><small>Worksheets, questions and papers</small></div>
+            </div>
+            <div className={styles.pathRow}>
+              <span>03</span><Target /><div><strong>Study better</strong><small>Focus, revision and learning routines</small></div>
+            </div>
+            <div className={styles.pathRow}>
+              <span>04</span><Sparkles /><div><strong>Grow</strong><small>Confidence, values and life skills</small></div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className={styles.statsStrip} aria-label="Learning catalogue summary">
-        <div className={`${styles.shell} ${styles.statsGrid}`}>
-          <div className={styles.statCard}><BookOpen size={21} /><div><strong>{overview ? overview.totalResources : '—'}</strong><small>Public resources</small></div></div>
-          <div className={styles.statCard}><GraduationCap size={21} /><div><strong>{overview?.grades?.length || 16}</strong><small>Learning levels</small></div></div>
-          <div className={styles.statCard}><CheckCircle2 size={21} /><div><strong>{overview?.originalResources ?? '—'}</strong><small>VidyaSetu originals</small></div></div>
-          <div className={styles.statCard}><ExternalLink size={21} /><div><strong>{overview?.openResources ?? '—'}</strong><small>Open-resource references</small></div></div>
-        </div>
-      </section>
-
-      <section className={styles.sectionAlt} id="browse">
+      <section className={styles.browseSection} id="browse">
         <div className={styles.shell}>
-          <div className={styles.browsePanel}>
-            <div className={styles.browseTop}>
-              <div className={styles.sectionHeader}>
-                <div className={styles.eyebrow}>Find the right learning path</div>
-                <h2>Browse by learning level</h2>
-                <p>Choose a stage and grade, then refine only when needed. Your grade stays the primary context.</p>
-              </div>
-              <div className={`${styles.coverageState} ${overviewQuery.isError ? styles.coverageError : ''}`}>
-                <span className={overviewQuery.isPending ? styles.liveDot : overviewQuery.isError ? styles.liveDotError : styles.liveDotReady} />
-                {overviewQuery.isPending ? 'Checking catalogue coverage' : overviewQuery.isError ? 'Coverage unavailable — retry below' : 'Live catalogue coverage'}
-              </div>
-            </div>
+          <div className={styles.sectionHeading}>
+            <div className={styles.eyebrow}>FIND THE RIGHT LEARNING PATH</div>
+            <h2>Browse by learning level</h2>
+            <p>Start with a stage or grade. Use the board filter only when the curriculum needs to be more specific.</p>
+          </div>
 
-            <div className={styles.stageTabs} aria-label="Learning stage filter">
-              {STAGE_META.map((stage) => (
-                <button
-                  key={stage.code}
-                  type="button"
-                  className={`${styles.stageTab} ${selectedStage === stage.code ? styles.stageTabActive : ''}`}
-                  onClick={() => setSelectedStage(stage.code)}
-                >
-                  {stage.label}
-                </button>
-              ))}
-            </div>
+          <div className={styles.stageTabs}>
+            {STAGE_META.map((stage) => (
+              <button
+                key={stage.code}
+                type="button"
+                className={selectedStage === stage.code ? styles.stageActive : styles.stageButton}
+                onClick={() => setSelectedStage(stage.code)}
+              >
+                {stage.label}
+              </button>
+            ))}
+          </div>
 
-            <div className={styles.classGrid}>
-              {visibleGrades.map((item) => (
-                <button
-                  key={item.code}
-                  type="button"
-                  className={`${styles.classButton} ${STAGE_TONE[item.stage]} ${selectedGrade === item.code ? styles.classActive : ''}`}
-                  onClick={() => setSelectedGrade((current) => current === item.code ? null : item.code)}
-                >
-                  <span className={styles.className}>{item.shortName}</span>
-                  <span className={styles.classCount}>
-                    {countsReady ? `${item.resourceCount} public` : <span className={styles.countSkeleton} aria-label="Coverage loading" />}
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div className={styles.gradeGrid}>
+            {visibleGrades.map((grade) => (
+              <button
+                key={grade.code}
+                type="button"
+                className={`${styles.gradeButton} ${selectedGrade === grade.code ? styles.gradeActive : ''}`}
+                onClick={() => chooseGrade(grade)}
+              >
+                <span>{grade.shortName}</span>
+                <ArrowRight size={17} />
+              </button>
+            ))}
+          </div>
 
-            {overviewQuery.isError && (
-              <div className={styles.coverageRetry}>
-                <span>Catalogue counts could not be refreshed. Learning resources are still available.</span>
-                <button type="button" onClick={() => overviewQuery.refetch()}><RefreshCw size={14} /> Retry counts</button>
-              </div>
+          <div className={styles.filterRow}>
+            <label>
+              <span>BOARD</span>
+              <select value={selectedBoard} onChange={(event) => setSelectedBoard(event.target.value)}>
+                <option value="ALL">All boards</option>
+                {boardOptions.map((board) => (
+                  <option key={board.code} value={board.code}>{board.short_name || board.name}</option>
+                ))}
+              </select>
+            </label>
+            <div className={styles.filterSummary}>
+              <span>Showing</span>
+              <strong>{activeGradeLabel}</strong>
+              <em>{activeBoardLabel}</em>
+              <em>{activeCategoryLabel}</em>
+            </div>
+            {(selectedGrade || selectedBoard !== 'ALL' || category !== 'ALL') && (
+              <button type="button" className={styles.clearButton} onClick={clearFilters}>Clear filters</button>
             )}
-
-            <div className={styles.boardFilterRow}>
-              <label className={styles.publicField}>
-                <span>Board</span>
-                <select value={selectedBoard} onChange={(event) => setSelectedBoard(event.target.value)}>
-                  <option value="ALL">All boards</option>
-                  {boardOptions.map((board) => (
-                    <option key={board.code} value={board.code}>{board.short_name || board.code} — {board.name}</option>
-                  ))}
-                </select>
-              </label>
-              <div className={styles.filterSummary}>
-                <span className={styles.summaryLabel}>Showing</span>
-                <strong>{activeGradeLabel}</strong>
-                <span>{activeBoardLabel}</span>
-                <span>{activeCategoryLabel}</span>
-              </div>
-              {activeFilterCount > 0 && <button type="button" className={styles.clearButton} onClick={clearFilters}>Clear filters</button>}
-            </div>
-
-            <div className={styles.learningTypeSection}>
-              <div className={styles.filterSectionHeading}>
-                <div>
-                  <span>Learning type</span>
-                  <strong>Explore more than the syllabus</strong>
-                </div>
-                <small>Choose one type or keep the full library visible.</small>
-              </div>
-              <div className={styles.categoryTabs} aria-label="Learning type filter">
-                <button
-                  type="button"
-                  className={`${styles.categoryTab} ${styles.categoryAll} ${category === 'ALL' ? styles.categoryTabActive : ''}`}
-                  onClick={() => setCategory('ALL')}
-                >
-                  <span className={styles.categoryIcon}><BookOpen size={17} /></span>
-                  <span><strong>All learning</strong><small>{overview?.totalResources ?? '—'} resources</small></span>
-                </button>
-                {ALL_CATEGORIES.map((item) => {
-                  const meta = CATEGORY_META[item];
-                  const Icon = meta.icon;
-                  return (
-                    <button
-                      type="button"
-                      key={item}
-                      className={`${styles.categoryTab} ${meta.tabTone} ${category === item ? styles.categoryTabActive : ''}`}
-                      onClick={() => setCategory(item)}
-                    >
-                      <span className={styles.categoryIcon}><Icon size={17} /></span>
-                      <span><strong>{meta.shortLabel}</strong><small>{countsReady ? `${categoryCounts.get(item) || 0} resources` : 'Browse category'}</small></span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
-          <div className={styles.resultsHeader}>
+          <div className={styles.categorySection}>
+            <div className={styles.categoryHeading}>
+              <div>
+                <span>LEARNING TYPE</span>
+                <h3>Explore more than the syllabus</h3>
+              </div>
+              <p>Academic learning stays central, with practical support for how students study, grow and participate in the world around them.</p>
+            </div>
+            <div className={styles.categoryGrid}>
+              <button
+                type="button"
+                className={`${styles.categoryCard} ${styles.neutral} ${category === 'ALL' ? styles.categoryActive : ''}`}
+                onClick={() => chooseCategory('ALL')}
+              >
+                <BookOpen /><strong>All learning</strong><span>Explore everything</span>
+              </button>
+              {ALL_CATEGORIES.map((item) => {
+                const meta = CATEGORY_META[item];
+                const Icon = meta.icon;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`${styles.categoryCard} ${meta.tone} ${category === item ? styles.categoryActive : ''}`}
+                    onClick={() => chooseCategory(item)}
+                  >
+                    <Icon /><strong>{meta.shortLabel}</strong><span>Explore this path</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.resourcesSection} id="resources">
+        <div className={styles.shell}>
+          <div className={styles.resultsHeading}>
             <div>
-              <div className={styles.eyebrow}>Learning resources</div>
-              <h2>{selectedGradeMeta ? `${selectedGradeMeta.shortName} learning` : 'Explore public learning'}</h2>
-              <p>{category === 'ALL' ? 'Academic learning and personal growth resources in one library.' : `Showing ${CATEGORY_META[category].label.toLowerCase()} resources for the current filters.`}</p>
+              <div className={styles.eyebrow}>LEARNING RESOURCES</div>
+              <h2>{selectedGradeMeta ? `${selectedGradeMeta.shortName} learning` : 'Explore learning'}</h2>
+              <p>{category === 'ALL' ? 'Academic learning and personal growth resources in one library.' : `Explore ${CATEGORY_META[category].label.toLowerCase()} resources selected for the Learning Library.`}</p>
             </div>
-            <div className={styles.resultCount}>
-              {resourcesQuery.isPending ? 'Finding resources…' : resourcesQuery.isError ? 'Could not load' : `${resources.length} resource${resources.length === 1 ? '' : 's'}`}
-            </div>
+            {resourcesQuery.isFetching && resources.length > 0 && <span className={styles.updating}>Updating…</span>}
           </div>
 
-          {resourcesQuery.isPending ? (
-            <div className={styles.loadingGrid}>{[1, 2, 3].map((item) => <div className={styles.loadingCard} key={item}><span /><span /><span /><span /></div>)}</div>
-          ) : resourcesQuery.isError ? (
-            <div className={styles.empty}>
+          {resourcesQuery.isError ? (
+            <div className={styles.errorState}>
               <strong>Learning resources could not be loaded.</strong>
-              <p>Your selected filters are safe. Retry without refreshing the whole page.</p>
-              <button type="button" className={styles.retryButton} onClick={() => resourcesQuery.refetch()}><RefreshCw size={15} /> Retry resources</button>
+              <span>You do not need to refresh the whole page.</span>
+              <button type="button" onClick={() => resourcesQuery.refetch()}><RefreshCw size={16} /> Try again</button>
             </div>
-          ) : resources.length === 0 ? (
-            <div className={styles.empty}>No public resources match these filters yet. Try another grade, board or learning type.</div>
+          ) : resourcesQuery.isPending && resources.length === 0 ? (
+            <div className={styles.resourceGrid}>
+              {[0, 1, 2].map((item) => <div key={item} className={styles.skeletonCard}><div /><span /><span /><span /></div>)}
+            </div>
+          ) : resources.length ? (
+            <div className={styles.resourceGrid}>
+              {resources.map((resource) => {
+                const meta = CATEGORY_META[resource.category] || CATEGORY_META.ACADEMIC;
+                const Icon = resourceIcon(resource);
+                const duration = durationLabel(resource.duration_secs);
+                return (
+                  <Link key={resource.id} className={styles.resourceCard} href={`/learn/resource/${resource.public_slug}`}>
+                    <div className={`${styles.resourceVisual} ${meta.tone}`}>
+                      {resource.thumbnail_url ? (
+                        <img src={resource.thumbnail_url} alt="" loading="lazy" />
+                      ) : (
+                        <>
+                          <div className={styles.visualOrb}><Icon size={34} /></div>
+                          <span className={styles.visualWord}>{resource.subject_name || resource.subject_label || meta.shortLabel}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className={styles.resourceBody}>
+                      <div className={styles.resourceEyebrow}>{resource.subject_name || resource.subject_label || meta.shortLabel}</div>
+                      <h3>{resource.title}</h3>
+                      <p>{resource.summary || 'Open this resource to learn, practise and continue your learning journey.'}</p>
+                      <div className={styles.resourceFacts}>
+                        <span>{resourceGradeText(resource, selectedGrade)}</span>
+                        <span>{resourceTypeLabel(resource.resource_type)}</span>
+                        {duration && <span>{duration}</span>}
+                        {(resource.board_codes || []).includes('COMMON') && <span>Cross-board</span>}
+                      </div>
+                      <div className={styles.resourceLink}>Explore resource <ArrowRight size={17} /></div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           ) : (
-            <div className={styles.resourceGrid}>{resources.map((resource) => {
-              const categoryMeta = CATEGORY_META[resource.category] || CATEGORY_META.ACADEMIC;
-              const ResourceIcon = resourceIcon(resource);
-              const duration = durationLabel(resource.duration_secs);
-              const subject = resource.subject_name || resource.subject_label || categoryMeta.label;
-              const gradeText = resourceGradeText(resource, selectedGrade);
-              return (
-                <Link href={`/learn/resource/${resource.public_slug}`} className={`${styles.resourceCard} ${categoryMeta.tone}`} key={resource.id}>
-                  <div className={styles.resourceMedia}>
-                    <span className={styles.resourceIconWrap}><ResourceIcon size={25} strokeWidth={2.05} /></span>
-                    <div className={styles.resourceBadges}>
-                      {resource.is_featured_public && <span className={styles.featuredBadge}>Featured</span>}
-                      <span className={styles.badge}>{categoryMeta.shortLabel}</span>
-                    </div>
-                  </div>
-
-                  <div className={styles.resourceBody}>
-                    <div className={styles.resourceEyebrow}>{subject}{resource.topic_label ? ` · ${resource.topic_label}` : ''}</div>
-                    <h3>{resource.title}</h3>
-                    <p>{resource.summary || 'Open this resource to continue learning.'}</p>
-
-                    <div className={styles.resourceFacts}>
-                      <span><GraduationCap size={14} /> {gradeText}</span>
-                      <span><FileText size={14} /> {resourceTypeLabel(resource.resource_type)}</span>
-                      {duration && <span><CirclePlay size={14} /> {duration}</span>}
-                    </div>
-
-                    <div className={styles.pillRow}>
-                      {(resource.board_codes || []).slice(0, 2).map((board) => <span className={styles.pill} key={board}>{board === 'COMMON' ? 'Cross-board' : board}</span>)}
-                      {resource.is_offline_ready && <span className={styles.pill}>Offline ready</span>}
-                    </div>
-                  </div>
-
-                  <div className={styles.resourceFooter}>
-                    <span className={styles.sourceTrust}><ShieldCheck size={14} /> {resource.source_name}</span>
-                    <span className={styles.cardCta}>Open resource <ArrowRight size={16} /></span>
-                  </div>
-                </Link>
-              );
-            })}</div>
+            <div className={styles.emptyState}>
+              <BookOpen size={28} />
+              <strong>No resource matches this combination yet.</strong>
+              <span>Try another learning type or board, or clear the filters.</span>
+              <button type="button" onClick={clearFilters}>Show all learning</button>
+            </div>
           )}
         </div>
       </section>
 
-      <section className={`${styles.section} ${styles.practiceSection}`} id="practice">
+      <section className={styles.practiceSection} id="practice">
         <div className={styles.shell}>
-          <div className={styles.resultsHeader}>
-            <div>
-              <div className={styles.eyebrow}>Practise with feedback</div>
-              <h2>Free practice & self-assessment</h2>
-              <p>Select a school class above to load its practice sets. Early-years learning stays activity-led rather than exam-led.</p>
-            </div>
-            <span className={styles.practiceIcon}><Brain size={29} /></span>
+          <div className={styles.sectionHeading}>
+            <div className={styles.eyebrow}>PRACTISE AND CHECK UNDERSTANDING</div>
+            <h2>{assessmentClass ? `Practice for Class ${assessmentClass}` : 'Practice when the learner is ready'}</h2>
+            <p>Short practice sets and question papers help students check what they understand before moving ahead.</p>
           </div>
 
-          {!selectedGrade ? (
-            <div className={styles.empty}>Choose Class 1–12 above to see matching public practice. This keeps the first page load light and focused.</div>
-          ) : !selectedGradeMeta?.classNumber ? (
-            <div className={styles.empty}>For {selectedGradeMeta?.shortName || 'early-years learners'}, VidyaSetu prioritises playful activities, stories, audio, video and worksheets instead of formal scored tests.</div>
-          ) : assessmentsQuery.isPending ? (
-            <div className={styles.loadingGrid}>{[1, 2, 3].map((item) => <div className={styles.loadingCard} key={item}><span /><span /><span /><span /></div>)}</div>
-          ) : assessmentsQuery.isError ? (
-            <div className={styles.empty}><strong>Practice sets could not be loaded.</strong><p>Learning resources above remain available.</p></div>
-          ) : assessments.length === 0 ? (
-            <div className={styles.empty}>Public practice sets for {selectedGradeMeta.shortName} are being added.</div>
+          {assessmentClass ? (
+            assessmentsQuery.isError ? (
+              <div className={styles.errorState}><strong>Practice could not be loaded.</strong><button type="button" onClick={() => assessmentsQuery.refetch()}><RefreshCw size={16} /> Try again</button></div>
+            ) : assessments.length ? (
+              <div className={styles.practiceGrid}>
+                {assessments.slice(0, 6).map((assessment) => (
+                  <Link key={assessment.id} href={`/learn/practice/${assessment.public_slug}`} className={styles.practiceCard}>
+                    <FileQuestion size={26} />
+                    <span>{assessment.assessment_type.replaceAll('_', ' ')}</span>
+                    <h3>{assessment.title}</h3>
+                    <p>{assessment.summary || 'A focused practice set for this learning level.'}</p>
+                    <div>{assessment.question_count} questions {assessment.time_limit_mins ? `· ${assessment.time_limit_mins} min` : ''}</div>
+                    <strong>Start practice <ArrowRight size={16} /></strong>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.practicePrompt}>More practice for this class can be added through the Learning Studio as the catalogue grows.</div>
+            )
           ) : (
-            <div className={styles.resourceGrid}>{assessments.map((assessment) => (
-              <Link href={`/learn/practice/${assessment.public_slug}`} className={`${styles.resourceCard} ${styles.tonePractice}`} key={assessment.id}>
-                <div className={styles.resourceMedia}>
-                  <span className={styles.resourceIconWrap}><Brain size={25} /></span>
-                  <div className={styles.resourceBadges}><span className={styles.badge}>{assessment.assessment_type.replaceAll('_', ' ')}</span></div>
-                </div>
-                <div className={styles.resourceBody}>
-                  <div className={styles.resourceEyebrow}>{assessment.subject_name || 'Practice set'}</div>
-                  <h3>{assessment.title}</h3>
-                  <p>{assessment.summary || 'Open this VidyaSetu practice set.'}</p>
-                  <div className={styles.resourceFacts}>
-                    <span><FileQuestion size={14} /> {assessment.question_count} questions</span>
-                    <span><CheckCircle2 size={14} /> {assessment.total_marks} marks</span>
-                    {assessment.time_limit_mins && <span><CirclePlay size={14} /> {assessment.time_limit_mins} min</span>}
-                  </div>
-                  <div className={styles.pillRow}>{(assessment.board_codes || []).slice(0, 3).map((board) => <span className={styles.pill} key={board}>{board === 'COMMON' ? 'Cross-board' : board}</span>)}</div>
-                </div>
-                <div className={styles.resourceFooter}><span className={styles.sourceTrust}><ShieldCheck size={14} /> VidyaSetu Practice</span><span className={styles.cardCta}>Preview <ArrowRight size={16} /></span></div>
-              </Link>
-            ))}</div>
+            <div className={styles.practicePrompt}><GraduationCap size={24} /> Choose a school class above to see practice sets for that level.</div>
           )}
         </div>
       </section>
 
-      <section className={styles.sectionAlt}>
+      <section className={styles.developmentSection}>
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}>
-            <div className={styles.eyebrow}>Beyond marks</div>
+          <div className={styles.developmentHeading}>
+            <div className={styles.eyebrow}>BEYOND MARKS</div>
             <h2>Academic learning and human development belong together</h2>
             <p>VidyaSetu supports syllabus learning while helping children and young people build curiosity, habits, values and confidence appropriate to their stage of development.</p>
           </div>
-          <div className={styles.featureGrid}>{[
-            [BookOpen, 'Academic mastery', 'Board-aware subjects, concepts, reading, video, practice and question papers.', styles.featureBlue],
-            [Target, 'Learning how to learn', 'Focus, revision, planning, exam preparation, mistakes and effective study routines.', styles.featureLavender],
-            [Compass, 'Work ethic & responsibility', 'Reliability, preparation, integrity, finishing responsibilities and productive habits.', styles.featureAmber],
-            [HandHeart, 'Social responsibility', 'Empathy, civic behaviour, respectful communities and responsible digital participation.', styles.featureGreen],
-            [Sparkles, 'Motivation & resilience', 'Practical encouragement that helps learners restart, persist and learn from setbacks.', styles.featureMint],
-            [CloudSun, 'Well-being & balance', 'Sustainable learning habits that respect sleep, movement, recovery and healthy routines.', styles.featurePeach],
-          ].map(([Icon, title, copy, tone]) => {
-            const FeatureIcon = Icon as LucideIcon;
-            return <article className={`${styles.featureCard} ${tone}`} key={String(title)}><div className={styles.featureIcon}><FeatureIcon size={22} /></div><h3>{String(title)}</h3><p>{String(copy)}</p></article>;
-          })}</div>
+
+          <div className={styles.pillarGrid}>
+            {DEVELOPMENT_PILLARS.map((pillar) => {
+              const Icon = pillar.icon;
+              return (
+                <button key={pillar.category} type="button" className={styles.pillarCard} onClick={() => chooseCategory(pillar.category)}>
+                  <div className={`${styles.pillarVisual} ${pillar.tone}`}>
+                    <Icon size={38} />
+                  </div>
+                  <div className={styles.pillarBody}>
+                    <span>{pillar.eyebrow}</span>
+                    <h3>{pillar.title}</h3>
+                    <p>{pillar.copy}</p>
+                    <strong>Explore this area <ArrowRight size={16} /></strong>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={styles.finalCta}>
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}>
-            <div className={styles.eyebrow}>Cross-board by design</div>
-            <h2>Built for multiple Indian boards</h2>
-            <p>CBSE is one option, not the product boundary. State and national boards can carry their own curriculum while COMMON resources serve learners across boards.</p>
+          <div className={styles.ctaInner}>
+            <div>
+              <span>LEARNING CONTINUES AFTER SIGN-IN</span>
+              <h2>Save progress. Keep practising. Return where you left off.</h2>
+              <p>Student accounts add class-aware recommendations, bookmarks, progress, assessment history and school-connected learning.</p>
+            </div>
+            <div className={styles.ctaActions}>
+              <Link className={styles.primaryAction} href="/login?role=student">Student login</Link>
+              <Link className={styles.secondaryLight} href="/?auth=register">Create account</Link>
+            </div>
           </div>
-          <div className={styles.boardGrid}>{(overview?.boards || []).slice(0, 16).map((board) => <div className={styles.boardCard} key={board.code}><strong>{board.short_name || board.code}</strong><span>{board.name}{board.state ? ` · ${board.state}` : ''}</span></div>)}</div>
-        </div>
-      </section>
-
-      <section className={styles.sectionAlt}>
-        <div className={styles.shell}>
-          <div className={styles.sectionHeader}>
-            <div className={styles.eyebrow}>Trusted content operations</div>
-            <h2>A content library with source and licence discipline</h2>
-            <p>VidyaSetu separates “free to access” from “safe to copy”. External content carries source and licence evidence before it may be linked, adapted or hosted.</p>
-          </div>
-          <div className={styles.sourcePanel}>
-            <div className={styles.sourceCard}><BookOpen size={26} /><h3>{original?.name || 'VidyaSetu Original'}</h3><p>Our primary library: original lessons, explanations, practice, question banks, motivation, study skills, work ethic, social responsibility and life-skills resources authored and reviewed for VidyaSetu.</p></div>
-            <div className={`${styles.sourceCard} ${styles.light}`}><ExternalLink size={26} /><h3>{nroer?.name || 'NROER open resources'}</h3><p>Potential NROER material moves through discovery → licence review → content review → approval. Rehosting is never assumed and attribution is mandatory where required.</p></div>
-          </div>
-          <div className={styles.note}>Official resources with restrictive or uncertain rehosting terms are treated as external references rather than copied into VidyaSetu storage.</div>
         </div>
       </section>
     </div>
