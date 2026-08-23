@@ -5,6 +5,7 @@ import { query, transaction } from '../config/db';
 interface StudentContextRow extends QueryResultRow {
   student_id: UUID;
   grade_level: string;
+  grade_code: string | null;
   class_name: string | null;
   school_id: UUID | null;
   school_name: string | null;
@@ -30,16 +31,40 @@ function appError(message: string, statusCode: number): Error & { statusCode: nu
   return Object.assign(new Error(message), { statusCode });
 }
 
-function gradeNumber(ctx: StudentContextRow): number {
-  const source = ctx.grade_level || ctx.class_name || '8';
-  const match = String(source).match(/\d{1,2}/);
-  const parsed = Number.parseInt(match?.[0] || '8', 10);
-  return Math.min(Math.max(parsed || 8, 1), 12);
+function canonicalGradeCode(ctx: StudentContextRow): string {
+  if (ctx.grade_code) return ctx.grade_code;
+  const raw = String(ctx.class_name || ctx.grade_level || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (['PN', 'PRENURSERY', 'PRE_NURSERY'].includes(raw)) return 'PRE_NURSERY';
+  if (raw === 'NURSERY') return 'NURSERY';
+  if (['LKG', 'LOWER_KG', 'LOWER_KINDERGARTEN'].includes(raw)) return 'LKG';
+  if (['UKG', 'UPPER_KG', 'UPPER_KINDERGARTEN'].includes(raw)) return 'UKG';
+  const numeric = raw.match(/^(?:CLASS_)?(\d{1,2})$/);
+  if (numeric) {
+    const value = Number.parseInt(numeric[1], 10);
+    if (value >= 1 && value <= 12) return `CLASS_${value}`;
+  }
+  throw appError('Student grade is not supported by the Learning catalogue', 409);
+}
+
+function gradeNumber(gradeCode: string): number | null {
+  const match = gradeCode.match(/^CLASS_(\d{1,2})$/);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return value >= 1 && value <= 12 ? value : null;
+}
+
+function gradeLabel(gradeCode: string): string {
+  if (gradeCode === 'PRE_NURSERY') return 'Pre-Nursery';
+  if (gradeCode === 'NURSERY') return 'Nursery';
+  if (gradeCode === 'LKG') return 'LKG';
+  if (gradeCode === 'UKG') return 'UKG';
+  const numeric = gradeNumber(gradeCode);
+  return numeric ? `Class ${numeric}` : gradeCode.replaceAll('_', ' ');
 }
 
 async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
-    `SELECT s.id AS student_id, s.grade_level, sc.class_name,
+    `SELECT s.id AS student_id, s.grade_level, s.grade_code, sc.class_name,
             s.school_id, sch.name AS school_name,
             eb.code AS board_code, eb.name AS board_name
      FROM students s
@@ -53,10 +78,27 @@ async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   return student;
 }
 
-function resourceScopeSql(boardParam: number, classParam: number): string {
+function resourceScopeSql(boardParam: number, gradeCodeParam: number, classParam: number): string {
   return `
-    (lr.class_min IS NULL OR lr.class_min <= $${classParam})
-    AND (lr.class_max IS NULL OR lr.class_max >= $${classParam})
+    (
+      EXISTS (
+        SELECT 1
+        FROM learning_resource_grades lrg
+        JOIN education_grade_levels egl ON egl.id=lrg.grade_id
+        WHERE lrg.resource_id=lr.id AND egl.code=$${gradeCodeParam}
+      )
+      OR (
+        NOT EXISTS (SELECT 1 FROM learning_resource_grades lrg0 WHERE lrg0.resource_id=lr.id)
+        AND (
+          ($${classParam}::int IS NULL AND lr.class_min IS NULL AND lr.class_max IS NULL)
+          OR (
+            $${classParam}::int IS NOT NULL
+            AND (lr.class_min IS NULL OR lr.class_min <= $${classParam})
+            AND (lr.class_max IS NULL OR lr.class_max >= $${classParam})
+          )
+        )
+      )
+    )
     AND EXISTS (
       SELECT 1 FROM learning_resource_boards lrb
       JOIN education_boards eb ON eb.id=lrb.board_id
@@ -66,7 +108,8 @@ function resourceScopeSql(boardParam: number, classParam: number): string {
 
 function assessmentScopeSql(boardParam: number, classParam: number): string {
   return `
-    (la.class_min IS NULL OR la.class_min <= $${classParam})
+    $${classParam}::int IS NOT NULL
+    AND (la.class_min IS NULL OR la.class_min <= $${classParam})
     AND (la.class_max IS NULL OR la.class_max >= $${classParam})
     AND EXISTS (
       SELECT 1 FROM learning_assessment_boards lab
@@ -77,7 +120,8 @@ function assessmentScopeSql(boardParam: number, classParam: number): string {
 
 export async function getLearningHome(userId: UUID) {
   const student = await getStudentContext(userId);
-  const grade = gradeNumber(student);
+  const gradeCode = canonicalGradeCode(student);
+  const grade = gradeNumber(gradeCode);
   const board = student.board_code || 'COMMON';
 
   const [resources, assessments, bookmarks, recentAttempts, progress] = await Promise.all([
@@ -94,10 +138,10 @@ export async function getLearningHome(userId: UUID) {
        LEFT JOIN student_learning_resource_progress slrp ON slrp.resource_id=lr.id AND slrp.student_id=$1
        WHERE lr.review_status='PUBLISHED'
          AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
-         AND ${resourceScopeSql(2, 3)}
+         AND ${resourceScopeSql(2, 3, 4)}
        ORDER BY slrp.last_accessed DESC NULLS LAST, lr.is_featured_public DESC, lr.sort_order, lr.published_at DESC NULLS LAST
        LIMIT 12`,
-      [student.student_id, board, grade],
+      [student.student_id, board, gradeCode, grade],
     ),
     query(
       `SELECT la.id, la.public_slug, la.title, la.summary, la.assessment_type,
@@ -149,7 +193,9 @@ export async function getLearningHome(userId: UUID) {
   return {
     learner: {
       studentId: student.student_id,
-      className: grade,
+      className: grade ?? student.grade_level,
+      gradeCode,
+      gradeLabel: gradeLabel(gradeCode),
       schoolName: student.school_name,
       boardCode: board,
       boardName: student.board_name || 'Cross-board / Common Learning',
@@ -220,7 +266,9 @@ export async function listAssessments(userId: UUID) {
 
 async function assessmentForStudent(userId: UUID, assessmentId: UUID) {
   const student = await getStudentContext(userId);
-  const grade = gradeNumber(student);
+  const gradeCode = canonicalGradeCode(student);
+  const grade = gradeNumber(gradeCode);
+  if (grade === null) throw appError('Formal assessments are not available for early-years learners', 404);
   const board = student.board_code || 'COMMON';
   const { rows: [assessment] } = await query(
     `SELECT la.id, la.public_slug, la.title, la.summary, la.assessment_type,
