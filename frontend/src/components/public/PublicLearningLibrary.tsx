@@ -43,8 +43,18 @@ export default function PublicLearningLibrary() {
   const [resources, setResources] = useState<PublicLearningResource[]>([]);
   const [sources, setSources] = useState<PublicLearningSource[]>([]);
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
+  const [selectedBoard, setSelectedBoard] = useState<string>('ALL');
   const [category, setCategory] = useState<LearningCategory | 'ALL'>('ALL');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const classParam = Number.parseInt(params.get('class') || '', 10);
+    const boardParam = (params.get('board') || '').toUpperCase();
+    if (Number.isInteger(classParam) && classParam >= 1 && classParam <= 12) setSelectedClass(classParam);
+    if (boardParam) setSelectedBoard(boardParam);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -65,19 +75,21 @@ export default function PublicLearningLibrary() {
     getPublicLearningResources({
       class: selectedClass || undefined,
       category: category === 'ALL' ? undefined : category,
+      board: selectedBoard === 'ALL' ? undefined : selectedBoard,
       limit: 60,
     })
       .then((response) => { if (active) setResources(response.data.data || []); })
       .catch(() => { if (active) setResources([]); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [selectedClass, category]);
+  }, [selectedClass, selectedBoard, category]);
 
   const categories = useMemo(() => {
     const fromApi = overview?.categories?.map((item) => item.category) || [];
     return Array.from(new Set(fromApi));
   }, [overview]);
 
+  const boardOptions = useMemo(() => (overview?.boards || []).filter((board) => board.code !== 'OTHER_STATE'), [overview]);
   const nroer = sources.find((source) => source.code === 'NROER');
   const original = sources.find((source) => source.code === 'VIDYASETU_ORIGINAL');
 
@@ -115,8 +127,8 @@ export default function PublicLearningLibrary() {
       <section className={styles.sectionAlt} id="browse">
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
-            <h2>Browse learning by class</h2>
-            <p>Public resources can be explored without login. Signed-in students will later receive the full learning path automatically from their class, school and configured board.</p>
+            <h2>Browse learning by class and board</h2>
+            <p>Public resources can be explored without login. Common resources work across boards; board-specific curricula can be added by academic year without changing the learning experience.</p>
           </div>
           <div className={styles.classGrid}>
             {(overview?.classes || Array.from({ length: 12 }, (_, index) => ({ className: index + 1, resourceCount: 0 }))).map((item) => (
@@ -132,8 +144,17 @@ export default function PublicLearningLibrary() {
             ))}
           </div>
 
-          <div className={styles.filterRow}>
-            <button className={`${styles.filter} ${category === 'ALL' ? styles.filterActive : ''}`} onClick={() => setCategory('ALL')}>All</button>
+          <div className={styles.filterRow} aria-label="Board filter">
+            <button className={`${styles.filter} ${selectedBoard === 'ALL' ? styles.filterActive : ''}`} onClick={() => setSelectedBoard('ALL')}>All boards</button>
+            {boardOptions.map((board) => (
+              <button key={board.code} className={`${styles.filter} ${selectedBoard === board.code ? styles.filterActive : ''}`} onClick={() => setSelectedBoard(board.code)}>
+                {board.short_name || board.code}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.filterRow} aria-label="Learning category filter">
+            <button className={`${styles.filter} ${category === 'ALL' ? styles.filterActive : ''}`} onClick={() => setCategory('ALL')}>All learning</button>
             {categories.map((item) => (
               <button key={item} className={`${styles.filter} ${category === item ? styles.filterActive : ''}`} onClick={() => setCategory(item)}>
                 {CATEGORY_META[item]?.icon} {CATEGORY_META[item]?.label || item.replaceAll('_', ' ')}
@@ -144,7 +165,7 @@ export default function PublicLearningLibrary() {
           {loading ? (
             <div className={styles.empty}>Loading public learning resources…</div>
           ) : resources.length === 0 ? (
-            <div className={styles.empty}>No public resources match this filter yet. The catalogue is designed to expand class by class and board by board.</div>
+            <div className={styles.empty}>No public resources match this class/board/category yet. The catalogue is designed to expand curriculum by curriculum without creating fake coverage.</div>
           ) : (
             <div className={styles.resourceGrid}>
               {resources.map((resource) => (
@@ -199,7 +220,7 @@ export default function PublicLearningLibrary() {
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>Built for multiple Indian boards</h2>
-            <p>The curriculum model is board-extensible. CBSE is one option, not the product boundary. State and national boards can carry their own academic-year curriculum while common life-skills content remains cross-board.</p>
+            <p>The curriculum model is board-extensible. CBSE is one option, not the product boundary. State and national boards can carry their own academic-year curriculum while common academic and life-skills resources can serve learners across boards.</p>
           </div>
           <div className={styles.boardGrid}>
             {(overview?.boards || []).slice(0, 16).map((board) => (
