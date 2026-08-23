@@ -9,6 +9,7 @@ import { logout as apiLogout } from '@/services/authService';
 
 const NAV: ReadonlyArray<readonly [string, string]> = [
   ['Home', '/'],
+  ['Learn', '/learn'],
   ['Students', '/for-students'],
   ['Schools', '/for-schools'],
   ['Parents', '/for-parents'],

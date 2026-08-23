@@ -11,7 +11,7 @@ import type { StudentSectionProps } from '@/types/studentPortal';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import GroupsHub from '@/components/groups/GroupsHub';
 import DashboardSection from './sections/DashboardSection';
-import SubjectsSection from './sections/SubjectsSection';
+import LearningSection from './sections/LearningSection';
 import AITutorSection from './sections/AITutorSection';
 import DoubtForumSection from './sections/DoubtForumSection';
 import ExamsSection from './sections/ExamsSection';
@@ -24,7 +24,7 @@ import styles from './StudentPortal.module.css';
 
 const MENU: ReadonlyArray<readonly [string, string, string]> = [
   ['dashboard', '🏠', 'Dashboard'],
-  ['subjects', '📚', 'My Subjects'],
+  ['subjects', '📚', 'Learning'],
   ['ai', '🤖', 'AI Tutor'],
   ['doubts', '💬', 'Doubt Forum'],
   ['exams', '🏆', 'Competitions'],
@@ -96,7 +96,7 @@ export default function StudentPortal() {
 
   let content: ReactNode;
   switch (section) {
-    case 'subjects': content = <SubjectsSection {...shared} />; break;
+    case 'subjects': content = <LearningSection {...shared} />; break;
     case 'ai': content = <AITutorSection {...shared} />; break;
     case 'doubts': content = <DoubtForumSection {...shared} />; break;
     case 'exams': content = <ExamsSection {...shared} />; break;

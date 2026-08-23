@@ -13,12 +13,14 @@ import studentRoutes = require('./routes/student.routes');
 import schoolRoutes = require('./routes/school.routes');
 import parentRoutes = require('./routes/parent.routes');
 import adminRoutes = require('./routes/admin.routes');
+import adminLearningRoutes = require('./routes/adminLearning.routes');
 import competitionRoutes = require('./routes/competition.routes');
 import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
 import aiRoutes = require('./routes/ai.routes');
 import groupRoutes = require('./routes/group.routes');
 import publicRoutes = require('./routes/public.routes');
+import publicLearningRoutes = require('./routes/publicLearning.routes');
 import schoolGrievanceRoutes = require('./routes/schoolGrievance.routes');
 import adminGrievanceRoutes = require('./routes/adminGrievance.routes');
 
@@ -47,6 +49,7 @@ app.get('/health', (_req, res) => {
 });
 
 const API = '/api/v1';
+app.use(`${API}/public/learning`, publicLearningRoutes);
 app.use(`${API}/public`, publicRoutes);
 app.use(`${API}/auth`, authRoutes);
 app.use(`${API}/student`, studentRoutes);
@@ -54,6 +57,7 @@ app.use(`${API}/school/grievances`, schoolGrievanceRoutes);
 app.use(`${API}/school`, schoolRoutes);
 app.use(`${API}/parent`, parentRoutes);
 app.use(`${API}/admin/grievances`, adminGrievanceRoutes);
+app.use(`${API}/admin/learning`, adminLearningRoutes);
 app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/competition`, competitionRoutes);
 app.use(`${API}/content`, contentRoutes);

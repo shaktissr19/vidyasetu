@@ -5,9 +5,11 @@ import { useEffect, useMemo, useState } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import {
   getPublicCompetitions,
+  getPublicLearningResources,
   getPublicOverview,
   getPublicSchools,
   type PublicCompetition,
+  type PublicLearningResource,
   type PublicOverview,
   type PublicSchool,
 } from '@/services/publicService';
@@ -31,15 +33,15 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     icon: '📚',
-    kicker: 'VidyaSetu · India-first education platform',
-    title: 'Students, schools and families',
-    accent: 'connected through one education bridge',
-    copy: 'VidyaSetu brings learning, school operations, family visibility, competitions, grievances and moderated Education Communities into one connected platform designed around Indian school workflows.',
-    href: '/for-students',
-    cta: 'Explore the platform',
+    kicker: 'VidyaSetu Learning · Classes 1–12 · Cross-board',
+    title: 'Learn. Practise. Grow.',
+    accent: 'school learning and life skills in one place',
+    copy: 'VidyaSetu is becoming a learning destination as well as a school platform: original lessons, open educational resources, videos, reading, practice, question papers, motivation, work ethic, social responsibility and life skills—connected to each student’s school journey.',
+    href: '/learn',
+    cta: 'Start learning free',
     metric: 'students',
-    metricLabel: 'active students in the current database',
-    points: ['Classes 1–12 learning and school records', 'School operations with parent visibility', 'Hindi/regional-friendly, role-based access'],
+    metricLabel: 'students already connected to VidyaSetu',
+    points: ['Public Learning Library without login', 'Class-aware learning after Student login', 'Cross-board curriculum architecture, not CBSE-only'],
   },
   {
     icon: '🎓',
@@ -106,12 +108,12 @@ const SLIDES: Slide[] = [
     kicker: 'Platform Governance',
     title: 'Operate VidyaSetu with',
     accent: 'network-level visibility and control',
-    copy: 'Platform Admin governs schools, users, content, competitions, Communities, grievances, support, revenue and configuration while School Admin remains focused on individual institution operations.',
+    copy: 'Platform Admin governs schools, users, learning content, competitions, Communities, grievances, support, revenue and configuration while School Admin remains focused on individual institution operations.',
     href: '/platform-admin',
     cta: 'See Platform Admin',
     metric: 'schools',
     metricLabel: 'active institutions under platform governance',
-    points: ['Network analytics and school/user controls', 'Grievance, support and content governance', 'Competition and Community moderation'],
+    points: ['Network analytics and school/user controls', 'Learning, grievance and support governance', 'Competition and Community moderation'],
   },
 ];
 
@@ -119,11 +121,12 @@ const AUDIENCES = [
   { icon: '🎓', title: 'Students', text: 'Learning, school records, attendance, report cards, doubts, competitions and Communities.', href: '/for-students' },
   { icon: '🏫', title: 'Schools & Teachers', text: 'Students, classes, teachers, attendance, fees, timetable, exams, results and parent engagement.', href: '/for-schools' },
   { icon: '👨‍👩‍👧', title: 'Parents', text: 'Child progress, attendance, report cards, fees, teacher communication, grievances and Communities.', href: '/for-parents' },
-  { icon: '🛡️', title: 'Platform Admin', text: 'Analytics, schools, users, support, configuration, competitions, grievances and governance.', href: '/platform-admin' },
+  { icon: '🛡️', title: 'Platform Admin', text: 'Analytics, schools, users, learning, support, configuration, competitions, grievances and governance.', href: '/platform-admin' },
 ];
 
 const PLATFORM_AREAS = [
-  ['📚', 'Learning & Study Support', 'Subjects, chapters, learning items, completion, doubts and AI-assisted study support for Classes 1–12.'],
+  ['📚', 'Learning Platform', 'Public and logged-in learning for Classes 1–12: lessons, videos, reading, practice, question papers, offline study and progress.'],
+  ['🌱', 'Motivation & Life Skills', 'Study skills, resilience, work ethic, social responsibility, digital citizenship, well-being and career awareness.'],
   ['🏫', 'School Operations', 'Students, teachers, classes, attendance, fees, timetables, exams, results and announcements.'],
   ['👨‍👩‍👧', 'Family Visibility', 'Linked-child dashboards, attendance, performance, report cards, fees, messages and notifications.'],
   ['🏆', 'Competitions', 'Published academic challenges, registration, attempts, scoring, results and leaderboards.'],
@@ -143,21 +146,37 @@ function formatDate(value?: string | null): string {
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
 }
 
+function learningIcon(resource: PublicLearningResource): string {
+  if (resource.category === 'MOTIVATION') return '🌱';
+  if (resource.category === 'STUDY_SKILLS') return '🎯';
+  if (resource.category === 'WORK_ETHIC') return '🧭';
+  if (resource.category === 'SOCIAL_RESPONSIBILITY') return '🤝';
+  if (resource.category === 'DIGITAL_CITIZENSHIP') return '💻';
+  return '📘';
+}
+
 export default function PublicHomeExperience() {
   const [overview, setOverview] = useState<PublicOverview | null>(null);
   const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
   const [schools, setSchools] = useState<PublicSchool[]>([]);
+  const [learning, setLearning] = useState<PublicLearningResource[]>([]);
   const [slideIndex, setSlideIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([getPublicOverview(), getPublicCompetitions(), getPublicSchools()]).then((results) => {
+    Promise.allSettled([
+      getPublicOverview(),
+      getPublicCompetitions(),
+      getPublicSchools(),
+      getPublicLearningResources({ featured: true, limit: 3 }),
+    ]).then((results) => {
       if (!active) return;
-      const [overviewResult, competitionResult, schoolResult] = results;
+      const [overviewResult, competitionResult, schoolResult, learningResult] = results;
       if (overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data.data);
       if (competitionResult.status === 'fulfilled') setCompetitions(competitionResult.value.data.data || []);
       if (schoolResult.status === 'fulfilled') setSchools(schoolResult.value.data.data || []);
+      if (learningResult.status === 'fulfilled') setLearning(learningResult.value.data.data || []);
     });
     return () => { active = false; };
   }, []);
@@ -231,6 +250,36 @@ export default function PublicHomeExperience() {
       <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
+            <h2>Start learning on VidyaSetu</h2>
+            <p>Learning is now a first-class public part of VidyaSetu. Explore free original resources now; student login will connect complete learning paths to class, school and board.</p>
+          </div>
+          <div className={styles.chips} style={{ marginBottom: 24 }}>
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((className) => (
+              <Link key={className} className={styles.chip} href={`/learn?class=${className}`}>Class {className}</Link>
+            ))}
+          </div>
+          {learning.length > 0 && (
+            <div className={styles.previewGrid}>
+              {learning.map((resource) => (
+                <Link href={`/learn/resource/${resource.public_slug}`} className={styles.previewCard} key={resource.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className={styles.capIcon}>{learningIcon(resource)}</div>
+                  <h3>{resource.title}</h3>
+                  <p>{resource.summary}</p>
+                  <span className={styles.badge}>{resource.category.replaceAll('_', ' ')}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+          <div className={styles.heroActions} style={{ justifyContent: 'center', marginTop: 24 }}>
+            <Link className={styles.primary} href="/learn">Open the Learning Library</Link>
+            <Link className={styles.secondary} href="/login?role=student">Continue as a Student</Link>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.sectionAlt}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeader}>
             <h2>Explore VidyaSetu by who you are</h2>
             <p>Understand each module before signing in. Personal records, school operations and family information stay protected behind role-based access.</p>
           </div>
@@ -247,11 +296,11 @@ export default function PublicHomeExperience() {
         </div>
       </section>
 
-      <section className={styles.sectionAlt}>
+      <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>One platform for the everyday Indian education journey</h2>
-            <p>Learning, school operations, family participation and governance are connected rather than split across separate tools.</p>
+            <p>Learning, school operations, family participation, personal development and governance are connected rather than split across separate tools.</p>
           </div>
           <div className={styles.capGrid}>
             {PLATFORM_AREAS.map(([icon, title, copy]) => (
@@ -265,7 +314,7 @@ export default function PublicHomeExperience() {
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={styles.sectionAlt}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>Schools currently connected to VidyaSetu</h2>
@@ -295,7 +344,7 @@ export default function PublicHomeExperience() {
         </div>
       </section>
 
-      <section className={styles.sectionAlt}>
+      <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>Published academic Competitions</h2>
@@ -321,15 +370,15 @@ export default function PublicHomeExperience() {
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={styles.sectionAlt}>
         <div className={styles.shell}>
           <div className={styles.cta}>
             <div>
               <h2>Learning, school life and family participation—connected.</h2>
-              <p>Explore the public module pages first, then sign in to your role dashboard for personal or operational data.</p>
+              <p>Start with free public learning, then sign in for class-aware progress, school workflows and personal records.</p>
             </div>
             <div className={styles.twoActions}>
-              <Link className={styles.lightButton} href="/login">Login to your dashboard</Link>
+              <Link className={styles.lightButton} href="/learn">Start learning</Link>
               <Link className={styles.secondary} href="/register">Create an account</Link>
             </div>
           </div>
