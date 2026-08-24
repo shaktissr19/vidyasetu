@@ -28,17 +28,19 @@ jobs:
           test -s database/migrations/025_learning_public_validation_pack.sql
           test -s frontend/src/app/learn/library/page.tsx
           test -s frontend/src/components/public/PublicLearningCatalogue.tsx
+          test -s frontend/src/components/public/ImageHero.tsx
           grep -q "INITIAL_RESOURCE_LIMIT = 6" frontend/src/components/public/PublicLearningLibrary.tsx
           grep -q "MAX_HOME_RESOURCE_LIMIT = 24" frontend/src/components/public/PublicLearningLibrary.tsx
           grep -q "View all learning" frontend/src/components/public/PublicLearningLibrary.tsx
-          grep -q "heroCanvas" frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -q "<ImageHero" frontend/src/components/public/PublicLearningLibrary.tsx
+          ! grep -q "heroJourney" frontend/src/components/public/PublicLearningLibrary.tsx
           ! grep -q "heroLeft" frontend/src/components/public/PublicLearningLibrary.tsx
           ! grep -q "SymbolicArtwork" frontend/src/components/public/PublicLearningLibrary.tsx
-          grep -q "HERO_PALETTES" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "VISUAL_STORIES" frontend/src/components/public/PublicModulePage.tsx
           grep -q "student:" frontend/src/components/public/PublicModulePage.tsx
           grep -q "parent:" frontend/src/components/public/PublicModulePage.tsx
           grep -q "school:" frontend/src/components/public/PublicModulePage.tsx
-          grep -q "teacher:" frontend/src/components/public/PublicModulePage.tsx
+          grep -q "communities:" frontend/src/components/public/PublicModulePage.tsx
           grep -q "admin:" frontend/src/components/public/PublicModulePage.tsx
           bash scripts/otp-auth-contract-smoke.sh
           bash -n scripts/provision-production-demo-logins.sh
