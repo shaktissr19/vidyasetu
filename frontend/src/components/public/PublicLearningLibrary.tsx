@@ -23,13 +23,13 @@ import {
   Lightbulb,
   NotebookPen,
   RefreshCw,
-  Sparkles,
   Target,
   TrendingUp,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
+import ImageHero from '@/components/public/ImageHero';
 import {
   getPublicLearningAssessments,
   getPublicLearningOverview,
@@ -325,31 +325,18 @@ export default function PublicLearningLibrary() {
     <div className={styles.page}>
       <GlobalTopbar />
 
-      <section className={styles.hero}>
-        <div className={styles.heroCanvas}>
-          <div className={styles.heroCopyPanel}>
-            <div className={styles.kicker}>VidyaSetu Learning · Pre-Nursery to Class 12 · Cross-board</div>
-            <h1>Learn with clarity.<br /><span>Practise with purpose.</span><br />Grow for life.</h1>
-            <p>Academic concepts, practice, reading, video and question papers—alongside the study habits, confidence, responsibility and life skills that help learners keep moving forward.</p>
-            <div className={styles.heroActions}>
-              <a className={styles.primaryAction} href="#browse">Explore learning</a>
-              <a className={styles.secondaryAction} href="#practice">Practice by class</a>
-              <Link className={styles.secondaryAction} href="/login?role=student">Student login</Link>
-            </div>
-          </div>
-
-          <div className={styles.heroJourney}>
-            <div className={styles.pathKicker}>FROM LESSON TO LIFE</div>
-            <div className={styles.pathIntro}>Built around how students actually learn.</div>
-            <div className={styles.pathList}>
-              <div className={`${styles.pathRow} ${styles.pathBlue}`}><div className={styles.pathIcon}><BookOpen /></div><div><strong>Understand concepts</strong><small>Clear lessons, reading and video</small></div></div>
-              <div className={`${styles.pathRow} ${styles.pathTeal}`}><div className={styles.pathIcon}><NotebookPen /></div><div><strong>Practise what you learn</strong><small>Worksheets, questions and papers</small></div></div>
-              <div className={`${styles.pathRow} ${styles.pathGold}`}><div className={styles.pathIcon}><Target /></div><div><strong>Build stronger study habits</strong><small>Focus, revision and learning routines</small></div></div>
-              <div className={`${styles.pathRow} ${styles.pathViolet}`}><div className={styles.pathIcon}><Sparkles /></div><div><strong>Grow with confidence</strong><small>Values, responsibility and life skills</small></div></div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <ImageHero
+        image="https://images.pexels.com/photos/6482219/pexels-photo-6482219.jpeg?auto=compress&cs=tinysrgb&w=1800"
+        imagePosition="68% center"
+        eyebrow="Learning · Pre-Nursery to Class 12 · Cross-board"
+        title="Learn with clarity. Practise with purpose."
+        description="Lessons, reading, video, worksheets, question papers and life skills — organised around the learner’s stage."
+        theme="blue"
+        actions={[
+          { label: 'Explore learning', href: '#browse' },
+          { label: 'Practice by class', href: '#practice', variant: 'secondary' },
+        ]}
+      />
 
       <section className={styles.browseSection} id="browse">
         <div className={styles.shell}>

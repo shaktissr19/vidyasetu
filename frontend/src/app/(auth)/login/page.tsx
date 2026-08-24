@@ -47,14 +47,14 @@ const ROLE_INTRO: Record<UserRole, {
   cards: Array<[string, string]>;
 }> = {
   STUDENT: {
-    title: 'Learning and school progress',
-    accent: 'in one student workspace',
-    copy: 'Sign in to learning resources, school-linked identity, attendance, report cards, competitions, doubts, offline resources and Education Communities.',
+    title: 'Welcome back to your learning space',
+    accent: 'continue where you left off',
+    copy: 'Sign in to continue lessons, practice, school progress, competitions and Communities from your own VidyaSetu Student identity.',
     cards: [
-      ['Student ID', 'Permanent VidyaSetu identity'],
-      ['Learning', 'Subjects, books, content and doubts'],
+      ['Learning', 'Lessons, practice and progress'],
       ['School Records', 'Attendance and report cards'],
-      ['Participation', 'Competitions and Communities'],
+      ['Opportunities', 'Competitions and challenges'],
+      ['Community', 'Safe learning collaboration'],
     ],
   },
   PARENT: {
@@ -168,6 +168,14 @@ export default function LoginPage() {
   const identifierPlaceholder = role === 'STUDENT'
     ? 'aarav.sharma, 9300000001 or VS26-...'
     : 'username, email or 10-digit mobile';
+  const isStudent = role === 'STUDENT';
+  const leftPanelStyle = isStudent
+    ? {
+        backgroundImage: "linear-gradient(180deg,rgba(6,24,51,.20) 0%,rgba(8,30,61,.34) 48%,rgba(8,28,58,.92) 100%),url('https://images.pexels.com/photos/3231358/pexels-photo-3231358.jpeg?auto=compress&cs=tinysrgb&w=1400')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : { background: 'linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1A3A6E 100%)' };
 
   function resetOtpState(clearMobile = false) {
     setOtpSent(false);
@@ -274,33 +282,43 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-66px)] flex" style={{ background: 'var(--white)' }}>
-      <div className="hidden lg:flex flex-col justify-between w-[42%] p-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1A3A6E 100%)' }}>
+      <div className="hidden lg:flex flex-col justify-between w-[44%] p-12 relative overflow-hidden" style={leftPanelStyle}>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-extrabold text-white" style={{ background: 'linear-gradient(135deg,var(--saffron),var(--saffron-light))' }}>V</div>
-            <span className="font-display font-extrabold text-2xl text-white">VidyaSetu</span>
+            <span className="font-display font-extrabold text-2xl text-white" style={{ textShadow: '0 2px 16px rgba(0,0,0,.24)' }}>VidyaSetu</span>
           </div>
-          <h1 className="font-display font-extrabold text-4xl text-white leading-tight mb-4">
+        </div>
+
+        <div className="relative z-10" style={{ maxWidth: 610 }}>
+          <h1 className="font-display font-extrabold text-4xl text-white leading-tight mb-4" style={{ textShadow: '0 3px 20px rgba(0,0,0,.28)' }}>
             {intro.title}<br /><span style={{ color: 'var(--saffron-light)' }}>{intro.accent}</span>
           </h1>
-          <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.68)' }}>{intro.copy}</p>
+          <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.84)', textShadow: '0 2px 14px rgba(0,0,0,.28)' }}>{intro.copy}</p>
           <button
             onClick={() => router.push(ROLE_PUBLIC_PATHS[role])}
             className="mt-5 text-sm font-bold"
-            style={{ color: 'var(--saffron-light)', background: 'transparent', border: 0, cursor: 'pointer' }}
+            style={{ color: '#fff', background: 'rgba(255,107,0,.92)', border: 0, cursor: 'pointer', padding: '10px 14px', borderRadius: 10 }}
           >
-            Learn what this module includes
+            Explore this VidyaSetu module →
           </button>
         </div>
-        <div className="relative z-10 grid grid-cols-2 gap-4">
-          {intro.cards.map(([name, label]) => (
-            <div key={name} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <div className="font-display font-extrabold text-lg text-white">{name}</div>
-              <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</div>
-            </div>
-          ))}
-        </div>
+
+        {isStudent ? (
+          <div className="relative z-10 rounded-2xl px-5 py-4" style={{ background: 'rgba(8,30,61,.72)', border: '1px solid rgba(255,255,255,.2)', backdropFilter: 'blur(8px)' }}>
+            <div className="text-xs font-bold tracking-wide" style={{ color: 'var(--saffron-light)' }}>YOUR STUDENT SPACE</div>
+            <div className="text-sm mt-1 text-white">Lessons · Practice · Attendance · Results · Competitions · Communities</div>
+          </div>
+        ) : (
+          <div className="relative z-10 grid grid-cols-2 gap-4">
+            {intro.cards.map(([name, label]) => (
+              <div key={name} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div className="font-display font-extrabold text-lg text-white">{name}</div>
+                <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">

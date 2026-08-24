@@ -9,6 +9,7 @@ import { apiErrorText } from '@/utils/errors';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
+import ImageHero from '@/components/public/ImageHero';
 import toast from 'react-hot-toast';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -52,16 +53,20 @@ export default function CompetitionPage() {
     <>
       <GlobalTopbar />
       <div>
-        <div style={{ background: 'linear-gradient(135deg, #10264f, #244f88)', padding: '52px 32px 42px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🏆📚</div>
-          <h1 className="font-display" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, color: 'white', marginBottom: 12 }}>{t('शैक्षणिक प्रतियोगिताएँ और चुनौतियाँ', 'Academic Competitions & Challenges')}</h1>
-          <p style={{ color: 'rgba(255,255,255,0.76)', maxWidth: 760, margin: '0 auto', lineHeight: 1.65 }}>{t('कक्षा-आधारित शैक्षणिक चुनौतियाँ खोजें, पात्र प्रतियोगिताओं के लिए पंजीकरण करें और अपने परिणाम देखें।', 'Discover class-relevant academic challenges, register for eligible competitions, attempt published exams and review results through the same VidyaSetu Student identity.')}</p>
-          <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
-            {['🎯 Class-linked eligibility', '📝 Real exam workflow', '📊 Results & leaderboards'].map(item => <span key={item} style={{ border: '1px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.08)', borderRadius: 999, padding: '7px 11px', color: 'rgba(255,255,255,.9)', fontSize: 12 }}>{item}</span>)}
-          </div>
-        </div>
+        <ImageHero
+          image="https://images.pexels.com/photos/18012456/pexels-photo-18012456.jpeg?auto=compress&cs=tinysrgb&w=1800"
+          imagePosition="68% center"
+          eyebrow="Academic Competitions"
+          title="Opportunities that turn effort into achievement"
+          description="Discover class-relevant academic challenges, register with a Student account, participate and follow results through the same VidyaSetu learner identity."
+          theme="rose"
+          actions={[
+            { label: 'Explore competitions', href: '#competition-list' },
+            { label: 'Student login', href: '/login?role=student', variant: 'secondary' },
+          ]}
+        />
 
-        <div className="max-w-5xl mx-auto" style={{ padding: '24px 32px 0' }}>
+        <div id="competition-list" className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0', scrollMarginTop: 96 }}>
           <div style={{ background: '#FFF8EF', border: '1px solid #FFD7B5', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
             <div>
               <strong style={{ color: 'var(--navy)' }}>Want to register or attempt a Competition?</strong>
