@@ -15,6 +15,7 @@ export interface ImageHeroProps {
   description: string;
   actions?: ImageHeroAction[];
   imagePosition?: string;
+  imageSize?: string;
   theme?: 'orange' | 'blue' | 'green' | 'violet' | 'teal' | 'rose';
   children?: ReactNode;
 }
@@ -26,12 +27,17 @@ export default function ImageHero({
   description,
   actions = [],
   imagePosition = 'center',
+  imageSize = 'cover',
   theme = 'orange',
   children,
 }: ImageHeroProps) {
   return (
     <section className={`${styles.hero} ${styles[theme]}`}>
-      <div className={styles.photo} style={{ backgroundImage: `url(${image})`, backgroundPosition: imagePosition }} aria-hidden="true" />
+      <div
+        className={styles.photo}
+        style={{ backgroundImage: `url(${image})`, backgroundPosition: imagePosition, backgroundSize: imageSize }}
+        aria-hidden="true"
+      />
       <div className={styles.wash} aria-hidden="true" />
       <div className={styles.content}>
         {eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}
