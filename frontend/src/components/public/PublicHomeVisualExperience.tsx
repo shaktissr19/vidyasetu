@@ -14,6 +14,8 @@ import {
 } from '@/services/publicService';
 import styles from './publicHomeVisual.module.css';
 
+const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';
+
 const MODULES = [
   { icon: '🎓', title: 'Students', copy: 'Learning, attendance, results, competitions and progress around one student identity.', href: '/for-students', tone: styles.blue },
   { icon: '🏫', title: 'Schools & Teachers', copy: 'Classes, academics, attendance, fees, exams and everyday school operations.', href: '/for-schools', tone: styles.green },
@@ -61,19 +63,20 @@ export default function PublicHomeVisualExperience() {
       <GlobalTopbar />
 
       <ImageHero
-        image="https://images.pexels.com/photos/18012463/pexels-photo-18012463.jpeg?auto=compress&cs=tinysrgb&w=1800"
-        imagePosition="68% center"
+        image={HERO_SPRITE}
+        imageSize="300% 300%"
+        imagePosition="0% 0%"
         eyebrow="India’s connected education ecosystem"
-        title="Welcome to VidyaSetu — India’s Unified Education Platform"
-        description="Learning, schools, families and opportunities — connected in one education ecosystem."
+        title="Welcome to VidyaSetu"
+        description="India’s unified education platform for learning, schools and families."
         theme="orange"
         actions={[
-          { label: 'Explore learning', href: '/learn' },
-          { label: 'Create account', href: '/register', variant: 'secondary' },
+          { label: 'Explore platform', href: '#platform-modules' },
+          { label: 'Learn more', href: '/learn', variant: 'secondary' },
         ]}
       />
 
-      <section className={styles.modulesSection}>
+      <section className={styles.modulesSection} id="platform-modules">
         <div className={styles.shell}>
           <div className={styles.centerHeading}>
             <span>ONE PLATFORM · MANY CONNECTIONS</span>
