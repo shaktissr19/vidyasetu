@@ -1,5 +1,5 @@
-import PublicHomeExperience from '@/components/public/PublicHomeExperience';
+import PublicHomeVisualExperience from '@/components/public/PublicHomeVisualExperience';
 
 export default function HomePage() {
-  return <PublicHomeExperience />;
+  return <PublicHomeVisualExperience />;
 }
