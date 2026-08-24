@@ -34,19 +34,83 @@ export interface PublicModuleConfig {
   proofs: ModuleProof[];
   loginTitle: string;
   loginText: string;
-  heroImage: string;
+  heroImage?: string;
   heroTheme?: HeroTheme;
   heroImagePosition?: string;
   secondaryLogin?: { role: PublicRole; label: string };
   schoolDirectory?: boolean;
 }
 
+interface VisualStory {
+  eyebrow: string;
+  title: string;
+  description: string;
+  image: string;
+  imagePosition: string;
+  theme: HeroTheme;
+}
+
 const QUICK_TONES = [visualStyles.quickBlue, visualStyles.quickGreen, visualStyles.quickOrange, visualStyles.quickViolet, visualStyles.quickRose, visualStyles.quickTeal];
+
+const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'communities', VisualStory> = {
+  student: {
+    eyebrow: 'For Students',
+    title: 'Every student’s learning day, in one connected place',
+    description: 'Lessons, school records, attendance, report cards, competitions, Communities and progress stay connected around one student identity.',
+    image: 'https://images.pexels.com/photos/20556421/pexels-photo-20556421.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    imagePosition: '58% center',
+    theme: 'blue',
+  },
+  parent: {
+    eyebrow: 'For Parents & Guardians',
+    title: 'Stay close to your child’s school journey',
+    description: 'See attendance, progress, report cards, fees, school updates, teacher communication and tracked concerns in one protected parent space.',
+    image: 'https://images.pexels.com/photos/9240631/pexels-photo-9240631.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    imagePosition: '65% center',
+    theme: 'violet',
+  },
+  school: {
+    eyebrow: 'For Schools & Teachers',
+    title: 'One connected workspace for modern schools',
+    description: 'Manage students, classes, teachers, attendance, fees, timetables, exams, results and school-family communication from one system.',
+    image: 'https://images.pexels.com/photos/3231358/pexels-photo-3231358.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    imagePosition: '62% center',
+    theme: 'green',
+  },
+  admin: {
+    eyebrow: 'Platform Administration',
+    title: 'Run the education network from one command centre',
+    description: 'Govern schools, users, learning, competitions, Communities, grievances, support and platform operations with one network-level view.',
+    image: 'https://images.pexels.com/photos/4308091/pexels-photo-4308091.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    imagePosition: '70% center',
+    theme: 'violet',
+  },
+  communities: {
+    eyebrow: 'Education Communities',
+    title: 'Communities that support every learner',
+    description: 'Safe spaces to ask questions, share ideas and connect students, parents, teachers and schools with consent, moderation and clear boundaries.',
+    image: 'https://images.pexels.com/photos/18012463/pexels-photo-18012463.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    imagePosition: '64% center',
+    theme: 'teal',
+  },
+};
+
+function storyFor(config: PublicModuleConfig): VisualStory {
+  if (config.eyebrow.toLowerCase().includes('communit')) return VISUAL_STORIES.communities;
+  const base = config.loginRole === 'teacher' ? VISUAL_STORIES.school : VISUAL_STORIES[config.loginRole];
+  return {
+    ...base,
+    image: config.heroImage || base.image,
+    imagePosition: config.heroImagePosition || base.imagePosition,
+    theme: config.heroTheme || base.theme,
+  };
+}
 
 export default function PublicModulePage({ config }: { config: PublicModuleConfig }) {
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [query, setQuery] = useState('');
   const [loadingSchools, setLoadingSchools] = useState(Boolean(config.schoolDirectory));
+  const story = storyFor(config);
 
   useEffect(() => {
     if (!config.schoolDirectory) return;
@@ -69,12 +133,12 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       <GlobalTopbar />
 
       <ImageHero
-        image={config.heroImage}
-        imagePosition={config.heroImagePosition}
-        eyebrow={config.eyebrow}
-        title={`${config.title} ${config.accentTitle}`}
-        description={config.summary}
-        theme={config.heroTheme || 'orange'}
+        image={story.image}
+        imagePosition={story.imagePosition}
+        eyebrow={story.eyebrow}
+        title={story.title}
+        description={story.description}
+        theme={story.theme}
         actions={[
           { label: config.loginTitle, href: loginHref },
           { label: 'Explore this module', href: '#module-capabilities', variant: 'secondary' },
@@ -111,7 +175,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         <div className={styles.shell}>
           <div className={styles.sectionHeader}>
             <h2>Everything {config.audience} need in one connected place</h2>
-            <p>The hero introduces the module once. The sections below focus on what users can actually do after they sign in.</p>
+            <p>Explore the practical capabilities available inside this role-aware VidyaSetu workspace.</p>
           </div>
           <div className={styles.capGrid}>
             {config.capabilities.map((capability) => (
