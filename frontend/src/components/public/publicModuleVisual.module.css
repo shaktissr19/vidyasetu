@@ -1,66 +1,66 @@
 .quickSection {
-  padding: 52px 0 22px;
-  background: linear-gradient(180deg, #f5f8fc 0%, #eef3f8 100%);
+  padding: 42px 0 20px;
+  background: linear-gradient(180deg, #f6f9fc 0%, #eef3f8 100%);
 }
 
 .quickGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  gap: 18px;
 }
 
 .quickCard {
-  min-height: 205px;
-  border-radius: 22px;
-  padding: 24px 23px;
+  min-height: 178px;
+  border-radius: 19px;
+  padding: 19px 20px;
   text-decoration: none;
   color: #142849;
   border: 1px solid var(--quick-border);
   background: linear-gradient(145deg, var(--quick-bg), var(--quick-end));
-  box-shadow: 0 16px 38px rgba(13,27,62,.11);
+  box-shadow: 0 11px 28px rgba(13,27,62,.085);
   display: flex;
   flex-direction: column;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
 .quickCard:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 24px 48px rgba(13,27,62,.16);
+  transform: translateY(-4px);
+  box-shadow: 0 19px 38px rgba(13,27,62,.14);
   border-color: var(--quick-accent);
 }
 
 .quickIcon {
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
   display: grid;
   place-items: center;
   background: var(--quick-icon-bg);
-  font-size: 28px;
-  margin-bottom: 18px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.65), 0 8px 18px rgba(13,27,62,.06);
+  font-size: 23px;
+  margin-bottom: 13px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 7px 16px rgba(13,27,62,.055);
 }
 
 .quickCard strong {
   font-family: 'Baloo 2', cursive;
-  font-size: 22px;
-  line-height: 1.15;
+  font-size: 20px;
+  line-height: 1.12;
 }
 
 .quickCard p {
-  font-size: 13.5px;
-  line-height: 1.58;
+  font-size: 13px;
+  line-height: 1.5;
   color: #5e6d84;
-  margin: 8px 0 15px;
+  margin: 6px 0 11px;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 
 .quickCard span {
   margin-top: auto;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 850;
   color: var(--quick-accent);
 }
@@ -73,4 +73,4 @@
 .quickTeal { --quick-bg:#e4f7f8; --quick-end:#f5fbfb; --quick-border:#b3dcde; --quick-icon-bg:#c9ebed; --quick-accent:#07858c; }
 
 @media(max-width:960px){.quickGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:640px){.quickSection{padding-top:30px}.quickGrid{grid-template-columns:1fr;gap:14px}.quickCard{min-height:auto;padding:21px 18px}.quickCard p{-webkit-line-clamp:3}}
+@media(max-width:640px){.quickSection{padding-top:28px}.quickGrid{grid-template-columns:1fr;gap:13px}.quickCard{min-height:auto;padding:18px}.quickCard p{-webkit-line-clamp:3}}
