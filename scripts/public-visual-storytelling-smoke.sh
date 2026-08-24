@@ -21,9 +21,16 @@ for file in "$HOME" "$HOME_ROUTE" "$HERO" "$HERO_CSS" "$HOME_CSS" "$MODULE" "$MO
   [[ -s "$file" ]] || fail "Required visual-storytelling file is missing: $file"
 done
 
-printf '==> Hero image delivery\n'
+printf '==> Hero asset integrity and delivery\n'
+ASSET_BYTES="$(wc -c < "$ASSET" | tr -d ' ')"
+[[ "$ASSET_BYTES" -ge 12000 ]] || fail "Approved hero artwork is unexpectedly small (${ASSET_BYTES} bytes)."
+JPEG_MAGIC="$(od -An -tx1 -N2 "$ASSET" | tr -d ' \n')"
+[[ "$JPEG_MAGIC" == 'ffd8' ]] || fail "Approved hero artwork is not a valid JPEG (magic=$JPEG_MAGIC)."
 require_text "$HERO_CSS" 'z-index: 0;' 'Hero photo layer must render in front of the hero background'
+require_text "$HERO_CSS" 'opacity: 1;' 'Hero photography must remain fully visible'
 require_text "$HERO_CSS" 'z-index: 3;' 'Hero content must render above the photo and wash layers'
+require_text "$HERO_CSS" 'rgba(255,255,255,0) 64%' 'Desktop hero wash must release the photograph before the right-side visual focus'
+reject_text "$HERO_CSS" 'rgba(255,255,255,0) 74%' 'Old over-wide wash must not return'
 reject_text "$HERO_CSS" 'z-index:-3' 'Hero photo must never use the broken negative stacking layer again'
 reject_text "$HERO_CSS" 'z-index: -3' 'Hero photo must never use the broken negative stacking layer again'
 
@@ -34,8 +41,13 @@ require_text "$HOME" 'India’s unified education platform for learning, schools
 require_text "$HOME" "const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';" 'Homepage must use the repo-owned approved hero artwork'
 require_text "$HOME" 'moduleMedia' 'Homepage module cards must include an editorial visual area'
 require_text "$HOME" 'discoveryVisual' 'Homepage Learning cards must include subject-relevant visual treatment'
+require_text "$HOME" "from 'lucide-react'" 'Homepage primary cards must use consistent vector symbols rather than emoji-only UI'
+reject_text "$HOME" "icon: '🎓'" 'Homepage module cards must not regress to emoji-only symbols'
 require_text "$HOME_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Homepage module cards must be three across on desktop'
-require_text "$HOME_CSS" 'box-shadow: 0 18px 42px' 'Homepage cards must visibly lift away from the section background'
+require_text "$HOME_CSS" 'grid-template-columns: 132px minmax(0, 1fr);' 'Homepage module cards must use the compact horizontal editorial layout'
+require_text "$HOME_CSS" 'min-height: 184px;' 'Homepage module cards must remain compact on desktop'
+require_text "$HOME_CSS" 'box-shadow: 0 14px 32px' 'Homepage cards must visibly lift away from the section background'
+reject_text "$HOME_CSS" 'height: 180px;' 'Oversized empty module media must not return'
 require_text "$HOME" 'ONE PLATFORM · MANY CONNECTIONS' 'Homepage must expose the compact module navigation'
 require_text "$HOME" 'getPublicLearningResources({ featured: true, limit: 3 })' 'Homepage must preserve real Learning discovery'
 require_text "$HOME" 'getPublicSchools()' 'Homepage must preserve real school discovery'
@@ -51,9 +63,12 @@ require_text "$MODULE" "title: 'See the network. Guide the system.'" 'Platform A
 require_text "$MODULE" "const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';" 'Public modules must use the repo-owned approved hero artwork'
 require_text "$MODULE" 'config.capabilities.slice(0, 6)' 'Module pages must use a compact six-card highlight set'
 require_text "$MODULE" 'capabilityHref(config, capability)' 'Module highlight cards must keep functional destinations'
+require_text "$MODULE" 'quickIconFor(config, capability, index)' 'Module highlight cards must use consistent functional symbols'
 require_text "$MODULE" 'id="module-capabilities"' 'Full module capabilities must remain available below the visual intro'
 require_text "$MODULE" 'config.schoolDirectory' 'School directory behavior must remain intact'
 require_text "$MODULE_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Module highlight cards must be three across on desktop'
+require_text "$MODULE_CSS" 'min-height: 174px;' 'Module highlight cards must remain compact on desktop'
+reject_text "$MODULE_CSS" 'min-height: 205px;' 'Oversized public capability cards must not return'
 
 printf '==> Learning visual story and bounded catalogue\n'
 require_text "$LEARN" 'Learning that fits into real life.' 'Learning must use the approved page-specific image-led headline'
