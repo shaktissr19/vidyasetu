@@ -9,6 +9,7 @@ import {
   type PublicSchool,
 } from '@/services/publicService';
 import styles from './publicExperience.module.css';
+import visualStyles from './publicModuleVisual.module.css';
 
 type MetricKey = 'students' | 'schools' | 'teachers' | 'parents' | 'groups' | 'competitions';
 type PublicRole = 'student' | 'parent' | 'school' | 'teacher' | 'admin';
@@ -40,7 +41,7 @@ export interface PublicModuleConfig {
   schoolDirectory?: boolean;
 }
 
-const QUICK_TONES = [styles.quickBlue, styles.quickGreen, styles.quickOrange, styles.quickViolet, styles.quickRose, styles.quickTeal];
+const QUICK_TONES = [visualStyles.quickBlue, visualStyles.quickGreen, visualStyles.quickOrange, visualStyles.quickViolet, visualStyles.quickRose, visualStyles.quickTeal];
 
 export default function PublicModulePage({ config }: { config: PublicModuleConfig }) {
   const [schools, setSchools] = useState<PublicSchool[]>([]);
@@ -80,12 +81,12 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         ]}
       />
 
-      <section className={styles.quickSection} aria-label={`${config.audience} highlights`}>
+      <section className={visualStyles.quickSection} aria-label={`${config.audience} highlights`}>
         <div className={styles.shell}>
-          <div className={styles.quickGrid}>
+          <div className={visualStyles.quickGrid}>
             {config.capabilities.slice(0, 6).map((capability, index) => (
-              <a className={`${styles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href="#module-capabilities" key={capability.title}>
-                <div className={styles.quickIcon}>{capability.icon}</div>
+              <a className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href="#module-capabilities" key={capability.title}>
+                <div className={visualStyles.quickIcon}>{capability.icon}</div>
                 <strong>{capability.title}</strong>
                 <p>{capability.description}</p>
                 <span>Explore <b aria-hidden="true">→</b></span>
