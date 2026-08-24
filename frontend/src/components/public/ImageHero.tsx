@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import styles from './imageHero.module.css';
 
@@ -15,7 +16,7 @@ export interface ImageHeroProps {
   actions?: ImageHeroAction[];
   imagePosition?: string;
   theme?: 'orange' | 'blue' | 'green' | 'violet' | 'teal' | 'rose';
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 export default function ImageHero({
