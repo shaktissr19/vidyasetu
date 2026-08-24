@@ -8,21 +8,34 @@ reject_text() { ! grep -Fq -- "$2" "$1" || fail "$3 ($1)"; }
 HOME='frontend/src/components/public/PublicHomeVisualExperience.tsx'
 HOME_ROUTE='frontend/src/app/page.tsx'
 HERO='frontend/src/components/public/ImageHero.tsx'
+HERO_CSS='frontend/src/components/public/imageHero.module.css'
+HOME_CSS='frontend/src/components/public/publicHomeVisual.module.css'
 MODULE='frontend/src/components/public/PublicModulePage.tsx'
+MODULE_CSS='frontend/src/components/public/publicModuleVisual.module.css'
 LEARN='frontend/src/components/public/PublicLearningLibrary.tsx'
 LOGIN='frontend/src/app/(auth)/login/page.tsx'
 COMPETITION='frontend/src/app/competition/page.tsx'
 ASSET='frontend/public/images/vidyasetu-hero-sprite.jpg'
 
-for file in "$HOME" "$HOME_ROUTE" "$HERO" "$MODULE" "$LEARN" "$LOGIN" "$COMPETITION" "$ASSET" frontend/src/components/public/imageHero.module.css frontend/src/components/public/publicHomeVisual.module.css frontend/src/components/public/publicModuleVisual.module.css; do
+for file in "$HOME" "$HOME_ROUTE" "$HERO" "$HERO_CSS" "$HOME_CSS" "$MODULE" "$MODULE_CSS" "$LEARN" "$LOGIN" "$COMPETITION" "$ASSET"; do
   [[ -s "$file" ]] || fail "Required visual-storytelling file is missing: $file"
 done
+
+printf '==> Hero image delivery\n'
+require_text "$HERO_CSS" 'z-index: 0;' 'Hero photo layer must render in front of the hero background'
+require_text "$HERO_CSS" 'z-index: 3;' 'Hero content must render above the photo and wash layers'
+reject_text "$HERO_CSS" 'z-index:-3' 'Hero photo must never use the broken negative stacking layer again'
+reject_text "$HERO_CSS" 'z-index: -3' 'Hero photo must never use the broken negative stacking layer again'
 
 printf '==> Homepage visual story\n'
 require_text "$HOME_ROUTE" 'PublicHomeVisualExperience' 'Home route must use the approved image-led public experience'
 require_text "$HOME" 'title="Welcome to VidyaSetu"' 'Homepage must use the approved concise welcome headline'
 require_text "$HOME" 'India’s unified education platform for learning, schools and families.' 'Homepage must use the approved unified-platform supporting line'
 require_text "$HOME" "const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';" 'Homepage must use the repo-owned approved hero artwork'
+require_text "$HOME" 'moduleMedia' 'Homepage module cards must include an editorial visual area'
+require_text "$HOME" 'discoveryVisual' 'Homepage Learning cards must include subject-relevant visual treatment'
+require_text "$HOME_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Homepage module cards must be three across on desktop'
+require_text "$HOME_CSS" 'box-shadow: 0 18px 42px' 'Homepage cards must visibly lift away from the section background'
 require_text "$HOME" 'ONE PLATFORM · MANY CONNECTIONS' 'Homepage must expose the compact module navigation'
 require_text "$HOME" 'getPublicLearningResources({ featured: true, limit: 3 })' 'Homepage must preserve real Learning discovery'
 require_text "$HOME" 'getPublicSchools()' 'Homepage must preserve real school discovery'
@@ -40,6 +53,7 @@ require_text "$MODULE" 'config.capabilities.slice(0, 6)' 'Module pages must use 
 require_text "$MODULE" 'capabilityHref(config, capability)' 'Module highlight cards must keep functional destinations'
 require_text "$MODULE" 'id="module-capabilities"' 'Full module capabilities must remain available below the visual intro'
 require_text "$MODULE" 'config.schoolDirectory' 'School directory behavior must remain intact'
+require_text "$MODULE_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Module highlight cards must be three across on desktop'
 
 printf '==> Learning visual story and bounded catalogue\n'
 require_text "$LEARN" 'Learning that fits into real life.' 'Learning must use the approved page-specific image-led headline'
