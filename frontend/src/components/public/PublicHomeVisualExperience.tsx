@@ -17,12 +17,12 @@ import styles from './publicHomeVisual.module.css';
 const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';
 
 const MODULES = [
-  { icon: '🎓', title: 'Students', copy: 'Learning, attendance, results, competitions and progress around one student identity.', href: '/for-students', tone: styles.blue },
-  { icon: '🏫', title: 'Schools & Teachers', copy: 'Classes, academics, attendance, fees, exams and everyday school operations.', href: '/for-schools', tone: styles.green },
-  { icon: '👨‍👩‍👧', title: 'Parents', copy: 'Stay connected to children, school updates, progress, messages and concerns.', href: '/for-parents', tone: styles.orange },
-  { icon: '📚', title: 'Learning', copy: 'Lessons, reading, practice, question papers and skills for every learning stage.', href: '/learn', tone: styles.violet },
-  { icon: '🏆', title: 'Competitions', copy: 'Discover academic challenges, register, participate and follow results.', href: '/competition', tone: styles.rose },
-  { icon: '🤝', title: 'Communities', copy: 'Moderated spaces for students, families, teachers and schools to learn together.', href: '/communities', tone: styles.teal },
+  { icon: '🎓', title: 'Students', copy: 'Learning, attendance, results, competitions and progress around one student identity.', href: '/for-students', tone: styles.blue, imagePosition: '50% 0%' },
+  { icon: '🏫', title: 'Schools & Teachers', copy: 'Classes, academics, attendance, fees, exams and everyday school operations.', href: '/for-schools', tone: styles.green, imagePosition: '0% 50%' },
+  { icon: '👨‍👩‍👧', title: 'Parents', copy: 'Stay connected to children, school updates, progress, messages and concerns.', href: '/for-parents', tone: styles.orange, imagePosition: '100% 0%' },
+  { icon: '📚', title: 'Learning', copy: 'Lessons, reading, practice, question papers and skills for every learning stage.', href: '/learn', tone: styles.violet, imagePosition: '50% 50%' },
+  { icon: '🏆', title: 'Competitions', copy: 'Discover academic challenges, register, participate and follow results.', href: '/competition', tone: styles.rose, imagePosition: '100% 50%' },
+  { icon: '🤝', title: 'Communities', copy: 'Moderated spaces for students, families, teachers and schools to learn together.', href: '/communities', tone: styles.teal, imagePosition: '0% 100%' },
 ];
 
 const WHY = [
@@ -33,9 +33,21 @@ const WHY = [
   ['🇮🇳', 'Built for Indian education', 'Cross-board learning, school workflows and family participation are designed around Indian education realities.'],
 ];
 
+const DISCOVERY_TONES = [styles.discoveryBlue, styles.discoveryGreen, styles.discoveryOrange];
+
 function gradeText(resource: PublicLearningResource): string {
   if (resource.class_min && resource.class_max) return resource.class_min === resource.class_max ? `Class ${resource.class_min}` : `Classes ${resource.class_min}–${resource.class_max}`;
   return 'Multiple learning levels';
+}
+
+function resourceVisual(resource: PublicLearningResource): { glyph: string; label: string } {
+  const subject = (resource.subject_name || resource.subject_label || resource.category || '').toLowerCase();
+  const type = (resource.resource_type || '').toLowerCase();
+  if (subject.includes('math')) return { glyph: '∑', label: 'Mathematics' };
+  if (subject.includes('science')) return { glyph: '⚗', label: 'Science' };
+  if (subject.includes('english') || subject.includes('language')) return { glyph: 'Aa', label: resource.subject_name || resource.subject_label || 'Language' };
+  if (type.includes('question') || type.includes('paper') || type.includes('practice')) return { glyph: '?', label: 'Practice' };
+  return { glyph: '↗', label: resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ') };
 }
 
 export default function PublicHomeVisualExperience() {
@@ -86,10 +98,18 @@ export default function PublicHomeVisualExperience() {
           <div className={styles.moduleGrid}>
             {MODULES.map((module) => (
               <Link href={module.href} className={`${styles.moduleCard} ${module.tone}`} key={module.title}>
-                <div className={styles.moduleIcon}>{module.icon}</div>
-                <strong>{module.title}</strong>
-                <p>{module.copy}</p>
-                <span>Explore <b aria-hidden="true">→</b></span>
+                <div
+                  className={styles.moduleMedia}
+                  style={{ backgroundImage: `url(${HERO_SPRITE})`, backgroundSize: '300% 300%', backgroundPosition: module.imagePosition }}
+                  aria-hidden="true"
+                >
+                  <span className={styles.moduleIcon}>{module.icon}</span>
+                </div>
+                <div className={styles.moduleBody}>
+                  <strong>{module.title}</strong>
+                  <p>{module.copy}</p>
+                  <span>Explore <b aria-hidden="true">→</b></span>
+                </div>
               </Link>
             ))}
           </div>
@@ -104,14 +124,23 @@ export default function PublicHomeVisualExperience() {
             <p>Public Learning stays visible from the homepage so students and families can discover real resources before signing in.</p>
           </div>
           <div className={styles.discoveryGrid}>
-            {learning.length > 0 ? learning.map((resource) => (
-              <Link className={styles.discoveryCard} href={`/learn/resource/${resource.public_slug}`} key={resource.id}>
-                <div className={styles.discoveryMeta}>{resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ')}</div>
-                <h3>{resource.title}</h3>
-                <p>{resource.summary || 'Open this learning resource and continue exploring VidyaSetu.'}</p>
-                <span>{gradeText(resource)} · Explore resource →</span>
-              </Link>
-            )) : (
+            {learning.length > 0 ? learning.map((resource, index) => {
+              const visual = resourceVisual(resource);
+              return (
+                <Link className={`${styles.discoveryCard} ${DISCOVERY_TONES[index % DISCOVERY_TONES.length]}`} href={`/learn/resource/${resource.public_slug}`} key={resource.id}>
+                  <div className={styles.discoveryVisual}>
+                    <span className={styles.discoveryGlyph}>{visual.glyph}</span>
+                    <span className={styles.discoveryVisualLabel}>{visual.label}</span>
+                  </div>
+                  <div className={styles.discoveryBody}>
+                    <div className={styles.discoveryMeta}>{resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ')}</div>
+                    <h3>{resource.title}</h3>
+                    <p>{resource.summary || 'Open this learning resource and continue exploring VidyaSetu.'}</p>
+                    <span>{gradeText(resource)} · Explore resource →</span>
+                  </div>
+                </Link>
+              );
+            }) : (
               <div className={styles.discoveryEmpty}>Learning resources are loading. You can also open the complete Learning Library.</div>
             )}
           </div>
