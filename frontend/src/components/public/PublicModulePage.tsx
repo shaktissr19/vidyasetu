@@ -4,10 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
-import {
-  getPublicSchools,
-  type PublicSchool,
-} from '@/services/publicService';
+import { getPublicSchools, type PublicSchool } from '@/services/publicService';
 import styles from './publicExperience.module.css';
 import visualStyles from './publicModuleVisual.module.css';
 
@@ -15,7 +12,7 @@ type MetricKey = 'students' | 'schools' | 'teachers' | 'parents' | 'groups' | 'c
 type PublicRole = 'student' | 'parent' | 'school' | 'teacher' | 'admin';
 type HeroTheme = 'orange' | 'blue' | 'green' | 'violet' | 'teal' | 'rose';
 
-export interface ModuleCapability { icon: string; title: string; description: string; bullets: string[]; }
+export interface ModuleCapability { icon: string; title: string; description: string; bullets: string[]; href?: string; }
 export interface ModuleStep { title: string; description: string; }
 export interface ModuleProof { icon: string; title: string; description: string; }
 export interface ModuleMetric { key: MetricKey; label: string; }
@@ -37,6 +34,7 @@ export interface PublicModuleConfig {
   heroImage?: string;
   heroTheme?: HeroTheme;
   heroImagePosition?: string;
+  heroImageSize?: string;
   secondaryLogin?: { role: PublicRole; label: string };
   schoolDirectory?: boolean;
 }
@@ -47,50 +45,57 @@ interface VisualStory {
   description: string;
   image: string;
   imagePosition: string;
+  imageSize: string;
   theme: HeroTheme;
 }
 
+const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';
 const QUICK_TONES = [visualStyles.quickBlue, visualStyles.quickGreen, visualStyles.quickOrange, visualStyles.quickViolet, visualStyles.quickRose, visualStyles.quickTeal];
 
 const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'communities', VisualStory> = {
   student: {
     eyebrow: 'For Students',
-    title: 'Every student’s learning day, in one connected place',
-    description: 'Lessons, school records, attendance, report cards, competitions, Communities and progress stay connected around one student identity.',
-    image: 'https://images.pexels.com/photos/20556421/pexels-photo-20556421.jpeg?auto=compress&cs=tinysrgb&w=1800',
-    imagePosition: '58% center',
+    title: 'Every student’s learning day, in one place',
+    description: 'Lessons, homework, attendance, practice, exams and progress tracking built for Indian school learners.',
+    image: HERO_SPRITE,
+    imagePosition: '50% 0%',
+    imageSize: '300% 300%',
     theme: 'blue',
   },
   parent: {
     eyebrow: 'For Parents & Guardians',
-    title: 'Stay close to your child’s school journey',
-    description: 'See attendance, progress, report cards, fees, school updates, teacher communication and tracked concerns in one protected parent space.',
-    image: 'https://images.pexels.com/photos/9240631/pexels-photo-9240631.jpeg?auto=compress&cs=tinysrgb&w=1800',
-    imagePosition: '65% center',
+    title: 'Stay connected to every step of their journey',
+    description: 'Follow learning, school progress and communication from one trusted parent space.',
+    image: HERO_SPRITE,
+    imagePosition: '100% 0%',
+    imageSize: '300% 300%',
     theme: 'violet',
   },
   school: {
     eyebrow: 'For Schools & Teachers',
-    title: 'One connected workspace for modern schools',
-    description: 'Manage students, classes, teachers, attendance, fees, timetables, exams, results and school-family communication from one system.',
-    image: 'https://images.pexels.com/photos/3231358/pexels-photo-3231358.jpeg?auto=compress&cs=tinysrgb&w=1800',
-    imagePosition: '62% center',
+    title: 'A stronger school starts with a clearer view',
+    description: 'Bring students, teachers, academics and daily school operations into one connected workspace.',
+    image: HERO_SPRITE,
+    imagePosition: '0% 50%',
+    imageSize: '300% 300%',
     theme: 'green',
   },
   admin: {
     eyebrow: 'Platform Administration',
-    title: 'Run the education network from one command centre',
-    description: 'Govern schools, users, learning, competitions, Communities, grievances, support and platform operations with one network-level view.',
-    image: 'https://images.pexels.com/photos/4308091/pexels-photo-4308091.jpeg?auto=compress&cs=tinysrgb&w=1800',
-    imagePosition: '70% center',
+    title: 'See the network. Guide the system.',
+    description: 'Manage schools, users, learning, governance and platform operations from one central view.',
+    image: HERO_SPRITE,
+    imagePosition: '50% 100%',
+    imageSize: '300% 300%',
     theme: 'violet',
   },
   communities: {
     eyebrow: 'Education Communities',
-    title: 'Communities that support every learner',
-    description: 'Safe spaces to ask questions, share ideas and connect students, parents, teachers and schools with consent, moderation and clear boundaries.',
-    image: 'https://images.pexels.com/photos/18012463/pexels-photo-18012463.jpeg?auto=compress&cs=tinysrgb&w=1800',
-    imagePosition: '64% center',
+    title: 'Education gets stronger when people connect',
+    description: 'Safe spaces for students, parents, teachers and schools to learn, discuss and help one another.',
+    image: HERO_SPRITE,
+    imagePosition: '0% 100%',
+    imageSize: '300% 300%',
     theme: 'teal',
   },
 };
@@ -102,8 +107,29 @@ function storyFor(config: PublicModuleConfig): VisualStory {
     ...base,
     image: config.heroImage || base.image,
     imagePosition: config.heroImagePosition || base.imagePosition,
+    imageSize: config.heroImageSize || base.imageSize,
     theme: config.heroTheme || base.theme,
   };
+}
+
+function capabilityHref(config: PublicModuleConfig, capability: ModuleCapability): string {
+  if (capability.href) return capability.href;
+  const title = capability.title.toLowerCase();
+  if (config.loginRole === 'student') {
+    if (title.includes('subject') || title.includes('chapter')) return '/subjects';
+    if (title.includes('doubt')) return '/doubts';
+    if (title.includes('result') || title.includes('report')) return '/report-card';
+    if (title.includes('competition')) return '/competition';
+    if (title.includes('participation') || title.includes('progress')) return '/leaderboard';
+    if (title.includes('connectivity') || title.includes('offline')) return '/offline';
+    if (title.includes('communit')) return '/communities';
+    return '/student';
+  }
+  if (title.includes('communit')) return '/communities';
+  if (config.loginRole === 'parent') return '/login?role=parent';
+  if (config.loginRole === 'school' || config.loginRole === 'teacher') return `/login?role=${config.loginRole}`;
+  if (config.loginRole === 'admin') return '/login?role=admin';
+  return '#module-capabilities';
 }
 
 export default function PublicModulePage({ config }: { config: PublicModuleConfig }) {
@@ -135,6 +161,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       <ImageHero
         image={story.image}
         imagePosition={story.imagePosition}
+        imageSize={story.imageSize}
         eyebrow={story.eyebrow}
         title={story.title}
         description={story.description}
@@ -149,22 +176,19 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         <div className={styles.shell}>
           <div className={visualStyles.quickGrid}>
             {config.capabilities.slice(0, 6).map((capability, index) => (
-              <a className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href="#module-capabilities" key={capability.title}>
+              <Link className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href={capabilityHref(config, capability)} key={capability.title}>
                 <div className={visualStyles.quickIcon}>{capability.icon}</div>
                 <strong>{capability.title}</strong>
                 <p>{capability.description}</p>
                 <span>Explore <b aria-hidden="true">→</b></span>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
       <div className={styles.loginRibbon}>
-        <div>
-          <strong>Already part of VidyaSetu?</strong>
-          <div className={styles.muted}>{config.loginText}</div>
-        </div>
+        <div><strong>Already part of VidyaSetu?</strong><div className={styles.muted}>{config.loginText}</div></div>
         <div className={styles.twoActions}>
           <Link className={styles.primary} href={loginHref}>{config.loginTitle}</Link>
           {config.secondaryLogin && <Link className={styles.lightButton} href={`/login?role=${config.secondaryLogin.role}`}>{config.secondaryLogin.label}</Link>}
@@ -173,16 +197,11 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
 
       <section className={styles.section} id="module-capabilities">
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}>
-            <h2>Everything {config.audience} need in one connected place</h2>
-            <p>Explore the practical capabilities available inside this role-aware VidyaSetu workspace.</p>
-          </div>
+          <div className={styles.sectionHeader}><h2>Everything {config.audience} need in one connected place</h2><p>Explore the practical capabilities available inside this role-aware VidyaSetu workspace.</p></div>
           <div className={styles.capGrid}>
             {config.capabilities.map((capability) => (
               <article className={styles.capCard} key={capability.title}>
-                <div className={styles.capIcon}>{capability.icon}</div>
-                <h3>{capability.title}</h3>
-                <p>{capability.description}</p>
+                <div className={styles.capIcon}>{capability.icon}</div><h3>{capability.title}</h3><p>{capability.description}</p>
                 <ul className={styles.bulletList}>{capability.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
               </article>
             ))}
@@ -192,10 +211,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
 
       <section className={styles.sectionAlt}>
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}>
-            <h2>How the experience works</h2>
-            <p>Public pages explain the platform. Personal records, school actions and family information remain protected inside the authenticated role workspace.</p>
-          </div>
+          <div className={styles.sectionHeader}><h2>How the experience works</h2><p>Public pages explain the platform. Personal records, school actions and family information remain protected inside the authenticated role workspace.</p></div>
           <div className={styles.steps}>{config.steps.map((step) => <article className={styles.step} key={step.title}><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
         </div>
       </section>
@@ -216,19 +232,8 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
               <div className={styles.schoolGrid}>
                 {filteredSchools.map((school) => (
                   <article className={styles.schoolCard} key={school.id}>
-                    <div className={styles.schoolTop}>
-                      <div>
-                        <div className={styles.schoolName}>{school.name}</div>
-                        <div className={styles.schoolMeta}>{[school.city, school.district, school.state].filter(Boolean).join(' · ')}</div>
-                        <div className={styles.schoolMeta}>{school.board || 'Board not listed'} · Academic year {school.academicYear}</div>
-                      </div>
-                      {school.isUdiseLinked && <span className={styles.badge}>UDISE linked</span>}
-                    </div>
-                    <div className={styles.miniStats}>
-                      <div className={styles.miniStat}><strong>{school.students}</strong><span>Students</span></div>
-                      <div className={styles.miniStat}><strong>{school.teachers}</strong><span>Teachers</span></div>
-                      <div className={styles.miniStat}><strong>{school.classes}</strong><span>Classes</span></div>
-                    </div>
+                    <div className={styles.schoolTop}><div><div className={styles.schoolName}>{school.name}</div><div className={styles.schoolMeta}>{[school.city, school.district, school.state].filter(Boolean).join(' · ')}</div><div className={styles.schoolMeta}>{school.board || 'Board not listed'} · Academic year {school.academicYear}</div></div>{school.isUdiseLinked && <span className={styles.badge}>UDISE linked</span>}</div>
+                    <div className={styles.miniStats}><div className={styles.miniStat}><strong>{school.students}</strong><span>Students</span></div><div className={styles.miniStat}><strong>{school.teachers}</strong><span>Teachers</span></div><div className={styles.miniStat}><strong>{school.classes}</strong><span>Classes</span></div></div>
                     {school.website && <a className={styles.smallLink} href={school.website} target="_blank" rel="noreferrer">Visit school website</a>}
                   </article>
                 ))}
@@ -240,10 +245,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
 
       <section className={styles.section}>
         <div className={styles.shell}>
-          <div className={styles.cta}>
-            <div><h2>Explore publicly. Sign in for your own records and actions.</h2><p>Use the role dashboard to access personal learning data, school operations, family records, Communities and support workflows.</p></div>
-            <div className={styles.twoActions}><Link className={styles.lightButton} href={loginHref}>{config.loginTitle}</Link><Link className={styles.secondary} href="/register">Create an account</Link></div>
-          </div>
+          <div className={styles.cta}><div><h2>Explore publicly. Sign in for your own records and actions.</h2><p>Use the role dashboard to access personal learning data, school operations, family records, Communities and support workflows.</p></div><div className={styles.twoActions}><Link className={styles.lightButton} href={loginHref}>{config.loginTitle}</Link><Link className={styles.secondary} href="/register">Create an account</Link></div></div>
         </div>
       </section>
       <footer className={styles.footer}>© 2026 VidyaSetu · Learning, schools, families, Competitions, Communities and accountable support</footer>
