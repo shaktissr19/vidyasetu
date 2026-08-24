@@ -42,7 +42,8 @@ require_text "$MODULE" 'id="module-capabilities"' 'Full module capabilities must
 require_text "$MODULE" 'config.schoolDirectory' 'School directory behavior must remain intact'
 
 printf '==> Learning visual story and bounded catalogue\n'
-require_text "$LEARN" 'Learn with clarity. Practise with purpose.' 'Learning must use the approved image-led headline'
+require_text "$LEARN" 'Learning that fits into real life.' 'Learning must use the approved page-specific image-led headline'
+require_text "$LEARN" 'Explore lessons, practice, reading and skills that help learners keep moving forward.' 'Learning must retain the approved supporting line'
 require_text "$LEARN" "image=\"/images/vidyasetu-hero-sprite.jpg\"" 'Learning must use the repo-owned approved hero artwork'
 require_text "$LEARN" 'INITIAL_RESOURCE_LIMIT = 6' 'Learning must initially load six resources'
 require_text "$LEARN" 'MAX_HOME_RESOURCE_LIMIT = 24' 'Learning landing page must remain bounded'
