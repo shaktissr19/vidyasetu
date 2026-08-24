@@ -2,6 +2,25 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  BarChart3,
+  BookOpen,
+  CalendarDays,
+  ClipboardCheck,
+  FileText,
+  GraduationCap,
+  HeartHandshake,
+  Landmark,
+  MessageCircle,
+  School,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Trophy,
+  UserRoundCheck,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
 import { getPublicSchools, type PublicSchool } from '@/services/publicService';
@@ -51,6 +70,7 @@ interface VisualStory {
 
 const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';
 const QUICK_TONES = [visualStyles.quickBlue, visualStyles.quickGreen, visualStyles.quickOrange, visualStyles.quickViolet, visualStyles.quickRose, visualStyles.quickTeal];
+const QUICK_ICONS: LucideIcon[] = [BookOpen, ClipboardCheck, BarChart3, Target, MessageCircle, Sparkles];
 
 const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'communities', VisualStory> = {
   student: {
@@ -132,6 +152,22 @@ function capabilityHref(config: PublicModuleConfig, capability: ModuleCapability
   return '#module-capabilities';
 }
 
+function quickIconFor(config: PublicModuleConfig, capability: ModuleCapability, index: number): LucideIcon {
+  const title = capability.title.toLowerCase();
+  if (title.includes('student') || title.includes('learner')) return GraduationCap;
+  if (title.includes('school') || title.includes('class')) return School;
+  if (title.includes('parent') || title.includes('family') || title.includes('child')) return Users;
+  if (title.includes('teacher') || title.includes('staff')) return UserRoundCheck;
+  if (title.includes('attendance') || title.includes('calendar') || title.includes('timetable')) return CalendarDays;
+  if (title.includes('result') || title.includes('report') || title.includes('record')) return FileText;
+  if (title.includes('competition') || title.includes('achievement')) return Trophy;
+  if (title.includes('communit') || title.includes('message') || title.includes('communication')) return MessageCircle;
+  if (title.includes('safe') || title.includes('security') || title.includes('govern')) return ShieldCheck;
+  if (title.includes('support') || title.includes('grievance') || title.includes('concern')) return HeartHandshake;
+  if (title.includes('admin') || title.includes('platform') || title.includes('network')) return Landmark;
+  return QUICK_ICONS[index % QUICK_ICONS.length];
+}
+
 export default function PublicModulePage({ config }: { config: PublicModuleConfig }) {
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [query, setQuery] = useState('');
@@ -175,14 +211,17 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       <section className={visualStyles.quickSection} aria-label={`${config.audience} highlights`}>
         <div className={styles.shell}>
           <div className={visualStyles.quickGrid}>
-            {config.capabilities.slice(0, 6).map((capability, index) => (
-              <Link className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href={capabilityHref(config, capability)} key={capability.title}>
-                <div className={visualStyles.quickIcon}>{capability.icon}</div>
-                <strong>{capability.title}</strong>
-                <p>{capability.description}</p>
-                <span>Explore <b aria-hidden="true">→</b></span>
-              </Link>
-            ))}
+            {config.capabilities.slice(0, 6).map((capability, index) => {
+              const QuickIcon = quickIconFor(config, capability, index);
+              return (
+                <Link className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href={capabilityHref(config, capability)} key={capability.title}>
+                  <div className={visualStyles.quickIcon} aria-hidden="true"><QuickIcon strokeWidth={1.9} /></div>
+                  <strong>{capability.title}</strong>
+                  <p>{capability.description}</p>
+                  <span>Explore <b aria-hidden="true">→</b></span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
