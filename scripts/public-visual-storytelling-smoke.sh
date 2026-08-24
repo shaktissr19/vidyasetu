@@ -53,7 +53,8 @@ reject_text "$LEARN" 'Built around how students actually learn.' 'Old split-scre
 reject_text "$LEARN" 'heroJourney' 'Old right-side Learning hero panel must not render'
 
 printf '==> Competition and Student Login visuals\n'
-require_text "$COMPETITION" 'Opportunities that turn effort into achievement' 'Competition page must use the approved student-focused photographic hero'
+require_text "$COMPETITION" 'Give talent somewhere to go.' 'Competition page must use the approved student-focused photographic hero'
+require_text "$COMPETITION" 'Discover opportunities that help students participate, perform and grow beyond everyday classwork.' 'Competition must retain the approved supporting line'
 require_text "$COMPETITION" "image=\"/images/vidyasetu-hero-sprite.jpg\"" 'Competition must use the repo-owned approved hero artwork'
 require_text "$COMPETITION" 'listCompetitions()' 'Competition data flow must remain intact'
 require_text "$COMPETITION" 'registerExam(examId)' 'Competition registration must remain intact'
