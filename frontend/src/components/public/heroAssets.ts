@@ -1,12 +1,12 @@
 export const HERO_IMAGES = {
-  home: '/images/heroes/home.webp',
-  student: '/images/heroes/students.webp',
-  school: '/images/heroes/schools.webp',
-  parent: '/images/heroes/parents.webp',
-  learn: '/images/heroes/learning.webp',
-  competition: '/images/heroes/competitions.webp',
-  communities: '/images/heroes/communities.webp',
-  admin: '/images/heroes/platform-admin.webp',
+  home: '/images/heroes/home.avif',
+  student: '/images/heroes/students.avif',
+  school: '/images/heroes/schools.avif',
+  parent: '/images/heroes/parents.avif',
+  learn: '/images/heroes/learning.avif',
+  competition: '/images/heroes/competitions.avif',
+  communities: '/images/heroes/communities.avif',
+  admin: '/images/heroes/platform-admin.avif',
 } as const;
 
 export const MODULE_IMAGES = {
