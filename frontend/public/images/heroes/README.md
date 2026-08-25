@@ -1,0 +1,1 @@
+Dedicated repo-owned public photography lives in this directory. The eight AVIF files are mapped through `src/components/public/heroAssets.ts`; do not replace them with CSS sprite crops or remote hotlinks.
