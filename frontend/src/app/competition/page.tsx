@@ -10,6 +10,7 @@ import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
+import { HERO_IMAGES } from '@/components/public/heroAssets';
 import toast from 'react-hot-toast';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -39,7 +40,7 @@ export default function CompetitionPage() {
   return <>
     <GlobalTopbar />
     <div>
-      <ImageHero image="/images/vidyasetu-hero-sprite.jpg" imageSize="300% 300%" imagePosition="100% 50%" eyebrow="Academic Competitions" title="Give talent somewhere to go." description="Discover opportunities that help students participate, perform and grow beyond everyday classwork." theme="rose" actions={[{ label: 'Explore competitions', href: '#competition-list' }, { label: 'Student login', href: '/login?role=student', variant: 'secondary' }]} />
+      <ImageHero image={HERO_IMAGES.competition} imagePosition="center" eyebrow="Academic Competitions" title="Give talent somewhere to go." description="Discover opportunities that help students participate, perform and grow beyond everyday classwork." theme="rose" actions={[{ label: 'Explore competitions', href: '#competition-list' }, { label: 'Student login', href: '/login?role=student', variant: 'secondary' }]} />
 
       <div id="competition-list" className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0', scrollMarginTop: 96 }}>
         <div style={{ background: '#FFF8EF', border: '1px solid #FFD7B5', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
