@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import styles from './imageHero.module.css';
 
@@ -17,6 +18,7 @@ export interface ImageHeroProps {
   imagePosition?: string;
   imageSize?: string;
   theme?: 'orange' | 'blue' | 'green' | 'violet' | 'teal' | 'rose';
+  priority?: boolean;
   children?: ReactNode;
 }
 
@@ -29,15 +31,23 @@ export default function ImageHero({
   imagePosition = 'center',
   imageSize = 'cover',
   theme = 'orange',
+  priority = true,
   children,
 }: ImageHeroProps) {
+  const objectFit = imageSize === 'contain' ? 'contain' : 'cover';
+
   return (
     <section className={`${styles.hero} ${styles[theme]}`}>
-      <div
-        className={styles.photo}
-        style={{ backgroundImage: `url(${image})`, backgroundPosition: imagePosition, backgroundSize: imageSize }}
-        aria-hidden="true"
-      />
+      <div className={styles.photo} aria-hidden="true">
+        <Image
+          src={image}
+          alt=""
+          fill
+          priority={priority}
+          sizes="100vw"
+          style={{ objectFit, objectPosition: imagePosition }}
+        />
+      </div>
       <div className={styles.wash} aria-hidden="true" />
       <div className={styles.content}>
         {eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}

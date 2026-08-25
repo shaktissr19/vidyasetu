@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
+import { HERO_IMAGES } from '@/components/public/heroAssets';
 import { getPublicSchools, type PublicSchool } from '@/services/publicService';
 import styles from './publicExperience.module.css';
 import visualStyles from './publicModuleVisual.module.css';
@@ -49,7 +50,6 @@ interface VisualStory {
   theme: HeroTheme;
 }
 
-const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';
 const QUICK_TONES = [visualStyles.quickBlue, visualStyles.quickGreen, visualStyles.quickOrange, visualStyles.quickViolet, visualStyles.quickRose, visualStyles.quickTeal];
 
 const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'communities', VisualStory> = {
@@ -57,51 +57,57 @@ const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'commun
     eyebrow: 'For Students',
     title: 'Every student’s learning day, in one place',
     description: 'Lessons, homework, attendance, practice, exams and progress tracking built for Indian school learners.',
-    image: HERO_SPRITE,
-    imagePosition: '50% 0%',
-    imageSize: '300% 300%',
+    image: HERO_IMAGES.student,
+    imagePosition: 'center',
+    imageSize: 'cover',
     theme: 'blue',
   },
   parent: {
     eyebrow: 'For Parents & Guardians',
     title: 'Stay connected to every step of their journey',
     description: 'Follow learning, school progress and communication from one trusted parent space.',
-    image: HERO_SPRITE,
-    imagePosition: '100% 0%',
-    imageSize: '300% 300%',
+    image: HERO_IMAGES.parent,
+    imagePosition: 'center',
+    imageSize: 'cover',
     theme: 'violet',
   },
   school: {
     eyebrow: 'For Schools & Teachers',
     title: 'A stronger school starts with a clearer view',
     description: 'Bring students, teachers, academics and daily school operations into one connected workspace.',
-    image: HERO_SPRITE,
-    imagePosition: '0% 50%',
-    imageSize: '300% 300%',
+    image: HERO_IMAGES.school,
+    imagePosition: 'center',
+    imageSize: 'cover',
     theme: 'green',
   },
   admin: {
     eyebrow: 'Platform Administration',
     title: 'See the network. Guide the system.',
     description: 'Manage schools, users, learning, governance and platform operations from one central view.',
-    image: HERO_SPRITE,
-    imagePosition: '50% 100%',
-    imageSize: '300% 300%',
+    image: HERO_IMAGES.admin,
+    imagePosition: 'center',
+    imageSize: 'cover',
     theme: 'violet',
   },
   communities: {
     eyebrow: 'Education Communities',
     title: 'Education gets stronger when people connect',
     description: 'Safe spaces for students, parents, teachers and schools to learn, discuss and help one another.',
-    image: HERO_SPRITE,
-    imagePosition: '0% 100%',
-    imageSize: '300% 300%',
+    image: HERO_IMAGES.communities,
+    imagePosition: 'center',
+    imageSize: 'cover',
     theme: 'teal',
   },
 };
 
 function storyFor(config: PublicModuleConfig): VisualStory {
-  if (config.eyebrow.toLowerCase().includes('communit')) return VISUAL_STORIES.communities;
+  if (config.eyebrow.toLowerCase().includes('communit')) return {
+    ...VISUAL_STORIES.communities,
+    image: config.heroImage || VISUAL_STORIES.communities.image,
+    imagePosition: config.heroImagePosition || VISUAL_STORIES.communities.imagePosition,
+    imageSize: config.heroImageSize || VISUAL_STORIES.communities.imageSize,
+    theme: config.heroTheme || VISUAL_STORIES.communities.theme,
+  };
   const base = config.loginRole === 'teacher' ? VISUAL_STORIES.school : VISUAL_STORIES[config.loginRole];
   return {
     ...base,
@@ -142,7 +148,10 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
     if (!config.schoolDirectory) return;
     let active = true;
     setLoadingSchools(true);
-    getPublicSchools().then((response) => { if (active) setSchools(response.data.data || []); }).catch(() => { if (active) setSchools([]); }).finally(() => { if (active) setLoadingSchools(false); });
+    getPublicSchools()
+      .then((response) => { if (active) setSchools(response.data.data || []); })
+      .catch(() => { if (active) setSchools([]); })
+      .finally(() => { if (active) setLoadingSchools(false); });
     return () => { active = false; };
   }, [config.schoolDirectory]);
 

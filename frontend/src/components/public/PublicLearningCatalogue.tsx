@@ -3,25 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  ArrowRight,
-  BookOpen,
-  Brain,
-  Calculator,
-  CirclePlay,
-  FileQuestion,
-  FileText,
-  FlaskConical,
-  Headphones,
-  Languages,
-  Lightbulb,
-  NotebookPen,
-  RefreshCw,
-  Wrench,
-  type LucideIcon,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, RefreshCw } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
+import SubjectVisual from '@/components/public/SubjectVisual';
 import { getPublicLearningResources, type LearningCategory, type PublicLearningResource } from '@/services/publicService';
 import styles from './learningEditorial.module.css';
 
@@ -36,22 +20,6 @@ const CATEGORY_TONE: Record<LearningCategory, string> = {
   CAREER_AWARENESS: styles.rose,
   DIGITAL_CITIZENSHIP: styles.indigo,
 };
-
-function iconFor(resource: PublicLearningResource): LucideIcon {
-  const subject = `${resource.subject_name || ''} ${resource.subject_label || ''}`.toLowerCase();
-  if (subject.includes('math')) return Calculator;
-  if (subject.includes('science')) return FlaskConical;
-  if (subject.includes('english') || subject.includes('language')) return Languages;
-  if (resource.resource_type === 'VIDEO') return CirclePlay;
-  if (resource.resource_type === 'AUDIO') return Headphones;
-  if (resource.resource_type === 'PDF') return FileText;
-  if (resource.resource_type === 'WORKSHEET') return NotebookPen;
-  if (resource.resource_type === 'QUESTION_PAPER') return FileQuestion;
-  if (resource.resource_type === 'QUIZ') return Brain;
-  if (resource.resource_type === 'INTERACTIVE') return Lightbulb;
-  if (resource.category === 'LIFE_SKILLS' || resource.category === 'WORK_ETHIC') return Wrench;
-  return BookOpen;
-}
 
 function categoryLabel(value: string): string {
   return value.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -117,13 +85,12 @@ export default function PublicLearningCatalogue() {
           ) : resources.length ? (
             <div className={styles.catalogueGrid}>
               {resources.map((resource) => {
-                const Icon = iconFor(resource);
                 const tone = CATEGORY_TONE[resource.category] || styles.blue;
                 return (
                   <Link key={resource.id} className={`${styles.resourceCard} ${tone}`} href={`/learn/resource/${resource.public_slug}`}>
-                    {resource.thumbnail_url && <div className={styles.resourceImage}><img src={resource.thumbnail_url} alt="" loading="lazy" /></div>}
+                    {resource.thumbnail_url ? <div className={styles.resourceImage}><img src={resource.thumbnail_url} alt="" loading="lazy" /></div> : <SubjectVisual input={resource} selectedGrade={grade} />}
                     <div className={styles.resourceBody}>
-                      <div className={styles.resourceTopline}><span className={styles.resourceIconBadge}><Icon size={20} /></span><span className={styles.resourceEyebrow}>{resource.subject_name || resource.subject_label || categoryLabel(resource.category)}</span></div>
+                      <div className={styles.resourceTopline}><span className={styles.resourceEyebrow}>{resource.subject_name || resource.subject_label || categoryLabel(resource.category)}</span></div>
                       <h3>{resource.title}</h3>
                       <p>{resource.summary || 'Open this resource to continue learning.'}</p>
                       <div className={styles.resourceFacts}><span>{gradeLabel(resource)}</span><span>{resource.resource_type.replaceAll('_', ' ').toLowerCase()}</span>{(resource.board_codes || []).includes('COMMON') && <span>Cross-board</span>}</div>
