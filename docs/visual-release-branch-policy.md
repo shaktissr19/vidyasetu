@@ -1,1 +1,0 @@
-This branch remains non-deployable until the binary assets and checks described in the acceptance document are complete.

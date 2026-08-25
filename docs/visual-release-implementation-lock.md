@@ -1,1 +1,0 @@
-Public visual release remains implementation-only until all acceptance gates pass.

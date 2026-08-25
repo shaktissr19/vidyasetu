@@ -1,1 +1,0 @@
-The dedicated hero images in this release are derived from the previously approved VidyaSetu page visual references and cropped to clean photographic hero regions. They are not external hotlinked stock assets.

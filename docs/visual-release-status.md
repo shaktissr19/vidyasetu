@@ -1,1 +1,0 @@
-Implementation branch in progress. Do not deploy until hero assets, login image, subject visuals, readability checks, CI and browser acceptance are complete.

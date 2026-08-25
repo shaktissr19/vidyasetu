@@ -1,1 +1,0 @@
-Functional source changes are in place. Remaining: binary tree attachment, Login wiring, smoke-test update, cleanup, CI.

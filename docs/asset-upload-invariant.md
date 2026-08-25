@@ -1,1 +1,0 @@
-The release must not contain `.b64` image sidecars. Actual AVIF blobs must be referenced from the Git tree.

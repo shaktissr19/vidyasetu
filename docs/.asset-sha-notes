@@ -1,1 +1,0 @@
-Prepared image blobs will be attached only after visual/code mapping is complete. This marker keeps the implementation branch auditable while assets are staged.
