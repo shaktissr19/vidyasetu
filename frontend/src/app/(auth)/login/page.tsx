@@ -14,6 +14,7 @@ import {
 } from '@/services/authService';
 import useAuthStore from '@/store/authStore';
 import { useRedirectIfLoggedIn } from '@/hooks/useAuth';
+import { HERO_IMAGES } from '@/components/public/heroAssets';
 import toast from 'react-hot-toast';
 
 const ROLES: Array<{ key: UserRole; label: string }> = [
@@ -29,6 +30,13 @@ const ROLE_DASHBOARDS: Record<UserRole, string> = {
 };
 const ROLE_PUBLIC_PATHS: Record<UserRole, string> = {
   STUDENT: '/for-students', SCHOOL_ADMIN: '/for-schools', TEACHER: '/for-schools', PARENT: '/for-parents', SUPER_ADMIN: '/platform-admin',
+};
+const ROLE_IMAGES: Record<UserRole, string> = {
+  STUDENT: HERO_IMAGES.student,
+  PARENT: HERO_IMAGES.parent,
+  SCHOOL_ADMIN: HERO_IMAGES.school,
+  TEACHER: HERO_IMAGES.school,
+  SUPER_ADMIN: HERO_IMAGES.admin,
 };
 const ROLE_INTRO: Record<UserRole, { title: string; accent: string; copy: string; cards: Array<[string, string]> }> = {
   STUDENT: { title: 'Welcome back to your learning space', accent: 'continue where you left off', copy: 'Sign in to continue lessons, practice, school progress, competitions and Communities from your own VidyaSetu Student identity.', cards: [['Learning','Lessons, practice and progress'],['School Records','Attendance and report cards'],['Opportunities','Competitions and challenges'],['Community','Safe learning collaboration']] },
@@ -57,7 +65,12 @@ export default function LoginPage() {
   const identifierLabel = role === 'STUDENT' ? 'Username / Email / Mobile / Student ID' : 'Username / Email / Mobile';
   const identifierPlaceholder = role === 'STUDENT' ? 'aarav.sharma, 9300000001 or VS26-...' : 'username, email or 10-digit mobile';
   const isStudent = role === 'STUDENT';
-  const leftPanelStyle = isStudent ? { backgroundImage: "linear-gradient(180deg,rgba(6,24,51,.10) 0%,rgba(8,30,61,.20) 48%,rgba(8,28,58,.78) 100%),url('/images/vidyasetu-hero-sprite.jpg')", backgroundSize: '300% 300%', backgroundPosition: '100% 100%' } : { background: 'linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1A3A6E 100%)' };
+  const leftPanelStyle = {
+    backgroundImage: `linear-gradient(180deg,rgba(6,24,51,.12) 0%,rgba(8,30,61,.28) 45%,rgba(8,28,58,.88) 100%),url('${ROLE_IMAGES[role]}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+  };
 
   function resetOtpState(clearMobile = false) { setOtpSent(false); setOtp(''); setSentMobile(''); setResendIn(0); if (clearMobile) setMobile(''); }
   function changeRole(nextRole: UserRole) { if (nextRole === role) return; setRole(nextRole); resetOtpState(false); }
@@ -72,7 +85,7 @@ export default function LoginPage() {
     <div className="hidden lg:flex flex-col justify-between w-[44%] p-12 relative overflow-hidden" style={leftPanelStyle}>
       <div className="relative z-10"><div className="flex items-center gap-3 mb-12"><div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-extrabold text-white" style={{ background: 'linear-gradient(135deg,var(--saffron),var(--saffron-light))' }}>V</div><span className="font-display font-extrabold text-2xl text-white" style={{ textShadow: '0 2px 16px rgba(0,0,0,.24)' }}>VidyaSetu</span></div></div>
       <div className="relative z-10" style={{ maxWidth: 610 }}><h1 className="font-display font-extrabold text-4xl text-white leading-tight mb-4" style={{ textShadow: '0 3px 20px rgba(0,0,0,.28)' }}>{intro.title}<br /><span style={{ color: 'var(--saffron-light)' }}>{intro.accent}</span></h1><p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.84)', textShadow: '0 2px 14px rgba(0,0,0,.28)' }}>{intro.copy}</p><button onClick={() => router.push(ROLE_PUBLIC_PATHS[role])} className="mt-5 text-sm font-bold" style={{ color: '#fff', background: 'rgba(255,107,0,.92)', border: 0, cursor: 'pointer', padding: '10px 14px', borderRadius: 10 }}>Explore this VidyaSetu module →</button></div>
-      {isStudent ? <div className="relative z-10 rounded-2xl px-5 py-4" style={{ background: 'rgba(8,30,61,.72)', border: '1px solid rgba(255,255,255,.2)', backdropFilter: 'blur(8px)' }}><div className="text-xs font-bold tracking-wide" style={{ color: 'var(--saffron-light)' }}>YOUR STUDENT SPACE</div><div className="text-sm mt-1 text-white">Lessons · Practice · Attendance · Results · Competitions · Communities</div></div> : <div className="relative z-10 grid grid-cols-2 gap-4">{intro.cards.map(([name,label]) => <div key={name} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}><div className="font-display font-extrabold text-lg text-white">{name}</div><div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</div></div>)}</div>}
+      {isStudent ? <div className="relative z-10 rounded-2xl px-5 py-4" style={{ background: 'rgba(8,30,61,.72)', border: '1px solid rgba(255,255,255,.2)', backdropFilter: 'blur(8px)' }}><div className="text-xs font-bold tracking-wide" style={{ color: 'var(--saffron-light)' }}>YOUR STUDENT SPACE</div><div className="text-sm mt-1 text-white">Lessons · Practice · Attendance · Results · Competitions · Communities</div></div> : <div className="relative z-10 grid grid-cols-2 gap-4">{intro.cards.map(([name,label]) => <div key={name} className="rounded-2xl p-4" style={{ background: 'rgba(8,30,61,.62)', border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}><div className="font-display font-extrabold text-lg text-white">{name}</div><div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.72)' }}>{label}</div></div>)}</div>}
     </div>
 
     <div className="flex-1 flex items-center justify-center p-6 sm:p-10"><div className="w-full max-w-[470px]">
