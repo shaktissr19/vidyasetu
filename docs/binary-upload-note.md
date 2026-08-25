@@ -1,0 +1,1 @@
+Binary AVIF assets are attached to the release tree through Git blobs; do not replace these with text/base64 sidecar files.
