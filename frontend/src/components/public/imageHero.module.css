@@ -7,16 +7,26 @@
   isolation: isolate;
 }
 
+/* Desktop hero rule: photography owns its own pane. It is not stretched across
+   the full viewport underneath the copy. This keeps a 16:9 source near its
+   natural scale and prevents the "zoomed face behind text" failure. */
 .photo {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 42%;
   z-index: 0;
+  overflow: hidden;
+  background: #edf2f6;
 }
 
 .photo img {
   display: block;
 }
 
+/* Only a short blend joins copy and photography. The old wash extended to
+   70% of the hero and visually erased much of the subject. */
 .wash {
   position: absolute;
   inset: 0;
@@ -25,24 +35,23 @@
   background:
     linear-gradient(
       90deg,
-      rgba(255,255,255,.985) 0%,
-      rgba(255,255,255,.97) 21%,
-      rgba(255,255,255,.88) 34%,
-      rgba(255,255,255,.58) 46%,
-      rgba(255,255,255,.18) 58%,
-      rgba(255,255,255,0) 70%
-    ),
-    linear-gradient(180deg,rgba(13,27,62,.01),rgba(13,27,62,.08));
+      #f7f9fc 0%,
+      #f7f9fc 36%,
+      rgba(247,249,252,.98) 40%,
+      rgba(247,249,252,.78) 44%,
+      rgba(247,249,252,.34) 48%,
+      rgba(247,249,252,0) 52%
+    );
 }
 
 .hero::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
-  height: 22%;
+  height: 12%;
   z-index: 2;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(10,31,61,.08));
+  background: linear-gradient(180deg, transparent, rgba(10,31,61,.035));
 }
 
 .content {
@@ -50,7 +59,7 @@
   z-index: 3;
   width: min(1480px, 100%);
   margin: 0 auto;
-  padding: 72px 56px 76px;
+  padding: 68px 56px 72px;
   min-height: 540px;
   display: flex;
   flex-direction: column;
@@ -76,11 +85,11 @@
 }
 
 .content h1 {
-  max-width: 660px;
+  max-width: 620px;
   margin: 0;
   font-family: 'Baloo 2', cursive;
-  font-size: clamp(42px, 4.35vw, 64px);
-  line-height: 1.01;
+  font-size: clamp(40px, 4vw, 60px);
+  line-height: 1.02;
   letter-spacing: -.025em;
   font-weight: 800;
   color: #0d2a57;
@@ -88,10 +97,10 @@
 }
 
 .content p {
-  max-width: 600px;
-  margin: 21px 0 0;
+  max-width: 590px;
+  margin: 20px 0 0;
   font-size: 18px;
-  line-height: 1.64;
+  line-height: 1.62;
   color: #405674;
 }
 
@@ -99,7 +108,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 29px;
+  margin-top: 28px;
 }
 
 .primary,
@@ -124,10 +133,9 @@
 }
 
 .secondary {
-  background: rgba(255,255,255,.9);
+  background: rgba(255,255,255,.94);
   border: 1px solid #cdd7e5;
   color: #173566;
-  backdrop-filter: blur(9px);
 }
 
 .primary:hover,
@@ -141,36 +149,55 @@
 .teal { --hero-accent:#078a91; --hero-soft:#e8f8f8; --hero-border:#bee4e5; }
 .rose { --hero-accent:#d54872; --hero-soft:#fff0f5; --hero-border:#f3c9d6; }
 
-@media (max-width: 900px) {
-  .hero { min-height: 620px; }
-  .photo { inset: 0; }
+@media (max-width: 1100px) {
+  .photo { left: 46%; }
   .wash {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255,255,255,.995) 0%,
-        rgba(255,255,255,.98) 30%,
-        rgba(255,255,255,.82) 45%,
-        rgba(255,255,255,.34) 58%,
-        rgba(255,255,255,.04) 76%,
-        rgba(255,255,255,0) 100%
-      ),
-      linear-gradient(180deg,rgba(13,27,62,.01),rgba(13,27,62,.08));
+    background: linear-gradient(
+      90deg,
+      #f7f9fc 0%,
+      #f7f9fc 40%,
+      rgba(247,249,252,.94) 44%,
+      rgba(247,249,252,.42) 49%,
+      rgba(247,249,252,0) 54%
+    );
+  }
+  .content h1 { max-width: 560px; }
+  .content p { max-width: 530px; }
+}
+
+@media (max-width: 900px) {
+  .hero { min-height: 680px; background:#f7f9fc; }
+  .photo {
+    top: auto;
+    left: 0;
+    width: 100%;
+    height: 300px;
+  }
+  .wash {
+    background: linear-gradient(
+      180deg,
+      #f7f9fc 0%,
+      #f7f9fc 52%,
+      rgba(247,249,252,.94) 58%,
+      rgba(247,249,252,.28) 66%,
+      rgba(247,249,252,0) 72%
+    );
   }
   .content {
-    min-height: 620px;
-    padding: 42px 24px 270px;
+    min-height: 680px;
+    padding: 38px 24px 330px;
     justify-content: flex-start;
   }
-  .content h1 { max-width: 700px; font-size: clamp(38px, 7.5vw, 54px); }
-  .content p { font-size: 16px; line-height: 1.58; max-width: 620px; margin-top: 16px; }
+  .content h1 { max-width: 720px; font-size: clamp(36px, 7vw, 52px); }
+  .content p { font-size: 16px; line-height: 1.58; max-width: 650px; margin-top: 16px; }
   .actions { margin-top: 22px; }
 }
 
 @media (max-width: 560px) {
-  .hero { min-height: 640px; }
-  .content { padding: 32px 18px 285px; min-height: 640px; }
-  .content h1 { font-size: 38px; line-height: 1.03; }
+  .hero { min-height: 660px; }
+  .photo { height: 275px; }
+  .content { padding: 30px 18px 305px; min-height: 660px; }
+  .content h1 { font-size: 37px; line-height: 1.04; }
   .content p { font-size: 15px; }
   .actions { width: 100%; }
   .primary,
