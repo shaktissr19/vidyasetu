@@ -1,0 +1,45 @@
+.visual {
+  --subject:#2d77cf;
+  --subject-soft:#eaf3ff;
+  --band:#c5dcf4;
+  position:relative;
+  min-height:154px;
+  overflow:hidden;
+  border-radius:18px;
+  border:1px solid color-mix(in srgb,var(--subject) 24%,#dce5ee);
+  background:
+    radial-gradient(circle at 82% 22%, color-mix(in srgb,var(--band) 58%,transparent) 0 46px, transparent 47px),
+    linear-gradient(135deg,var(--subject-soft),#fff 72%);
+  color:#10264d;
+  padding:18px;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  grid-template-rows:1fr auto;
+  gap:12px;
+  align-items:start;
+}
+
+.visual[data-subject='math']{--subject:#2476d4;--subject-soft:#e9f3ff}
+.visual[data-subject='science']{--subject:#16825f;--subject-soft:#e8f7f0}
+.visual[data-subject='english']{--subject:#7459c6;--subject-soft:#f0edff}
+.visual[data-subject='hindi']{--subject:#c05b79;--subject-soft:#ffedf4}
+.visual[data-subject='social']{--subject:#b26a0b;--subject-soft:#fff1db}
+.visual[data-subject='computer']{--subject:#3d61a5;--subject-soft:#e9eefb}
+.visual[data-subject='evs']{--subject:#188985;--subject-soft:#e4f6f4}
+.visual[data-subject='commerce']{--subject:#a35d1b;--subject-soft:#fff0e0}
+.visual[data-subject='general']{--subject:#536b88;--subject-soft:#eef3f7}
+
+.visual[data-band='primary']{--band:#aad5ff}
+.visual[data-band='middle']{--band:#b9e3cf}
+.visual[data-band='secondary']{--band:#dec7f6}
+
+.orbit{position:absolute;width:132px;height:132px;border:18px solid color-mix(in srgb,var(--subject) 10%,transparent);border-radius:50%;right:-38px;top:-42px}
+.orbit::after{content:'';position:absolute;width:108px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--subject) 24%,transparent);transform:rotate(-20deg);left:-78px;top:74px}
+.icon{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;background:rgba(255,255,255,.86);border:1px solid rgba(16,38,77,.08);box-shadow:0 9px 20px rgba(20,50,80,.08);color:var(--subject);position:relative;z-index:1}
+.mark{justify-self:end;align-self:start;position:relative;z-index:1;color:var(--subject);font-family:'Baloo 2',system-ui,sans-serif;font-size:28px;line-height:1;font-weight:800;letter-spacing:-.025em}
+.caption{grid-column:1/-1;align-self:end;position:relative;z-index:1;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.caption strong{font-size:13px;line-height:1.2;color:var(--subject);letter-spacing:.03em;text-transform:uppercase}
+.caption span{font-size:11px;line-height:1.2;color:#617188;font-weight:800}
+.compact{min-height:118px;border-radius:16px;padding:14px}.compact .icon{width:42px;height:42px;border-radius:13px}.compact .mark{font-size:22px}.compact .caption strong{font-size:11px}.compact .caption span{font-size:10px}
+
+@media(max-width:560px){.visual{min-height:138px}.caption{align-items:flex-start;flex-direction:column;gap:3px}}
