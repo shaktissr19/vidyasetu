@@ -1,9 +1,12 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
+import SubjectVisual from '@/components/public/SubjectVisual';
+import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
 import {
   getPublicCompetitions,
   getPublicLearningResources,
@@ -14,15 +17,13 @@ import {
 } from '@/services/publicService';
 import styles from './publicHomeVisual.module.css';
 
-const HERO_SPRITE = '/images/vidyasetu-hero-sprite.jpg';
-
 const MODULES = [
-  { icon: '🎓', title: 'Students', copy: 'Learning, attendance, results, competitions and progress around one student identity.', href: '/for-students', tone: styles.blue, imagePosition: '50% 0%' },
-  { icon: '🏫', title: 'Schools & Teachers', copy: 'Classes, academics, attendance, fees, exams and everyday school operations.', href: '/for-schools', tone: styles.green, imagePosition: '0% 50%' },
-  { icon: '👨‍👩‍👧', title: 'Parents', copy: 'Stay connected to children, school updates, progress, messages and concerns.', href: '/for-parents', tone: styles.orange, imagePosition: '100% 0%' },
-  { icon: '📚', title: 'Learning', copy: 'Lessons, reading, practice, question papers and skills for every learning stage.', href: '/learn', tone: styles.violet, imagePosition: '50% 50%' },
-  { icon: '🏆', title: 'Competitions', copy: 'Discover academic challenges, register, participate and follow results.', href: '/competition', tone: styles.rose, imagePosition: '100% 50%' },
-  { icon: '🤝', title: 'Communities', copy: 'Moderated spaces for students, families, teachers and schools to learn together.', href: '/communities', tone: styles.teal, imagePosition: '0% 100%' },
+  { title: 'Students', copy: 'Learning, attendance, results, competitions and progress around one student identity.', href: '/for-students', tone: styles.blue, image: MODULE_IMAGES.student, imagePosition: 'center' },
+  { title: 'Schools & Teachers', copy: 'Classes, academics, attendance, fees, exams and everyday school operations.', href: '/for-schools', tone: styles.green, image: MODULE_IMAGES.school, imagePosition: 'center' },
+  { title: 'Parents', copy: 'Stay connected to children, school updates, progress, messages and concerns.', href: '/for-parents', tone: styles.orange, image: MODULE_IMAGES.parent, imagePosition: 'center' },
+  { title: 'Learning', copy: 'Lessons, reading, practice, question papers and skills for every learning stage.', href: '/learn', tone: styles.violet, image: MODULE_IMAGES.learn, imagePosition: 'center' },
+  { title: 'Competitions', copy: 'Discover academic challenges, register, participate and follow results.', href: '/competition', tone: styles.rose, image: MODULE_IMAGES.competition, imagePosition: 'center' },
+  { title: 'Communities', copy: 'Moderated spaces for students, families, teachers and schools to learn together.', href: '/communities', tone: styles.teal, image: MODULE_IMAGES.communities, imagePosition: 'center' },
 ];
 
 const WHY = [
@@ -38,16 +39,6 @@ const DISCOVERY_TONES = [styles.discoveryBlue, styles.discoveryGreen, styles.dis
 function gradeText(resource: PublicLearningResource): string {
   if (resource.class_min && resource.class_max) return resource.class_min === resource.class_max ? `Class ${resource.class_min}` : `Classes ${resource.class_min}–${resource.class_max}`;
   return 'Multiple learning levels';
-}
-
-function resourceVisual(resource: PublicLearningResource): { glyph: string; label: string } {
-  const subject = (resource.subject_name || resource.subject_label || resource.category || '').toLowerCase();
-  const type = (resource.resource_type || '').toLowerCase();
-  if (subject.includes('math')) return { glyph: '∑', label: 'Mathematics' };
-  if (subject.includes('science')) return { glyph: '⚗', label: 'Science' };
-  if (subject.includes('english') || subject.includes('language')) return { glyph: 'Aa', label: resource.subject_name || resource.subject_label || 'Language' };
-  if (type.includes('question') || type.includes('paper') || type.includes('practice')) return { glyph: '?', label: 'Practice' };
-  return { glyph: '↗', label: resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ') };
 }
 
 export default function PublicHomeVisualExperience() {
@@ -75,9 +66,8 @@ export default function PublicHomeVisualExperience() {
       <GlobalTopbar />
 
       <ImageHero
-        image={HERO_SPRITE}
-        imageSize="300% 300%"
-        imagePosition="0% 0%"
+        image={HERO_IMAGES.home}
+        imagePosition="center"
         eyebrow="India’s connected education ecosystem"
         title="Welcome to VidyaSetu"
         description="India’s unified education platform for learning, schools and families."
@@ -98,12 +88,9 @@ export default function PublicHomeVisualExperience() {
           <div className={styles.moduleGrid}>
             {MODULES.map((module) => (
               <Link href={module.href} className={`${styles.moduleCard} ${module.tone}`} key={module.title}>
-                <div
-                  className={styles.moduleMedia}
-                  style={{ backgroundImage: `url(${HERO_SPRITE})`, backgroundSize: '300% 300%', backgroundPosition: module.imagePosition }}
-                  aria-hidden="true"
-                >
-                  <span className={styles.moduleIcon}>{module.icon}</span>
+                <div className={styles.moduleMedia} aria-hidden="true">
+                  <Image src={module.image} alt="" fill sizes="(max-width: 600px) 100vw, (max-width: 980px) 50vw, 33vw" style={{ objectFit: 'cover', objectPosition: module.imagePosition }} />
+                  <span className={styles.moduleImageLabel}>{module.title}</span>
                 </div>
                 <div className={styles.moduleBody}>
                   <strong>{module.title}</strong>
@@ -124,23 +111,19 @@ export default function PublicHomeVisualExperience() {
             <p>Public Learning stays visible from the homepage so students and families can discover real resources before signing in.</p>
           </div>
           <div className={styles.discoveryGrid}>
-            {learning.length > 0 ? learning.map((resource, index) => {
-              const visual = resourceVisual(resource);
-              return (
-                <Link className={`${styles.discoveryCard} ${DISCOVERY_TONES[index % DISCOVERY_TONES.length]}`} href={`/learn/resource/${resource.public_slug}`} key={resource.id}>
-                  <div className={styles.discoveryVisual}>
-                    <span className={styles.discoveryGlyph}>{visual.glyph}</span>
-                    <span className={styles.discoveryVisualLabel}>{visual.label}</span>
-                  </div>
-                  <div className={styles.discoveryBody}>
-                    <div className={styles.discoveryMeta}>{resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ')}</div>
-                    <h3>{resource.title}</h3>
-                    <p>{resource.summary || 'Open this learning resource and continue exploring VidyaSetu.'}</p>
-                    <span>{gradeText(resource)} · Explore resource →</span>
-                  </div>
-                </Link>
-              );
-            }) : (
+            {learning.length > 0 ? learning.map((resource, index) => (
+              <Link className={`${styles.discoveryCard} ${DISCOVERY_TONES[index % DISCOVERY_TONES.length]}`} href={`/learn/resource/${resource.public_slug}`} key={resource.id}>
+                <div className={`${styles.discoveryVisual} ${resource.thumbnail_url ? styles.discoveryVisualPhoto : ''}`}>
+                  {resource.thumbnail_url ? <img className={styles.discoveryPhoto} src={resource.thumbnail_url} alt="" loading="lazy" /> : <SubjectVisual input={resource} compact />}
+                </div>
+                <div className={styles.discoveryBody}>
+                  <div className={styles.discoveryMeta}>{resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ')}</div>
+                  <h3>{resource.title}</h3>
+                  <p>{resource.summary || 'Open this learning resource and continue exploring VidyaSetu.'}</p>
+                  <span>{gradeText(resource)} · Explore resource →</span>
+                </div>
+              </Link>
+            )) : (
               <div className={styles.discoveryEmpty}>Learning resources are loading. You can also open the complete Learning Library.</div>
             )}
           </div>
