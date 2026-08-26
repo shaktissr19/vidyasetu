@@ -19,8 +19,8 @@ export const HERO_IMAGES = {
   parent: pexels(9345612),
   // Indian students studying together in a modern library — Petlad, Gujarat.
   learn: pexels(33745700),
-  // Indian school academic/event gathering — competition and opportunity context.
-  competition: pexels(28389291),
+  // Indian schoolchildren participating in a school event in Surat, Gujarat.
+  competition: pexels(13812360),
   // Indian children learning and interacting together in a classroom.
   communities: pexels(18012458),
   // Indian colleagues collaborating around a laptop.
@@ -33,7 +33,7 @@ export const HERO_POSITIONS = {
   school: '62% center',
   parent: '64% center',
   learn: '62% center',
-  competition: '62% center',
+  competition: '61% center',
   communities: '63% center',
   admin: '64% center',
 } as const;
