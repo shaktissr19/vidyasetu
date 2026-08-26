@@ -32,9 +32,22 @@ export interface LearningVisual {
   band: LearningGradeBand;
   bandLabel: string;
   icon: LucideIcon;
+  image: string;
 }
 
 type BandArtwork = Record<LearningGradeBand, { mark: string; detail: string; cue: string }>;
+
+const SUBJECT_IMAGES: Record<LearningSubjectKey, string> = {
+  math: '/images/subjects/mathematics.png',
+  science: '/images/subjects/science.png',
+  english: '/images/subjects/english.png',
+  hindi: '/images/subjects/hindi.png',
+  social: '/images/subjects/social-science.png',
+  computer: '/images/subjects/computer.png',
+  evs: '/images/subjects/evs.png',
+  commerce: '/images/subjects/commerce.png',
+  general: '/images/subjects/general-learning.png',
+};
 
 const SUBJECT_META: Record<LearningSubjectKey, { label: string; icon: LucideIcon; artwork: BandArtwork }> = {
   math: {
@@ -177,6 +190,7 @@ export function learningVisualFor(input: LearningVisualInput, selectedGrade?: st
     detail: art.detail,
     cue: art.cue,
     icon: meta.icon,
+    image: SUBJECT_IMAGES[subject],
   };
 }
 
@@ -185,6 +199,7 @@ export default function SubjectVisual({ input, selectedGrade, compact = false }:
   const Icon = visual.icon;
   return (
     <div className={`${styles.visual} ${compact ? styles.compact : ''}`} data-subject={visual.subject} data-band={visual.band} aria-hidden="true">
+      <div className={styles.subjectPhoto} style={{ backgroundImage: `url('${visual.image}')` }} />
       <div className={styles.artGrid} />
       <div className={styles.mainIcon}><Icon size={compact ? 28 : 34} strokeWidth={1.7} /></div>
       <div className={styles.formulaPanel}>
