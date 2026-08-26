@@ -28,24 +28,24 @@ printf '==> Local image architecture\n'
 reject_text "$HERO_ASSETS" 'images.pexels.com' 'Public imagery must not depend on Pexels at runtime'
 reject_text "$HERO_ASSETS" 'pexels(' 'Public imagery must use approved repo-owned PNG files'
 for mapping in \
-  "home: '/images/sample/home-hero.png'" \
-  "student: '/images/sample/students-hero.png'" \
-  "school: '/images/sample/schools-hero.png'" \
-  "parent: '/images/sample/parents-hero.png'" \
-  "learn: '/images/sample/learn-hero.png'" \
-  "competition: '/images/sample/competition-hero.png'" \
-  "communities: '/images/sample/communities-hero.png'" \
-  "admin: '/images/sample/platform-admin-hero.png'"
+  "home: '/images/heroes/home-hero.png'" \
+  "student: '/images/heroes/students-hero.png'" \
+  "school: '/images/heroes/schools-hero.png'" \
+  "parent: '/images/heroes/parents-hero.png'" \
+  "learn: '/images/heroes/learn-hero.png'" \
+  "competition: '/images/heroes/competition-hero.png'" \
+  "communities: '/images/heroes/communities-hero.png'" \
+  "admin: '/images/heroes/platform-admin-hero.png'"
 do
   require_text "$HERO_ASSETS" "$mapping" "Missing approved local hero mapping: $mapping"
 done
 for mapping in \
-  "student: '/images/sample/home-students.png'" \
-  "school: '/images/sample/home-schools.png'" \
-  "parent: '/images/sample/home-parents.png'" \
-  "learn: '/images/sample/home-learning.png'" \
-  "competition: '/images/sample/home-competitions.png'" \
-  "communities: '/images/sample/home-communities.png'"
+  "student: '/images/home-cards/home-students.png'" \
+  "school: '/images/home-cards/home-schools.png'" \
+  "parent: '/images/home-cards/home-parents.png'" \
+  "learn: '/images/home-cards/home-learning.png'" \
+  "competition: '/images/home-cards/home-competitions.png'" \
+  "communities: '/images/home-cards/home-communities.png'"
 do
   require_text "$HERO_ASSETS" "$mapping" "Missing unique Home card image mapping: $mapping"
 done
@@ -146,4 +146,4 @@ require_text "$LOGIN" 'resetPassword(identifier.trim(), recoveryOtp, newPassword
 require_text "$LOGIN" 'if (user.role !== role)' 'Role validation must remain intact'
 require_text "$LOGIN" 'router.replace(ROLE_DASHBOARDS[user.role]' 'Role-aware redirects must remain intact'
 
-printf '\nApproved sample public visual and behavior contract smoke passed.\n'
+printf '\nApproved production public visual and behavior contract smoke passed.\n'
