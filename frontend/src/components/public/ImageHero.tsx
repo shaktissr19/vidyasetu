@@ -18,6 +18,7 @@ export interface ImageHeroProps {
   imagePosition?: string;
   imageSize?: string;
   theme?: 'orange' | 'blue' | 'green' | 'violet' | 'teal' | 'rose';
+  variant?: 'home' | 'compact';
   priority?: boolean;
   children?: ReactNode;
 }
@@ -31,21 +32,23 @@ export default function ImageHero({
   imagePosition = 'center',
   imageSize = 'cover',
   theme = 'orange',
+  variant = 'compact',
   priority = true,
   children,
 }: ImageHeroProps) {
   const objectFit = imageSize === 'contain' ? 'contain' : 'cover';
 
   return (
-    <section className={`${styles.hero} ${styles[theme]}`}>
+    <section className={`${styles.hero} ${styles[theme]} ${variant === 'home' ? styles.homeHero : styles.compactHero}`}>
       <div className={styles.photo} aria-hidden="true">
         <Image
           src={image}
           alt=""
           fill
           priority={priority}
-          quality={90}
-          sizes="(max-width: 900px) 100vw, 58vw"
+          fetchPriority={priority ? 'high' : 'auto'}
+          unoptimized
+          sizes="100vw"
           style={{ objectFit, objectPosition: imagePosition }}
         />
       </div>

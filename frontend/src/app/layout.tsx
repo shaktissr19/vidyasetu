@@ -4,8 +4,8 @@ import './globals.css';
 import Providers from '@/components/layout/Providers';
 
 export const metadata: Metadata = {
-  title: 'VidyaSetu — Bridging Rural Education',
-  description: "India's first Rural Student OS — Learning + School ERP + Student OS. Works offline, in Hindi and 8 regional languages.",
+  title: 'VidyaSetu — Connected Education for India',
+  description: 'One connected education platform for student learning, schools, teachers, parents, competitions and education communities across India.',
   manifest: '/manifest.json',
   icons: { icon: '/favicon.ico' },
 };
@@ -16,6 +16,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://images.pexels.com" />
+        <link rel="preconnect" href="https://images.pexels.com" crossOrigin="anonymous" />
         <link
           href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Noto+Sans:wght@300;400;600&family=Noto+Sans+Devanagari:wght@400;700&display=swap"
           rel="stylesheet"

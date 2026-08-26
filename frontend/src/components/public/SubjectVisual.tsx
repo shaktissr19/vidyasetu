@@ -27,21 +27,97 @@ export interface LearningVisual {
   subject: LearningSubjectKey;
   label: string;
   mark: string;
+  detail: string;
+  cue: string;
   band: LearningGradeBand;
   bandLabel: string;
   icon: LucideIcon;
 }
 
-const SUBJECT_META: Record<LearningSubjectKey, { label: string; icon: LucideIcon; marks: Record<LearningGradeBand, string> }> = {
-  math: { label: 'Mathematics', icon: Calculator, marks: { primary: '123', middle: '× ÷', secondary: '∑' } },
-  science: { label: 'Science', icon: FlaskConical, marks: { primary: 'OBS', middle: 'LAB', secondary: 'SCI' } },
-  english: { label: 'English', icon: Languages, marks: { primary: 'ABC', middle: 'Aa', secondary: 'LIT' } },
-  hindi: { label: 'Hindi', icon: Languages, marks: { primary: 'अ', middle: 'शब्द', secondary: 'साहित्य' } },
-  social: { label: 'Social Science', icon: Compass, marks: { primary: 'MAP', middle: 'CIV', secondary: 'POL' } },
-  computer: { label: 'Computer', icon: Laptop2, marks: { primary: 'LOG', middle: '</>', secondary: 'CODE' } },
-  evs: { label: 'EVS', icon: CloudSun, marks: { primary: 'LIFE', middle: 'ECO', secondary: 'ENV' } },
-  commerce: { label: 'Commerce', icon: BriefcaseBusiness, marks: { primary: '₹', middle: 'BIZ', secondary: 'ACC' } },
-  general: { label: 'Learning', icon: BookOpen, marks: { primary: 'READ', middle: 'LEARN', secondary: 'STUDY' } },
+type BandArtwork = Record<LearningGradeBand, { mark: string; detail: string; cue: string }>;
+
+const SUBJECT_META: Record<LearningSubjectKey, { label: string; icon: LucideIcon; artwork: BandArtwork }> = {
+  math: {
+    label: 'Mathematics',
+    icon: Calculator,
+    artwork: {
+      primary: { mark: '1 2 3', detail: '+  −  =', cue: '○  △  □' },
+      middle: { mark: '×  ÷', detail: '½   x²', cue: '△  π  %' },
+      secondary: { mark: '∑', detail: 'f(x)   √x', cue: 'π  θ  ∞' },
+    },
+  },
+  science: {
+    label: 'Science',
+    icon: FlaskConical,
+    artwork: {
+      primary: { mark: 'OBSERVE', detail: 'plant • water', cue: 'life • earth' },
+      middle: { mark: 'LAB', detail: 'H₂O   O₂', cue: 'matter • cells' },
+      secondary: { mark: 'SCI', detail: 'CO₂   E=mc²', cue: 'bio • chem • physics' },
+    },
+  },
+  english: {
+    label: 'English',
+    icon: Languages,
+    artwork: {
+      primary: { mark: 'ABC', detail: 'read • write', cue: 'words • story' },
+      middle: { mark: 'Aa', detail: 'noun • verb', cue: 'read • express' },
+      secondary: { mark: 'LIT', detail: 'prose • poetry', cue: 'analyse • write' },
+    },
+  },
+  hindi: {
+    label: 'Hindi',
+    icon: Languages,
+    artwork: {
+      primary: { mark: 'अ', detail: 'क  ख  ग', cue: 'पढ़ें • लिखें' },
+      middle: { mark: 'शब्द', detail: 'भाषा • व्याकरण', cue: 'पाठ • लेखन' },
+      secondary: { mark: 'साहित्य', detail: 'गद्य • पद्य', cue: 'विश्लेषण • लेखन' },
+    },
+  },
+  social: {
+    label: 'Social Science',
+    icon: Compass,
+    artwork: {
+      primary: { mark: 'WORLD', detail: 'people • places', cue: 'home • community' },
+      middle: { mark: 'MAP', detail: 'history • civics', cue: 'India • geography' },
+      secondary: { mark: 'CIVICS', detail: 'history • polity', cue: 'economy • society' },
+    },
+  },
+  computer: {
+    label: 'Computer',
+    icon: Laptop2,
+    artwork: {
+      primary: { mark: 'LOGIC', detail: 'click • type', cue: 'safe • create' },
+      middle: { mark: '</>', detail: '0101   HTML', cue: 'logic • web' },
+      secondary: { mark: 'CODE', detail: 'if()   data', cue: 'build • debug' },
+    },
+  },
+  evs: {
+    label: 'EVS',
+    icon: CloudSun,
+    artwork: {
+      primary: { mark: 'LIFE', detail: 'air • water', cue: 'plants • animals' },
+      middle: { mark: 'ECO', detail: 'soil • climate', cue: 'habitat • balance' },
+      secondary: { mark: 'ENV', detail: 'carbon • climate', cue: 'systems • action' },
+    },
+  },
+  commerce: {
+    label: 'Commerce',
+    icon: BriefcaseBusiness,
+    artwork: {
+      primary: { mark: '₹', detail: 'save • spend', cue: 'needs • choices' },
+      middle: { mark: 'BIZ', detail: 'cost • value', cue: 'trade • money' },
+      secondary: { mark: 'ACC', detail: 'P&L   ₹', cue: 'accounts • economics' },
+    },
+  },
+  general: {
+    label: 'Learning',
+    icon: BookOpen,
+    artwork: {
+      primary: { mark: 'READ', detail: 'learn • try', cue: 'curious • kind' },
+      middle: { mark: 'LEARN', detail: 'focus • practise', cue: 'think • improve' },
+      secondary: { mark: 'STUDY', detail: 'learn • apply', cue: 'reflect • grow' },
+    },
+  },
 };
 
 function classFromGradeCode(code?: string | null): number | null {
@@ -90,13 +166,16 @@ export function learningVisualFor(input: LearningVisualInput, selectedGrade?: st
   const subject = resolveSubject(input);
   const band = resolveBand(input, selectedGrade);
   const meta = SUBJECT_META[subject];
+  const art = meta.artwork[band];
   const explicitLabel = input.subject_name || input.subject_label;
   return {
     subject,
     band,
     bandLabel: band === 'primary' ? 'Classes 1–4' : band === 'middle' ? 'Classes 5–8' : 'Classes 9–12',
     label: explicitLabel || meta.label,
-    mark: meta.marks[band],
+    mark: art.mark,
+    detail: art.detail,
+    cue: art.cue,
     icon: meta.icon,
   };
 }
@@ -106,9 +185,13 @@ export default function SubjectVisual({ input, selectedGrade, compact = false }:
   const Icon = visual.icon;
   return (
     <div className={`${styles.visual} ${compact ? styles.compact : ''}`} data-subject={visual.subject} data-band={visual.band} aria-hidden="true">
-      <div className={styles.orbit} />
-      <div className={styles.icon}><Icon size={compact ? 22 : 28} strokeWidth={1.8} /></div>
-      <div className={styles.mark}>{visual.mark}</div>
+      <div className={styles.artGrid} />
+      <div className={styles.mainIcon}><Icon size={compact ? 28 : 34} strokeWidth={1.7} /></div>
+      <div className={styles.formulaPanel}>
+        <strong>{visual.mark}</strong>
+        <span>{visual.detail}</span>
+        <em>{visual.cue}</em>
+      </div>
       <div className={styles.caption}><strong>{visual.label}</strong><span>{visual.bandLabel}</span></div>
     </div>
   );

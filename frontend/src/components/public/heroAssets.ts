@@ -1,29 +1,41 @@
-const pexels = (id: number) => `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=3840`;
+const pexels = (id: number) => `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=2560`;
 
 /**
- * Public hero photography.
+ * Public hero photography — Indian education context first.
  *
- * Every source is a landscape, environment-led Pexels photograph requested at
- * UHD-class width. The shared hero keeps these images in a dedicated right-side
- * pane so they are never enlarged underneath the copy.
+ * These sources are intentionally environment-led rather than portrait-led so
+ * the hero reads as one coherent photograph. Hero delivery is direct from the
+ * image CDN (see ImageHero) to avoid the first-navigation delay caused by
+ * server-side remote optimisation.
  */
 export const HERO_IMAGES = {
-  // Indian university students studying together outdoors — Kiran Pokuri Photography
-  home: pexels(4622108),
-  // Indian school boys studying in a classroom — Swastik Arora
+  // Interactive Indian classroom — Petlad, Gujarat, India.
+  home: pexels(35551059),
+  // Indian school boys studying in a classroom — India.
   student: pexels(18012463),
-  // Indian classroom with teacher and interactive learning — Gokuldham Nar
-  school: pexels(35551059),
-  // Family helping a child study at home — Annushka Ahuja
-  parent: pexels(8054840),
-  // Indian students collaborating on homework with a laptop — Ketut Subiyanto
-  learn: pexels(4308093),
-  // Students collaborating in a science laboratory — cottonbro studio
-  competition: pexels(6208709),
-  // Indian children learning and socialising together — Kunal Lakhotia
-  communities: pexels(20556421),
-  // Indian colleagues collaborating around a laptop — Ketut Subiyanto
+  // Indian teacher and students in a hands-on science class — Petlad, Gujarat.
+  school: pexels(35551044),
+  // Indian family learning together at home.
+  parent: pexels(9345612),
+  // Indian students studying together in a modern library — Petlad, Gujarat.
+  learn: pexels(33745700),
+  // Indian schoolchildren participating in a school event in Surat, Gujarat.
+  competition: pexels(13812360),
+  // Indian children learning and interacting together in a classroom.
+  communities: pexels(18012458),
+  // Indian colleagues collaborating around a laptop.
   admin: pexels(4308104),
+} as const;
+
+export const HERO_POSITIONS = {
+  home: '60% center',
+  student: '64% center',
+  school: '62% center',
+  parent: '64% center',
+  learn: '62% center',
+  competition: '61% center',
+  communities: '63% center',
+  admin: '64% center',
 } as const;
 
 export const MODULE_IMAGES = {

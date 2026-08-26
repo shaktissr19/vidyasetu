@@ -7,13 +7,13 @@ from pathlib import Path
 
 ASSET_FILE = Path("frontend/src/components/public/heroAssets.ts")
 EXPECTED = {
-    "home": 4622108,
+    "home": 35551059,
     "student": 18012463,
-    "school": 35551059,
-    "parent": 8054840,
-    "learn": 4308093,
-    "competition": 6208709,
-    "communities": 20556421,
+    "school": 35551044,
+    "parent": 9345612,
+    "learn": 33745700,
+    "competition": 13812360,
+    "communities": 18012458,
     "admin": 4308104,
 }
 MIN_WIDTH = 2400
@@ -21,6 +21,7 @@ MIN_HEIGHT = 1200
 MIN_BYTES = 120_000
 MIN_RATIO = 1.35
 MAX_RATIO = 2.40
+
 
 def jpeg_size(data: bytes) -> tuple[int, int]:
     if not data.startswith(b"\xff\xd8"):
@@ -50,14 +51,18 @@ def jpeg_size(data: bytes) -> tuple[int, int]:
         i += length
     raise ValueError("JPEG dimensions not found")
 
+
 text = ASSET_FILE.read_text(encoding="utf-8")
+if "w=2560" not in text:
+    raise SystemExit("FAILED: active hero delivery must request 2560px width")
+
 for key, photo_id in EXPECTED.items():
     token = f"{key}: pexels({photo_id})"
     if token not in text:
         raise SystemExit(f"FAILED: {token} is missing from {ASSET_FILE}")
 
 for key, photo_id in EXPECTED.items():
-    url = f"https://images.pexels.com/photos/{photo_id}/pexels-photo-{photo_id}.jpeg?auto=compress&cs=tinysrgb&w=3840&fm=jpg"
+    url = f"https://images.pexels.com/photos/{photo_id}/pexels-photo-{photo_id}.jpeg?auto=compress&cs=tinysrgb&w=2560&fm=jpg"
     req = urllib.request.Request(url, headers={"User-Agent": "VidyaSetu-CI/1.0", "Accept": "image/jpeg"})
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
