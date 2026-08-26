@@ -1,32 +1,27 @@
 .hero {
   position: relative;
-  min-height: 540px;
   overflow: hidden;
   background: #f7f9fc;
   border-bottom: 1px solid #e7ebf2;
   isolation: isolate;
 }
 
-/* Desktop hero rule: photography owns its own pane. It is not stretched across
-   the full viewport underneath the copy. This keeps a 16:9 source near its
-   natural scale and prevents the "zoomed face behind text" failure. */
+.homeHero { min-height: 480px; }
+.compactHero { min-height: 410px; }
+
+/* One photograph owns the entire hero. There is no separate image pane. */
 .photo {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 42%;
+  inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: #edf2f6;
+  background: #eaf0f5;
 }
 
-.photo img {
-  display: block;
-}
+.photo img { display: block; }
 
-/* Only a short blend joins copy and photography. The old wash extended to
-   70% of the hero and visually erased much of the subject. */
+/* A soft readability fade, not a visual wall. The photograph remains one
+   continuous scene behind the copy and is fully visible from the middle on. */
 .wash {
   position: absolute;
   inset: 0;
@@ -35,20 +30,22 @@
   background:
     linear-gradient(
       90deg,
-      #f7f9fc 0%,
-      #f7f9fc 36%,
-      rgba(247,249,252,.98) 40%,
-      rgba(247,249,252,.78) 44%,
-      rgba(247,249,252,.34) 48%,
-      rgba(247,249,252,0) 52%
-    );
+      rgba(247,249,252,.99) 0%,
+      rgba(247,249,252,.985) 26%,
+      rgba(247,249,252,.90) 36%,
+      rgba(247,249,252,.62) 44%,
+      rgba(247,249,252,.22) 52%,
+      rgba(247,249,252,.03) 58%,
+      rgba(247,249,252,0) 64%
+    ),
+    linear-gradient(180deg, rgba(9,30,60,.01), rgba(9,30,60,.055));
 }
 
 .hero::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
-  height: 12%;
+  height: 10%;
   z-index: 2;
   pointer-events: none;
   background: linear-gradient(180deg, transparent, rgba(10,31,61,.035));
@@ -59,12 +56,20 @@
   z-index: 3;
   width: min(1480px, 100%);
   margin: 0 auto;
-  padding: 68px 56px 72px;
-  min-height: 540px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
+}
+
+.homeHero .content {
+  min-height: 480px;
+  padding: 48px 56px 52px;
+}
+
+.compactHero .content {
+  min-height: 410px;
+  padding: 42px 56px 46px;
 }
 
 .eyebrow {
@@ -72,43 +77,59 @@
   align-items: center;
   border-radius: 999px;
   padding: 8px 14px;
-  margin-bottom: 19px;
+  margin-bottom: 16px;
   font-size: 12px;
   line-height: 1;
   font-weight: 850;
   letter-spacing: .08em;
   text-transform: uppercase;
-  background: color-mix(in srgb,var(--hero-soft) 90%,rgba(255,255,255,.5));
+  background: color-mix(in srgb,var(--hero-soft) 92%,rgba(255,255,255,.62));
   color: var(--hero-accent);
   border: 1px solid var(--hero-border);
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(7px);
 }
 
 .content h1 {
-  max-width: 620px;
   margin: 0;
   font-family: 'Baloo 2', cursive;
-  font-size: clamp(40px, 4vw, 60px);
-  line-height: 1.02;
+  line-height: 1.01;
   letter-spacing: -.025em;
   font-weight: 800;
   color: #0d2a57;
   text-wrap: balance;
 }
 
+.homeHero .content h1 {
+  max-width: 700px;
+  font-size: clamp(40px, 3.75vw, 58px);
+}
+
+.compactHero .content h1 {
+  max-width: 620px;
+  font-size: clamp(36px, 3.35vw, 52px);
+}
+
 .content p {
-  max-width: 590px;
-  margin: 20px 0 0;
-  font-size: 18px;
-  line-height: 1.62;
   color: #405674;
+  margin: 17px 0 0;
+  line-height: 1.58;
+}
+
+.homeHero .content p {
+  max-width: 670px;
+  font-size: 17px;
+}
+
+.compactHero .content p {
+  max-width: 590px;
+  font-size: 16.5px;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 28px;
+  gap: 11px;
+  margin-top: 23px;
 }
 
 .primary,
@@ -117,10 +138,10 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 50px;
-  padding: 0 21px;
+  min-height: 48px;
+  padding: 0 20px;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 800;
   text-decoration: none;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
@@ -129,13 +150,14 @@
 .primary {
   background: var(--hero-accent);
   color: #fff;
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--hero-accent) 24%, transparent);
+  box-shadow: 0 11px 25px color-mix(in srgb, var(--hero-accent) 22%, transparent);
 }
 
 .secondary {
-  background: rgba(255,255,255,.94);
+  background: rgba(255,255,255,.92);
   border: 1px solid #cdd7e5;
   color: #173566;
+  backdrop-filter: blur(8px);
 }
 
 .primary:hover,
@@ -150,56 +172,45 @@
 .rose { --hero-accent:#d54872; --hero-soft:#fff0f5; --hero-border:#f3c9d6; }
 
 @media (max-width: 1100px) {
-  .photo { left: 46%; }
   .wash {
-    background: linear-gradient(
-      90deg,
-      #f7f9fc 0%,
-      #f7f9fc 40%,
-      rgba(247,249,252,.94) 44%,
-      rgba(247,249,252,.42) 49%,
-      rgba(247,249,252,0) 54%
-    );
+    background:
+      linear-gradient(90deg, rgba(247,249,252,.99) 0%, rgba(247,249,252,.97) 32%, rgba(247,249,252,.78) 42%, rgba(247,249,252,.30) 53%, rgba(247,249,252,0) 66%),
+      linear-gradient(180deg, rgba(9,30,60,.01), rgba(9,30,60,.055));
   }
-  .content h1 { max-width: 560px; }
-  .content p { max-width: 530px; }
+  .homeHero .content h1 { max-width: 620px; }
+  .homeHero .content p { max-width: 590px; }
+  .compactHero .content h1 { max-width: 540px; }
+  .compactHero .content p { max-width: 520px; }
 }
 
 @media (max-width: 900px) {
-  .hero { min-height: 680px; background:#f7f9fc; }
-  .photo {
-    top: auto;
-    left: 0;
-    width: 100%;
-    height: 300px;
-  }
+  .homeHero { min-height: 540px; }
+  .compactHero { min-height: 500px; }
   .wash {
-    background: linear-gradient(
-      180deg,
-      #f7f9fc 0%,
-      #f7f9fc 52%,
-      rgba(247,249,252,.94) 58%,
-      rgba(247,249,252,.28) 66%,
-      rgba(247,249,252,0) 72%
-    );
+    background:
+      linear-gradient(90deg, rgba(247,249,252,.98) 0%, rgba(247,249,252,.94) 46%, rgba(247,249,252,.62) 66%, rgba(247,249,252,.18) 84%, rgba(247,249,252,0) 100%),
+      linear-gradient(180deg, rgba(247,249,252,.15), rgba(9,30,60,.10));
   }
-  .content {
-    min-height: 680px;
-    padding: 38px 24px 330px;
-    justify-content: flex-start;
-  }
-  .content h1 { max-width: 720px; font-size: clamp(36px, 7vw, 52px); }
-  .content p { font-size: 16px; line-height: 1.58; max-width: 650px; margin-top: 16px; }
-  .actions { margin-top: 22px; }
+  .homeHero .content { min-height: 540px; padding: 38px 24px 42px; }
+  .compactHero .content { min-height: 500px; padding: 34px 24px 38px; }
+  .homeHero .content h1 { max-width: 590px; font-size: clamp(38px, 7vw, 50px); }
+  .compactHero .content h1 { max-width: 550px; font-size: clamp(34px, 6.5vw, 46px); }
+  .content p { max-width: 540px !important; font-size: 15.5px !important; }
 }
 
 @media (max-width: 560px) {
-  .hero { min-height: 660px; }
-  .photo { height: 275px; }
-  .content { padding: 30px 18px 305px; min-height: 660px; }
-  .content h1 { font-size: 37px; line-height: 1.04; }
-  .content p { font-size: 15px; }
-  .actions { width: 100%; }
+  .homeHero { min-height: 520px; }
+  .compactHero { min-height: 470px; }
+  .wash {
+    background:
+      linear-gradient(90deg, rgba(247,249,252,.98) 0%, rgba(247,249,252,.94) 54%, rgba(247,249,252,.60) 76%, rgba(247,249,252,.16) 100%),
+      linear-gradient(180deg, rgba(247,249,252,.08), rgba(9,30,60,.12));
+  }
+  .homeHero .content { min-height: 520px; padding: 29px 18px 34px; }
+  .compactHero .content { min-height: 470px; padding: 27px 18px 31px; }
+  .homeHero .content h1 { font-size: 37px; line-height: 1.03; }
+  .compactHero .content h1 { font-size: 34px; line-height: 1.04; }
+  .actions { width: 100%; margin-top: 20px; }
   .primary,
-  .secondary { flex: 1; min-width: 145px; padding: 0 14px; }
+  .secondary { flex: 1; min-width: 142px; padding: 0 13px; }
 }
