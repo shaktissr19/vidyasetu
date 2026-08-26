@@ -1,57 +1,57 @@
 .quickSection {
-  padding: 52px 0 22px;
-  background: linear-gradient(180deg, #f5f8fc 0%, #eef3f8 100%);
+  padding: 26px 0 28px;
+  background: #fff;
 }
 
 .quickGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .quickCard {
-  min-height: 205px;
-  border-radius: 22px;
-  padding: 24px 23px;
+  min-height: 176px;
+  border-radius: 14px;
+  padding: 15px 14px;
   text-decoration: none;
   color: #142849;
   border: 1px solid var(--quick-border);
   background: linear-gradient(145deg, var(--quick-bg), var(--quick-end));
-  box-shadow: 0 16px 38px rgba(13,27,62,.11);
+  box-shadow: 0 7px 19px rgba(13,27,62,.055);
   display: flex;
   flex-direction: column;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
 .quickCard:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 24px 48px rgba(13,27,62,.16);
+  transform: translateY(-3px);
+  box-shadow: 0 13px 27px rgba(13,27,62,.10);
   border-color: var(--quick-accent);
 }
 
 .quickIcon {
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   display: grid;
   place-items: center;
   background: var(--quick-icon-bg);
-  font-size: 28px;
-  margin-bottom: 18px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.65), 0 8px 18px rgba(13,27,62,.06);
+  font-size: 22px;
+  margin-bottom: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.65), 0 6px 14px rgba(13,27,62,.05);
 }
 
 .quickCard strong {
   font-family: 'Baloo 2', cursive;
-  font-size: 22px;
-  line-height: 1.15;
+  font-size: 16px;
+  line-height: 1.12;
 }
 
 .quickCard p {
-  font-size: 13.5px;
-  line-height: 1.58;
+  font-size: 11px;
+  line-height: 1.45;
   color: #5e6d84;
-  margin: 8px 0 15px;
+  margin: 6px 0 10px;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -60,17 +60,30 @@
 
 .quickCard span {
   margin-top: auto;
-  font-size: 13px;
+  font-size: 10.5px;
   font-weight: 850;
   color: var(--quick-accent);
 }
 
-.quickBlue { --quick-bg:#e8f3ff; --quick-end:#f7fbff; --quick-border:#b7d5f4; --quick-icon-bg:#d3e8ff; --quick-accent:#1d6ec9; }
-.quickGreen { --quick-bg:#e8f7ed; --quick-end:#f6fbf7; --quick-border:#b9dfc4; --quick-icon-bg:#d5efdc; --quick-accent:#188641; }
-.quickOrange { --quick-bg:#fff0e3; --quick-end:#fff8f2; --quick-border:#efc4a2; --quick-icon-bg:#ffdfc4; --quick-accent:#e76300; }
-.quickViolet { --quick-bg:#f0ebff; --quick-end:#faf8ff; --quick-border:#cabfee; --quick-icon-bg:#e2d8ff; --quick-accent:#7152d0; }
-.quickRose { --quick-bg:#ffe9ef; --quick-end:#fff7f9; --quick-border:#edbdca; --quick-icon-bg:#f8d7e1; --quick-accent:#d6406d; }
-.quickTeal { --quick-bg:#e4f7f8; --quick-end:#f5fbfb; --quick-border:#b3dcde; --quick-icon-bg:#c9ebed; --quick-accent:#07858c; }
+.quickBlue { --quick-bg:#f7fbff; --quick-end:#fff; --quick-border:#cfdef0; --quick-icon-bg:#e2efff; --quick-accent:#1d6ec9; }
+.quickGreen { --quick-bg:#f6fbf7; --quick-end:#fff; --quick-border:#cfe3d5; --quick-icon-bg:#e0f2e5; --quick-accent:#188641; }
+.quickOrange { --quick-bg:#fff8f2; --quick-end:#fff; --quick-border:#efd5c0; --quick-icon-bg:#ffead8; --quick-accent:#e76300; }
+.quickViolet { --quick-bg:#faf8ff; --quick-end:#fff; --quick-border:#ddd4f3; --quick-icon-bg:#ece6ff; --quick-accent:#7152d0; }
+.quickRose { --quick-bg:#fff7f9; --quick-end:#fff; --quick-border:#efd4dc; --quick-icon-bg:#fae5eb; --quick-accent:#d6406d; }
+.quickTeal { --quick-bg:#f5fbfb; --quick-end:#fff; --quick-border:#cae2e3; --quick-icon-bg:#def1f2; --quick-accent:#07858c; }
 
-@media(max-width:960px){.quickGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:640px){.quickSection{padding-top:30px}.quickGrid{grid-template-columns:1fr;gap:14px}.quickCard{min-height:auto;padding:21px 18px}.quickCard p{-webkit-line-clamp:3}}
+@media(max-width:1180px){
+  .quickGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .quickCard{min-height:165px}
+}
+
+@media(max-width:720px){
+  .quickSection{padding:22px 0}
+  .quickGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+  .quickCard{min-height:160px;padding:14px 13px}
+}
+
+@media(max-width:440px){
+  .quickGrid{grid-template-columns:1fr}
+  .quickCard{min-height:auto}
+}

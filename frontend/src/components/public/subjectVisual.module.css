@@ -8,8 +8,7 @@
   overflow:hidden;
   border-radius:17px;
   border:1px solid color-mix(in srgb,var(--subject) 26%,#dce5ee);
-  background:
-    linear-gradient(135deg,var(--subject-soft) 0%,#fff 76%);
+  background:linear-gradient(135deg,var(--subject-soft) 0%,#fff 76%);
   color:#10264d;
   padding:16px;
   display:grid;
@@ -33,15 +32,36 @@
 .visual[data-band='middle']{--band:#b7e2cd}
 .visual[data-band='secondary']{--band:#d6c4f1}
 
+.subjectPhoto {
+  position:absolute;
+  inset:0;
+  z-index:0;
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  opacity:.32;
+  filter:saturate(.88) contrast(.96);
+}
+
+.subjectPhoto::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.94) 0%,rgba(255,255,255,.72) 42%,rgba(255,255,255,.26) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.50));
+}
+
 .artGrid {
   position:absolute;
   inset:0;
+  z-index:1;
   pointer-events:none;
-  opacity:.72;
+  opacity:.58;
   background:
-    radial-gradient(circle at 86% 22%, color-mix(in srgb,var(--band) 60%,transparent) 0 38px, transparent 39px),
-    linear-gradient(90deg, transparent 0 78%, color-mix(in srgb,var(--subject) 7%,transparent) 78% 79%, transparent 79%),
-    linear-gradient(0deg, transparent 0 76%, color-mix(in srgb,var(--subject) 7%,transparent) 76% 77%, transparent 77%);
+    radial-gradient(circle at 86% 22%, color-mix(in srgb,var(--band) 55%,transparent) 0 38px, transparent 39px),
+    linear-gradient(90deg, transparent 0 78%, color-mix(in srgb,var(--subject) 6%,transparent) 78% 79%, transparent 79%),
+    linear-gradient(0deg, transparent 0 76%, color-mix(in srgb,var(--subject) 6%,transparent) 76% 77%, transparent 77%);
 }
 
 .artGrid::before,
@@ -49,7 +69,7 @@
   content:'';
   position:absolute;
   border-radius:999px;
-  background:color-mix(in srgb,var(--subject) 16%,transparent);
+  background:color-mix(in srgb,var(--subject) 14%,transparent);
   transform:rotate(-21deg);
 }
 .artGrid::before { width:150px;height:4px;right:24px;top:56px; }
@@ -57,13 +77,13 @@
 
 .mainIcon {
   position:relative;
-  z-index:1;
+  z-index:2;
   width:58px;
   height:58px;
   border-radius:17px;
   display:grid;
   place-items:center;
-  background:rgba(255,255,255,.92);
+  background:rgba(255,255,255,.94);
   border:1px solid color-mix(in srgb,var(--subject) 18%,#fff);
   box-shadow:0 9px 22px rgba(20,50,80,.09);
   color:var(--subject);
@@ -71,7 +91,7 @@
 
 .formulaPanel {
   position:relative;
-  z-index:1;
+  z-index:2;
   min-height:78px;
   display:flex;
   flex-direction:column;
@@ -110,7 +130,7 @@
 .caption {
   grid-column:1/-1;
   position:relative;
-  z-index:1;
+  z-index:2;
   display:flex;
   align-items:flex-end;
   justify-content:space-between;
