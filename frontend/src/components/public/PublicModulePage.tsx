@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
-import { HERO_IMAGES } from '@/components/public/heroAssets';
+import { HERO_IMAGES, HERO_POSITIONS } from '@/components/public/heroAssets';
 import { getPublicSchools, type PublicSchool } from '@/services/publicService';
 import styles from './publicExperience.module.css';
 import visualStyles from './publicModuleVisual.module.css';
@@ -58,7 +58,7 @@ const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'commun
     title: 'Every student’s learning day, in one place',
     description: 'Lessons, homework, attendance, practice, exams and progress tracking built for Indian school learners.',
     image: HERO_IMAGES.student,
-    imagePosition: 'center',
+    imagePosition: HERO_POSITIONS.student,
     imageSize: 'cover',
     theme: 'blue',
   },
@@ -67,7 +67,7 @@ const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'commun
     title: 'Stay connected to every step of their journey',
     description: 'Follow learning, school progress and communication from one trusted parent space.',
     image: HERO_IMAGES.parent,
-    imagePosition: 'center',
+    imagePosition: HERO_POSITIONS.parent,
     imageSize: 'cover',
     theme: 'violet',
   },
@@ -76,7 +76,7 @@ const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'commun
     title: 'A stronger school starts with a clearer view',
     description: 'Bring students, teachers, academics and daily school operations into one connected workspace.',
     image: HERO_IMAGES.school,
-    imagePosition: 'center',
+    imagePosition: HERO_POSITIONS.school,
     imageSize: 'cover',
     theme: 'green',
   },
@@ -85,7 +85,7 @@ const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'commun
     title: 'See the network. Guide the system.',
     description: 'Manage schools, users, learning, governance and platform operations from one central view.',
     image: HERO_IMAGES.admin,
-    imagePosition: 'center',
+    imagePosition: HERO_POSITIONS.admin,
     imageSize: 'cover',
     theme: 'violet',
   },
@@ -94,7 +94,7 @@ const VISUAL_STORIES: Record<'student' | 'parent' | 'school' | 'admin' | 'commun
     title: 'Education gets stronger when people connect',
     description: 'Safe spaces for students, parents, teachers and schools to learn, discuss and help one another.',
     image: HERO_IMAGES.communities,
-    imagePosition: 'center',
+    imagePosition: HERO_POSITIONS.communities,
     imageSize: 'cover',
     theme: 'teal',
   },
@@ -168,6 +168,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       <GlobalTopbar />
 
       <ImageHero
+        variant="compact"
         image={story.image}
         imagePosition={story.imagePosition}
         imageSize={story.imageSize}
