@@ -17,7 +17,7 @@ export const HERO_IMAGES = {
   // Family helping a child study at home — Annushka Ahuja
   parent: pexels(8054840),
   // Indian students collaborating on homework with a laptop — Ketut Subiyanto
-  learn: pexels(4308097),
+  learn: pexels(4308093),
   // Students collaborating in a science laboratory — cottonbro studio
   competition: pexels(6208709),
   // Indian children learning and socialising together — Kunal Lakhotia
