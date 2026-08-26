@@ -12,7 +12,7 @@ EXPECTED = {
     "school": 35551044,
     "parent": 9345612,
     "learn": 33745700,
-    "competition": 28389291,
+    "competition": 13812360,
     "communities": 18012458,
     "admin": 4308104,
 }
