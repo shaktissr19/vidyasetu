@@ -47,7 +47,7 @@ export default function ImageHero({
           fill
           priority={priority}
           fetchPriority={priority ? 'high' : 'auto'}
-          unoptimized
+          quality={88}
           sizes="100vw"
           style={{ objectFit, objectPosition: imagePosition }}
         />
