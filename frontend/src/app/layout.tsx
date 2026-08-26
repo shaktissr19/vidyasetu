@@ -4,8 +4,8 @@ import './globals.css';
 import Providers from '@/components/layout/Providers';
 
 export const metadata: Metadata = {
-  title: 'VidyaSetu — Bridging Rural Education',
-  description: "India's first Rural Student OS — Learning + School ERP + Student OS. Works offline, in Hindi and 8 regional languages.",
+  title: 'VidyaSetu — Connected Education for India',
+  description: 'One connected education platform for student learning, schools, teachers, parents, competitions and education communities across India.',
   manifest: '/manifest.json',
   icons: { icon: '/favicon.ico' },
 };
