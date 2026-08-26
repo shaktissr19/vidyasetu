@@ -53,7 +53,7 @@ for mapping in \
   'school: pexels(35551044)' \
   'parent: pexels(9345612)' \
   'learn: pexels(33745700)' \
-  'competition: pexels(28389291)' \
+  'competition: pexels(13812360)' \
   'communities: pexels(18012458)' \
   'admin: pexels(4308104)'
 do
