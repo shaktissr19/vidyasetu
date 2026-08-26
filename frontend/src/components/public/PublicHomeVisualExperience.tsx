@@ -2,15 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BookOpen,
   Building2,
   GraduationCap,
   Link2,
-  ShieldCheck,
   Trophy,
   Users,
+  type LucideIcon,
 } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
@@ -26,9 +26,7 @@ import {
 } from '@/services/publicService';
 import styles from './publicHomeVisual.module.css';
 
-type IconType = ComponentType<{ size?: number; strokeWidth?: number }>;
-
-const CORE_BENEFITS: Array<{ icon: IconType; title: string; copy: string; tone: string }> = [
+const CORE_BENEFITS: Array<{ icon: LucideIcon; title: string; copy: string; tone: string }> = [
   { icon: BookOpen, title: 'Learning in one place', copy: 'Lessons, practice, reading, question papers and life skills organised around the learner.', tone: styles.benefitBlue },
   { icon: Building2, title: 'Connected schools', copy: 'Bring academics, attendance, teachers and everyday school operations into one clearer workspace.', tone: styles.benefitGreen },
   { icon: Users, title: 'Parents stay informed', copy: 'Keep families closer to progress, school communication and the student journey.', tone: styles.benefitOrange },
