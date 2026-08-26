@@ -9,7 +9,6 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'images.pexels.com', pathname: '/photos/**' },
       { protocol: 'https', hostname: 'vidyasetu.sbs', pathname: '/**' },
       { protocol: 'http', hostname: 'localhost', pathname: '/**' },
     ],
