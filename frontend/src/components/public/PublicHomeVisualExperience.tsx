@@ -10,12 +10,9 @@ import {
   Link2,
   Trophy,
   Users,
-  type LucideIcon,
 } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
-import ImageHero from '@/components/public/ImageHero';
 import SubjectVisual from '@/components/public/SubjectVisual';
-import { HERO_IMAGES, HERO_POSITIONS, MODULE_IMAGES } from '@/components/public/heroAssets';
 import {
   getPublicCompetitions,
   getPublicLearningResources,
@@ -26,20 +23,26 @@ import {
 } from '@/services/publicService';
 import styles from './publicHomeVisual.module.css';
 
-const CORE_BENEFITS: Array<{ icon: LucideIcon; title: string; copy: string; tone: string }> = [
-  { icon: BookOpen, title: 'Learning in one place', copy: 'Lessons, practice, reading, question papers and life skills organised around the learner.', tone: styles.benefitBlue },
-  { icon: Building2, title: 'Connected schools', copy: 'Bring academics, attendance, teachers and everyday school operations into one clearer workspace.', tone: styles.benefitGreen },
-  { icon: Users, title: 'Parents stay informed', copy: 'Keep families closer to progress, school communication and the student journey.', tone: styles.benefitOrange },
-  { icon: Trophy, title: 'Beyond the classroom', copy: 'Open access to competitions, communities and opportunities that help learners grow further.', tone: styles.benefitViolet },
+const HERO_BENEFITS = [
+  { icon: GraduationCap, title: 'Learn Better', copy: 'Quality content and practice for every learner', tone: styles.sampleBenefitOrange },
+  { icon: Building2, title: 'Run Schools Better', copy: 'Smart tools for academics, operations and growth', tone: styles.sampleBenefitGreen },
+  { icon: Users, title: 'Stay Connected', copy: 'Real-time communication and progress tracking', tone: styles.sampleBenefitViolet },
 ];
 
 const MODULES = [
-  { title: 'Students', copy: 'Learn, practise, track progress and stay connected to school.', href: '/for-students', tone: styles.blue, image: MODULE_IMAGES.student, imagePosition: 'center' },
-  { title: 'Schools & Teachers', copy: 'Manage academics, attendance, classrooms and daily operations.', href: '/for-schools', tone: styles.green, image: MODULE_IMAGES.school, imagePosition: 'center' },
-  { title: 'Parents', copy: 'Follow progress, school updates, communication and concerns.', href: '/for-parents', tone: styles.orange, image: MODULE_IMAGES.parent, imagePosition: 'center' },
-  { title: 'Learning', copy: 'Explore lessons, practice, reading, question papers and skills.', href: '/learn', tone: styles.violet, image: MODULE_IMAGES.learn, imagePosition: 'center' },
-  { title: 'Competitions', copy: 'Discover academic opportunities, participate and follow results.', href: '/competition', tone: styles.rose, image: MODULE_IMAGES.competition, imagePosition: 'center' },
-  { title: 'Communities', copy: 'Learn and discuss in moderated education-focused spaces.', href: '/communities', tone: styles.teal, image: MODULE_IMAGES.communities, imagePosition: 'center' },
+  { title: 'Students', copy: 'Learn, practice and track your progress', href: '/for-students', tone: styles.blue, photo: styles.sampleStudentPhoto },
+  { title: 'Schools', copy: 'Manage classes, teachers, attendance and more', href: '/for-schools', tone: styles.green, photo: styles.sampleSchoolPhoto },
+  { title: 'Parents', copy: 'Monitor progress and stay connected with schools', href: '/for-parents', tone: styles.violet, photo: styles.sampleParentPhoto },
+  { title: 'Learning', copy: 'Access public resources for all grades', href: '/learn', tone: styles.orange, photo: styles.sampleLearningPhoto },
+  { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', tone: styles.rose, photo: styles.sampleCompetitionPhoto },
+  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: styles.teal, photo: styles.sampleCommunityPhoto },
+];
+
+const HOME_STATS = [
+  { icon: BookOpen, value: '10,000+', label: 'Learning Resources', note: 'Public content for all', tone: styles.statOrange },
+  { icon: Users, value: '1M+', label: 'Students Learning', note: 'Across India', tone: styles.statGreen },
+  { icon: Building2, value: '15K+', label: 'Schools Onboard', note: 'Growing every day', tone: styles.statViolet },
+  { icon: Trophy, value: '50+', label: 'Competitions', note: 'Opportunities for all', tone: styles.statRose },
 ];
 
 const JOURNEY = [
@@ -88,65 +91,67 @@ export default function PublicHomeVisualExperience() {
     <div className={styles.page}>
       <GlobalTopbar />
 
-      <ImageHero
-        variant="home"
-        image={HERO_IMAGES.home}
-        imagePosition={HERO_POSITIONS.home}
-        eyebrow="India’s connected education platform"
-        title="One connected platform for learning, schools and families."
-        description="VidyaSetu brings student learning, school operations, parent visibility, competitions and education communities into one trusted ecosystem."
-        theme="orange"
-        actions={[
-          { label: 'Explore VidyaSetu', href: '#why-vidyasetu' },
-          { label: 'Start learning', href: '/learn', variant: 'secondary' },
-        ]}
-      >
-        <div className={styles.heroBenefits} aria-label="VidyaSetu benefits">
-          <span>Learn & practise by class</span>
-          <span>Run school academics & operations</span>
-          <span>Keep families connected</span>
+      <section className={styles.sampleHero} aria-labelledby="home-hero-title">
+        <div className={styles.sampleHeroPhoto} aria-hidden="true">
+          <Image
+            src="/images/sample/home-hero.webp"
+            alt=""
+            fill
+            priority
+            fetchPriority="high"
+            sizes="(min-width: 1100px) 62vw, 100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
+          />
         </div>
-      </ImageHero>
+        <div className={styles.sampleHeroFade} aria-hidden="true" />
+        <div className={styles.sampleHeroShell}>
+          <div className={styles.sampleHeroContent}>
+            <div className={styles.sampleEyebrow}>INDIA’S CONNECTED EDUCATION ECOSYSTEM</div>
+            <h1 id="home-hero-title">One platform for learning,<br />schools and families.</h1>
+            <p className={styles.sampleHeroDescription}>VidyaSetu connects students, schools, teachers and parents on one trusted platform to learn, manage, communicate and grow together.</p>
 
-      <section className={styles.benefitsSection} id="why-vidyasetu">
-        <div className={styles.shell}>
-          <div className={styles.sectionIntroCompact}>
-            <span>WHY VIDYASETU</span>
-            <h2>Education works better when the pieces work together.</h2>
-            <p>Instead of separate tools for learning, school work and family communication, VidyaSetu connects the parts of the journey that matter every day.</p>
-          </div>
-          <div className={styles.benefitGrid}>
-            {CORE_BENEFITS.map(({ icon: Icon, title, copy, tone }) => (
-              <article className={`${styles.benefitCard} ${tone}`} key={title}>
-                <div className={styles.benefitIcon}><Icon size={25} strokeWidth={1.8} /></div>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-              </article>
-            ))}
+            <div className={styles.sampleHeroBenefits} aria-label="VidyaSetu core benefits">
+              {HERO_BENEFITS.map(({ icon: Icon, title, copy, tone }) => (
+                <div className={styles.sampleBenefit} key={title}>
+                  <span className={`${styles.sampleBenefitIcon} ${tone}`}><Icon size={22} strokeWidth={1.9} /></span>
+                  <span><strong>{title}</strong><small>{copy}</small></span>
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.sampleHeroActions}>
+              <Link className={styles.samplePrimary} href="#platform-modules">Explore VidyaSetu <span aria-hidden="true">→</span></Link>
+              <Link className={styles.sampleSecondary} href="/learn">Start Learning <span aria-hidden="true">→</span></Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className={styles.modulesSection} id="platform-modules">
-        <div className={styles.shell}>
-          <div className={styles.centerHeading}>
-            <span>WHO VIDYASETU IS FOR</span>
-            <h2>One platform. A clear space for every role.</h2>
-            <p>Students, schools, teachers and families use different tools while staying connected to the same education journey.</p>
+      <section className={styles.sampleModulesSection} id="platform-modules">
+        <div className={styles.sampleWideShell}>
+          <div className={styles.sampleModuleHeading}>
+            <h2>Who is VidyaSetu for?</h2>
+            <p>Built for everyone in the education ecosystem</p>
           </div>
-          <div className={styles.moduleGrid}>
+          <div className={styles.sampleModuleGrid}>
             {MODULES.map((module) => (
-              <Link href={module.href} className={`${styles.moduleCard} ${module.tone}`} key={module.title}>
-                <div className={styles.moduleMedia} aria-hidden="true">
-                  <Image src={module.image} alt="" fill sizes="(max-width: 600px) 100vw, (max-width: 980px) 50vw, 33vw" style={{ objectFit: 'cover', objectPosition: module.imagePosition }} />
-                  <span className={styles.moduleImageLabel}>{module.title}</span>
-                </div>
-                <div className={styles.moduleBody}>
+              <Link href={module.href} className={`${styles.sampleModuleCard} ${module.tone}`} key={module.title}>
+                <div className={`${styles.sampleModuleMedia} ${module.photo}`} aria-hidden="true" />
+                <div className={styles.sampleModuleBody}>
                   <strong>{module.title}</strong>
                   <p>{module.copy}</p>
                   <span>Explore <b aria-hidden="true">→</b></span>
                 </div>
               </Link>
+            ))}
+          </div>
+
+          <div className={styles.sampleStatsStrip} aria-label="VidyaSetu platform scale">
+            {HOME_STATS.map(({ icon: Icon, value, label, note, tone }) => (
+              <div className={styles.sampleStat} key={label}>
+                <span className={`${styles.sampleStatIcon} ${tone}`}><Icon size={24} strokeWidth={1.9} /></span>
+                <span className={styles.sampleStatCopy}><strong>{value}</strong><b>{label}</b><small>{note}</small></span>
+              </div>
             ))}
           </div>
         </div>
