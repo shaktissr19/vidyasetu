@@ -44,7 +44,8 @@ export default function ImageHero({
           alt=""
           fill
           priority={priority}
-          sizes="100vw"
+          quality={90}
+          sizes="(max-width: 900px) 100vw, 58vw"
           style={{ objectFit, objectPosition: imagePosition }}
         />
       </div>
