@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { BookOpen, Building2, GraduationCap, Link2, Trophy, Users } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
+import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
 import {
   getPublicCompetitions,
   getPublicLearningResources,
@@ -24,12 +25,12 @@ const HERO_BENEFITS = [
 ];
 
 const MODULES = [
-  { title: 'Students', copy: 'Learn, practice and track your progress', href: '/for-students', tone: sample.blue, photo: sample.studentPhoto },
-  { title: 'Schools', copy: 'Manage classes, teachers, attendance and more', href: '/for-schools', tone: sample.green, photo: sample.schoolPhoto },
-  { title: 'Parents', copy: 'Monitor progress and stay connected with schools', href: '/for-parents', tone: sample.violet, photo: sample.parentPhoto },
-  { title: 'Learning', copy: 'Access public resources for all grades', href: '/learn', tone: sample.orange, photo: sample.learningPhoto },
-  { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', tone: sample.rose, photo: sample.competitionPhoto },
-  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal, photo: sample.communityPhoto },
+  { title: 'Students', copy: 'Learn, practice and track your progress', href: '/for-students', tone: sample.blue, image: MODULE_IMAGES.student },
+  { title: 'Schools', copy: 'Manage classes, teachers, attendance and more', href: '/for-schools', tone: sample.green, image: MODULE_IMAGES.school },
+  { title: 'Parents', copy: 'Monitor progress and stay connected with schools', href: '/for-parents', tone: sample.violet, image: MODULE_IMAGES.parent },
+  { title: 'Learning', copy: 'Access public resources for all grades', href: '/learn', tone: sample.orange, image: MODULE_IMAGES.learn },
+  { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', tone: sample.rose, image: MODULE_IMAGES.competition },
+  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal, image: MODULE_IMAGES.communities },
 ];
 
 const HOME_STATS = [
@@ -87,7 +88,7 @@ export default function PublicHomeSampleExperience() {
 
       <section className={sample.hero} aria-labelledby="home-hero-title">
         <div className={sample.heroPhoto} aria-hidden="true">
-          <Image src="/images/sample/home-hero.webp" alt="" fill priority fetchPriority="high" sizes="(min-width: 1100px) 62vw, 100vw" style={{ objectFit: 'cover', objectPosition: 'center' }} />
+          <Image src={HERO_IMAGES.home} alt="" fill priority fetchPriority="high" quality={90} sizes="(min-width: 1100px) 62vw, 100vw" style={{ objectFit: 'cover', objectPosition: 'center' }} />
         </div>
         <div className={sample.heroFade} aria-hidden="true" />
         <div className={sample.heroShell}>
@@ -122,7 +123,9 @@ export default function PublicHomeSampleExperience() {
           <div className={sample.moduleGrid}>
             {MODULES.map((module) => (
               <Link href={module.href} className={`${sample.moduleCard} ${module.tone}`} key={module.title}>
-                <div className={`${sample.moduleMedia} ${module.photo}`} aria-hidden="true" />
+                <div className={sample.moduleMedia} aria-hidden="true">
+                  <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 760px) 50vw, (max-width: 1180px) 33vw, 17vw" style={{ objectFit: 'cover', objectPosition: 'center' }} />
+                </div>
                 <div className={sample.moduleBody}>
                   <strong>{module.title}</strong>
                   <p>{module.copy}</p>
