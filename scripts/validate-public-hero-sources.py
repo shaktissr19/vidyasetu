@@ -6,24 +6,25 @@ import hashlib
 import struct
 from pathlib import Path
 
-ROOT = Path("frontend/public/images/sample")
+HERO_ROOT = Path("frontend/public/images/heroes")
+CARD_ROOT = Path("frontend/public/images/home-cards")
 HEROES = {
-    "home": ROOT / "home-hero.png",
-    "student": ROOT / "students-hero.png",
-    "school": ROOT / "schools-hero.png",
-    "parent": ROOT / "parents-hero.png",
-    "learn": ROOT / "learn-hero.png",
-    "competition": ROOT / "competition-hero.png",
-    "communities": ROOT / "communities-hero.png",
-    "admin": ROOT / "platform-admin-hero.png",
+    "home": HERO_ROOT / "home-hero.png",
+    "student": HERO_ROOT / "students-hero.png",
+    "school": HERO_ROOT / "schools-hero.png",
+    "parent": HERO_ROOT / "parents-hero.png",
+    "learn": HERO_ROOT / "learn-hero.png",
+    "competition": HERO_ROOT / "competition-hero.png",
+    "communities": HERO_ROOT / "communities-hero.png",
+    "admin": HERO_ROOT / "platform-admin-hero.png",
 }
 HOME_CARDS = {
-    "home-student": ROOT / "home-students.png",
-    "home-school": ROOT / "home-schools.png",
-    "home-parent": ROOT / "home-parents.png",
-    "home-learning": ROOT / "home-learning.png",
-    "home-competition": ROOT / "home-competitions.png",
-    "home-communities": ROOT / "home-communities.png",
+    "home-student": CARD_ROOT / "home-students.png",
+    "home-school": CARD_ROOT / "home-schools.png",
+    "home-parent": CARD_ROOT / "home-parents.png",
+    "home-learning": CARD_ROOT / "home-learning.png",
+    "home-competition": CARD_ROOT / "home-competitions.png",
+    "home-communities": CARD_ROOT / "home-communities.png",
 }
 
 HERO_MIN_WIDTH = 2000
