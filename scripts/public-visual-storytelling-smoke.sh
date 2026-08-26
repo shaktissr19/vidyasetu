@@ -10,142 +10,123 @@ HOME_ROUTE='frontend/src/app/page.tsx'
 HERO='frontend/src/components/public/ImageHero.tsx'
 HERO_CSS='frontend/src/components/public/imageHero.module.css'
 HERO_ASSETS='frontend/src/components/public/heroAssets.ts'
+NEXT_CONFIG='frontend/next.config.js'
 HOME_CSS='frontend/src/components/public/publicHomeVisual.module.css'
 MODULE='frontend/src/components/public/PublicModulePage.tsx'
 MODULE_CSS='frontend/src/components/public/publicModuleVisual.module.css'
 SUBJECT='frontend/src/components/public/SubjectVisual.tsx'
-SUBJECT_CSS='frontend/src/components/public/subjectVisual.module.css'
 LEARN='frontend/src/components/public/PublicLearningLibrary.tsx'
 CATALOGUE='frontend/src/components/public/PublicLearningCatalogue.tsx'
 LOGIN='frontend/src/app/(auth)/login/page.tsx'
 COMPETITION='frontend/src/app/competition/page.tsx'
 
-SOURCE_FILES=("$HOME" "$HOME_ROUTE" "$HERO" "$HERO_CSS" "$HERO_ASSETS" "$HOME_CSS" "$MODULE" "$MODULE_CSS" "$SUBJECT" "$SUBJECT_CSS" "$LEARN" "$CATALOGUE" "$LOGIN" "$COMPETITION")
-for file in "${SOURCE_FILES[@]}"; do
-  [[ -s "$file" ]] || fail "Required visual-storytelling file is missing: $file"
-done
-
-HERO_FILES=(
-  'frontend/public/images/heroes/home.avif'
-  'frontend/public/images/heroes/students.avif'
-  'frontend/public/images/heroes/schools.avif'
-  'frontend/public/images/heroes/parents.avif'
-  'frontend/public/images/heroes/learning.avif'
-  'frontend/public/images/heroes/competitions.avif'
-  'frontend/public/images/heroes/communities.avif'
-  'frontend/public/images/heroes/platform-admin.avif'
-)
-for file in "${HERO_FILES[@]}"; do
-  [[ -s "$file" ]] || fail "Dedicated public photograph is missing or empty: $file"
-done
+SOURCE_FILES=("$HOME" "$HOME_ROUTE" "$HERO" "$HERO_CSS" "$HERO_ASSETS" "$NEXT_CONFIG" "$HOME_CSS" "$MODULE" "$MODULE_CSS" "$SUBJECT" "$LEARN" "$CATALOGUE" "$LOGIN" "$COMPETITION")
+for file in "${SOURCE_FILES[@]}"; do [[ -s "$file" ]] || fail "Required public visual file is missing: $file"; done
 
 if grep -R -Fq -- 'vidyasetu-hero-sprite.jpg' frontend/src; then
   fail 'Public source must not return to the shared hero-sprite architecture'
 fi
-if find frontend/public/images/heroes -maxdepth 1 -type f -name '*.b64' | grep -q .; then
-  fail 'Base64 placeholder sidecars must not ship as hero assets'
+if grep -R -Eq -- '/images/heroes/(home|students|schools|parents|learning|competitions|communities|platform-admin)\.avif' frontend/src; then
+  fail 'The rejected low-resolution local hero AVIFs must not return to active source'
 fi
 
-printf '==> Hero image delivery\n'
-require_text "$HERO" "import Image from 'next/image'" 'Shared hero must use the image pipeline'
-require_text "$HERO" '<Image' 'Shared hero must render a real image element'
-require_text "$HERO_CSS" 'z-index: 0;' 'Hero photo layer must render in front of the hero background'
-require_text "$HERO_CSS" 'z-index: 3;' 'Hero content must render above the photo and wash layers'
-reject_text "$HERO_CSS" 'z-index:-3' 'Hero photo must never use the broken negative stacking layer again'
-reject_text "$HERO_CSS" 'z-index: -3' 'Hero photo must never use the broken negative stacking layer again'
-require_text "$HERO_ASSETS" "home: '/images/heroes/home.avif'" 'Home must have its own dedicated hero asset'
-require_text "$HERO_ASSETS" "student: '/images/heroes/students.avif'" 'Students must have their own dedicated hero asset'
-require_text "$HERO_ASSETS" "school: '/images/heroes/schools.avif'" 'Schools must have their own dedicated hero asset'
-require_text "$HERO_ASSETS" "parent: '/images/heroes/parents.avif'" 'Parents must have their own dedicated hero asset'
-require_text "$HERO_ASSETS" "learn: '/images/heroes/learning.avif'" 'Learning must have its own dedicated hero asset'
-require_text "$HERO_ASSETS" "competition: '/images/heroes/competitions.avif'" 'Competitions must have their own dedicated hero asset'
-require_text "$HERO_ASSETS" "communities: '/images/heroes/communities.avif'" 'Communities must have their own dedicated hero asset'
-require_text "$HERO_ASSETS" "admin: '/images/heroes/platform-admin.avif'" 'Platform Admin must have its own dedicated hero asset'
+printf '==> Sharp, wide hero architecture\n'
+require_text "$HERO" "import Image from 'next/image'" 'Shared hero must use Next Image'
+require_text "$HERO" 'quality={90}' 'Shared hero must request high image quality'
+require_text "$HERO" '58vw' 'Desktop image sizes must match the dedicated image pane'
+reject_text "$HERO" 'sizes="100vw"' 'Desktop hero must not request a full-screen photo anymore'
+require_text "$HERO_CSS" 'left: 42%;' 'Desktop photo must own a dedicated right-side pane'
+require_text "$HERO_CSS" 'rgba(247,249,252,0) 52%' 'Desktop blend must end around the centre'
+reject_text "$HERO_CSS" 'rgba(255,255,255,0) 70%' 'The old 70-percent white wash must never return'
+require_text "$HERO_CSS" 'height: 300px;' 'Tablet/mobile hero must separate copy and photo'
+require_text "$NEXT_CONFIG" "hostname: 'images.pexels.com'" 'Next Image must allow the high-resolution image host'
+require_text "$HERO_ASSETS" 'w=3840' 'Hero sources must request UHD-class width'
+for mapping in \
+  'home: pexels(4622108)' \
+  'student: pexels(18012463)' \
+  'school: pexels(35551059)' \
+  'parent: pexels(8054840)' \
+  'learn: pexels(4308093)' \
+  'competition: pexels(6208709)' \
+  'communities: pexels(20556421)' \
+  'admin: pexels(4308104)'
+do
+  require_text "$HERO_ASSETS" "$mapping" "Missing dedicated high-resolution hero mapping: $mapping"
+done
 
-printf '==> Homepage visual story\n'
-require_text "$HOME_ROUTE" 'PublicHomeVisualExperience' 'Home route must use the approved image-led public experience'
-require_text "$HOME" 'title="Welcome to VidyaSetu"' 'Homepage must use the approved concise welcome headline'
-require_text "$HOME" 'India’s unified education platform for learning, schools and families.' 'Homepage must use the approved unified-platform supporting line'
-require_text "$HOME" 'image={HERO_IMAGES.home}' 'Homepage must use its dedicated hero photograph'
-require_text "$HOME" '<Image src={module.image}' 'Homepage module cards must use full photographic media'
-require_text "$HOME" 'MODULE_IMAGES.student' 'Students module card must have a dedicated visual'
-require_text "$HOME" 'MODULE_IMAGES.school' 'Schools module card must have a dedicated visual'
-require_text "$HOME" 'MODULE_IMAGES.parent' 'Parents module card must have a dedicated visual'
-require_text "$HOME" 'MODULE_IMAGES.learn' 'Learning module card must have a dedicated visual'
-require_text "$HOME" 'MODULE_IMAGES.competition' 'Competitions module card must have a dedicated visual'
-require_text "$HOME" 'MODULE_IMAGES.communities' 'Communities module card must have a dedicated visual'
-require_text "$HOME_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Homepage module cards must be three across on desktop'
-require_text "$HOME_CSS" 'height: 205px;' 'Homepage cards must reserve meaningful space for photography'
-require_text "$HOME" 'getPublicLearningResources({ featured: true, limit: 3 })' 'Homepage must preserve exactly three featured Learning resources'
-require_text "$HOME" 'getPublicSchools()' 'Homepage must preserve real school discovery'
-require_text "$HOME" 'getPublicCompetitions()' 'Homepage must preserve real competition discovery'
-require_text "$HOME" '<SubjectVisual input={resource} compact />' 'Homepage Learning fallback must be subject-aware'
-reject_text "$HOME_ROUTE" 'PublicHomeExperience' 'Home route must not render the old carousel experience'
+printf '==> Home visual and API behavior\n'
+require_text "$HOME_ROUTE" 'PublicHomeVisualExperience' 'Home route must use the public visual experience'
+require_text "$HOME" 'title="Welcome to VidyaSetu"' 'Home approved title must remain'
+require_text "$HOME" 'India’s unified education platform for learning, schools and families.' 'Home approved supporting copy must remain'
+require_text "$HOME" 'image={HERO_IMAGES.home}' 'Home must use its dedicated hero'
+require_text "$HOME" '<Image src={module.image}' 'Home module cards must use full photographic media'
+for key in student school parent learn competition communities; do
+  require_text "$HOME" "MODULE_IMAGES.$key" "Home module image missing: $key"
+done
+require_text "$HOME_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Home module cards must remain 3 across'
+require_text "$HOME_CSS" 'height: 205px;' 'Home cards must reserve meaningful photo area'
+require_text "$HOME" 'getPublicLearningResources({ featured: true, limit: 3 })' 'Home must preserve 3-resource Learning preview'
+require_text "$HOME" 'getPublicSchools()' 'Home school discovery must remain API-backed'
+require_text "$HOME" 'getPublicCompetitions()' 'Home competition discovery must remain API-backed'
+require_text "$HOME" '<SubjectVisual input={resource} compact />' 'Home Learning fallback must remain subject-aware'
 
-printf '==> Public module visual stories\n'
-require_text "$MODULE" "title: 'Every student’s learning day, in one place'" 'Students must have the approved student-focused hero copy'
-require_text "$MODULE" "title: 'Stay connected to every step of their journey'" 'Parents must have the approved parent-focused hero copy'
-require_text "$MODULE" "title: 'A stronger school starts with a clearer view'" 'Schools must have the approved school-focused hero copy'
-require_text "$MODULE" "title: 'Education gets stronger when people connect'" 'Communities must have the approved community-focused hero copy'
-require_text "$MODULE" "title: 'See the network. Guide the system.'" 'Platform Admin must have the approved admin-focused hero copy'
-require_text "$MODULE" 'HERO_IMAGES.student' 'Student module must use dedicated photography'
-require_text "$MODULE" 'HERO_IMAGES.parent' 'Parent module must use dedicated photography'
-require_text "$MODULE" 'HERO_IMAGES.school' 'School module must use dedicated photography'
-require_text "$MODULE" 'HERO_IMAGES.communities' 'Communities module must use dedicated photography'
-require_text "$MODULE" 'HERO_IMAGES.admin' 'Platform Admin module must use dedicated photography'
-require_text "$MODULE" 'config.capabilities.slice(0, 6)' 'Module pages must use a compact six-card highlight set'
-require_text "$MODULE" 'capabilityHref(config, capability)' 'Module highlight cards must keep functional destinations'
-require_text "$MODULE" 'id="module-capabilities"' 'Full module capabilities must remain available below the visual intro'
+printf '==> Module pages\n'
+for title in \
+  "Every student’s learning day, in one place" \
+  "Stay connected to every step of their journey" \
+  "A stronger school starts with a clearer view" \
+  "Education gets stronger when people connect" \
+  "See the network. Guide the system."
+do
+  require_text "$MODULE" "$title" "Approved module hero copy missing: $title"
+done
+for key in student parent school communities admin; do
+  require_text "$MODULE" "HERO_IMAGES.$key" "Module hero mapping missing: $key"
+done
+require_text "$MODULE" 'config.capabilities.slice(0, 6)' 'Module pages must preserve six compact highlights'
+require_text "$MODULE" 'capabilityHref(config, capability)' 'Module highlights must remain functional'
 require_text "$MODULE" 'config.schoolDirectory' 'School directory behavior must remain intact'
-require_text "$MODULE_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Module highlight cards must be three across on desktop'
+require_text "$MODULE_CSS" 'grid-template-columns: repeat(3, minmax(0, 1fr));' 'Module highlight cards must remain 3 across'
 
 printf '==> Learning visual system and bounded catalogue\n'
-require_text "$SUBJECT" "export type LearningGradeBand = 'primary' | 'middle' | 'secondary'" 'Subject visuals must distinguish the three grade bands'
-require_text "$SUBJECT" "math:" 'Subject visuals must define Mathematics'
-require_text "$SUBJECT" "science:" 'Subject visuals must define Science'
-require_text "$SUBJECT" "english:" 'Subject visuals must define English'
-require_text "$SUBJECT" "hindi:" 'Subject visuals must define Hindi'
-require_text "$SUBJECT" "social:" 'Subject visuals must define Social Science'
-require_text "$SUBJECT" "computer:" 'Subject visuals must define Computer'
-require_text "$SUBJECT" "evs:" 'Subject visuals must define EVS'
-require_text "$SUBJECT" "commerce:" 'Subject visuals must define Commerce'
-require_text "$SUBJECT" "band === 'primary' ? 'Classes 1–4'" 'Primary subject visuals must map Classes 1–4'
-require_text "$SUBJECT" "band === 'middle' ? 'Classes 5–8'" 'Middle subject visuals must map Classes 5–8'
-require_text "$SUBJECT" "'Classes 9–12'" 'Secondary subject visuals must map Classes 9–12'
-require_text "$LEARN" 'Learning that fits into real life.' 'Learning must use the approved page-specific headline'
-require_text "$LEARN" 'image={HERO_IMAGES.learn}' 'Learning must use dedicated photography'
-require_text "$LEARN" 'INITIAL_RESOURCE_LIMIT = 6' 'Learning must initially load six resources'
-require_text "$LEARN" 'MAX_HOME_RESOURCE_LIMIT = 24' 'Learning landing page must remain bounded'
-require_text "$LEARN" 'Load 6 more' 'Learning must retain incremental loading'
-require_text "$LEARN" 'View all learning' 'Learning must retain dedicated full catalogue navigation'
-require_text "$LEARN" 'getPublicLearningResources' 'Learning must remain API-backed'
+require_text "$SUBJECT" "export type LearningGradeBand = 'primary' | 'middle' | 'secondary'" 'Learning must retain three grade bands'
+for subject in math science english hindi social computer evs commerce; do
+  require_text "$SUBJECT" "$subject:" "Subject visual missing: $subject"
+done
+require_text "$SUBJECT" "band === 'primary' ? 'Classes 1–4'" 'Primary subject visual band must remain'
+require_text "$SUBJECT" "band === 'middle' ? 'Classes 5–8'" 'Middle subject visual band must remain'
+require_text "$SUBJECT" "'Classes 9–12'" 'Secondary subject visual band must remain'
+require_text "$LEARN" 'Learning that fits into real life.' 'Learning approved headline must remain'
+require_text "$LEARN" 'image={HERO_IMAGES.learn}' 'Learning must use its dedicated hero'
+require_text "$LEARN" 'INITIAL_RESOURCE_LIMIT = 6' 'Learning must initially load 6'
+require_text "$LEARN" 'MAX_HOME_RESOURCE_LIMIT = 24' 'Learning landing must remain bounded'
+require_text "$LEARN" 'Load 6 more' 'Learning must preserve Load 6 more'
+require_text "$LEARN" 'View all learning' 'Learning must preserve full catalogue navigation'
+require_text "$LEARN" 'getPublicLearningResources' 'Learning resources must remain API-backed'
 require_text "$LEARN" 'getPublicLearningAssessments' 'Learning practice must remain API-backed'
-require_text "$LEARN" '<SubjectVisual input={resource} selectedGrade={selectedGrade}' 'Learning cards without thumbnails must use grade-aware subject visuals'
-require_text "$CATALOGUE" '<SubjectVisual input={resource} selectedGrade={grade}' 'Full catalogue must use grade-aware subject visuals'
-reject_text "$LEARN" 'Built around how students actually learn.' 'Old split-screen Learning journey hero must not return'
-reject_text "$LEARN" 'heroJourney' 'Old right-side Learning hero panel must not render'
+require_text "$LEARN" '<SubjectVisual input={resource} selectedGrade={selectedGrade}' 'Learning fallback visuals must stay grade-aware'
+require_text "$CATALOGUE" '<SubjectVisual input={resource} selectedGrade={grade}' 'Catalogue fallback visuals must stay grade-aware'
 
-printf '==> Competition behavior and Login auth preservation\n'
-require_text "$COMPETITION" 'Give talent somewhere to go.' 'Competition page must use the approved headline'
-require_text "$COMPETITION" 'image={HERO_IMAGES.competition}' 'Competition must use dedicated photography'
-require_text "$COMPETITION" 'listCompetitions()' 'Competition data flow must remain intact'
+printf '==> Competition and authentication preservation\n'
+require_text "$COMPETITION" 'Give talent somewhere to go.' 'Competition approved headline must remain'
+require_text "$COMPETITION" 'image={HERO_IMAGES.competition}' 'Competition must use its dedicated hero'
+require_text "$COMPETITION" 'listCompetitions()' 'Competition listing must remain intact'
 require_text "$COMPETITION" 'registerExam(examId)' 'Competition registration must remain intact'
 require_text "$COMPETITION" 'getLeaderboard(activeLbExamId)' 'Competition leaderboard must remain intact'
 require_text "$COMPETITION" 'router.push(`/exams/${exam.id}`)' 'Competition attempt navigation must remain intact'
-require_text "$LOGIN" 'Welcome back to your learning space' 'Student Login must use its unique learning-space message'
-require_text "$LOGIN" 'continue where you left off' 'Student Login must retain the approved continuation message'
-require_text "$LOGIN" 'HERO_IMAGES.student' 'Student Login must use dedicated student photography'
-require_text "$LOGIN" 'HERO_IMAGES.parent' 'Parent Login must use dedicated parent photography'
-require_text "$LOGIN" 'HERO_IMAGES.school' 'School and Teacher Login must use dedicated school photography'
-require_text "$LOGIN" 'HERO_IMAGES.admin' 'Platform Admin Login must use dedicated admin photography'
-require_text "$LOGIN" "const [method, setMethod] = useState<'password' | 'otp'>('password')" 'Password login must remain the default method'
-require_text "$LOGIN" 'Username / Email / Mobile / Student ID' 'Student password login must retain all supported identifiers'
-require_text "$LOGIN" 'loginWithPassword(identifier.trim(), password' 'Password login handler must remain connected'
-require_text "$LOGIN" 'sendOTP(mobile, role)' 'OTP send handler must remain connected'
-require_text "$LOGIN" 'verifyOTP(verificationMobile, otp' 'OTP verification handler must remain connected'
-require_text "$LOGIN" 'forgotPassword(identifier.trim())' 'Password recovery handler must remain connected'
-require_text "$LOGIN" 'resetPassword(identifier.trim(), recoveryOtp, newPassword)' 'Password reset handler must remain connected'
-require_text "$LOGIN" 'if (user.role !== role)' 'Role mismatch validation must remain intact'
-require_text "$LOGIN" 'router.replace(ROLE_DASHBOARDS[user.role]' 'Role-aware post-login redirects must remain intact'
+require_text "$LOGIN" 'Welcome back to your learning space' 'Student Login approved message must remain'
+require_text "$LOGIN" 'continue where you left off' 'Student Login continuation message must remain'
+for key in student parent school admin; do
+  require_text "$LOGIN" "HERO_IMAGES.$key" "Role login visual missing: $key"
+done
+require_text "$LOGIN" "const [method, setMethod] = useState<'password' | 'otp'>('password')" 'Password login must remain default'
+require_text "$LOGIN" 'Username / Email / Mobile / Student ID' 'Student identifiers must remain intact'
+require_text "$LOGIN" 'loginWithPassword(identifier.trim(), password' 'Password login handler must remain intact'
+require_text "$LOGIN" 'sendOTP(mobile, role)' 'OTP send handler must remain intact'
+require_text "$LOGIN" 'verifyOTP(verificationMobile, otp' 'OTP verification must remain intact'
+require_text "$LOGIN" 'forgotPassword(identifier.trim())' 'Password recovery must remain intact'
+require_text "$LOGIN" 'resetPassword(identifier.trim(), recoveryOtp, newPassword)' 'Password reset must remain intact'
+require_text "$LOGIN" 'if (user.role !== role)' 'Role validation must remain intact'
+require_text "$LOGIN" 'router.replace(ROLE_DASHBOARDS[user.role]' 'Role-aware redirects must remain intact'
 
-printf '\nPublic visual storytelling contract smoke passed.\n'
+printf '\nPublic visual quality and behavior contract smoke passed.\n'

@@ -28,6 +28,9 @@ jobs:
           bash -n scripts/public-visual-storytelling-smoke.sh
           bash scripts/public-visual-storytelling-smoke.sh
 
+      - name: Validate sharp wide hero sources
+        run: python3 scripts/validate-public-hero-sources.py
+
       - name: Build shared contracts
         working-directory: shared/contracts
         run: |
