@@ -15,11 +15,11 @@ export const HERO_IMAGES = {
   home: '/images/heroes/home-hero.png',
   student: '/images/heroes/students-hero.png',
   school: '/images/heroes/schools-hero.png',
+  parent: '/images/heroes/parents-hero.png',
   learn: '/images/heroes/learn-hero.png',
+  competition: '/images/heroes/competition-hero.png',
 
   // TEMPORARY fallbacks until their production PNGs are supplied
-  parent: previewFallback(9345612),
-  competition: previewFallback(13812360),
   communities: previewFallback(18012458),
   admin: previewFallback(4308104),
 } as const;
