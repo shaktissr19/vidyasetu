@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-LIQUID-PRESSURE-V1",
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "gradeCodes": ["CLASS_8"],
+  "boardCodes": ["COMMON"],
+  "subject": "Science",
+  "theme": "Force and Pressure",
+  "concept": "Pressure in liquids",
+  "topicLabel": "Pressure in liquids",
+  "languages": ["en", "hi"],
+  "learningOutcomes": [
+    {"id":"LO-LP-01","en":"Explain that liquids exert pressure on the surfaces they touch, including container walls and base.","hi":"समझाएँ कि द्रव संपर्क में आने वाली सतहों, जैसे कंटेनर की दीवार और तली, पर दाब डालते हैं।"},
+    {"id":"LO-LP-02","en":"Compare liquid pressure at different depths in the same liquid under similar conditions.","hi":"उसी द्रव में समान परिस्थितियों में अलग-अलग गहराइयों पर द्रव दाब की तुलना करें।"},
+    {"id":"LO-LP-03","en":"Use evidence from a controlled bottle-hole investigation to infer that pressure increases with depth.","hi":"नियंत्रित बोतल-छेद प्रयोग के प्रमाण से निष्कर्ष निकालें कि गहराई बढ़ने पर दाब बढ़ता है।"},
+    {"id":"LO-LP-04","en":"Correct common misconceptions about container shape, liquid motion and side-wall pressure.","hi":"कंटेनर के आकार, द्रव की गति और साइड-दीवार पर दाब से जुड़ी सामान्य गलत धारणाएँ सुधारें।"},
+    {"id":"LO-LP-05","en":"Apply the depth-pressure idea to real situations such as dams, water tanks and diving.","hi":"गहराई-दाब के विचार को बाँध, पानी की टंकी और गोताखोरी जैसी वास्तविक स्थितियों पर लागू करें।"}
+  ],
+  "sequence": [
+    {"stage":"SEE","assetId":"VS-LP-HOOK-01","type":"ARTICLE","titleEn":"Why does the lower water stream go farther?","titleHi":"नीचे वाली पानी की धार अधिक दूर क्यों जाती है?"},
+    {"stage":"UNDERSTAND","assetId":"VS-LP-LESSON-01","type":"ARTICLE","titleEn":"Pressure in liquids made simple","titleHi":"द्रवों में दाब आसान तरीके से"},
+    {"stage":"UNDERSTAND","assetId":"VS-LP-VIDEO-01","type":"VIDEO","titleEn":"Depth changes liquid pressure","titleHi":"गहराई से द्रव दाब कैसे बदलता है"},
+    {"stage":"DO","assetId":"VS-LP-PRACTICAL-01","type":"PRACTICAL_VIDEO","titleEn":"Three-hole bottle investigation","titleHi":"तीन-छेद बोतल प्रयोग"},
+    {"stage":"PRACTISE","assetId":"VS-LP-PRACTICE-01","type":"QUIZ","titleEn":"Pressure in liquids practice","titleHi":"द्रवों में दाब अभ्यास","questionIds":["VS8S-LP-001","VS8S-LP-002","VS8S-LP-003","VS8S-LP-004","VS8S-LP-005","VS8S-LP-006","VS8S-LP-007","VS8S-LP-008"]},
+    {"stage":"APPLY","assetId":"VS-LP-WORKSHEET-01","type":"WORKSHEET","titleEn":"Depth-pressure detective","titleHi":"गहराई-दाब जासूस"},
+    {"stage":"REVISE","assetId":"VS-LP-AUDIO-01","type":"AUDIO","titleEn":"Liquid pressure in three minutes","titleHi":"द्रव दाब तीन मिनट में"},
+    {"stage":"REVISE","assetId":"VS-LP-MASTERY-01","type":"QUIZ","titleEn":"Pressure in liquids mastery","titleHi":"द्रवों में दाब महारत जाँच","questionIds":["VS8S-LP-003","VS8S-LP-005","VS8S-LP-006","VS8S-LP-008","VS8S-LP-009","VS8S-LP-010","VS8S-LP-011","VS8S-LP-012"]}
+  ]
+}
