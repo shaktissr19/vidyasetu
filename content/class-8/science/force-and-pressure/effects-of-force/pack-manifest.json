@@ -1,0 +1,31 @@
+{
+  "packId": "VS-C8-SCI-FP-EFFECTS-V1",
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "gradeCodes": ["CLASS_8"],
+  "boardCodes": ["COMMON"],
+  "subject": "Science",
+  "theme": "Force and Pressure",
+  "concept": "Effects of Force",
+  "topicLabel": "Effects of Force",
+  "languages": ["en", "hi"],
+  "learningOutcomes": [
+    {"en":"Identify that a force can start or stop motion.","hi":"पहचानें कि बल किसी वस्तु की गति शुरू या रोक सकता है।"},
+    {"en":"Explain that a force can change the speed of a moving object.","hi":"समझाएँ कि बल चलती वस्तु की चाल बदल सकता है।"},
+    {"en":"Explain that a force can change the direction of motion.","hi":"समझाएँ कि बल गति की दिशा बदल सकता है।"},
+    {"en":"Recognise that a force can change the shape of some objects.","hi":"पहचानें कि बल कुछ वस्तुओं का आकार बदल सकता है।"},
+    {"en":"Use observations from a safe activity to infer the effect of an applied force.","hi":"सुरक्षित गतिविधि के अवलोकनों से लगाए गए बल के प्रभाव का निष्कर्ष निकालें।"}
+  ],
+  "sequence": [
+    {"stage":"SEE","assetId":"VS-EFFECTS-HOOK-01","type":"HOOK","titleEn":"One push, many possible effects","titleHi":"एक बल, कई संभावित प्रभाव"},
+    {"stage":"UNDERSTAND","assetId":"VS-EFFECTS-ARTICLE-01","type":"ARTICLE","titleEn":"What can a force change?","titleHi":"बल क्या-क्या बदल सकता है?"},
+    {"stage":"UNDERSTAND","assetId":"VS-EFFECTS-VIDEO-01","type":"VIDEO","titleEn":"Four effects of force","titleHi":"बल के चार प्रभाव"},
+    {"stage":"DO","assetId":"VS-EFFECTS-PRACTICAL-01","type":"PRACTICAL_VIDEO","titleEn":"Observe motion, direction and shape","titleHi":"गति, दिशा और आकार में परिवर्तन देखें"},
+    {"stage":"PRACTISE","assetId":"VS-EFFECTS-PRACTICE-01","type":"QUIZ","titleEn":"Effects of force practice","titleHi":"बल के प्रभाव — अभ्यास","questionIds":["VS-EFF-Q01","VS-EFF-Q02","VS-EFF-Q03","VS-EFF-Q04","VS-EFF-Q05","VS-EFF-Q06","VS-EFF-Q07","VS-EFF-Q08"]},
+    {"stage":"APPLY","assetId":"VS-EFFECTS-WORKSHEET-01","type":"WORKSHEET","titleEn":"Find the effect in everyday life","titleHi":"रोज़मर्रा में बल का प्रभाव पहचानें"},
+    {"stage":"REVISE","assetId":"VS-EFFECTS-AUDIO-01","type":"AUDIO","titleEn":"Effects of force in three minutes","titleHi":"तीन मिनट में बल के प्रभाव"},
+    {"stage":"REVISE","assetId":"VS-EFFECTS-MASTERY-01","type":"QUIZ","titleEn":"Effects of force mastery check","titleHi":"बल के प्रभाव — महारत जाँच","questionIds":["VS-EFF-Q02","VS-EFF-Q04","VS-EFF-Q06","VS-EFF-Q08","VS-EFF-Q09","VS-EFF-Q10","VS-EFF-Q11","VS-EFF-Q12"]}
+  ]
+}
