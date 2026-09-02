@@ -6,7 +6,9 @@ on:
       - 'content/**'
       - 'backend/src/scripts/installPressurePack.ts'
       - 'backend/src/scripts/installForcePack.ts'
+      - 'backend/src/scripts/installEffectsOfForcePack.ts'
       - 'scripts/validate-content-pack.mjs'
+      - 'scripts/validate-content-foundation.mjs'
       - '.github/workflows/content-pack-ci.yml'
   push:
     branches:
@@ -15,7 +17,9 @@ on:
       - 'content/**'
       - 'backend/src/scripts/installPressurePack.ts'
       - 'backend/src/scripts/installForcePack.ts'
+      - 'backend/src/scripts/installEffectsOfForcePack.ts'
       - 'scripts/validate-content-pack.mjs'
+      - 'scripts/validate-content-foundation.mjs'
       - '.github/workflows/content-pack-ci.yml'
 
 permissions:
@@ -37,6 +41,9 @@ jobs:
       - name: Validate bilingual learning packs
         run: node scripts/validate-content-pack.mjs content
 
+      - name: Validate content foundation
+        run: node scripts/validate-content-foundation.mjs content
+
       - name: Build shared contracts
         working-directory: shared/contracts
         run: |
@@ -52,6 +59,7 @@ jobs:
           npm run build
           test -f dist/scripts/installPressurePack.js
           test -f dist/scripts/installForcePack.js
+          test -f dist/scripts/installEffectsOfForcePack.js
 
       - name: Prove Pressure installer dry-run is write-free
         run: |
@@ -68,5 +76,14 @@ jobs:
           output="$(node backend/dist/scripts/installForcePack.js)"
           printf '%s\n' "$output"
           grep -F "Force pack validated: VS-C8-SCI-FP-FORCE-V1" <<<"$output"
+          grep -F "Question bank: 12 bilingual questions" <<<"$output"
+          grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
+
+      - name: Prove Effects of Force installer dry-run is write-free
+        run: |
+          set -euo pipefail
+          output="$(node backend/dist/scripts/installEffectsOfForcePack.js)"
+          printf '%s\n' "$output"
+          grep -F "Effects of Force pack validated: VS-C8-SCI-FP-EFFECTS-V1" <<<"$output"
           grep -F "Question bank: 12 bilingual questions" <<<"$output"
           grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
