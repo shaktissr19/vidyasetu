@@ -38,14 +38,17 @@ jobs:
       - name: Build shared contracts
         working-directory: shared/contracts
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
+          test -f dist/index.d.ts
 
       - name: Build backend installer
         working-directory: backend
         run: |
-          npm ci
+          npm install --no-audit --no-fund
+          npm run typecheck
           npm run build
+          test -f dist/scripts/installPressurePack.js
 
       - name: Prove Pressure installer dry-run is write-free
         run: |
