@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-EFFECTS-V1",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "questions": [
+    {
+      "publicCode": "VS-EFF-Q01",
+      "type": "MCQ_SINGLE",
+      "difficulty": "FOUNDATION",
+      "skill": "IDENTIFY",
+      "prompt": "A stationary football starts moving after it is kicked. Which effect of force is shown most clearly?",
+      "promptHi": "स्थिर फुटबॉल किक मारने के बाद चलने लगती है। यहाँ बल का कौन-सा प्रभाव सबसे स्पष्ट है?",
+      "options": [
+        {"key":"A","text":"Starting motion","textHi":"गति शुरू करना"},
+        {"key":"B","text":"Changing colour","textHi":"रंग बदलना"},
+        {"key":"C","text":"Increasing mass","textHi":"द्रव्यमान बढ़ाना"},
+        {"key":"D","text":"Producing light","textHi":"प्रकाश उत्पन्न करना"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "The kick applies a force that changes the ball from rest to motion.",
+      "explanationHi": "किक से लगाया गया बल गेंद को विराम से गति में लाता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q02",
+      "type": "MCQ_SINGLE",
+      "difficulty": "FOUNDATION",
+      "skill": "IDENTIFY",
+      "prompt": "A goalkeeper catches a moving ball. What is the main effect of the force from the goalkeeper's hands?",
+      "promptHi": "गोलकीपर चलती गेंद पकड़ता है। उसके हाथों द्वारा लगाए गए बल का मुख्य प्रभाव क्या है?",
+      "options": [
+        {"key":"A","text":"The ball starts moving","textHi":"गेंद चलना शुरू करती है"},
+        {"key":"B","text":"The ball stops moving","textHi":"गेंद रुक जाती है"},
+        {"key":"C","text":"The ball gains mass","textHi":"गेंद का द्रव्यमान बढ़ता है"},
+        {"key":"D","text":"The ball changes material","textHi":"गेंद की सामग्री बदल जाती है"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "The force from the hands reduces the motion of the ball until it comes to rest relative to the goalkeeper.",
+      "explanationHi": "हाथों का बल गेंद की गति कम करता है और उसे गोलकीपर के सापेक्ष रोक देता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q03",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "APPLY",
+      "prompt": "A toy car is already moving slowly. It receives another gentle push in the same direction. What is the most likely effect?",
+      "promptHi": "एक खिलौना-गाड़ी पहले से धीरे चल रही है। उसी दिशा में उसे एक और हल्का धक्का दिया जाता है। सबसे संभावित प्रभाव क्या है?",
+      "options": [
+        {"key":"A","text":"Its speed may increase","textHi":"उसकी चाल बढ़ सकती है"},
+        {"key":"B","text":"Its mass becomes zero","textHi":"उसका द्रव्यमान शून्य हो जाएगा"},
+        {"key":"C","text":"It must move backwards","textHi":"वह अवश्य पीछे जाएगी"},
+        {"key":"D","text":"Its colour changes","textHi":"उसका रंग बदल जाएगा"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "A force in the direction of motion can increase the speed of the object.",
+      "explanationHi": "गति की दिशा में लगाया गया बल वस्तु की चाल बढ़ा सकता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q04",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "APPLY",
+      "prompt": "A cyclist applies the brakes while moving. Which effect of force is shown first?",
+      "promptHi": "चलती साइकिल पर चालक ब्रेक लगाता है। बल का कौन-सा प्रभाव सबसे पहले दिखाई देता है?",
+      "options": [
+        {"key":"A","text":"The bicycle slows down","textHi":"साइकिल धीमी होती है"},
+        {"key":"B","text":"The bicycle becomes heavier","textHi":"साइकिल भारी हो जाती है"},
+        {"key":"C","text":"The bicycle changes colour","textHi":"साइकिल का रंग बदलता है"},
+        {"key":"D","text":"The road disappears","textHi":"सड़क गायब हो जाती है"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "The braking force acts against the motion, so the bicycle's speed decreases before it stops.",
+      "explanationHi": "ब्रेक का बल गति का विरोध करता है, इसलिए रुकने से पहले साइकिल की चाल घटती है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q05",
+      "type": "TRUE_FALSE",
+      "difficulty": "FOUNDATION",
+      "skill": "UNDERSTAND",
+      "prompt": "A force can change the direction of a moving object without first bringing it completely to rest.",
+      "promptHi": "बल चलती वस्तु को पहले पूरी तरह रोके बिना उसकी दिशा बदल सकता है।",
+      "options": [
+        {"key":"TRUE","text":"True","textHi":"सही"},
+        {"key":"FALSE","text":"False","textHi":"गलत"}
+      ],
+      "correctAnswer": {"option":"TRUE"},
+      "explanation": "A sideways or angled force can deflect a moving object into a new direction while it continues moving.",
+      "explanationHi": "बगल या कोण पर लगाया गया बल चलती वस्तु को गति बनाए रखते हुए नई दिशा में मोड़ सकता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q06",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "CLASSIFY",
+      "prompt": "Which action mainly demonstrates a change in shape due to force?",
+      "promptHi": "कौन-सी क्रिया मुख्य रूप से बल के कारण आकार में परिवर्तन दिखाती है?",
+      "options": [
+        {"key":"A","text":"Squeezing a soft sponge","textHi":"नरम स्पंज दबाना"},
+        {"key":"B","text":"Watching a stationary clock","textHi":"स्थिर घड़ी देखना"},
+        {"key":"C","text":"Reading a book","textHi":"किताब पढ़ना"},
+        {"key":"D","text":"Listening to music","textHi":"संगीत सुनना"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "Squeezing applies a force that deforms the sponge, showing a change in shape.",
+      "explanationHi": "स्पंज दबाने से उस पर बल लगता है और उसका आकार बदलता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q07",
+      "type": "TRUE_FALSE",
+      "difficulty": "MEDIUM",
+      "skill": "REASON",
+      "prompt": "If a force acts on an object, the object must always move from one place to another.",
+      "promptHi": "यदि किसी वस्तु पर बल लगे, तो वह हमेशा एक स्थान से दूसरे स्थान तक अवश्य जाएगी।",
+      "options": [
+        {"key":"TRUE","text":"True","textHi":"सही"},
+        {"key":"FALSE","text":"False","textHi":"गलत"}
+      ],
+      "correctAnswer": {"option":"FALSE"},
+      "explanation": "A force may change shape without causing the whole object to travel. Other forces may also oppose its effect.",
+      "explanationHi": "बल पूरे वस्तु को स्थानांतरित किए बिना उसका आकार बदल सकता है। अन्य बल उसके प्रभाव का विरोध भी कर सकते हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q08",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "ANALYSE",
+      "prompt": "A moving football is kicked sideways and leaves in a new direction at a higher speed. Which statement is best?",
+      "promptHi": "चलती फुटबॉल को एक ओर किक मारी जाती है और वह नई दिशा में अधिक चाल से जाती है। कौन-सा कथन सबसे सही है?",
+      "options": [
+        {"key":"A","text":"Only direction changed","textHi":"केवल दिशा बदली"},
+        {"key":"B","text":"Only speed changed","textHi":"केवल चाल बदली"},
+        {"key":"C","text":"Both speed and direction changed","textHi":"चाल और दिशा दोनों बदलीं"},
+        {"key":"D","text":"No effect of force occurred","textHi":"बल का कोई प्रभाव नहीं हुआ"}
+      ],
+      "correctAnswer": {"option":"C"},
+      "explanation": "One interaction can produce more than one effect. Here the ball's speed and direction both change.",
+      "explanationHi": "एक ही परस्पर क्रिया से एक से अधिक प्रभाव हो सकते हैं। यहाँ गेंद की चाल और दिशा दोनों बदलती हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q09",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "EXPERIMENTAL_REASONING",
+      "prompt": "In a toy-car activity, which observation best supports the claim that force changed direction?",
+      "promptHi": "खिलौना-गाड़ी गतिविधि में कौन-सा अवलोकन सबसे अच्छा दिखाता है कि बल ने दिशा बदली?",
+      "options": [
+        {"key":"A","text":"The car follows a new path after a sideways push","textHi":"बगल से धक्का देने के बाद गाड़ी नया रास्ता अपनाती है"},
+        {"key":"B","text":"The car has four wheels","textHi":"गाड़ी में चार पहिए हैं"},
+        {"key":"C","text":"The car is blue","textHi":"गाड़ी नीली है"},
+        {"key":"D","text":"The table is flat","textHi":"मेज समतल है"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "A change in the path after the sideways push is direct evidence of a change in direction.",
+      "explanationHi": "बगल से धक्का देने के बाद रास्ता बदलना दिशा परिवर्तन का सीधा प्रमाण है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q10",
+      "type": "MCQ_SINGLE",
+      "difficulty": "HARD",
+      "skill": "COMPARE",
+      "prompt": "A rubber band is stretched but does not move across the table. What does this show?",
+      "promptHi": "रबर बैंड खिंचता है लेकिन मेज पर आगे नहीं जाता। इससे क्या पता चलता है?",
+      "options": [
+        {"key":"A","text":"A force can change shape even without overall movement across the table","textHi":"मेज पर स्थान परिवर्तन के बिना भी बल आकार बदल सकता है"},
+        {"key":"B","text":"No force was applied","textHi":"कोई बल नहीं लगाया गया"},
+        {"key":"C","text":"Only moving objects can experience force","textHi":"केवल चलती वस्तुओं पर बल लग सकता है"},
+        {"key":"D","text":"Shape can never be changed by force","textHi":"बल कभी आकार नहीं बदल सकता"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "The stretched rubber band changes shape due to force even though its whole body does not travel across the table.",
+      "explanationHi": "बल के कारण रबर बैंड का आकार बदलता है, भले उसका पूरा शरीर मेज पर एक स्थान से दूसरे स्थान तक न जाए।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q11",
+      "type": "MCQ_SINGLE",
+      "difficulty": "HARD",
+      "skill": "REASON",
+      "prompt": "Which statement is the best generalisation about the effects of force?",
+      "promptHi": "बल के प्रभावों के बारे में सबसे अच्छा सामान्य कथन कौन-सा है?",
+      "options": [
+        {"key":"A","text":"Every force causes exactly one effect","textHi":"हर बल केवल एक प्रभाव पैदा करता है"},
+        {"key":"B","text":"A force can affect motion, speed, direction or shape, and more than one effect may occur","textHi":"बल गति, चाल, दिशा या आकार को प्रभावित कर सकता है और एक से अधिक प्रभाव भी हो सकते हैं"},
+        {"key":"C","text":"Force only affects colour","textHi":"बल केवल रंग को प्रभावित करता है"},
+        {"key":"D","text":"Force matters only when an object stops","textHi":"बल केवल तब महत्वपूर्ण है जब वस्तु रुकती है"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "Force can produce several kinds of change, and real interactions may produce multiple effects together.",
+      "explanationHi": "बल कई प्रकार के परिवर्तन कर सकता है और वास्तविक परस्पर क्रियाओं में कई प्रभाव एक साथ हो सकते हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS-EFF-Q12",
+      "type": "MCQ_SINGLE",
+      "difficulty": "CHALLENGE",
+      "skill": "APPLY",
+      "prompt": "A student rolls a soft ball toward a wall. The ball hits the wall, becomes slightly compressed for a moment, and rebounds. Which effects are involved?",
+      "promptHi": "एक विद्यार्थी नरम गेंद दीवार की ओर लुढ़काता है। गेंद दीवार से टकराकर क्षणभर दबती है और वापस लौटती है। कौन-कौन से प्रभाव शामिल हैं?",
+      "options": [
+        {"key":"A","text":"Only a shape change","textHi":"केवल आकार परिवर्तन"},
+        {"key":"B","text":"Only a direction change","textHi":"केवल दिशा परिवर्तन"},
+        {"key":"C","text":"Direction changes and the ball is briefly deformed","textHi":"दिशा बदलती है और गेंद क्षणभर विकृत होती है"},
+        {"key":"D","text":"No force acts because the ball keeps moving","textHi":"कोई बल नहीं लगता क्योंकि गेंद चलती रहती है"}
+      ],
+      "correctAnswer": {"option":"C"},
+      "explanation": "The collision changes the ball's direction and briefly changes its shape. One interaction can have multiple effects.",
+      "explanationHi": "टक्कर से गेंद की दिशा बदलती है और उसका आकार क्षणभर बदलता है। एक परस्पर क्रिया के कई प्रभाव हो सकते हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    }
+  ]
+}
