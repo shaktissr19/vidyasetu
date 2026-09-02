@@ -1,0 +1,327 @@
+{
+  "schemaVersion": "1.0",
+  "indexId": "VS-SYL-C6-2026-27-TOPICS-V1",
+  "gradeCode": "CLASS_6",
+  "academicSession": "2026-27",
+  "status": "DRAFT_FOR_ACADEMIC_REVIEW",
+  "decompositionOwner": "VIDYASETU",
+  "importantNote": "These topic and concept labels are VidyaSetu's original instructional decomposition of the verified reference chapter index. They are not represented as verbatim NCERT subheadings and may be refined during subject-SME review.",
+  "subjects": [
+    {
+      "subjectCode": "MATHEMATICS",
+      "chapters": [
+        {"code":"C6-MATH-01","title":"Patterns in Mathematics","concepts":[
+          {"code":"C6-MATH-01-C01","title":"Recognising numerical patterns"},
+          {"code":"C6-MATH-01-C02","title":"Shape and visual patterns"},
+          {"code":"C6-MATH-01-C03","title":"Finding and describing a rule"},
+          {"code":"C6-MATH-01-C04","title":"Extending and creating patterns"}
+        ]},
+        {"code":"C6-MATH-02","title":"Lines and Angles","concepts":[
+          {"code":"C6-MATH-02-C01","title":"Points, lines, rays and line segments"},
+          {"code":"C6-MATH-02-C02","title":"Intersecting, parallel and perpendicular lines"},
+          {"code":"C6-MATH-02-C03","title":"Understanding and comparing angles"},
+          {"code":"C6-MATH-02-C04","title":"Measuring and constructing angles"}
+        ]},
+        {"code":"C6-MATH-03","title":"Number Play","concepts":[
+          {"code":"C6-MATH-03-C01","title":"Number relationships and properties"},
+          {"code":"C6-MATH-03-C02","title":"Digit patterns and place-value reasoning"},
+          {"code":"C6-MATH-03-C03","title":"Estimation and mental strategies"},
+          {"code":"C6-MATH-03-C04","title":"Number puzzles and logical reasoning"}
+        ]},
+        {"code":"C6-MATH-04","title":"Data Handling and Presentation","concepts":[
+          {"code":"C6-MATH-04-C01","title":"Collecting and organising data"},
+          {"code":"C6-MATH-04-C02","title":"Frequency and tabular representation"},
+          {"code":"C6-MATH-04-C03","title":"Reading and creating pictorial/bar representations"},
+          {"code":"C6-MATH-04-C04","title":"Interpreting data and making evidence-based comparisons"}
+        ]},
+        {"code":"C6-MATH-05","title":"Prime Time","concepts":[
+          {"code":"C6-MATH-05-C01","title":"Factors and multiples"},
+          {"code":"C6-MATH-05-C02","title":"Prime and composite numbers"},
+          {"code":"C6-MATH-05-C03","title":"Common factors and common multiples"},
+          {"code":"C6-MATH-05-C04","title":"Divisibility reasoning and factorisation patterns"}
+        ]},
+        {"code":"C6-MATH-06","title":"Perimeter and Area","concepts":[
+          {"code":"C6-MATH-06-C01","title":"Perimeter as boundary length"},
+          {"code":"C6-MATH-06-C02","title":"Area as surface coverage"},
+          {"code":"C6-MATH-06-C03","title":"Area and perimeter of familiar shapes"},
+          {"code":"C6-MATH-06-C04","title":"Comparing figures with equal area or equal perimeter"},
+          {"code":"C6-MATH-06-C05","title":"Real-life measurement problems"}
+        ]},
+        {"code":"C6-MATH-07","title":"Fractions","concepts":[
+          {"code":"C6-MATH-07-C01","title":"Fractions as parts and quantities"},
+          {"code":"C6-MATH-07-C02","title":"Equivalent fractions"},
+          {"code":"C6-MATH-07-C03","title":"Comparing and ordering fractions"},
+          {"code":"C6-MATH-07-C04","title":"Adding and subtracting related fractions"},
+          {"code":"C6-MATH-07-C05","title":"Fractions in measurement and daily life"}
+        ]},
+        {"code":"C6-MATH-08","title":"Playing with Constructions","concepts":[
+          {"code":"C6-MATH-08-C01","title":"Using ruler and compass accurately"},
+          {"code":"C6-MATH-08-C02","title":"Constructing line segments and circles"},
+          {"code":"C6-MATH-08-C03","title":"Geometric construction from conditions"},
+          {"code":"C6-MATH-08-C04","title":"Checking and explaining a construction"}
+        ]},
+        {"code":"C6-MATH-09","title":"Symmetry","concepts":[
+          {"code":"C6-MATH-09-C01","title":"Line symmetry"},
+          {"code":"C6-MATH-09-C02","title":"Finding and drawing lines of symmetry"},
+          {"code":"C6-MATH-09-C03","title":"Rotational patterns and symmetry"},
+          {"code":"C6-MATH-09-C04","title":"Symmetry in art, design and nature"}
+        ]},
+        {"code":"C6-MATH-10","title":"The Other Side of Zero","concepts":[
+          {"code":"C6-MATH-10-C01","title":"Need for numbers below zero"},
+          {"code":"C6-MATH-10-C02","title":"Integers on a number line"},
+          {"code":"C6-MATH-10-C03","title":"Comparing and ordering integers"},
+          {"code":"C6-MATH-10-C04","title":"Interpreting positive and negative quantities in context"},
+          {"code":"C6-MATH-10-C05","title":"Introductory integer operations through movement and context"}
+        ]}
+      ]
+    },
+    {
+      "subjectCode": "SCIENCE",
+      "chapters": [
+        {"code":"C6-SCI-01","title":"The Wonderful World of Science","concepts":[
+          {"code":"C6-SCI-01-C01","title":"Curiosity, questions and observation"},
+          {"code":"C6-SCI-01-C02","title":"Evidence and simple scientific investigations"},
+          {"code":"C6-SCI-01-C03","title":"Observation, inference and explanation"},
+          {"code":"C6-SCI-01-C04","title":"Science in everyday life"}
+        ]},
+        {"code":"C6-SCI-02","title":"Diversity in the Living World","concepts":[
+          {"code":"C6-SCI-02-C01","title":"Observing diversity among plants and animals"},
+          {"code":"C6-SCI-02-C02","title":"Grouping organisms using observable features"},
+          {"code":"C6-SCI-02-C03","title":"Habitats and adaptations"},
+          {"code":"C6-SCI-02-C04","title":"Biodiversity and responsible observation"}
+        ]},
+        {"code":"C6-SCI-03","title":"Mindful Eating: A Path to a Healthy Body","concepts":[
+          {"code":"C6-SCI-03-C01","title":"Food diversity and dietary choices"},
+          {"code":"C6-SCI-03-C02","title":"Major nutrients and their broad roles"},
+          {"code":"C6-SCI-03-C03","title":"Balanced eating and healthy habits"},
+          {"code":"C6-SCI-03-C04","title":"Reading food choices critically and avoiding waste"}
+        ]},
+        {"code":"C6-SCI-04","title":"Exploring Magnets","concepts":[
+          {"code":"C6-SCI-04-C01","title":"Magnetic and non-magnetic materials"},
+          {"code":"C6-SCI-04-C02","title":"Magnetic poles"},
+          {"code":"C6-SCI-04-C03","title":"Attraction and repulsion"},
+          {"code":"C6-SCI-04-C04","title":"Direction finding and everyday uses of magnets"},
+          {"code":"C6-SCI-04-C05","title":"Fair tests with magnets"}
+        ]},
+        {"code":"C6-SCI-05","title":"Measurement of Length and Motion","concepts":[
+          {"code":"C6-SCI-05-C01","title":"Need for standard measurement"},
+          {"code":"C6-SCI-05-C02","title":"Measuring length accurately"},
+          {"code":"C6-SCI-05-C03","title":"Choosing suitable units and instruments"},
+          {"code":"C6-SCI-05-C04","title":"Describing motion using change of position"},
+          {"code":"C6-SCI-05-C05","title":"Recognising common types/patterns of motion"}
+        ]},
+        {"code":"C6-SCI-06","title":"Materials Around Us","concepts":[
+          {"code":"C6-SCI-06-C01","title":"Objects and the materials they are made from"},
+          {"code":"C6-SCI-06-C02","title":"Observable properties of materials"},
+          {"code":"C6-SCI-06-C03","title":"Grouping materials by properties"},
+          {"code":"C6-SCI-06-C04","title":"Selecting materials for purpose"}
+        ]},
+        {"code":"C6-SCI-07","title":"Temperature and its Measurement","concepts":[
+          {"code":"C6-SCI-07-C01","title":"Hotness, coldness and temperature"},
+          {"code":"C6-SCI-07-C02","title":"Why touch is not a reliable thermometer"},
+          {"code":"C6-SCI-07-C03","title":"Reading temperature instruments"},
+          {"code":"C6-SCI-07-C04","title":"Units, safe measurement and recording temperature"}
+        ]},
+        {"code":"C6-SCI-08","title":"A Journey through States of Water","concepts":[
+          {"code":"C6-SCI-08-C01","title":"Solid, liquid and gaseous forms of water"},
+          {"code":"C6-SCI-08-C02","title":"Melting and freezing"},
+          {"code":"C6-SCI-08-C03","title":"Evaporation and condensation"},
+          {"code":"C6-SCI-08-C04","title":"Factors influencing everyday evaporation"},
+          {"code":"C6-SCI-08-C05","title":"Water-cycle connections"}
+        ]},
+        {"code":"C6-SCI-09","title":"Methods of Separation in Everyday Life","concepts":[
+          {"code":"C6-SCI-09-C01","title":"Why mixtures are separated"},
+          {"code":"C6-SCI-09-C02","title":"Handpicking, sieving and winnowing"},
+          {"code":"C6-SCI-09-C03","title":"Sedimentation, decantation and filtration"},
+          {"code":"C6-SCI-09-C04","title":"Evaporation and other property-based separation"},
+          {"code":"C6-SCI-09-C05","title":"Choosing a method from material properties"}
+        ]},
+        {"code":"C6-SCI-10","title":"Living Creatures: Exploring their Characteristics","concepts":[
+          {"code":"C6-SCI-10-C01","title":"Characteristics used to recognise living organisms"},
+          {"code":"C6-SCI-10-C02","title":"Growth, nutrition and respiration"},
+          {"code":"C6-SCI-10-C03","title":"Response, movement and reproduction"},
+          {"code":"C6-SCI-10-C04","title":"Life cycles and variation among organisms"},
+          {"code":"C6-SCI-10-C05","title":"Using evidence to distinguish living and non-living"}
+        ]},
+        {"code":"C6-SCI-11","title":"Nature’s Treasures","concepts":[
+          {"code":"C6-SCI-11-C01","title":"Natural resources around us"},
+          {"code":"C6-SCI-11-C02","title":"Renewable and limited resources at an introductory level"},
+          {"code":"C6-SCI-11-C03","title":"Resource use, waste and conservation"},
+          {"code":"C6-SCI-11-C04","title":"Responsible choices for water, soil, forests and energy"}
+        ]},
+        {"code":"C6-SCI-12","title":"Beyond Earth","concepts":[
+          {"code":"C6-SCI-12-C01","title":"Observing the night sky"},
+          {"code":"C6-SCI-12-C02","title":"Stars and familiar sky patterns"},
+          {"code":"C6-SCI-12-C03","title":"The Sun, planets and the Solar System"},
+          {"code":"C6-SCI-12-C04","title":"Earth’s place in a larger universe"},
+          {"code":"C6-SCI-12-C05","title":"Models, scale and evidence in space science"}
+        ]}
+      ]
+    },
+    {
+      "subjectCode": "SOCIAL_SCIENCE",
+      "chapters": [
+        {"code":"C6-SST-01","title":"Locating Places on the Earth","concepts":[
+          {"code":"C6-SST-01-C01","title":"Maps, globes and representations"},
+          {"code":"C6-SST-01-C02","title":"Directions, symbols and scale"},
+          {"code":"C6-SST-01-C03","title":"Latitude and longitude as location tools"},
+          {"code":"C6-SST-01-C04","title":"Using coordinates and maps to locate places"}
+        ]},
+        {"code":"C6-SST-02","title":"Oceans and Continents","concepts":[
+          {"code":"C6-SST-02-C01","title":"Major oceans and continents"},
+          {"code":"C6-SST-02-C02","title":"Land-water distribution"},
+          {"code":"C6-SST-02-C03","title":"Oceans as connected systems"},
+          {"code":"C6-SST-02-C04","title":"Human relationships with oceans and continents"}
+        ]},
+        {"code":"C6-SST-03","title":"Landforms and Life","concepts":[
+          {"code":"C6-SST-03-C01","title":"Mountains, plateaus and plains"},
+          {"code":"C6-SST-03-C02","title":"How landforms shape settlement and livelihoods"},
+          {"code":"C6-SST-03-C03","title":"Opportunities and challenges of different landforms"},
+          {"code":"C6-SST-03-C04","title":"Indian examples of diverse landscapes"}
+        ]},
+        {"code":"C6-SST-04","title":"Timeline and Sources of History","concepts":[
+          {"code":"C6-SST-04-C01","title":"Chronology and timelines"},
+          {"code":"C6-SST-04-C02","title":"Dating and periods in the past"},
+          {"code":"C6-SST-04-C03","title":"Material, written and oral historical sources"},
+          {"code":"C6-SST-04-C04","title":"Evidence, interpretation and historical questions"}
+        ]},
+        {"code":"C6-SST-05","title":"India, That Is Bharat","concepts":[
+          {"code":"C6-SST-05-C01","title":"Names and ideas associated with India/Bharat"},
+          {"code":"C6-SST-05-C02","title":"Geographical imagination of the subcontinent"},
+          {"code":"C6-SST-05-C03","title":"Sources that help trace ideas of Bharat"}
+        ]},
+        {"code":"C6-SST-06","title":"The Beginnings of Indian Civilisation","concepts":[
+          {"code":"C6-SST-06-C01","title":"Settlements and features of early urban civilisation"},
+          {"code":"C6-SST-06-C02","title":"Archaeological evidence and material culture"},
+          {"code":"C6-SST-06-C03","title":"Trade, craft and daily life"},
+          {"code":"C6-SST-06-C04","title":"Change, continuity and unanswered historical questions"}
+        ]},
+        {"code":"C6-SST-07","title":"India’s Cultural Roots","concepts":[
+          {"code":"C6-SST-07-C01","title":"Early ideas, texts and traditions"},
+          {"code":"C6-SST-07-C02","title":"Questioning, dialogue and philosophical traditions"},
+          {"code":"C6-SST-07-C03","title":"Shared values and diverse cultural expressions"}
+        ]},
+        {"code":"C6-SST-08","title":"Unity in Diversity, or ‘Many in the One’","concepts":[
+          {"code":"C6-SST-08-C01","title":"Language, food, clothing and cultural diversity"},
+          {"code":"C6-SST-08-C02","title":"Patterns of connection across diversity"},
+          {"code":"C6-SST-08-C03","title":"Respectful comparison without stereotyping"},
+          {"code":"C6-SST-08-C04","title":"Unity and plural identities in India"}
+        ]},
+        {"code":"C6-SST-09","title":"Family and Community","concepts":[
+          {"code":"C6-SST-09-C01","title":"Family roles, relationships and change"},
+          {"code":"C6-SST-09-C02","title":"Community cooperation and shared responsibilities"},
+          {"code":"C6-SST-09-C03","title":"Diversity of family and community arrangements"},
+          {"code":"C6-SST-09-C04","title":"Care, reciprocity and social responsibility"}
+        ]},
+        {"code":"C6-SST-10","title":"Grassroots Democracy – Part 1: Governance","concepts":[
+          {"code":"C6-SST-10-C01","title":"Why societies need rules and decision-making"},
+          {"code":"C6-SST-10-C02","title":"Meaning and levels of governance"},
+          {"code":"C6-SST-10-C03","title":"Participation, representation and accountability"}
+        ]},
+        {"code":"C6-SST-11","title":"Grassroots Democracy – Part 2: Local Government in Rural Areas","concepts":[
+          {"code":"C6-SST-11-C01","title":"Gram Sabha and local participation"},
+          {"code":"C6-SST-11-C02","title":"Gram Panchayat and local responsibilities"},
+          {"code":"C6-SST-11-C03","title":"Decision-making and public services in rural areas"},
+          {"code":"C6-SST-11-C04","title":"Citizen participation in rural local government"}
+        ]},
+        {"code":"C6-SST-12","title":"Grassroots Democracy – Part 3: Local Government in Urban Areas","concepts":[
+          {"code":"C6-SST-12-C01","title":"Urban local bodies"},
+          {"code":"C6-SST-12-C02","title":"Wards, representatives and civic administration"},
+          {"code":"C6-SST-12-C03","title":"Urban public services and local problems"},
+          {"code":"C6-SST-12-C04","title":"Citizen responsibility and participation in cities/towns"}
+        ]},
+        {"code":"C6-SST-13","title":"The Value of Work","concepts":[
+          {"code":"C6-SST-13-C01","title":"Work in home, community and economy"},
+          {"code":"C6-SST-13-C02","title":"Paid and unpaid work"},
+          {"code":"C6-SST-13-C03","title":"Dignity of labour"},
+          {"code":"C6-SST-13-C04","title":"Recognising interdependence through work"}
+        ]},
+        {"code":"C6-SST-14","title":"Economic Activities Around Us","concepts":[
+          {"code":"C6-SST-14-C01","title":"Production, exchange and services in everyday life"},
+          {"code":"C6-SST-14-C02","title":"Primary, secondary and service activities at an introductory level"},
+          {"code":"C6-SST-14-C03","title":"Value creation and interdependence of occupations"},
+          {"code":"C6-SST-14-C04","title":"Observing local economic activities"}
+        ]}
+      ]
+    },
+    {
+      "subjectCode": "ENGLISH",
+      "type": "LANGUAGE_REFERENCE",
+      "skillStrands": [
+        {"code":"C6-ENG-S01","title":"Listening for gist, detail and response"},
+        {"code":"C6-ENG-S02","title":"Speaking clearly in conversation, narration and presentation"},
+        {"code":"C6-ENG-S03","title":"Reading literary and informational texts with comprehension"},
+        {"code":"C6-ENG-S04","title":"Vocabulary development through context and word relationships"},
+        {"code":"C6-ENG-S05","title":"Grammar in meaningful language use"},
+        {"code":"C6-ENG-S06","title":"Writing paragraphs, descriptions, narratives and functional texts"},
+        {"code":"C6-ENG-S07","title":"Responding to poetry, stories, culture and values"}
+      ]
+    },
+    {
+      "subjectCode": "HINDI",
+      "type": "LANGUAGE_REFERENCE",
+      "skillStrands": [
+        {"code":"C6-HI-S01","title":"श्रवण-बोध और प्रतिक्रिया"},
+        {"code":"C6-HI-S02","title":"मौखिक अभिव्यक्ति और संवाद"},
+        {"code":"C6-HI-S03","title":"गद्य-पद्य पठन और बोध"},
+        {"code":"C6-HI-S04","title":"शब्दावली और संदर्भ से अर्थ"},
+        {"code":"C6-HI-S05","title":"व्याकरण का संदर्भपूर्ण प्रयोग"},
+        {"code":"C6-HI-S06","title":"अनुच्छेद, वर्णन, कथा और पत्र/कार्यात्मक लेखन"},
+        {"code":"C6-HI-S07","title":"साहित्य, संस्कृति, संवेदना और मूल्य-बोध"}
+      ]
+    },
+    {
+      "subjectCode": "SANSKRIT",
+      "type": "R3_REFERENCE_EXAMPLE",
+      "skillStrands": [
+        {"code":"C6-SA-S01","title":"वर्ण और संयुक्त-व्यञ्जन पठन"},
+        {"code":"C6-SA-S02","title":"मूल शब्दावली और वाक्य-बोध"},
+        {"code":"C6-SA-S03","title":"सर्वनाम, संख्या और सरल रूप-प्रयोग"},
+        {"code":"C6-SA-S04","title":"सरल क्रियापद और दैनिक वाक्य"},
+        {"code":"C6-SA-S05","title":"पठन, उच्चारण और लघु संवाद"},
+        {"code":"C6-SA-S06","title":"श्लोक/कथा से भाषा और मूल्य-बोध"}
+      ]
+    },
+    {
+      "subjectCode": "ART_EDUCATION",
+      "domains": ["Visual Arts","Music","Dance","Theatre"],
+      "conceptPolicy": "Activity-led; each official chapter is a syllabus node and future VidyaSetu content should map skills, techniques, reflection and cultural context beneath it."
+    },
+    {
+      "subjectCode": "PHYSICAL_EDUCATION_WELLBEING",
+      "concepts": [
+        {"code":"C6-PE-01","title":"Physical activity, well-being and safe participation"},
+        {"code":"C6-PE-02","title":"Motor fitness: balance, coordination, agility, strength and endurance"},
+        {"code":"C6-PE-03","title":"Fundamental Kho-Kho skills and teamwork"},
+        {"code":"C6-PE-04","title":"Fundamental Handball skills and teamwork"},
+        {"code":"C6-PE-05","title":"Yoga practice, awareness and well-being"}
+      ]
+    },
+    {
+      "subjectCode": "VOCATIONAL_EDUCATION",
+      "projectConcepts": [
+        {"code":"C6-VE-01","title":"School Kitchen Garden","domain":"Work with Life Forms"},
+        {"code":"C6-VE-02","title":"Biodiversity Register","domain":"Work with Life Forms"},
+        {"code":"C6-VE-03","title":"Maker Skills","domain":"Work with Machines and Materials"},
+        {"code":"C6-VE-04","title":"Animation and Games","domain":"Work with Machines and Materials"},
+        {"code":"C6-VE-05","title":"School Museum","domain":"Work in Human Services"},
+        {"code":"C6-VE-06","title":"Cooking without Fire","domain":"Work in Human Services"}
+      ]
+    },
+    {
+      "subjectCode": "CT_AI",
+      "strands": [
+        {"code":"C6-CTAI-01","title":"Decomposition: breaking a problem into manageable parts"},
+        {"code":"C6-CTAI-02","title":"Pattern recognition"},
+        {"code":"C6-CTAI-03","title":"Abstraction: identifying relevant information"},
+        {"code":"C6-CTAI-04","title":"Algorithmic thinking and step-wise procedures"},
+        {"code":"C6-CTAI-05","title":"Data collection, organisation and basic analysis"},
+        {"code":"C6-CTAI-06","title":"Troubleshooting and iterative problem solving"},
+        {"code":"C6-CTAI-07","title":"Foundational understanding of AI through relatable examples"},
+        {"code":"C6-CTAI-08","title":"AI-supported interdisciplinary project work"},
+        {"code":"C6-CTAI-09","title":"Digital footprints, privacy and responsible technology use"},
+        {"code":"C6-CTAI-10","title":"Bias, fairness and responsible AI"}
+      ]
+    }
+  ]
+}
