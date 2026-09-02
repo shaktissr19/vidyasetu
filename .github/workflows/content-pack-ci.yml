@@ -1,0 +1,60 @@
+name: Content Pack CI
+
+on:
+  pull_request:
+    paths:
+      - 'content/**'
+      - 'backend/src/scripts/installPressurePack.ts'
+      - 'scripts/validate-content-pack.mjs'
+      - '.github/workflows/content-pack-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'content/**'
+      - 'backend/src/scripts/installPressurePack.ts'
+      - 'scripts/validate-content-pack.mjs'
+      - '.github/workflows/content-pack-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-content-packs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate bilingual learning packs
+        run: node scripts/validate-content-pack.mjs content
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -f dist/index.d.ts
+
+      - name: Build backend installer
+        working-directory: backend
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -f dist/scripts/installPressurePack.js
+
+      - name: Prove Pressure installer dry-run is write-free
+        run: |
+          set -euo pipefail
+          output="$(node backend/dist/scripts/installPressurePack.js)"
+          printf '%s\n' "$output"
+          grep -F "Pressure pack validated: VS-C8-SCI-FP-PRESSURE-V1" <<<"$output"
+          grep -F "Question bank: 12 bilingual questions" <<<"$output"
+          grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"

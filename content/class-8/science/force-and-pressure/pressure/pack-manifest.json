@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-PRESSURE-V1",
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "gradeCodes": ["CLASS_8"],
+  "boardCodes": ["COMMON"],
+  "subject": "Science",
+  "theme": "Force and Pressure",
+  "concept": "Pressure",
+  "topicLabel": "Pressure",
+  "languages": ["en", "hi"],
+  "contentIdentity": ["SEE", "UNDERSTAND", "DO", "PRACTISE", "APPLY", "REVISE"],
+  "learningOutcomes": [
+    {
+      "id": "LO-P-01",
+      "en": "Distinguish force from pressure in familiar situations.",
+      "hi": "परिचित परिस्थितियों में बल और दाब के बीच अंतर बताना।"
+    },
+    {
+      "id": "LO-P-02",
+      "en": "Explain that pressure depends on force and the area over which the force acts.",
+      "hi": "समझाना कि दाब, बल और उस क्षेत्रफल दोनों पर निर्भर करता है जिस पर बल लगता है।"
+    },
+    {
+      "id": "LO-P-03",
+      "en": "Predict how changing contact area changes pressure when the applied force is similar.",
+      "hi": "समान बल की स्थिति में संपर्क क्षेत्रफल बदलने से दाब में होने वाले परिवर्तन का अनुमान लगाना।"
+    },
+    {
+      "id": "LO-P-04",
+      "en": "Use P = F/A in simple numerical situations and identify pascal as N/m².",
+      "hi": "सरल संख्यात्मक प्रश्नों में P = F/A का उपयोग करना और पास्कल को N/m² के रूप में पहचानना।"
+    },
+    {
+      "id": "LO-P-05",
+      "en": "Use the idea of pressure to explain everyday design choices.",
+      "hi": "दाब की अवधारणा से रोज़मर्रा की वस्तुओं के डिजाइन को समझाना।"
+    }
+  ],
+  "prerequisites": [
+    {
+      "en": "A force can be a push or a pull and can change motion or shape.",
+      "hi": "बल धक्का या खिंचाव हो सकता है और गति या आकार में परिवर्तन कर सकता है।"
+    },
+    {
+      "en": "Basic understanding of area and division.",
+      "hi": "क्षेत्रफल और भाग की मूल समझ।"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "MC-P-01",
+      "en": "More force always means more pressure, regardless of area.",
+      "hi": "क्षेत्रफल चाहे जैसा हो, अधिक बल का मतलब हमेशा अधिक दाब होता है।"
+    },
+    {
+      "id": "MC-P-02",
+      "en": "Force and pressure are the same quantity.",
+      "hi": "बल और दाब एक ही भौतिक राशि हैं।"
+    },
+    {
+      "id": "MC-P-03",
+      "en": "A larger contact area produces more pressure simply because the surface is larger.",
+      "hi": "सिर्फ सतह बड़ी होने के कारण बड़ा संपर्क क्षेत्रफल अधिक दाब पैदा करता है।"
+    }
+  ],
+  "sequence": [
+    {
+      "order": 1,
+      "stage": "SEE",
+      "assetId": "VS-PRESSURE-HOOK-01",
+      "type": "ARTICLE",
+      "titleEn": "Why do broad school-bag straps feel more comfortable?",
+      "titleHi": "चौड़े स्कूल-बैग स्ट्रैप अधिक आरामदायक क्यों लगते हैं?",
+      "durationSecs": 90
+    },
+    {
+      "order": 2,
+      "stage": "UNDERSTAND",
+      "assetId": "VS-PRESSURE-VIDEO-01",
+      "type": "VIDEO",
+      "titleEn": "Pressure: same force, different effect",
+      "titleHi": "दाब: वही बल, अलग असर",
+      "durationSecs": 360
+    },
+    {
+      "order": 3,
+      "stage": "UNDERSTAND",
+      "assetId": "VS-PRESSURE-ARTICLE-01",
+      "type": "ARTICLE",
+      "titleEn": "Pressure made simple",
+      "titleHi": "दाब को आसान तरीके से समझें",
+      "durationSecs": 300
+    },
+    {
+      "order": 4,
+      "stage": "DO",
+      "assetId": "VS-PRESSURE-PRACTICAL-01",
+      "type": "VIDEO",
+      "titleEn": "Practical: area changes pressure",
+      "titleHi": "प्रयोग: क्षेत्रफल बदलने से दाब कैसे बदलता है",
+      "durationSecs": 300,
+      "safetyLevel": "GREEN"
+    },
+    {
+      "order": 5,
+      "stage": "PRACTISE",
+      "assetId": "VS-PRESSURE-PRACTICE-01",
+      "type": "QUIZ",
+      "titleEn": "Pressure practice",
+      "titleHi": "दाब अभ्यास",
+      "questionIds": [
+        "VS8S-PRES-001",
+        "VS8S-PRES-002",
+        "VS8S-PRES-003",
+        "VS8S-PRES-004",
+        "VS8S-PRES-005",
+        "VS8S-PRES-006",
+        "VS8S-PRES-007",
+        "VS8S-PRES-008"
+      ]
+    },
+    {
+      "order": 6,
+      "stage": "APPLY",
+      "assetId": "VS-PRESSURE-CHALLENGE-01",
+      "type": "WORKSHEET",
+      "titleEn": "Design for soft ground",
+      "titleHi": "नरम जमीन के लिए डिजाइन करें",
+      "durationSecs": 600
+    },
+    {
+      "order": 7,
+      "stage": "REVISE",
+      "assetId": "VS-PRESSURE-AUDIO-01",
+      "type": "AUDIO",
+      "titleEn": "Pressure in 3 minutes",
+      "titleHi": "3 मिनट में दाब का दोहराव",
+      "durationSecs": 180
+    },
+    {
+      "order": 8,
+      "stage": "REVISE",
+      "assetId": "VS-PRESSURE-MASTERY-01",
+      "type": "QUIZ",
+      "titleEn": "Pressure mastery check",
+      "titleHi": "दाब महारत जाँच",
+      "questionIds": [
+        "VS8S-PRES-003",
+        "VS8S-PRES-005",
+        "VS8S-PRES-007",
+        "VS8S-PRES-009",
+        "VS8S-PRES-010",
+        "VS8S-PRES-011",
+        "VS8S-PRES-012"
+      ]
+    }
+  ],
+  "mediaProduction": {
+    "videoPrimaryLanguage": "visual-language-light",
+    "audioTracks": ["en", "hi"],
+    "subtitleTracks": ["en", "hi"],
+    "captionRequired": true,
+    "transcriptRequired": true,
+    "embeddedTextPolicy": "Keep embedded text minimal; produce language-specific overlays where labels are necessary."
+  },
+  "accessibility": {
+    "captions": true,
+    "transcripts": true,
+    "audioDescriptionNotes": true,
+    "colourAloneMustNotCarryMeaning": true,
+    "offlineText": true,
+    "offlineAudioTarget": true
+  },
+  "publicationPolicy": {
+    "autoPublish": false,
+    "requiredReviews": ["SCIENCE_SME", "HINDI_ACADEMIC_LANGUAGE", "ASSESSMENT_QA", "SAFETY", "EDITORIAL"]
+  }
+}
