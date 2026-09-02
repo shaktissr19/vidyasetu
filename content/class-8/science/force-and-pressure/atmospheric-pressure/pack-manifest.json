@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-ATMOSPHERIC-V1",
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "gradeCodes": ["CLASS_8"],
+  "boardCodes": ["COMMON"],
+  "subject": "Science",
+  "theme": "Force and Pressure",
+  "concept": "Atmospheric pressure",
+  "topicLabel": "Atmospheric pressure",
+  "languages": ["en", "hi"],
+  "learningOutcomes": [
+    {"id":"LO-AP-01","en":"Explain that air is matter and can exert pressure on surfaces.","hi":"समझाएँ कि वायु पदार्थ है और सतहों पर दाब डाल सकती है।"},
+    {"id":"LO-AP-02","en":"Describe atmospheric pressure as pressure exerted by the air surrounding Earth.","hi":"वायुमंडलीय दाब को पृथ्वी को घेरे वायु द्वारा डाले गए दाब के रूप में वर्णित करें।"},
+    {"id":"LO-AP-03","en":"Recognise that atmospheric pressure acts in all directions, not only downward.","hi":"पहचानें कि वायुमंडलीय दाब केवल नीचे नहीं, बल्कि सभी दिशाओं में कार्य करता है।"},
+    {"id":"LO-AP-04","en":"Use pressure differences to explain simple everyday effects such as drinking through a straw and a suction cup sticking to a smooth surface.","hi":"दाब के अंतर से स्ट्रॉ से पीना और सक्शन कप का चिकनी सतह पर चिपकना जैसी रोज़मर्रा की घटनाएँ समझाएँ।"},
+    {"id":"LO-AP-05","en":"Use observations from safe demonstrations to distinguish evidence from explanation and correct common suction misconceptions.","hi":"सुरक्षित प्रदर्शनों के अवलोकनों से प्रमाण और व्याख्या में अंतर करें तथा सक्शन से जुड़ी सामान्य गलत धारणाएँ सुधारें।"}
+  ],
+  "sequence": [
+    {"stage":"SEE","assetId":"VS-AP-HOOK-01","type":"ARTICLE","titleEn":"Why can a card stay under an inverted cup?","titleHi":"उल्टे कप के नीचे कार्ड क्यों टिक सकता है?"},
+    {"stage":"UNDERSTAND","assetId":"VS-AP-LESSON-01","type":"ARTICLE","titleEn":"Atmospheric pressure made simple","titleHi":"वायुमंडलीय दाब आसान तरीके से"},
+    {"stage":"UNDERSTAND","assetId":"VS-AP-VIDEO-01","type":"VIDEO","titleEn":"Air pushes too: understanding atmospheric pressure","titleHi":"वायु भी दाब डालती है: वायुमंडलीय दाब समझें"},
+    {"stage":"DO","assetId":"VS-AP-PRACTICAL-01","type":"PRACTICAL_VIDEO","titleEn":"Plastic cup, card and suction-cup investigation","titleHi":"प्लास्टिक कप, कार्ड और सक्शन कप प्रयोग"},
+    {"stage":"PRACTISE","assetId":"VS-AP-PRACTICE-01","type":"QUIZ","titleEn":"Atmospheric pressure practice","titleHi":"वायुमंडलीय दाब अभ्यास","questionIds":["VS8S-AP-001","VS8S-AP-002","VS8S-AP-003","VS8S-AP-004","VS8S-AP-005","VS8S-AP-006","VS8S-AP-007","VS8S-AP-008"]},
+    {"stage":"APPLY","assetId":"VS-AP-WORKSHEET-01","type":"WORKSHEET","titleEn":"Pressure-difference detective","titleHi":"दाब-अंतर जासूस"},
+    {"stage":"REVISE","assetId":"VS-AP-AUDIO-01","type":"AUDIO","titleEn":"Atmospheric pressure in three minutes","titleHi":"वायुमंडलीय दाब तीन मिनट में"},
+    {"stage":"REVISE","assetId":"VS-AP-MASTERY-01","type":"QUIZ","titleEn":"Atmospheric pressure mastery","titleHi":"वायुमंडलीय दाब महारत जाँच","questionIds":["VS8S-AP-003","VS8S-AP-005","VS8S-AP-006","VS8S-AP-008","VS8S-AP-009","VS8S-AP-010","VS8S-AP-011","VS8S-AP-012"]}
+  ]
+}
