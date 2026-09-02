@@ -1,0 +1,89 @@
+{
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "scoreModel": "content/standards/content-quality-standard.md",
+  "classes": [
+    {
+      "gradeCode": "CLASS_8",
+      "subjects": [
+        {
+          "subject": "Science",
+          "units": [
+            {
+              "unitCode": "C8-SCI-FORCE-PRESSURE",
+              "titleEn": "Force and Pressure",
+              "titleHi": "बल और दाब",
+              "boardScope": ["COMMON"],
+              "concepts": [
+                {
+                  "conceptCode": "C8-SCI-FP-FORCE",
+                  "titleEn": "Force: push, pull and interaction",
+                  "titleHi": "बल: धक्का, खिंचाव और परस्पर क्रिया",
+                  "packId": "VS-C8-SCI-FP-FORCE-V1",
+                  "authoringStatus": "DRAFT_READY",
+                  "assets": {"englishText":"READY","hindiText":"READY","conceptVideo":"SCRIPT_READY","practicalOrVisual":"SCRIPT_READY","practiceBank":"READY","mastery":"READY","revision":"SCRIPT_READY","accessibility":"SPEC_READY","academicQa":"PENDING"}
+                },
+                {
+                  "conceptCode": "C8-SCI-FP-EFFECTS",
+                  "titleEn": "Effects of Force",
+                  "titleHi": "बल के प्रभाव",
+                  "packId": "VS-C8-SCI-FP-EFFECTS-V1",
+                  "authoringStatus": "DRAFT_READY",
+                  "assets": {"englishText":"READY","hindiText":"READY","conceptVideo":"SCRIPT_READY","practicalOrVisual":"SCRIPT_READY","practiceBank":"READY","mastery":"READY","revision":"SCRIPT_READY","accessibility":"SPEC_READY","academicQa":"PENDING"}
+                },
+                {
+                  "conceptCode": "C8-SCI-FP-CONTACT-NONCONTACT",
+                  "titleEn": "Contact and non-contact forces",
+                  "titleHi": "संपर्क और असंपर्क बल",
+                  "packId": null,
+                  "authoringStatus": "NEXT",
+                  "assets": {"englishText":"NOT_STARTED","hindiText":"NOT_STARTED","conceptVideo":"NOT_STARTED","practicalOrVisual":"NOT_STARTED","practiceBank":"NOT_STARTED","mastery":"NOT_STARTED","revision":"NOT_STARTED","accessibility":"NOT_STARTED","academicQa":"NOT_STARTED"}
+                },
+                {
+                  "conceptCode": "C8-SCI-FP-PRESSURE",
+                  "titleEn": "Pressure",
+                  "titleHi": "दाब",
+                  "packId": "VS-C8-SCI-FP-PRESSURE-V1",
+                  "authoringStatus": "DRAFT_READY",
+                  "assets": {"englishText":"READY","hindiText":"READY","conceptVideo":"SCRIPT_READY","practicalOrVisual":"SCRIPT_READY","practiceBank":"READY","mastery":"READY","revision":"SCRIPT_READY","accessibility":"SPEC_READY","academicQa":"PENDING"}
+                },
+                {
+                  "conceptCode": "C8-SCI-FP-LIQUID-PRESSURE",
+                  "titleEn": "Pressure in liquids",
+                  "titleHi": "द्रवों में दाब",
+                  "packId": null,
+                  "authoringStatus": "PLANNED",
+                  "assets": {"englishText":"NOT_STARTED","hindiText":"NOT_STARTED","conceptVideo":"NOT_STARTED","practicalOrVisual":"NOT_STARTED","practiceBank":"NOT_STARTED","mastery":"NOT_STARTED","revision":"NOT_STARTED","accessibility":"NOT_STARTED","academicQa":"NOT_STARTED"}
+                },
+                {
+                  "conceptCode": "C8-SCI-FP-ATMOSPHERIC",
+                  "titleEn": "Atmospheric pressure",
+                  "titleHi": "वायुमंडलीय दाब",
+                  "packId": null,
+                  "authoringStatus": "PLANNED",
+                  "assets": {"englishText":"NOT_STARTED","hindiText":"NOT_STARTED","conceptVideo":"NOT_STARTED","practicalOrVisual":"NOT_STARTED","practiceBank":"NOT_STARTED","mastery":"NOT_STARTED","revision":"NOT_STARTED","accessibility":"NOT_STARTED","academicQa":"NOT_STARTED"}
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "subject": "Mathematics",
+          "units": [{"unitCode":"C8-MATH-LINEAR-EQUATIONS","titleEn":"Linear Equations in One Variable","titleHi":"एक चर वाले रैखिक समीकरण","boardScope":["COMMON"],"concepts":[],"authoringStatus":"NEXT_ARCHETYPE"}]
+        },
+        {
+          "subject": "Social Science",
+          "units": [{"unitCode":"C8-SST-PILOT","titleEn":"Story/map/civics pilot unit","titleHi":"कहानी/मानचित्र/नागरिक शास्त्र पायलट इकाई","boardScope":["COMMON"],"concepts":[],"authoringStatus":"PLANNED_ARCHETYPE"}]
+        },
+        {
+          "subject": "English",
+          "units": [{"unitCode":"C8-ENG-PILOT","titleEn":"Listen–Read–Speak–Write pilot","titleHi":"सुनें–पढ़ें–बोलें–लिखें पायलट","boardScope":["COMMON"],"concepts":[],"authoringStatus":"PLANNED_ARCHETYPE"}]
+        },
+        {
+          "subject": "Hindi",
+          "units": [{"unitCode":"C8-HI-PILOT","titleEn":"Hindi language-learning pilot","titleHi":"हिंदी भाषा-अधिगम पायलट","boardScope":["COMMON"],"concepts":[],"authoringStatus":"PLANNED_ARCHETYPE"}]
+        }
+      ]
+    }
+  ]
+}
