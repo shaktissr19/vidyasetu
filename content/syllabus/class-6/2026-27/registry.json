@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "1.0",
+  "registryId": "VS-SYL-C6-2026-27-V1",
+  "status": "DRAFT_VERIFIED_INDEX",
+  "academicSession": "2026-27",
+  "gradeCode": "CLASS_6",
+  "stage": "MIDDLE",
+  "standardOwner": "VIDYASETU",
+  "referenceFrameworks": ["NCF-SE-2023", "NCERT-2026-27", "CBSE-2026-27"],
+  "principle": "VidyaSetu syllabus nodes are stable academic anchors. Textbooks, boards and learning resources map to them and may change independently.",
+  "languageModel": {
+    "scheme": "R1_R2_R3_CONFIGURABLE",
+    "rule": "A school selects languages according to applicable policy; VidyaSetu does not hard-code English, Hindi or Sanskrit as a universal R1/R2/R3 assignment.",
+    "cbse2026_27Note": "R3 is implemented from Class VI; at least two of R1/R2/R3 are native Indian languages under the CBSE/NCF-SE multilingual model."
+  },
+  "curricularAreas": [
+    {"code":"LANGUAGE_R1","name":"Language R1","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"LANGUAGE_R2","name":"Language R2","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"LANGUAGE_R3","name":"Language R3","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"MATHEMATICS","name":"Mathematics","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"SCIENCE","name":"Science","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"SOCIAL_SCIENCE","name":"Social Science","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"ART_EDUCATION","name":"Art Education","kind":"HOLISTIC","requiredInStandard":true},
+    {"code":"PHYSICAL_EDUCATION_WELLBEING","name":"Physical Education and Well-being","kind":"HOLISTIC","requiredInStandard":true},
+    {"code":"VOCATIONAL_EDUCATION","name":"Vocational Education","kind":"SKILL","requiredInStandard":true},
+    {"code":"CT_AI","name":"Computational Thinking and Artificial Intelligence","kind":"CROSS_CURRICULAR","requiredInStandard":true,"note":"CBSE 2026-27 framework for Classes III-VIII; at Middle Stage it advances CT and introduces foundational AI through worksheets, theory and interdisciplinary projects."}
+  ],
+  "referenceBooks": [
+    {
+      "subjectCode":"ENGLISH",
+      "curricularArea":"LANGUAGE_SLOT",
+      "title":"Poorvi",
+      "publisher":"NCERT",
+      "publicationCode":"0673",
+      "mappingRole":"REFERENCE_LANGUAGE_BOOK",
+      "structure":[
+        {"unit":1,"title":"Fables and Folk Tales","items":["A Bottle of Dew","The Raven and the Fox","Rama to the Rescue"]},
+        {"unit":2,"title":"Friendship","items":["The Unlikely Best Friends","A Friend’s Prayer","The Chair"]},
+        {"unit":3,"title":"Nurturing Nature","items":["Neem Baba","What a Bird Thought","Spices that Heal Us"]},
+        {"unit":4,"title":"Sports and Wellness","items":["Change of Heart","The Winner","Yoga – A Way of Life"]},
+        {"unit":5,"title":"Culture and Tradition","items":["Hamara Bharat—Incredible India!","The Kites","Ila Sachani: Embroidering Dreams with her Feet","National War Memorial"]}
+      ]
+    },
+    {
+      "subjectCode":"HINDI",
+      "curricularArea":"LANGUAGE_SLOT",
+      "title":"Malhar",
+      "publisher":"NCERT",
+      "publicationCode":"0671",
+      "mappingRole":"REFERENCE_LANGUAGE_BOOK",
+      "chapters":[
+        "मातृभूमि","गोल","पहली बूँद","हार की जीत","रहीम के दोहे","मेरी माँ","जलाते चलो","सत्रिया और बिहू नृत्य","मैया मैं नहिं माखन खायो","परीक्षा","चेतक की वीरता","हिंद महासागर में छोटा-सा हिंदुस्तान","पेड़ की बात"
+      ]
+    },
+    {
+      "subjectCode":"SANSKRIT",
+      "curricularArea":"LANGUAGE_SLOT",
+      "title":"Deepakam",
+      "publisher":"NCERT",
+      "publicationCode":"0672",
+      "mappingRole":"REFERENCE_R3_OPTION_EXAMPLE",
+      "note":"Sanskrit is one possible language option; R3 must remain configurable.",
+      "chapters":[
+        "वयं वर्णमालां पठामः","संयुक्त-व्यञ्जनानि","एषः कः? एषा का? एतत् किम्?","अहं च त्वं च","संख्यागणना ननु सरला","अहं प्रातः उत्तिष्ठामि","शूराः वयं धीराः वयम्","सः एव महान् चित्रकारः","अतिथिदेवो भव","बुद्धिः सर्वार्थसाधिका","यः जानाति सः पण्डितः","त्वम् आपणं गच्छ","पृथिव्यां त्रीणि रत्नानि","आलस्यं हि मनुष्याणां शरीरस्थः महान् रिपुः","माधवस्य प्रियम् अङ्गम्","वृक्षाः सत्पुरुषाः इव"
+      ]
+    },
+    {
+      "subjectCode":"MATHEMATICS",
+      "curricularArea":"MATHEMATICS",
+      "title":"Ganita Prakash",
+      "publisher":"NCERT",
+      "publicationCode":"0674",
+      "mappingRole":"PRIMARY_REFERENCE",
+      "chapters":[
+        "Patterns in Mathematics","Lines and Angles","Number Play","Data Handling and Presentation","Prime Time","Perimeter and Area","Fractions","Playing with Constructions","Symmetry","The Other Side of Zero"
+      ]
+    },
+    {
+      "subjectCode":"SCIENCE",
+      "curricularArea":"SCIENCE",
+      "title":"Curiosity",
+      "publisher":"NCERT",
+      "publicationCode":"0677",
+      "mappingRole":"PRIMARY_REFERENCE",
+      "chapters":[
+        "The Wonderful World of Science","Diversity in the Living World","Mindful Eating: A Path to a Healthy Body","Exploring Magnets","Measurement of Length and Motion","Materials Around Us","Temperature and its Measurement","A Journey through States of Water","Methods of Separation in Everyday Life","Living Creatures: Exploring their Characteristics","Nature’s Treasures","Beyond Earth"
+      ]
+    },
+    {
+      "subjectCode":"SOCIAL_SCIENCE",
+      "curricularArea":"SOCIAL_SCIENCE",
+      "title":"Exploring Society: India and Beyond",
+      "publisher":"NCERT",
+      "publicationCode":"0681",
+      "mappingRole":"PRIMARY_REFERENCE",
+      "chapters":[
+        "Locating Places on the Earth","Oceans and Continents","Landforms and Life","Timeline and Sources of History","India, That Is Bharat","The Beginnings of Indian Civilisation","India’s Cultural Roots","Unity in Diversity, or ‘Many in the One’","Family and Community","Grassroots Democracy – Part 1: Governance","Grassroots Democracy – Part 2: Local Government in Rural Areas","Grassroots Democracy – Part 3: Local Government in Urban Areas","The Value of Work","Economic Activities Around Us"
+      ]
+    },
+    {
+      "subjectCode":"ART_EDUCATION",
+      "curricularArea":"ART_EDUCATION",
+      "title":"Kriti-I",
+      "publisher":"NCERT",
+      "mappingRole":"PRIMARY_REFERENCE",
+      "domains":[
+        {"name":"Visual Arts","chapters":["Objects and Still Life","Changing the Typical Picture","Portraying People","Paper Crafts","Seals to Prints"]},
+        {"name":"Music","chapters":["Music and Your Emotions","Musical Instruments","Taal or Talam and Raga or Ragam in Indian Music","Melodies of Diversity","Songwriting","Music and Society"]},
+        {"name":"Dance","chapters":["My Body in Motion","Breaking Barriers with Dance","Harmony in Motion","Dances of Our Land"]},
+        {"name":"Theatre","chapters":["Emotions Unveiled!","Let’s Design — Stage Technicals","In the Company of the Theatre","Stories of Shadows and Strings — Puppetry","The Grand Finale","Integration of All Art Forms","Assessment"]}
+      ]
+    },
+    {
+      "subjectCode":"PHYSICAL_EDUCATION_WELLBEING",
+      "curricularArea":"PHYSICAL_EDUCATION_WELLBEING",
+      "title":"Khel Yatra",
+      "publisher":"NCERT",
+      "mappingRole":"PRIMARY_REFERENCE",
+      "chapters":["Importance of Physical Education and Well-being","Motor Fitness","Fundamental Skills of Kho-Kho","Fundamental Skills of Handball","Yoga"]
+    },
+    {
+      "subjectCode":"VOCATIONAL_EDUCATION",
+      "curricularArea":"VOCATIONAL_EDUCATION",
+      "title":"Kaushal Bodh",
+      "publisher":"NCERT",
+      "mappingRole":"PRIMARY_REFERENCE",
+      "cbseRequirement":"MANDATORY_FROM_2026_27_FOR_CLASSES_VI_VIII",
+      "parts":[
+        {"name":"Work with Life Forms","projects":["School Kitchen Garden","Biodiversity Register"]},
+        {"name":"Work with Machines and Materials","projects":["Maker Skills","Animation and Games"]},
+        {"name":"Work in Human Services","projects":["School Museum","Cooking without Fire"]}
+      ]
+    },
+    {
+      "subjectCode":"CT_AI",
+      "curricularArea":"CT_AI",
+      "title":"Computational Thinking and Artificial Intelligence — Class 6 Student Handbook",
+      "publisher":"CBSE",
+      "mappingRole":"CROSS_CURRICULAR_REFERENCE",
+      "strands":[
+        "Decomposition","Pattern Recognition","Abstraction","Algorithm Design","Data Analysis","Troubleshooting","Foundational AI concepts through real-world examples","AI-assisted project work","Digital footprints","Bias","Privacy","Fairness and responsible AI"
+      ]
+    }
+  ],
+  "contentMappingPolicy": {
+    "relationship":"MANY_CONTENT_RESOURCES_TO_ONE_OR_MORE_SYLLABUS_NODES",
+    "publicContentMayBeUnmapped":true,
+    "textbookIsNotContentDatabase":true,
+    "boardMappingIsSeparate":true,
+    "boardSpecificDifferencesAllowed":["chapter placement","terminology","depth","assessment style","additional or omitted concepts"]
+  }
+}
