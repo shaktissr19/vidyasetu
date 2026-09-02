@@ -5,6 +5,7 @@ on:
     paths:
       - 'content/**'
       - 'backend/src/scripts/installPressurePack.ts'
+      - 'backend/src/scripts/installForcePack.ts'
       - 'scripts/validate-content-pack.mjs'
       - '.github/workflows/content-pack-ci.yml'
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - 'content/**'
       - 'backend/src/scripts/installPressurePack.ts'
+      - 'backend/src/scripts/installForcePack.ts'
       - 'scripts/validate-content-pack.mjs'
       - '.github/workflows/content-pack-ci.yml'
 
@@ -42,13 +44,14 @@ jobs:
           npm run build
           test -f dist/index.d.ts
 
-      - name: Build backend installer
+      - name: Build backend installers
         working-directory: backend
         run: |
           npm install --no-audit --no-fund
           npm run typecheck
           npm run build
           test -f dist/scripts/installPressurePack.js
+          test -f dist/scripts/installForcePack.js
 
       - name: Prove Pressure installer dry-run is write-free
         run: |
@@ -56,5 +59,14 @@ jobs:
           output="$(node backend/dist/scripts/installPressurePack.js)"
           printf '%s\n' "$output"
           grep -F "Pressure pack validated: VS-C8-SCI-FP-PRESSURE-V1" <<<"$output"
+          grep -F "Question bank: 12 bilingual questions" <<<"$output"
+          grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
+
+      - name: Prove Force installer dry-run is write-free
+        run: |
+          set -euo pipefail
+          output="$(node backend/dist/scripts/installForcePack.js)"
+          printf '%s\n' "$output"
+          grep -F "Force pack validated: VS-C8-SCI-FP-FORCE-V1" <<<"$output"
           grep -F "Question bank: 12 bilingual questions" <<<"$output"
           grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
