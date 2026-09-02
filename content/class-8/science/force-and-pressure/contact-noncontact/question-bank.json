@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-CONTACT-NONCONTACT-V1",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "questions": [
+    {
+      "publicCode":"VS8S-CNF-001","type":"MCQ_SINGLE","difficulty":"FOUNDATION","skill":"CLASSIFY","learningOutcomeIds":["LO-CN-01"],
+      "prompt":"Which example is a contact force?","promptHi":"कौन-सा उदाहरण संपर्क बल का है?",
+      "options":[
+        {"key":"A","text":"Earth attracting a falling ball","textHi":"पृथ्वी द्वारा गिरती गेंद को आकर्षित करना"},
+        {"key":"B","text":"A magnet attracting a paper clip across a gap","textHi":"चुंबक द्वारा थोड़ी दूरी से पेपर क्लिप आकर्षित करना"},
+        {"key":"C","text":"A hand pushing a chair","textHi":"हाथ से कुर्सी धकेलना"},
+        {"key":"D","text":"A charged comb attracting tissue pieces","textHi":"आवेशित कंघे द्वारा टिश्यू के टुकड़े आकर्षित करना"}
+      ],
+      "correctAnswer":{"option":"C"},
+      "explanation":"The hand must physically touch the chair for this push, so the interaction is a contact force.",
+      "explanationHi":"इस धक्के के लिए हाथ का कुर्सी से सीधे संपर्क में होना जरूरी है, इसलिए यह संपर्क बल है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-002","type":"MCQ_SINGLE","difficulty":"FOUNDATION","skill":"IDENTIFY","learningOutcomeIds":["LO-CN-02"],
+      "prompt":"Which force helps shoes grip the floor while walking?","promptHi":"चलते समय जूतों को फर्श पर पकड़ बनाने में कौन-सा बल मदद करता है?",
+      "options":[
+        {"key":"A","text":"Friction","textHi":"घर्षण"},
+        {"key":"B","text":"Magnetic force","textHi":"चुंबकीय बल"},
+        {"key":"C","text":"Electrostatic force","textHi":"स्थिरवैद्युत बल"},
+        {"key":"D","text":"Gravitational force only","textHi":"केवल गुरुत्वाकर्षण बल"}
+      ],
+      "correctAnswer":{"option":"A"},
+      "explanation":"Friction acts between the shoe and floor surfaces that are in contact and helps provide grip.",
+      "explanationHi":"घर्षण संपर्क में आए जूते और फर्श की सतहों के बीच काम करता है और पकड़ बनाने में मदद करता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-003","type":"TRUE_FALSE","difficulty":"EASY","skill":"UNDERSTAND","learningOutcomeIds":["LO-CN-01"],"misconceptionId":"MC-CN-01",
+      "prompt":"Every force requires two objects to touch each other.","promptHi":"हर बल के लिए दो वस्तुओं का एक-दूसरे को छूना आवश्यक है।",
+      "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
+      "correctAnswer":{"option":"FALSE"},
+      "explanation":"Magnetic, electrostatic and gravitational forces can act without direct physical contact.",
+      "explanationHi":"चुंबकीय, स्थिरवैद्युत और गुरुत्वाकर्षण बल बिना सीधे भौतिक संपर्क के काम कर सकते हैं।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-004","type":"MCQ_SINGLE","difficulty":"EASY","skill":"CLASSIFY","learningOutcomeIds":["LO-CN-03"],
+      "prompt":"A plastic comb is rubbed through dry hair and then attracts tiny paper pieces before touching them. Which classification is best?",
+      "promptHi":"प्लास्टिक के कंघे को सूखे बालों से रगड़कर छोटे कागज़ के टुकड़ों के पास लाया जाता है और वह बिना छुए उन्हें आकर्षित करता है। सही वर्गीकरण कौन-सा है?",
+      "options":[
+        {"key":"A","text":"Friction only, contact force","textHi":"केवल घर्षण, संपर्क बल"},
+        {"key":"B","text":"Electrostatic, non-contact force","textHi":"स्थिरवैद्युत, असंपर्क बल"},
+        {"key":"C","text":"Muscular, non-contact force","textHi":"पेशीय, असंपर्क बल"},
+        {"key":"D","text":"Magnetic, contact force","textHi":"चुंबकीय, संपर्क बल"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"The paper can respond before direct contact, which is evidence of an electrostatic non-contact interaction.",
+      "explanationHi":"कागज़ सीधे संपर्क से पहले हिल सकता है, जो स्थिरवैद्युत असंपर्क परस्पर क्रिया का प्रमाण है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-005","type":"TRUE_FALSE","difficulty":"MEDIUM","skill":"REASON","learningOutcomeIds":["LO-CN-04"],"misconceptionId":"MC-CN-02",
+      "prompt":"Magnetic force can only attract and can never repel.","promptHi":"चुंबकीय बल केवल आकर्षित कर सकता है, कभी प्रतिकर्षित नहीं कर सकता।",
+      "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
+      "correctAnswer":{"option":"FALSE"},
+      "explanation":"Depending on the poles facing each other, magnets can attract or repel.",
+      "explanationHi":"आमने-सामने वाले ध्रुवों के अनुसार चुंबक आकर्षित या प्रतिकर्षित कर सकते हैं।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-006","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"ANALYSE","learningOutcomeIds":["LO-CN-04","LO-CN-05"],
+      "prompt":"A book rests motionless on a table. Which statement is most accurate?",
+      "promptHi":"एक किताब मेज़ पर स्थिर रखी है। कौन-सा कथन सबसे सही है?",
+      "options":[
+        {"key":"A","text":"No force acts because the book is not moving","textHi":"किताब नहीं चल रही इसलिए कोई बल नहीं लगता"},
+        {"key":"B","text":"Only a contact force acts","textHi":"केवल संपर्क बल लगता है"},
+        {"key":"C","text":"Gravity acts downward and the table provides an upward contact support","textHi":"गुरुत्वाकर्षण नीचे की ओर लगता है और मेज़ ऊपर की ओर संपर्क सहारा देती है"},
+        {"key":"D","text":"Gravity stops acting when the table touches the book","textHi":"मेज़ किताब को छूती है तो गुरुत्वाकर्षण काम करना बंद कर देता है"}
+      ],
+      "correctAnswer":{"option":"C"},
+      "explanation":"The book can be stationary while both gravitational non-contact force and a contact support force act on it.",
+      "explanationHi":"किताब स्थिर रह सकती है जबकि उस पर गुरुत्वाकर्षण असंपर्क बल और मेज़ का संपर्क सहारा दोनों काम कर रहे हों।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-007","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"COMPARE","learningOutcomeIds":["LO-CN-01","LO-CN-03"],
+      "prompt":"Which pair contains two non-contact forces?","promptHi":"कौन-सी जोड़ी में दोनों असंपर्क बल हैं?",
+      "options":[
+        {"key":"A","text":"Friction and muscular force","textHi":"घर्षण और पेशीय बल"},
+        {"key":"B","text":"Magnetic force and gravitational force","textHi":"चुंबकीय बल और गुरुत्वाकर्षण बल"},
+        {"key":"C","text":"Friction and magnetic force","textHi":"घर्षण और चुंबकीय बल"},
+        {"key":"D","text":"Muscular force and electrostatic force","textHi":"पेशीय बल और स्थिरवैद्युत बल"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"Magnetic and gravitational forces can both act without direct physical contact.",
+      "explanationHi":"चुंबकीय और गुरुत्वाकर्षण दोनों बल बिना सीधे भौतिक संपर्क के काम कर सकते हैं।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-008","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"APPLY","learningOutcomeIds":["LO-CN-02"],"misconceptionId":"MC-CN-03",
+      "prompt":"Why is friction classified as a contact force?","promptHi":"घर्षण को संपर्क बल क्यों माना जाता है?",
+      "options":[
+        {"key":"A","text":"Because it is always produced by muscles","textHi":"क्योंकि यह हमेशा मांसपेशियों से उत्पन्न होता है"},
+        {"key":"B","text":"Because it acts through interacting surfaces that are in contact","textHi":"क्योंकि यह संपर्क में आई परस्पर क्रिया करती सतहों के बीच काम करता है"},
+        {"key":"C","text":"Because it can act across empty space","textHi":"क्योंकि यह खाली जगह से भी काम कर सकता है"},
+        {"key":"D","text":"Because it is a type of gravity","textHi":"क्योंकि यह गुरुत्वाकर्षण का प्रकार है"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"Friction depends on the interaction of surfaces in contact, so it belongs to the contact-force category.",
+      "explanationHi":"घर्षण संपर्क में आई सतहों की परस्पर क्रिया पर निर्भर करता है, इसलिए यह संपर्क बल की श्रेणी में आता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-009","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"REASON","learningOutcomeIds":["LO-CN-03","LO-CN-04"],
+      "prompt":"A large classroom magnet is brought close to a steel paper clip. The clip starts moving before the magnet touches it. What is the strongest evidence from this observation?",
+      "promptHi":"एक बड़ा कक्षा चुंबक स्टील की पेपर क्लिप के पास लाया जाता है। चुंबक के छूने से पहले क्लिप चलने लगती है। इस अवलोकन से सबसे मजबूत प्रमाण क्या मिलता है?",
+      "options":[
+        {"key":"A","text":"The paper clip has no mass","textHi":"पेपर क्लिप का कोई द्रव्यमान नहीं है"},
+        {"key":"B","text":"Magnetic force can act without direct contact","textHi":"चुंबकीय बल बिना सीधे संपर्क के काम कर सकता है"},
+        {"key":"C","text":"Friction is a non-contact force","textHi":"घर्षण असंपर्क बल है"},
+        {"key":"D","text":"All metal objects are magnets","textHi":"सभी धातु की वस्तुएँ चुंबक होती हैं"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"Motion beginning across a gap is direct evidence that the magnetic interaction does not require physical contact.",
+      "explanationHi":"थोड़ी दूरी रहते हुए गति शुरू होना इस बात का सीधा प्रमाण है कि चुंबकीय परस्पर क्रिया के लिए भौतिक संपर्क आवश्यक नहीं है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-010","type":"TRUE_FALSE","difficulty":"STANDARD","skill":"UNDERSTAND","learningOutcomeIds":["LO-CN-04"],"misconceptionId":"MC-CN-04",
+      "prompt":"Gravity stops acting on an object when the object is resting on a table.","promptHi":"जब कोई वस्तु मेज़ पर स्थिर रखी हो तो गुरुत्वाकर्षण उस पर काम करना बंद कर देता है।",
+      "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
+      "correctAnswer":{"option":"FALSE"},
+      "explanation":"Gravity continues to act. The table can provide another force that helps the object remain at rest.",
+      "explanationHi":"गुरुत्वाकर्षण काम करता रहता है। मेज़ एक अन्य बल दे सकती है जिससे वस्तु स्थिर रह सके।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-011","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"ANALYSE","learningOutcomeIds":["LO-CN-05"],
+      "prompt":"A student holds a steel paper clip near a magnet while standing still. Which statement best shows why one object can be involved in several force interactions at once?",
+      "promptHi":"एक विद्यार्थी स्थिर खड़ा होकर चुंबक के पास स्टील की पेपर क्लिप पकड़े है। कौन-सा कथन सबसे अच्छी तरह दिखाता है कि एक वस्तु पर एक साथ कई बल-परस्पर क्रियाएँ हो सकती हैं?",
+      "options":[
+        {"key":"A","text":"Only the magnet can exert any force","textHi":"केवल चुंबक ही कोई बल लगा सकता है"},
+        {"key":"B","text":"The clip may experience magnetic attraction, gravity, and a contact force from the student's fingers","textHi":"क्लिप पर चुंबकीय आकर्षण, गुरुत्वाकर्षण और विद्यार्थी की उँगलियों का संपर्क बल एक साथ लग सकते हैं"},
+        {"key":"C","text":"A stationary object cannot experience force","textHi":"स्थिर वस्तु पर बल नहीं लग सकता"},
+        {"key":"D","text":"Contact and non-contact forces can never act together","textHi":"संपर्क और असंपर्क बल कभी एक साथ काम नहीं कर सकते"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"Different interactions can act on the same object simultaneously; being stationary does not mean forces are absent.",
+      "explanationHi":"अलग-अलग परस्पर क्रियाएँ एक ही वस्तु पर एक साथ काम कर सकती हैं; स्थिर होना बलों की अनुपस्थिति नहीं दर्शाता।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-CNF-012","type":"MCQ_SINGLE","difficulty":"CHALLENGE","skill":"TRANSFER","learningOutcomeIds":["LO-CN-01","LO-CN-02","LO-CN-03","LO-CN-05"],
+      "prompt":"A football is kicked and then travels through the air before returning towards the ground. Which sequence best classifies two important interactions?",
+      "promptHi":"फुटबॉल को किक किया जाता है, फिर वह हवा में चलती है और बाद में जमीन की ओर लौटती है। दो महत्वपूर्ण परस्पर क्रियाओं का सही वर्गीकरण कौन-सा है?",
+      "options":[
+        {"key":"A","text":"Kick: non-contact; gravity: contact","textHi":"किक: असंपर्क; गुरुत्वाकर्षण: संपर्क"},
+        {"key":"B","text":"Kick: contact; gravity: non-contact","textHi":"किक: संपर्क; गुरुत्वाकर्षण: असंपर्क"},
+        {"key":"C","text":"Both are contact forces","textHi":"दोनों संपर्क बल हैं"},
+        {"key":"D","text":"Both are muscular forces","textHi":"दोनों पेशीय बल हैं"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"The foot must contact the ball during the kick, while Earth's gravitational attraction acts without direct contact.",
+      "explanationHi":"किक के समय पैर का गेंद से संपर्क होता है, जबकि पृथ्वी का गुरुत्वाकर्षण आकर्षण बिना सीधे संपर्क के काम करता है।",
+      "marks":1,"negativeMarks":0
+    }
+  ]
+}

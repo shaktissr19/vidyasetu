@@ -10,6 +10,7 @@
     {"domain":"Science","english":"Area","hindi":"क्षेत्रफल","learnerFriendlyHi":"किसी सतह द्वारा घेरा गया स्थान"},
     {"domain":"Science","english":"Contact force","hindi":"संपर्क बल","learnerFriendlyHi":"जिस बल के लिए वस्तुओं का संपर्क आवश्यक हो"},
     {"domain":"Science","english":"Non-contact force","hindi":"असंपर्क बल","learnerFriendlyHi":"जो बल बिना सीधे संपर्क के प्रभाव डाल सके"},
+    {"domain":"Science","english":"Muscular force","hindi":"पेशीय बल","learnerFriendlyHi":"मांसपेशियों द्वारा धक्का, खिंचाव, उठाने या दबाने में लगाया गया बल","notes":"Treat as one example of contact force, not as a synonym for all contact forces."},
     {"domain":"Science","english":"Friction","hindi":"घर्षण","learnerFriendlyHi":"सतहों के बीच गति या गति की प्रवृत्ति का विरोध करने वाला प्रभाव"},
     {"domain":"Science","english":"Gravity","hindi":"गुरुत्वाकर्षण","learnerFriendlyHi":"द्रव्यमान वाली वस्तुओं के बीच आकर्षण"},
     {"domain":"Science","english":"Magnetic force","hindi":"चुंबकीय बल","learnerFriendlyHi":"चुंबक से संबंधित आकर्षण या प्रतिकर्षण का बल"},

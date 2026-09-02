@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-CONTACT-NONCONTACT-V1",
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "gradeCodes": ["CLASS_8"],
+  "boardCodes": ["COMMON"],
+  "subject": "Science",
+  "theme": "Force and Pressure",
+  "concept": "Contact and non-contact forces",
+  "topicLabel": "Contact and non-contact forces",
+  "languages": ["en", "hi"],
+  "learningOutcomes": [
+    {"id":"LO-CN-01","en":"Classify familiar force interactions as contact or non-contact using evidence about whether direct touch is required.","hi":"सीधे स्पर्श की आवश्यकता के प्रमाण के आधार पर परिचित बल-परस्पर क्रियाओं को संपर्क या असंपर्क बल के रूप में वर्गीकृत करें।"},
+    {"id":"LO-CN-02","en":"Identify muscular force and friction as important examples of contact force.","hi":"पेशीय बल और घर्षण को संपर्क बल के महत्वपूर्ण उदाहरणों के रूप में पहचानें।"},
+    {"id":"LO-CN-03","en":"Identify magnetic, electrostatic and gravitational forces as important non-contact forces.","hi":"चुंबकीय, स्थिरवैद्युत और गुरुत्वाकर्षण बलों को महत्वपूर्ण असंपर्क बलों के रूप में पहचानें।"},
+    {"id":"LO-CN-04","en":"Explain that magnetic interactions may attract or repel and that gravity can act even on stationary objects.","hi":"समझाएँ कि चुंबकीय परस्पर क्रिया में आकर्षण या प्रतिकर्षण हो सकता है और गुरुत्वाकर्षण स्थिर वस्तुओं पर भी लग सकता है।"},
+    {"id":"LO-CN-05","en":"Analyse a situation in which more than one type of force acts on the same object.","hi":"ऐसी स्थिति का विश्लेषण करें जिसमें एक ही वस्तु पर एक से अधिक प्रकार के बल काम कर रहे हों।"}
+  ],
+  "sequence": [
+    {"stage":"SEE","assetId":"VS-CN-HOOK-01","type":"ARTICLE","titleEn":"Which forces need touch?","titleHi":"किन बलों के लिए स्पर्श जरूरी है?"},
+    {"stage":"UNDERSTAND","assetId":"VS-CN-LESSON-01","type":"ARTICLE","titleEn":"Contact and non-contact forces made simple","titleHi":"संपर्क और असंपर्क बल आसान तरीके से"},
+    {"stage":"UNDERSTAND","assetId":"VS-CN-VIDEO-01","type":"VIDEO","titleEn":"Contact or non-contact? Follow the interaction","titleHi":"संपर्क या असंपर्क? परस्पर क्रिया को समझें"},
+    {"stage":"DO","assetId":"VS-CN-PRACTICAL-01","type":"PRACTICAL_VIDEO","titleEn":"Four force observation stations","titleHi":"चार बल अवलोकन स्टेशन"},
+    {"stage":"PRACTISE","assetId":"VS-CN-PRACTICE-01","type":"QUIZ","titleEn":"Contact and non-contact practice","titleHi":"संपर्क और असंपर्क बल अभ्यास","questionIds":["VS8S-CNF-001","VS8S-CNF-002","VS8S-CNF-003","VS8S-CNF-004","VS8S-CNF-005","VS8S-CNF-006","VS8S-CNF-007","VS8S-CNF-008"]},
+    {"stage":"APPLY","assetId":"VS-CN-WORKSHEET-01","type":"WORKSHEET","titleEn":"School-day force detective","titleHi":"स्कूल-दिवस बल जासूस"},
+    {"stage":"REVISE","assetId":"VS-CN-AUDIO-01","type":"AUDIO","titleEn":"Contact vs non-contact in three minutes","titleHi":"संपर्क और असंपर्क बल तीन मिनट में"},
+    {"stage":"REVISE","assetId":"VS-CN-MASTERY-01","type":"QUIZ","titleEn":"Contact and non-contact mastery","titleHi":"संपर्क और असंपर्क बल महारत जाँच","questionIds":["VS8S-CNF-003","VS8S-CNF-005","VS8S-CNF-006","VS8S-CNF-008","VS8S-CNF-009","VS8S-CNF-010","VS8S-CNF-011","VS8S-CNF-012"]}
+  ]
+}
