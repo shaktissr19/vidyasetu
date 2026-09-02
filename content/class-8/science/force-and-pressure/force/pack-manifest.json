@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-FORCE-V1",
+  "version": "1.0.0-draft",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "gradeCodes": ["CLASS_8"],
+  "boardCodes": ["COMMON"],
+  "subject": "Science",
+  "theme": "Force and Pressure",
+  "concept": "Force",
+  "topicLabel": "Force",
+  "languages": ["en", "hi"],
+  "contentIdentity": ["SEE", "UNDERSTAND", "DO", "PRACTISE", "APPLY", "REVISE"],
+  "learningOutcomes": [
+    {"id":"LO-F-01","en":"Recognise force as a push or pull produced through an interaction.","hi":"बल को किसी परस्पर क्रिया से उत्पन्न धक्का या खिंचाव के रूप में पहचानना।"},
+    {"id":"LO-F-02","en":"Identify the object applying a force and the object receiving it in familiar situations.","hi":"परिचित परिस्थितियों में बल लगाने वाली वस्तु और बल प्राप्त करने वाली वस्तु की पहचान करना।"},
+    {"id":"LO-F-03","en":"Explain that a force has direction and that changing direction can change its effect.","hi":"समझाना कि बल की दिशा होती है और दिशा बदलने से उसका प्रभाव बदल सकता है।"},
+    {"id":"LO-F-04","en":"Recognise that more than one force can act on an object at the same time.","hi":"पहचानना कि किसी वस्तु पर एक ही समय में एक से अधिक बल लग सकते हैं।"},
+    {"id":"LO-F-05","en":"Use observations from a fair practical comparison to describe how a push or pull changes an object's motion.","hi":"निष्पक्ष प्रयोग के अवलोकनों से वर्णन करना कि धक्का या खिंचाव किसी वस्तु की गति को कैसे बदलता है।"}
+  ],
+  "prerequisites": [
+    {"en":"Everyday experience of pushing, pulling, moving and stopping objects.","hi":"वस्तुओं को धक्का देने, खींचने, चलाने और रोकने का रोज़मर्रा का अनुभव।"},
+    {"en":"Basic idea that motion means a change in position over time.","hi":"यह मूल समझ कि गति का अर्थ समय के साथ स्थिति में परिवर्तन है।"}
+  ],
+  "misconceptions": [
+    {"id":"MC-F-01","en":"A force exists only when an object is moving.","hi":"बल केवल तभी होता है जब कोई वस्तु चल रही हो।"},
+    {"id":"MC-F-02","en":"Only a push is a force; a pull is something different.","hi":"केवल धक्का बल है; खींचना कोई अलग चीज़ है।"},
+    {"id":"MC-F-03","en":"If an object does not move, no forces are acting on it.","hi":"यदि वस्तु नहीं चलती, तो उस पर कोई बल नहीं लग रहा होता।"}
+  ],
+  "sequence": [
+    {"order":1,"stage":"SEE","assetId":"VS-FORCE-HOOK-01","type":"ARTICLE","titleEn":"Why did the football start moving?","titleHi":"फुटबॉल चलना क्यों शुरू हुआ?","durationSecs":90},
+    {"order":2,"stage":"UNDERSTAND","assetId":"VS-FORCE-VIDEO-01","type":"VIDEO","titleEn":"Force: push, pull and interaction","titleHi":"बल: धक्का, खिंचाव और परस्पर क्रिया","durationSecs":360},
+    {"order":3,"stage":"UNDERSTAND","assetId":"VS-FORCE-ARTICLE-01","type":"ARTICLE","titleEn":"Force made simple","titleHi":"बल को आसान तरीके से समझें","durationSecs":300},
+    {"order":4,"stage":"DO","assetId":"VS-FORCE-PRACTICAL-01","type":"VIDEO","titleEn":"Practical: changing a toy car's motion","titleHi":"प्रयोग: खिलौना गाड़ी की गति बदलें","durationSecs":300,"safetyLevel":"GREEN"},
+    {"order":5,"stage":"PRACTISE","assetId":"VS-FORCE-PRACTICE-01","type":"QUIZ","titleEn":"Force practice","titleHi":"बल अभ्यास","questionIds":["VS8S-FORC-001","VS8S-FORC-002","VS8S-FORC-003","VS8S-FORC-004","VS8S-FORC-005","VS8S-FORC-006","VS8S-FORC-007","VS8S-FORC-008"]},
+    {"order":6,"stage":"APPLY","assetId":"VS-FORCE-CHALLENGE-01","type":"WORKSHEET","titleEn":"Move it without lifting it","titleHi":"बिना उठाए वस्तु को चलाएँ","durationSecs":600},
+    {"order":7,"stage":"REVISE","assetId":"VS-FORCE-AUDIO-01","type":"AUDIO","titleEn":"Force in 3 minutes","titleHi":"3 मिनट में बल का दोहराव","durationSecs":180},
+    {"order":8,"stage":"REVISE","assetId":"VS-FORCE-MASTERY-01","type":"QUIZ","titleEn":"Force mastery check","titleHi":"बल महारत जाँच","questionIds":["VS8S-FORC-003","VS8S-FORC-005","VS8S-FORC-007","VS8S-FORC-009","VS8S-FORC-010","VS8S-FORC-011","VS8S-FORC-012"]}
+  ],
+  "mediaProduction": {
+    "videoPrimaryLanguage": "visual-language-light",
+    "audioTracks": ["en", "hi"],
+    "subtitleTracks": ["en", "hi"],
+    "captionRequired": true,
+    "transcriptRequired": true,
+    "embeddedTextPolicy": "Keep embedded text minimal; create English and Hindi overlays only where labels are essential."
+  },
+  "accessibility": {"captions":true,"transcripts":true,"audioDescriptionNotes":true,"colourAloneMustNotCarryMeaning":true,"offlineText":true,"offlineAudioTarget":true},
+  "publicationPolicy": {"autoPublish":false,"requiredReviews":["SCIENCE_SME","HINDI_ACADEMIC_LANGUAGE","ASSESSMENT_QA","SAFETY","EDITORIAL"]}
+}

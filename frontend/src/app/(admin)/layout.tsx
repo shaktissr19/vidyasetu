@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           profile={{ avatar: '⚙️', name: user?.name || 'Super Admin', subtitle: 'Platform Control', badge: '🔐 Admin' }}
           menuItems={MENU}
         />
-        <main className="dash-main" style={{ background: '#080F24' }}>{children}</main>
+        <main className="dash-main" style={{ background: '#182540' }}>{children}</main>
       </div>
     </div>
   );

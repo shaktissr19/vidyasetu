@@ -1,0 +1,247 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-FORCE-V1",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "questions": [
+    {
+      "publicCode": "VS8S-FORC-001",
+      "type": "MCQ_SINGLE",
+      "difficulty": "FOUNDATION",
+      "skill": "UNDERSTAND",
+      "learningOutcomeIds": ["LO-F-01"],
+      "prompt": "Which statement best describes a force?",
+      "promptHi": "बल का सबसे सही वर्णन कौन-सा है?",
+      "options": [
+        {"key":"A","text":"Only the motion of an object","textHi":"केवल किसी वस्तु की गति"},
+        {"key":"B","text":"A push or pull produced through an interaction","textHi":"परस्पर क्रिया से उत्पन्न धक्का या खिंचाव"},
+        {"key":"C","text":"Only the mass of an object","textHi":"केवल किसी वस्तु का द्रव्यमान"},
+        {"key":"D","text":"The colour of an object","textHi":"किसी वस्तु का रंग"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "A force is a push or pull associated with an interaction between objects.",
+      "explanationHi": "बल वस्तुओं के बीच परस्पर क्रिया से जुड़ा धक्का या खिंचाव है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-002",
+      "type": "MCQ_SINGLE",
+      "difficulty": "FOUNDATION",
+      "skill": "CLASSIFY",
+      "learningOutcomeIds": ["LO-F-01"],
+      "prompt": "Which action is mainly a pull?",
+      "promptHi": "इनमें से कौन-सी क्रिया मुख्य रूप से खिंचाव है?",
+      "options": [
+        {"key":"A","text":"Closing a door by pushing it","textHi":"दरवाज़े को धक्का देकर बंद करना"},
+        {"key":"B","text":"Opening a drawer by its handle","textHi":"हैंडल से दराज़ खोलना"},
+        {"key":"C","text":"Kicking a football away","textHi":"फुटबॉल को किक करके दूर भेजना"},
+        {"key":"D","text":"Pushing a chair under a desk","textHi":"कुर्सी को मेज़ के नीचे धकेलना"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "Pulling the drawer handle brings the drawer towards the person applying the force.",
+      "explanationHi": "दराज़ का हैंडल खींचने पर दराज़ बल लगाने वाले व्यक्ति की ओर आती है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-003",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "IDENTIFY",
+      "learningOutcomeIds": ["LO-F-02"],
+      "prompt": "A student pushes a box to the right. Which description is correct?",
+      "promptHi": "एक विद्यार्थी डिब्बे को दाईं ओर धक्का देता है। कौन-सा वर्णन सही है?",
+      "options": [
+        {"key":"A","text":"The box applies the push and the student receives it","textHi":"डिब्बा धक्का लगाता है और विद्यार्थी उसे प्राप्त करता है"},
+        {"key":"B","text":"The student's hands apply the force and the box receives it","textHi":"विद्यार्थी के हाथ बल लगाते हैं और डिब्बा उसे प्राप्त करता है"},
+        {"key":"C","text":"No interaction is involved","textHi":"कोई परस्पर क्रिया नहीं होती"},
+        {"key":"D","text":"Only gravity can be called a force","textHi":"केवल गुरुत्वाकर्षण को बल कहा जा सकता है"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "The student's hands interact with the box and apply the force to it.",
+      "explanationHi": "विद्यार्थी के हाथ डिब्बे के साथ परस्पर क्रिया करते हैं और उस पर बल लगाते हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-004",
+      "type": "TRUE_FALSE",
+      "difficulty": "EASY",
+      "skill": "UNDERSTAND",
+      "learningOutcomeIds": ["LO-F-01"],
+      "misconceptionId": "MC-F-01",
+      "prompt": "A force can act even when an object does not visibly move.",
+      "promptHi": "वस्तु दिखाई देने लायक न चले तब भी उस पर बल लग सकता है।",
+      "options": [
+        {"key":"TRUE","text":"True","textHi":"सही"},
+        {"key":"FALSE","text":"False","textHi":"गलत"}
+      ],
+      "correctAnswer": {"option":"TRUE"},
+      "explanation": "Pushing a wall is an example: a force is applied even though the wall may not visibly move.",
+      "explanationHi": "दीवार को धक्का देना इसका उदाहरण है: बल लगाया जाता है, भले ही दीवार दिखाई देने लायक न चले।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-005",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "APPLY",
+      "learningOutcomeIds": ["LO-F-03"],
+      "prompt": "A toy car is rolling straight ahead. A gentle force is applied from its left side towards the right. What is the most reasonable prediction?",
+      "promptHi": "एक खिलौना गाड़ी सीधी आगे चल रही है। उसकी बाईं ओर से दाईं दिशा में हल्का बल लगाया जाता है। सबसे उचित अनुमान क्या है?",
+      "options": [
+        {"key":"A","text":"Its direction may change towards the right","textHi":"उसकी दिशा दाईं ओर बदल सकती है"},
+        {"key":"B","text":"Its mass becomes zero","textHi":"उसका द्रव्यमान शून्य हो जाएगा"},
+        {"key":"C","text":"The applied direction cannot affect motion","textHi":"लगाए गए बल की दिशा गति को प्रभावित नहीं कर सकती"},
+        {"key":"D","text":"It must instantly stop in every case","textHi":"हर स्थिति में वह तुरंत रुक जाएगी"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "Force has direction. A sideways force can change the direction of a moving object.",
+      "explanationHi": "बल की दिशा होती है। बगल से लगाया गया बल चलती वस्तु की दिशा बदल सकता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-006",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "CLASSIFY",
+      "learningOutcomeIds": ["LO-F-01"],
+      "prompt": "Which pair contains one push and one pull?",
+      "promptHi": "कौन-सी जोड़ी में एक धक्का और एक खिंचाव है?",
+      "options": [
+        {"key":"A","text":"Push a trolley; pull a suitcase","textHi":"ट्रॉली को धक्का देना; सूटकेस खींचना"},
+        {"key":"B","text":"Pull a drawer; pull a rope","textHi":"दराज़ खींचना; रस्सी खींचना"},
+        {"key":"C","text":"Push a door; push a chair","textHi":"दरवाज़ा धक्का देना; कुर्सी धकेलना"},
+        {"key":"D","text":"Watch a clock; read a book","textHi":"घड़ी देखना; किताब पढ़ना"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "Pushing a trolley is a push; pulling a suitcase is a pull. Both are forces.",
+      "explanationHi": "ट्रॉली को धक्का देना धक्का है; सूटकेस खींचना खिंचाव है। दोनों बल हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-007",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "REASON",
+      "learningOutcomeIds": ["LO-F-04"],
+      "prompt": "A book is resting on a table. Which statement is best?",
+      "promptHi": "एक किताब मेज़ पर स्थिर रखी है। कौन-सा कथन सबसे सही है?",
+      "options": [
+        {"key":"A","text":"No forces can act because the book is not moving","textHi":"किताब नहीं चल रही इसलिए कोई बल नहीं लग सकता"},
+        {"key":"B","text":"Gravity can pull downward while the table supports the book upward","textHi":"गुरुत्वाकर्षण नीचे खींच सकता है और मेज़ किताब को ऊपर सहारा दे सकती है"},
+        {"key":"C","text":"Only the table can exert a force","textHi":"केवल मेज़ ही बल लगा सकती है"},
+        {"key":"D","text":"Only moving objects can experience force","textHi":"केवल चलती वस्तुओं पर बल लग सकता है"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "Several forces can act at once even when an object remains at rest.",
+      "explanationHi": "वस्तु स्थिर रहने पर भी उस पर एक साथ कई बल लग सकते हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-008",
+      "type": "TRUE_FALSE",
+      "difficulty": "FOUNDATION",
+      "skill": "UNDERSTAND",
+      "learningOutcomeIds": ["LO-F-01"],
+      "misconceptionId": "MC-F-02",
+      "prompt": "A pull is also a force.",
+      "promptHi": "खिंचाव भी एक बल है।",
+      "options": [
+        {"key":"TRUE","text":"True","textHi":"सही"},
+        {"key":"FALSE","text":"False","textHi":"गलत"}
+      ],
+      "correctAnswer": {"option":"TRUE"},
+      "explanation": "Force includes both pushes and pulls.",
+      "explanationHi": "बल में धक्का और खिंचाव दोनों शामिल हैं।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-009",
+      "type": "MCQ_SINGLE",
+      "difficulty": "HARD",
+      "skill": "COMPARE",
+      "learningOutcomeIds": ["LO-F-03", "LO-F-04"],
+      "prompt": "Two students push the same box at the same time. In Case A they push in the same direction. In Case B they push from opposite sides. Why can the results differ?",
+      "promptHi": "दो विद्यार्थी एक ही डिब्बे को एक साथ धक्का देते हैं। स्थिति A में दोनों एक ही दिशा में धक्का देते हैं। स्थिति B में वे विपरीत दिशाओं से धक्का देते हैं। परिणाम अलग क्यों हो सकते हैं?",
+      "options": [
+        {"key":"A","text":"Force direction matters when several forces act","textHi":"जब कई बल लगते हैं तो बल की दिशा महत्वपूर्ण होती है"},
+        {"key":"B","text":"The box changes material in Case B","textHi":"स्थिति B में डिब्बे का पदार्थ बदल जाता है"},
+        {"key":"C","text":"Direction has no relation to force","textHi":"दिशा का बल से कोई संबंध नहीं है"},
+        {"key":"D","text":"Only one student can apply a force at a time","textHi":"एक समय में केवल एक विद्यार्थी बल लगा सकता है"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "Multiple forces can act simultaneously, and their directions affect the overall result.",
+      "explanationHi": "कई बल एक साथ लग सकते हैं और उनकी दिशाएँ कुल परिणाम को प्रभावित करती हैं।",
+      "marks": 2,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-010",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "REPRESENT",
+      "learningOutcomeIds": ["LO-F-03"],
+      "prompt": "A box is pushed towards the left. Which arrow best represents the applied force direction?",
+      "promptHi": "एक डिब्बे को बाईं ओर धक्का दिया जाता है। लगाया गया बल किस तीर से सबसे सही दिखेगा?",
+      "options": [
+        {"key":"A","text":"→","textHi":"→"},
+        {"key":"B","text":"←","textHi":"←"},
+        {"key":"C","text":"↑","textHi":"↑"},
+        {"key":"D","text":"↓","textHi":"↓"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "The force acts towards the left, so the force arrow should point left.",
+      "explanationHi": "बल बाईं ओर लग रहा है, इसलिए बल का तीर बाईं ओर होना चाहिए।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-011",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "EXPERIMENTAL_REASONING",
+      "learningOutcomeIds": ["LO-F-05"],
+      "prompt": "In the toy-car activity, what is the best way to compare two forward pushes fairly?",
+      "promptHi": "खिलौना गाड़ी की गतिविधि में दो आगे के धक्कों की निष्पक्ष तुलना करने का सबसे अच्छा तरीका क्या है?",
+      "options": [
+        {"key":"A","text":"Start the same car from the same place on the same surface","textHi":"उसी गाड़ी को उसी सतह पर उसी स्थान से शुरू करें"},
+        {"key":"B","text":"Use a different car and different floor each time","textHi":"हर बार अलग गाड़ी और अलग फर्श उपयोग करें"},
+        {"key":"C","text":"Change several conditions at once","textHi":"एक साथ कई स्थितियाँ बदल दें"},
+        {"key":"D","text":"Record only the result you expected","textHi":"केवल वही परिणाम लिखें जिसकी अपेक्षा थी"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "Keeping the car, starting point and surface the same makes the comparison more meaningful.",
+      "explanationHi": "गाड़ी, प्रारंभ स्थान और सतह समान रखने से तुलना अधिक अर्थपूर्ण बनती है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-FORC-012",
+      "type": "MCQ_SINGLE",
+      "difficulty": "CHALLENGE",
+      "skill": "DESIGN",
+      "learningOutcomeIds": ["LO-F-02", "LO-F-03"],
+      "prompt": "You need to move a box to the right without lifting it. Which plan communicates the force most clearly?",
+      "promptHi": "आपको डिब्बे को बिना उठाए दाईं ओर ले जाना है। कौन-सी योजना बल को सबसे स्पष्ट रूप से बताती है?",
+      "options": [
+        {"key":"A","text":"Push the box to the right and draw a right-pointing force arrow","textHi":"डिब्बे को दाईं ओर धक्का दें और दाईं ओर बल का तीर बनाएँ"},
+        {"key":"B","text":"Draw an arrow but do not show which object receives the force","textHi":"तीर बनाएँ लेकिन यह न दिखाएँ कि बल किस वस्तु पर लग रहा है"},
+        {"key":"C","text":"Describe only the box colour","textHi":"केवल डिब्बे का रंग बताएं"},
+        {"key":"D","text":"Say 'force happens' without identifying interaction or direction","textHi":"परस्पर क्रिया या दिशा बताए बिना केवल कहें 'बल होता है'"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "A good force description identifies the interaction, the receiving object and the direction.",
+      "explanationHi": "बल का अच्छा वर्णन परस्पर क्रिया, बल प्राप्त करने वाली वस्तु और दिशा को स्पष्ट करता है।",
+      "marks": 2,
+      "negativeMarks": 0
+    }
+  ]
+}
