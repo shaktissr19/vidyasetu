@@ -1,0 +1,242 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-PRESSURE-V1",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "questions": [
+    {
+      "publicCode": "VS8S-PRES-001",
+      "type": "MCQ_SINGLE",
+      "difficulty": "FOUNDATION",
+      "skill": "UNDERSTAND",
+      "learningOutcomeIds": ["LO-P-01", "LO-P-02"],
+      "prompt": "Which statement best describes pressure?",
+      "promptHi": "दाब का सबसे सही वर्णन कौन-सा है?",
+      "options": [
+        {"key":"A","text":"The total mass of an object","textHi":"किसी वस्तु का कुल द्रव्यमान"},
+        {"key":"B","text":"Force acting per unit area","textHi":"प्रति इकाई क्षेत्रफल पर लगने वाला बल"},
+        {"key":"C","text":"The speed of a moving object","textHi":"चलती वस्तु की गति"},
+        {"key":"D","text":"The area of a surface only","textHi":"केवल सतह का क्षेत्रफल"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "Pressure relates the applied force to the area over which it acts.",
+      "explanationHi": "दाब, लगाए गए बल को उस क्षेत्रफल से जोड़ता है जिस पर वह बल लगता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-002",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "PREDICT",
+      "learningOutcomeIds": ["LO-P-03"],
+      "prompt": "The same force is applied first over a large area and then over a smaller area. In which case is pressure greater?",
+      "promptHi": "समान बल पहले बड़े क्षेत्रफल पर और फिर छोटे क्षेत्रफल पर लगाया जाता है। किस स्थिति में दाब अधिक होगा?",
+      "options": [
+        {"key":"A","text":"Over the larger area","textHi":"बड़े क्षेत्रफल पर"},
+        {"key":"B","text":"Over the smaller area","textHi":"छोटे क्षेत्रफल पर"},
+        {"key":"C","text":"Pressure is always equal","textHi":"दाब हमेशा समान रहेगा"},
+        {"key":"D","text":"Area cannot affect pressure","textHi":"क्षेत्रफल दाब को प्रभावित नहीं करता"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "For the same force, reducing the area increases F/A, so pressure increases.",
+      "explanationHi": "समान बल के लिए क्षेत्रफल घटाने पर F/A बढ़ता है, इसलिए दाब बढ़ता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-003",
+      "type": "MCQ_SINGLE",
+      "difficulty": "EASY",
+      "skill": "APPLY",
+      "learningOutcomeIds": ["LO-P-05"],
+      "prompt": "Why is a broad school-bag strap usually more comfortable than a very thin strap for the same loaded bag?",
+      "promptHi": "समान भार वाले स्कूल बैग के लिए चौड़ा स्ट्रैप बहुत पतले स्ट्रैप की तुलना में अधिक आरामदायक क्यों होता है?",
+      "options": [
+        {"key":"A","text":"It increases the bag's mass","textHi":"यह बैग का द्रव्यमान बढ़ाता है"},
+        {"key":"B","text":"It spreads the force over a larger area, reducing pressure","textHi":"यह बल को बड़े क्षेत्रफल में फैलाता है, जिससे दाब कम होता है"},
+        {"key":"C","text":"It removes gravity","textHi":"यह गुरुत्वाकर्षण को हटा देता है"},
+        {"key":"D","text":"It always makes the force zero","textHi":"यह बल को हमेशा शून्य कर देता है"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "The bag's force is distributed over more shoulder area, so pressure on the shoulder is lower.",
+      "explanationHi": "बैग का बल कंधे के बड़े क्षेत्रफल में फैलता है, इसलिए कंधे पर दाब कम होता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-004",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "APPLY",
+      "learningOutcomeIds": ["LO-P-05"],
+      "prompt": "A farm vehicle must travel over soft soil. Which change would most directly reduce pressure on the soil if its weight stays the same?",
+      "promptHi": "एक कृषि वाहन को नरम मिट्टी पर चलना है। यदि उसका भार समान रहे, तो मिट्टी पर दाब कम करने के लिए कौन-सा बदलाव सबसे सीधे मदद करेगा?",
+      "options": [
+        {"key":"A","text":"Use narrower tyres","textHi":"और पतले टायर लगाना"},
+        {"key":"B","text":"Use broader tyres or tracks","textHi":"चौड़े टायर या ट्रैक लगाना"},
+        {"key":"C","text":"Reduce the contact area","textHi":"संपर्क क्षेत्रफल कम करना"},
+        {"key":"D","text":"Make the contact patch pointed","textHi":"संपर्क हिस्से को नुकीला बनाना"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "Broader tyres or tracks increase contact area. With similar weight, greater area means lower pressure on the soil.",
+      "explanationHi": "चौड़े टायर या ट्रैक संपर्क क्षेत्रफल बढ़ाते हैं। समान भार के लिए बड़ा क्षेत्रफल मिट्टी पर दाब कम करता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-005",
+      "type": "NUMERIC",
+      "difficulty": "EASY",
+      "skill": "CALCULATE",
+      "learningOutcomeIds": ["LO-P-04"],
+      "prompt": "A force of 80 N acts uniformly over an area of 4 m². What is the pressure in pascals?",
+      "promptHi": "80 N का बल 4 m² क्षेत्रफल पर समान रूप से लगता है। दाब कितने पास्कल होगा?",
+      "correctAnswer": {"value":20,"tolerance":0},
+      "explanation": "P = F/A = 80/4 = 20 N/m² = 20 Pa.",
+      "explanationHi": "P = F/A = 80/4 = 20 N/m² = 20 Pa।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-006",
+      "type": "MCQ_SINGLE",
+      "difficulty": "FOUNDATION",
+      "skill": "REMEMBER",
+      "learningOutcomeIds": ["LO-P-04"],
+      "prompt": "Which is the SI unit of pressure?",
+      "promptHi": "दाब की SI इकाई कौन-सी है?",
+      "options": [
+        {"key":"A","text":"Newton (N)","textHi":"न्यूटन (N)"},
+        {"key":"B","text":"Pascal (Pa)","textHi":"पास्कल (Pa)"},
+        {"key":"C","text":"Metre (m)","textHi":"मीटर (m)"},
+        {"key":"D","text":"Kilogram (kg)","textHi":"किलोग्राम (kg)"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "The SI unit of pressure is the pascal. 1 Pa = 1 N/m².",
+      "explanationHi": "दाब की SI इकाई पास्कल है। 1 Pa = 1 N/m²।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-007",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "REASON",
+      "learningOutcomeIds": ["LO-P-02", "LO-P-03"],
+      "prompt": "A person stands on soft ground and then lies flat on the same ground. Their weight is nearly unchanged. Why may they sink less while lying down?",
+      "promptHi": "एक व्यक्ति नरम जमीन पर खड़ा होता है और फिर उसी जमीन पर लेट जाता है। उसका भार लगभग समान रहता है। लेटने पर वह कम क्यों धँस सकता है?",
+      "options": [
+        {"key":"A","text":"Their mass disappears","textHi":"उसका द्रव्यमान गायब हो जाता है"},
+        {"key":"B","text":"Gravity becomes weaker","textHi":"गुरुत्वाकर्षण कमजोर हो जाता है"},
+        {"key":"C","text":"The contact area becomes larger, so pressure becomes lower","textHi":"संपर्क क्षेत्रफल बढ़ जाता है, इसलिए दाब कम हो जाता है"},
+        {"key":"D","text":"The ground stops exerting any force","textHi":"जमीन कोई बल लगाना बंद कर देती है"}
+      ],
+      "correctAnswer": {"option":"C"},
+      "explanation": "The same approximate weight is spread over a larger area while lying down, lowering pressure on the ground.",
+      "explanationHi": "लेटने पर लगभग वही भार बड़े क्षेत्रफल में फैलता है, इसलिए जमीन पर दाब कम होता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-008",
+      "type": "TRUE_FALSE",
+      "difficulty": "EASY",
+      "skill": "UNDERSTAND",
+      "learningOutcomeIds": ["LO-P-01", "LO-P-02"],
+      "misconceptionId": "MC-P-02",
+      "prompt": "Force and pressure are the same physical quantity.",
+      "promptHi": "बल और दाब एक ही भौतिक राशि हैं।",
+      "options": [
+        {"key":"TRUE","text":"True","textHi":"सही"},
+        {"key":"FALSE","text":"False","textHi":"गलत"}
+      ],
+      "correctAnswer": {"option":"FALSE"},
+      "explanation": "Force is a push or pull; pressure relates force to the area over which it acts.",
+      "explanationHi": "बल धक्का या खिंचाव है; दाब बल को उस क्षेत्रफल से जोड़ता है जिस पर वह बल लगता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-009",
+      "type": "MCQ_SINGLE",
+      "difficulty": "HARD",
+      "skill": "COMPARE",
+      "learningOutcomeIds": ["LO-P-04"],
+      "prompt": "Case A: 40 N acts over 2 m². Case B: 60 N acts over 6 m². Which case produces greater pressure?",
+      "promptHi": "स्थिति A: 40 N बल 2 m² पर लगता है। स्थिति B: 60 N बल 6 m² पर लगता है। किस स्थिति में दाब अधिक है?",
+      "options": [
+        {"key":"A","text":"Case A","textHi":"स्थिति A"},
+        {"key":"B","text":"Case B","textHi":"स्थिति B"},
+        {"key":"C","text":"Both are equal","textHi":"दोनों समान हैं"},
+        {"key":"D","text":"Cannot be compared","textHi":"तुलना नहीं की जा सकती"}
+      ],
+      "correctAnswer": {"option":"A"},
+      "explanation": "Case A: 40/2 = 20 Pa. Case B: 60/6 = 10 Pa. Case A has greater pressure even though Case B has greater force.",
+      "explanationHi": "स्थिति A: 40/2 = 20 Pa। स्थिति B: 60/6 = 10 Pa। स्थिति B में बल अधिक है, फिर भी स्थिति A में दाब अधिक है।",
+      "marks": 2,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-010",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "ANALYSE",
+      "learningOutcomeIds": ["LO-P-02", "LO-P-04"],
+      "prompt": "A force and the area over which it acts are both doubled. What happens to pressure?",
+      "promptHi": "बल और जिस क्षेत्रफल पर वह लगता है, दोनों को दोगुना कर दिया जाए तो दाब पर क्या प्रभाव पड़ेगा?",
+      "options": [
+        {"key":"A","text":"It doubles","textHi":"दोगुना हो जाएगा"},
+        {"key":"B","text":"It becomes half","textHi":"आधा हो जाएगा"},
+        {"key":"C","text":"It remains the same","textHi":"समान रहेगा"},
+        {"key":"D","text":"It becomes zero","textHi":"शून्य हो जाएगा"}
+      ],
+      "correctAnswer": {"option":"C"},
+      "explanation": "P = F/A. Doubling both gives 2F/2A = F/A, so pressure is unchanged.",
+      "explanationHi": "P = F/A। दोनों को दोगुना करने पर 2F/2A = F/A होता है, इसलिए दाब नहीं बदलता।",
+      "marks": 2,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-011",
+      "type": "MCQ_SINGLE",
+      "difficulty": "MEDIUM",
+      "skill": "EXPERIMENTAL_REASONING",
+      "learningOutcomeIds": ["LO-P-03"],
+      "prompt": "In the clay activity, which variables should be kept the same when comparing the broad and narrow faces of the block?",
+      "promptHi": "क्ले वाली गतिविधि में ब्लॉक के चौड़े और संकरे हिस्से की तुलना करते समय किन चीज़ों को समान रखना चाहिए?",
+      "options": [
+        {"key":"A","text":"Only the colour of the block","textHi":"केवल ब्लॉक का रंग"},
+        {"key":"B","text":"The block/load and pressing time, while changing the contact area","textHi":"ब्लॉक/भार और दबाव का समय समान रखें, केवल संपर्क क्षेत्रफल बदलें"},
+        {"key":"C","text":"Change the load and area together","textHi":"भार और क्षेत्रफल दोनों साथ बदलें"},
+        {"key":"D","text":"Nothing needs to stay the same","textHi":"कुछ भी समान रखने की आवश्यकता नहीं है"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "A fair comparison changes the contact area while keeping the load, block and exposure time as similar as practical.",
+      "explanationHi": "निष्पक्ष तुलना में संपर्क क्षेत्रफल बदला जाता है, जबकि भार, ब्लॉक और समय को यथासंभव समान रखा जाता है।",
+      "marks": 1,
+      "negativeMarks": 0
+    },
+    {
+      "publicCode": "VS8S-PRES-012",
+      "type": "MCQ_SINGLE",
+      "difficulty": "CHALLENGE",
+      "skill": "DESIGN",
+      "learningOutcomeIds": ["LO-P-05"],
+      "prompt": "You are designing a cart to carry books across soft wet ground. The total weight cannot be reduced. Which design is best if your goal is to reduce pressure on the ground?",
+      "promptHi": "आपको किताबें नरम और गीली जमीन पर ले जाने के लिए एक गाड़ी बनानी है। कुल भार कम नहीं किया जा सकता। जमीन पर दाब कम करने के लिए कौन-सा डिजाइन सबसे अच्छा है?",
+      "options": [
+        {"key":"A","text":"Use fewer, narrower contact points","textHi":"कम और अधिक संकरे संपर्क बिंदु रखें"},
+        {"key":"B","text":"Use broad wheels that create a larger total contact area","textHi":"ऐसे चौड़े पहिए रखें जो कुल संपर्क क्षेत्रफल बढ़ाएँ"},
+        {"key":"C","text":"Add pointed metal feet","textHi":"नुकीले धातु के पैर जोड़ें"},
+        {"key":"D","text":"Make each wheel edge thinner","textHi":"हर पहिए का किनारा और पतला करें"}
+      ],
+      "correctAnswer": {"option":"B"},
+      "explanation": "When weight is fixed, increasing the total contact area reduces force per unit area and therefore reduces pressure.",
+      "explanationHi": "जब भार निश्चित हो, तो कुल संपर्क क्षेत्रफल बढ़ाने से प्रति इकाई क्षेत्रफल बल कम होता है और इसलिए दाब घटता है।",
+      "marks": 2,
+      "negativeMarks": 0
+    }
+  ]
+}
