@@ -3,6 +3,7 @@ import type { UUID } from '@vidyasetu/contracts';
 import * as learningService from '../services/adminLearning.service';
 import * as practiceService from '../services/adminLearningPractice.service';
 import * as importService from '../services/adminLearningImport.service';
+import * as reviewService from '../services/adminLearningReview.service';
 import * as R from '../utils/response';
 
 export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -12,6 +13,11 @@ export async function options(_req: Request, res: Response, next: NextFunction):
 
 export async function resources(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await learningService.listLearningResources()); }
+  catch (error: unknown) { next(error); }
+}
+
+export async function pressureReview(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await reviewService.getPressurePackReview()); }
   catch (error: unknown) { next(error); }
 }
 
