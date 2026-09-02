@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "VS-C8-SCI-FP-LIQUID-PRESSURE-V1",
+  "status": "DRAFT",
+  "sourceCode": "VIDYASETU_ORIGINAL",
+  "licence": "VIDYASETU_ORIGINAL",
+  "questions": [
+    {
+      "publicCode":"VS8S-LP-001","type":"TRUE_FALSE","difficulty":"FOUNDATION","skill":"UNDERSTAND","learningOutcomeIds":["LO-LP-01"],"misconceptionId":"MC-LP-01",
+      "prompt":"A liquid can exert pressure on the side walls of its container.","promptHi":"द्रव अपने कंटेनर की साइड दीवारों पर दाब डाल सकता है।",
+      "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
+      "correctAnswer":{"option":"TRUE"},
+      "explanation":"A liquid exerts pressure on surfaces it touches, including the side walls and base of a container.",
+      "explanationHi":"द्रव संपर्क में आने वाली सतहों पर दाब डालता है, जिसमें कंटेनर की साइड दीवारें और तली शामिल हैं।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-002","type":"TRUE_FALSE","difficulty":"FOUNDATION","skill":"UNDERSTAND","learningOutcomeIds":["LO-LP-01"],"misconceptionId":"MC-LP-02",
+      "prompt":"Water must be flowing before it can exert pressure on a container wall.","promptHi":"कंटेनर की दीवार पर दाब डालने के लिए पानी का बहना जरूरी है।",
+      "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
+      "correctAnswer":{"option":"FALSE"},
+      "explanation":"A liquid at rest can still exert pressure on the surfaces it touches.",
+      "explanationHi":"स्थिर द्रव भी संपर्क में आने वाली सतहों पर दाब डाल सकता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-003","type":"MCQ_SINGLE","difficulty":"EASY","skill":"COMPARE","learningOutcomeIds":["LO-LP-02"],
+      "prompt":"Points A and B are in the same container of water. B is deeper below the water surface than A. Under similar conditions, where is liquid pressure greater?",
+      "promptHi":"A और B एक ही पानी वाले कंटेनर में हैं। B पानी की सतह से A की तुलना में अधिक गहराई पर है। समान परिस्थितियों में द्रव दाब कहाँ अधिक होगा?",
+      "options":[
+        {"key":"A","text":"At A","textHi":"A पर"},
+        {"key":"B","text":"At B","textHi":"B पर"},
+        {"key":"C","text":"Always exactly the same","textHi":"हमेशा बिल्कुल समान"},
+        {"key":"D","text":"Cannot be related to depth","textHi":"गहराई से संबंध नहीं बताया जा सकता"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"For the same liquid under similar conditions, liquid pressure increases with depth.",
+      "explanationHi":"उसी द्रव में समान परिस्थितियों में गहराई बढ़ने पर द्रव दाब बढ़ता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-004","type":"MCQ_SINGLE","difficulty":"EASY","skill":"OBSERVE","learningOutcomeIds":["LO-LP-03"],
+      "prompt":"In a fair three-hole bottle experiment, which water stream usually travels farthest initially?",
+      "promptHi":"निष्पक्ष तीन-छेद बोतल प्रयोग में शुरुआत में कौन-सी पानी की धार सामान्यतः सबसे दूर जाती है?",
+      "options":[
+        {"key":"A","text":"The stream from the highest hole","textHi":"सबसे ऊपर वाले छेद की धार"},
+        {"key":"B","text":"The stream from the lowest hole","textHi":"सबसे नीचे वाले छेद की धार"},
+        {"key":"C","text":"All must always travel exactly the same distance","textHi":"सभी हमेशा बिल्कुल समान दूरी तक जाती हैं"},
+        {"key":"D","text":"The stream direction is unrelated to the holes","textHi":"धार की दिशा का छेदों से कोई संबंध नहीं"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"The lower hole is deeper below the water surface and therefore experiences greater liquid pressure in the same water.",
+      "explanationHi":"नीचे वाला छेद पानी की सतह से अधिक गहराई पर होता है, इसलिए उसी पानी में वहाँ द्रव दाब अधिक होता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-005","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"EXPERIMENT","learningOutcomeIds":["LO-LP-03"],
+      "prompt":"Why should the three holes in the bottle experiment be approximately the same size?",
+      "promptHi":"बोतल प्रयोग में तीनों छेद लगभग समान आकार के क्यों होने चाहिए?",
+      "options":[
+        {"key":"A","text":"So hole size does not become another reason for different stream behaviour","textHi":"ताकि धार के अलग व्यवहार का कारण छेद का आकार न बन जाए"},
+        {"key":"B","text":"Because pressure exists only in equal holes","textHi":"क्योंकि दाब केवल समान छेदों में होता है"},
+        {"key":"C","text":"Because water cannot leave a large hole","textHi":"क्योंकि बड़े छेद से पानी निकल नहीं सकता"},
+        {"key":"D","text":"It does not matter at all in an investigation","textHi":"प्रयोग में इसका कोई महत्व नहीं है"}
+      ],
+      "correctAnswer":{"option":"A"},
+      "explanation":"A fair comparison controls other factors. Similar hole sizes make depth the main intended difference.",
+      "explanationHi":"निष्पक्ष तुलना में अन्य कारकों को नियंत्रित किया जाता है। समान छेद रखने से मुख्य अंतर गहराई रहती है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-006","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"REASON","learningOutcomeIds":["LO-LP-04"],"misconceptionId":"MC-LP-03",
+      "prompt":"Two containers have different shapes but contain the same liquid. We compare two points at the same depth below their liquid surfaces under similar conditions. Which reasoning is best?",
+      "promptHi":"दो अलग आकार के कंटेनर में वही द्रव है। समान परिस्थितियों में उनकी द्रव सतह से समान गहराई वाले दो बिंदुओं की तुलना की जाती है। कौन-सा तर्क सबसे सही है?",
+      "options":[
+        {"key":"A","text":"The wider container must have greater pressure simply because it is wider","textHi":"चौड़ा कंटेनर केवल चौड़ा होने के कारण अधिक दाब देगा"},
+        {"key":"B","text":"At this level, depth in the same liquid is the important comparison, not which container looks wider","textHi":"इस स्तर पर उसी द्रव में गहराई मुख्य तुलना है, कंटेनर कितना चौड़ा दिखता है यह नहीं"},
+        {"key":"C","text":"Container shape proves pressure is zero","textHi":"कंटेनर का आकार सिद्ध करता है कि दाब शून्य है"},
+        {"key":"D","text":"Liquid pressure exists only in cylindrical containers","textHi":"द्रव दाब केवल बेलनाकार कंटेनर में होता है"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"For this Class 8 comparison, the key variable is depth below the liquid surface in the same liquid under similar conditions.",
+      "explanationHi":"कक्षा 8 की इस तुलना में मुख्य चर उसी द्रव में सतह से गहराई है, न कि केवल कंटेनर की चौड़ाई।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-007","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"APPLY","learningOutcomeIds":["LO-LP-05"],
+      "prompt":"Why must the lower region of a large dam withstand more water pressure than the upper region?",
+      "promptHi":"बड़े बाँध के निचले हिस्से को ऊपर के हिस्से से अधिक जल-दाब क्यों सहना पड़ता है?",
+      "options":[
+        {"key":"A","text":"Because liquid pressure increases with depth","textHi":"क्योंकि गहराई बढ़ने पर द्रव दाब बढ़ता है"},
+        {"key":"B","text":"Because water has no pressure near the top","textHi":"क्योंकि ऊपर पानी का कोई दाब नहीं होता"},
+        {"key":"C","text":"Because gravity stops near the surface","textHi":"क्योंकि सतह के पास गुरुत्वाकर्षण रुक जाता है"},
+        {"key":"D","text":"Only because the dam is made of concrete","textHi":"केवल इसलिए क्योंकि बाँध कंक्रीट का बना होता है"}
+      ],
+      "correctAnswer":{"option":"A"},
+      "explanation":"Water pressure is greater at greater depth, so lower parts of the structure must withstand greater pressure.",
+      "explanationHi":"अधिक गहराई पर जल-दाब अधिक होता है, इसलिए संरचना के निचले हिस्से को अधिक दाब सहना पड़ता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-008","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"APPLY","learningOutcomeIds":["LO-LP-02","LO-LP-05"],
+      "prompt":"A diver moves deeper in the same body of water. What happens to the surrounding liquid pressure?",
+      "promptHi":"एक गोताखोर उसी जलाशय में अधिक गहराई पर जाता है। आसपास का द्रव दाब क्या होगा?",
+      "options":[
+        {"key":"A","text":"It generally increases","textHi":"यह सामान्यतः बढ़ता है"},
+        {"key":"B","text":"It becomes zero","textHi":"यह शून्य हो जाता है"},
+        {"key":"C","text":"It must decrease","textHi":"यह जरूर घटता है"},
+        {"key":"D","text":"Depth can never affect liquid pressure","textHi":"गहराई कभी द्रव दाब को प्रभावित नहीं करती"}
+      ],
+      "correctAnswer":{"option":"A"},
+      "explanation":"In the same liquid under similar conditions, greater depth means greater liquid pressure.",
+      "explanationHi":"उसी द्रव में समान परिस्थितियों में अधिक गहराई का अर्थ अधिक द्रव दाब है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-009","type":"TRUE_FALSE","difficulty":"STANDARD","skill":"UNDERSTAND","learningOutcomeIds":["LO-LP-04"],"misconceptionId":"MC-LP-04",
+      "prompt":"A liquid at rest exerts no pressure because it is not moving.","promptHi":"स्थिर द्रव कोई दाब नहीं डालता क्योंकि वह चल नहीं रहा है।",
+      "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
+      "correctAnswer":{"option":"FALSE"},
+      "explanation":"A stationary liquid still exerts pressure on the surfaces it touches.",
+      "explanationHi":"स्थिर द्रव भी संपर्क में आने वाली सतहों पर दाब डालता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-010","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"ANALYSE","learningOutcomeIds":["LO-LP-03"],
+      "prompt":"In the bottle experiment, the lowest hole produces a surprisingly weak stream. What should a careful student check before rejecting the depth-pressure idea?",
+      "promptHi":"बोतल प्रयोग में सबसे नीचे वाले छेद से बहुत कमजोर धार निकलती है। गहराई-दाब के विचार को गलत मानने से पहले सावधान विद्यार्थी को क्या जाँचना चाहिए?",
+      "options":[
+        {"key":"A","text":"Whether the lower hole is blocked, smaller or opened differently","textHi":"क्या नीचे वाला छेद बंद, छोटा या अलग तरीके से खोला गया है"},
+        {"key":"B","text":"Whether the bottle colour is attractive","textHi":"क्या बोतल का रंग आकर्षक है"},
+        {"key":"C","text":"Whether the table is rectangular","textHi":"क्या मेज़ आयताकार है"},
+        {"key":"D","text":"Nothing; one observation can never be checked","textHi":"कुछ नहीं; एक अवलोकन को कभी जाँचा नहीं जा सकता"}
+      ],
+      "correctAnswer":{"option":"A"},
+      "explanation":"Experimental controls matter. A blocked or unequal hole can change the stream and make the comparison unreliable.",
+      "explanationHi":"प्रयोग में नियंत्रित कारक महत्वपूर्ण होते हैं। बंद या असमान छेद धार बदल सकता है और तुलना को अविश्वसनीय बना सकता है।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-011","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"TRANSFER","learningOutcomeIds":["LO-LP-01","LO-LP-02"],
+      "prompt":"A tall water tank has two identical outlets, one near the top and one much lower. With both outlets below the same water surface and other conditions similar, which outlet is expected to have greater liquid pressure?",
+      "promptHi":"एक ऊँची पानी की टंकी में दो समान आउटलेट हैं, एक ऊपर के पास और दूसरा बहुत नीचे। दोनों एक ही जल-सतह के नीचे हैं और अन्य परिस्थितियाँ समान हैं। किस आउटलेट पर द्रव दाब अधिक होने की अपेक्षा है?",
+      "options":[
+        {"key":"A","text":"The lower outlet","textHi":"नीचे वाला आउटलेट"},
+        {"key":"B","text":"The upper outlet","textHi":"ऊपर वाला आउटलेट"},
+        {"key":"C","text":"Neither; liquids never exert pressure on outlets","textHi":"कोई नहीं; द्रव आउटलेट पर दाब नहीं डालते"},
+        {"key":"D","text":"The answer depends only on tank colour","textHi":"उत्तर केवल टंकी के रंग पर निर्भर है"}
+      ],
+      "correctAnswer":{"option":"A"},
+      "explanation":"The lower outlet is at greater depth below the liquid surface, so it experiences greater liquid pressure in this comparison.",
+      "explanationHi":"नीचे वाला आउटलेट जल-सतह से अधिक गहराई पर है, इसलिए इस तुलना में वहाँ द्रव दाब अधिक होगा।",
+      "marks":1,"negativeMarks":0
+    },
+    {
+      "publicCode":"VS8S-LP-012","type":"MCQ_SINGLE","difficulty":"CHALLENGE","skill":"REASON","learningOutcomeIds":["LO-LP-02","LO-LP-04","LO-LP-05"],
+      "prompt":"Which statement best combines the main ideas of this lesson?",
+      "promptHi":"कौन-सा कथन इस पाठ के मुख्य विचारों को सबसे अच्छी तरह जोड़ता है?",
+      "options":[
+        {"key":"A","text":"Liquids exert pressure only when flowing and only on the bottom","textHi":"द्रव केवल बहते समय और केवल तली पर दाब डालते हैं"},
+        {"key":"B","text":"Liquids exert pressure on surfaces they touch, and in the same liquid greater depth generally means greater pressure","textHi":"द्रव संपर्क में आने वाली सतहों पर दाब डालते हैं और उसी द्रव में अधिक गहराई का अर्थ सामान्यतः अधिक दाब है"},
+        {"key":"C","text":"Container width alone determines liquid pressure","textHi":"केवल कंटेनर की चौड़ाई द्रव दाब तय करती है"},
+        {"key":"D","text":"Pressure is unrelated to depth or contact surfaces","textHi":"दाब का गहराई या संपर्क सतहों से कोई संबंध नहीं है"}
+      ],
+      "correctAnswer":{"option":"B"},
+      "explanation":"This statement captures both core ideas: liquids exert pressure on contacted surfaces and pressure increases with depth in the same liquid under similar conditions.",
+      "explanationHi":"यह कथन दोनों मुख्य विचारों को जोड़ता है: द्रव संपर्क सतहों पर दाब डालते हैं और उसी द्रव में समान परिस्थितियों में गहराई बढ़ने पर दाब बढ़ता है।",
+      "marks":1,"negativeMarks":0
+    }
+  ]
+}
