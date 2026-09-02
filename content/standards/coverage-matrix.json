@@ -51,16 +51,16 @@
                   "conceptCode": "C8-SCI-FP-LIQUID-PRESSURE",
                   "titleEn": "Pressure in liquids",
                   "titleHi": "द्रवों में दाब",
-                  "packId": null,
-                  "authoringStatus": "NEXT",
-                  "assets": {"englishText":"NOT_STARTED","hindiText":"NOT_STARTED","conceptVideo":"NOT_STARTED","practicalOrVisual":"NOT_STARTED","practiceBank":"NOT_STARTED","mastery":"NOT_STARTED","revision":"NOT_STARTED","accessibility":"NOT_STARTED","academicQa":"NOT_STARTED"}
+                  "packId": "VS-C8-SCI-FP-LIQUID-PRESSURE-V1",
+                  "authoringStatus": "DRAFT_READY",
+                  "assets": {"englishText":"READY","hindiText":"READY","conceptVideo":"SCRIPT_READY","practicalOrVisual":"SCRIPT_READY","practiceBank":"READY","mastery":"READY","revision":"SCRIPT_READY","accessibility":"SPEC_READY","academicQa":"PENDING"}
                 },
                 {
                   "conceptCode": "C8-SCI-FP-ATMOSPHERIC",
                   "titleEn": "Atmospheric pressure",
                   "titleHi": "वायुमंडलीय दाब",
                   "packId": null,
-                  "authoringStatus": "PLANNED",
+                  "authoringStatus": "NEXT",
                   "assets": {"englishText":"NOT_STARTED","hindiText":"NOT_STARTED","conceptVideo":"NOT_STARTED","practicalOrVisual":"NOT_STARTED","practiceBank":"NOT_STARTED","mastery":"NOT_STARTED","revision":"NOT_STARTED","accessibility":"NOT_STARTED","academicQa":"NOT_STARTED"}
                 }
               ]

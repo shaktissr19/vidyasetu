@@ -7,6 +7,8 @@
     {"domain":"Science","english":"Push","hindi":"धक्का","learnerFriendlyHi":"किसी वस्तु को अपने से दूर करने की क्रिया"},
     {"domain":"Science","english":"Pull","hindi":"खिंचाव","learnerFriendlyHi":"किसी वस्तु को अपनी ओर खींचने की क्रिया"},
     {"domain":"Science","english":"Pressure","hindi":"दाब","learnerFriendlyHi":"किसी क्षेत्र पर बल कितना केंद्रित है"},
+    {"domain":"Science","english":"Liquid pressure","hindi":"द्रव दाब","learnerFriendlyHi":"द्रव द्वारा संपर्क में आने वाली सतहों पर डाला गया दाब"},
+    {"domain":"Science","english":"Depth","hindi":"गहराई","learnerFriendlyHi":"द्रव की सतह से नीचे की दूरी"},
     {"domain":"Science","english":"Area","hindi":"क्षेत्रफल","learnerFriendlyHi":"किसी सतह द्वारा घेरा गया स्थान"},
     {"domain":"Science","english":"Contact force","hindi":"संपर्क बल","learnerFriendlyHi":"जिस बल के लिए वस्तुओं का संपर्क आवश्यक हो"},
     {"domain":"Science","english":"Non-contact force","hindi":"असंपर्क बल","learnerFriendlyHi":"जो बल बिना सीधे संपर्क के प्रभाव डाल सके"},
