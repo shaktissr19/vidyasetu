@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "registryId": "VS-SYL-C7-2026-27-V1",
+  "status": "DRAFT_VERIFIED_INDEX",
+  "academicSession": "2026-27",
+  "gradeCode": "CLASS_7",
+  "stage": "MIDDLE",
+  "standardOwner": "VIDYASETU",
+  "referenceFrameworks": ["NCF-SE-2023", "NCERT-2026-27", "CBSE-2026-27"],
+  "principle": "VidyaSetu syllabus nodes are stable academic anchors. Textbooks, boards and learning resources map to them and may change independently.",
+  "languageModel": {
+    "scheme": "R1_R2_R3_CONFIGURABLE",
+    "rule": "A school selects languages according to applicable policy; VidyaSetu does not hard-code English, Hindi or Sanskrit as a universal R1/R2/R3 assignment."
+  },
+  "curricularAreas": [
+    {"code":"LANGUAGE_R1","name":"Language R1","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"LANGUAGE_R2","name":"Language R2","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"LANGUAGE_R3","name":"Language R3","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"MATHEMATICS","name":"Mathematics","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"SCIENCE","name":"Science","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"SOCIAL_SCIENCE","name":"Social Science","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"ART_EDUCATION","name":"Art Education","kind":"HOLISTIC","requiredInStandard":true},
+    {"code":"PHYSICAL_EDUCATION_WELLBEING","name":"Physical Education and Well-being","kind":"HOLISTIC","requiredInStandard":true},
+    {"code":"VOCATIONAL_EDUCATION","name":"Vocational Education","kind":"SKILL","requiredInStandard":true},
+    {"code":"CT_AI","name":"Computational Thinking and Artificial Intelligence","kind":"CROSS_CURRICULAR","requiredInStandard":true}
+  ],
+  "referenceBooks": [
+    {
+      "subjectCode":"ENGLISH","curricularArea":"LANGUAGE_SLOT","title":"Poorvi","publisher":"NCERT","mappingRole":"REFERENCE_LANGUAGE_BOOK",
+      "structure":[
+        {"unit":1,"title":"Learning Together","items":["The Day the River Spoke","Try Again","Three Days to See"]},
+        {"unit":2,"title":"Wit and Humour","items":["Animals, Birds, and Dr. Dolittle","A Funny Man","Say the Right Thing"]},
+        {"unit":3,"title":"Dreams and Discoveries","items":["My Brother’s Great Invention","Paper Boats","North, South, East, West"]},
+        {"unit":4,"title":"Travel and Adventure","items":["The Tunnel","Travel","Conquering the Summit"]},
+        {"unit":5,"title":"Bravehearts","items":["A Homage to Our Brave Soldiers","My Dear Soldiers","Rani Abbakka"]}
+      ]
+    },
+    {
+      "subjectCode":"HINDI","curricularArea":"LANGUAGE_SLOT","title":"Malhar","publisher":"NCERT","mappingRole":"REFERENCE_LANGUAGE_BOOK",
+      "chapters":["माँ, कह एक कहानी","तीन बुद्धिमान","फूल और काँटा","पानी रे पानी","नहीं होना बीमार","गिरिधर कविराय की कुंडलिया","वर्षा-बहार","बिरजू महाराज से साक्षात्कार","चिड़िया","मीरा के पद"]
+    },
+    {
+      "subjectCode":"SANSKRIT","curricularArea":"LANGUAGE_SLOT","title":"Deepakam","publisher":"NCERT","mappingRole":"REFERENCE_R3_OPTION_EXAMPLE",
+      "note":"Sanskrit is one possible language option; R3 remains configurable. The current index contains 12 main lessons plus three language-reference sections.",
+      "mainLessons":["वन्दे भारतमातरम्","नित्यं पिबामः सुभाषितरसम्","मित्राय नमः","न लभ्यते चेत् आम्लं द्राक्षाफलम्","सेवा हि परमो धर्मः","क्रीडाम वयं श्लोकान्त्याक्षरीम्","ईशावास्यम् इदं सर्वम्","हितं मनोहारि च दुर्लभं वचः","अन्नाद् भवन्ति भूतानि","दशमः कः?","द्वीपेषु रम्यः द्वीपोऽण्डमानः","वीराङ्गना पन्नाधाया"],
+      "referenceSections":["वर्णमात्रा-परिचयः","शब्दरूपाणि","धातुरूपाणि"]
+    },
+    {
+      "subjectCode":"MATHEMATICS","curricularArea":"MATHEMATICS","title":"Ganita Prakash","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "parts":[
+        {"part":1,"chapters":["Large Numbers Around Us","Arithmetic Expressions","A Peek Beyond the Point","Expressions using Letter-Numbers","Parallel and Intersecting Lines","Number Play","A Tale of Three Intersecting Lines","Working with Fractions"]},
+        {"part":2,"chapters":["Geometric Twins","Operations with Integers","Finding Common Ground","Another Peek Beyond the Point","Connecting the Dots...","Constructions and Tilings","Finding the Unknown"]}
+      ]
+    },
+    {
+      "subjectCode":"SCIENCE","curricularArea":"SCIENCE","title":"Curiosity","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "chapters":["The Ever-Evolving World of Science","Exploring Substances: Acidic, Basic, and Neutral","Electricity: Circuits and their Components","The World of Metals and Non-metals","Changes Around Us: Physical and Chemical","Adolescence: A Stage of Growth and Change","Heat Transfer in Nature","Measurement of Time and Motion","Life Processes in Animals","Life Processes in Plants","Light: Shadows and Reflections","Earth, Moon, and the Sun"]
+    },
+    {
+      "subjectCode":"SOCIAL_SCIENCE","curricularArea":"SOCIAL_SCIENCE","title":"Exploring Society: India and Beyond","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "parts":[
+        {"part":1,"chapters":["Geographical Diversity of India","Understanding the Weather","Climates of India","New Beginnings: Cities and States","The Rise of Empires","The Age of Reorganisation","The Gupta Era: An Age of Tireless Creativity","How the Land Becomes Sacred","From the Rulers to the Ruled: Types of Governments","The Constitution of India – An Introduction","From Barter to Money","Understanding Markets"]},
+        {"part":2,"chapters":["The Story of Indian Farming","India and Her Neighbours","Empires and Kingdoms: 6th to 10th Centuries","Turning Tides: 11th and 12th Centuries","India, a Home to Many","The State, the Government, and You","Infrastructure: Engine of India’s Development","Banks and the Magic of Finance"]}
+      ]
+    },
+    {
+      "subjectCode":"ART_EDUCATION","curricularArea":"ART_EDUCATION","title":"Kriti","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "chapters":["Understanding Emotions","Say More without Speech — Mime","Let’s Design — Stage Technicals 2","Story of India’s Storytelling Tradition","Making Music","Music, Emotions and Creativity","Ragas and Talas/Taal","The Music of the People","Performance","Dance and Sculpture","Dance Vocabulary and Techniques","Dance, You and Creativity","Personalities","Natya","Objects in Icons and Symbols","Nature’s Palette","How You Feel","Textiles and Traditions","The Art of Calligraphy","Integration of All Art Forms — Sculptures Come Alive!"]
+    },
+    {
+      "subjectCode":"PHYSICAL_EDUCATION_WELLBEING","curricularArea":"PHYSICAL_EDUCATION_WELLBEING","title":"Khel Yatra","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "chapters":["Foundational Basis of Physical Education and Well-being","Physical and Motor Fitness","Fundamental Skills of Sports — Badminton","Fundamental Skills of Sports — Football","Fundamental Skills of Sports — Kabaddi","Yoga"]
+    },
+    {
+      "subjectCode":"VOCATIONAL_EDUCATION","curricularArea":"VOCATIONAL_EDUCATION","title":"Kaushal Bodh","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "projects":["Plant Nursery","School Habitat Garden","Tie and Dye","AI Assistant","Storytime with Puppets","Family Health Handbook"],
+      "culminatingActivity":"Planning for Kaushal Mela"
+    },
+    {
+      "subjectCode":"CT_AI","curricularArea":"CT_AI","title":"Computational Thinking and Artificial Intelligence — Class 7 Student Handbook","publisher":"CBSE","mappingRole":"CROSS_CURRICULAR_REFERENCE",
+      "part1ComputationalThinking":["Large Numbers Around Us","Arithmetic Expressions","A Peek Beyond the Point","Expressions using Letter-Numbers","Parallel and Intersecting Lines","Number Play","A Tale of Three Intersecting Lines","Working with Fractions"],
+      "part2ArtificialIntelligence":["AI domains and applications","AI in industries","Data visualisation and analysis","Ethics and AI bias awareness"],
+      "crossCuttingSkills":["Decomposition","Pattern Recognition","Abstraction","Algorithm Design","Data Analysis","Troubleshooting","Privacy","Fairness","Responsible AI"]
+    }
+  ],
+  "contentMappingPolicy": {
+    "relationship":"MANY_CONTENT_RESOURCES_TO_ONE_OR_MORE_SYLLABUS_NODES",
+    "publicContentMayBeUnmapped":true,
+    "textbookIsNotContentDatabase":true,
+    "boardMappingIsSeparate":true,
+    "boardSpecificDifferencesAllowed":["chapter placement","terminology","depth","assessment style","additional or omitted concepts"]
+  }
+}
