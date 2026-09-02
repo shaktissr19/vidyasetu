@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0",
+  "registryId": "VS-SYL-C8-2026-27-V1",
+  "status": "DRAFT_VERIFIED_INDEX",
+  "academicSession": "2026-27",
+  "gradeCode": "CLASS_8",
+  "stage": "MIDDLE",
+  "standardOwner": "VIDYASETU",
+  "referenceFrameworks": ["NCF-SE-2023", "NCERT-2026-27", "CBSE-2026-27"],
+  "principle": "VidyaSetu syllabus nodes are stable academic anchors. Textbooks, boards and learning resources map to them and may change independently.",
+  "languageModel": {
+    "scheme": "R1_R2_R3_CONFIGURABLE",
+    "rule": "A school selects languages according to applicable policy; VidyaSetu does not hard-code English, Hindi or Sanskrit as a universal R1/R2/R3 assignment."
+  },
+  "curricularAreas": [
+    {"code":"LANGUAGE_R1","name":"Language R1","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"LANGUAGE_R2","name":"Language R2","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"LANGUAGE_R3","name":"Language R3","kind":"LANGUAGE_SLOT","requiredInStandard":true},
+    {"code":"MATHEMATICS","name":"Mathematics","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"SCIENCE","name":"Science","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"SOCIAL_SCIENCE","name":"Social Science","kind":"CORE_ACADEMIC","requiredInStandard":true},
+    {"code":"ART_EDUCATION","name":"Art Education","kind":"HOLISTIC","requiredInStandard":true},
+    {"code":"PHYSICAL_EDUCATION_WELLBEING","name":"Physical Education and Well-being","kind":"HOLISTIC","requiredInStandard":true},
+    {"code":"VOCATIONAL_EDUCATION","name":"Vocational Education","kind":"SKILL","requiredInStandard":true},
+    {"code":"CT_AI","name":"Computational Thinking and Artificial Intelligence","kind":"CROSS_CURRICULAR","requiredInStandard":true}
+  ],
+  "referenceBooks": [
+    {
+      "subjectCode":"ENGLISH","curricularArea":"LANGUAGE_SLOT","title":"Poorvi","publisher":"NCERT","mappingRole":"REFERENCE_LANGUAGE_BOOK",
+      "structure":[
+        {"unit":1,"title":"Wit and Wisdom","items":["The Wit that Won Hearts","A Concrete Example","Wisdom Paves the Way"]},
+        {"unit":2,"title":"Values and Dispositions","items":["A Tale of Valour","Somebody’s Mother","Verghese Kurien"]},
+        {"unit":3,"title":"Mystery and Magic","items":["The Case of the Fifth Word","The Magic Brush of Dreams","Spectacular Wonders"]},
+        {"unit":4,"title":"Environment","items":["The Cherry Tree","Harvest Hymn","Waiting for the Rain"]},
+        {"unit":5,"title":"Science and Curiosity","items":["Feathered Friend","Magnifying Glass","Bibha Chowdhuri"]}
+      ]
+    },
+    {
+      "subjectCode":"HINDI","curricularArea":"LANGUAGE_SLOT","title":"Malhar","publisher":"NCERT","mappingRole":"REFERENCE_LANGUAGE_BOOK",
+      "chapters":["स्वदेश","दो गौरैया","एक आशीर्वाद","हरिद्वार","कबीर के दोहे","एक टोकरी भर मिट्टी","मत बाँधो","नए मेहमान","आदमी का अनुपात","तरुण के स्वप्न"]
+    },
+    {
+      "subjectCode":"SANSKRIT","curricularArea":"LANGUAGE_SLOT","title":"Deepakam","publisher":"NCERT","mappingRole":"REFERENCE_R3_OPTION_EXAMPLE",
+      "note":"Sanskrit is one possible language option; R3 remains configurable. The current index contains 13 instructional lessons plus three reference/appendix sections.",
+      "mainLessons":["संगच्छध्वं संवदध्वम्","अल्पानामपि वस्तूनां संहतिः कार्यसाधिका","सुभाषितरसं पीत्वा जीवनं सफलं कुरु","प्रणम्यो देशभक्तोऽयं गोपबन्धुर्महामनाः","गीता सुगीता कर्तव्या","डिजिभारतम् – युगपरिवर्तनम्","मञ्जुलमञ्जूषा सुन्दरसुरभाषा","पश्यत कोणमैशान्यं भारतस्य मनोहरम्","कोऽरुक् ? कोऽरुक् ? कोऽरुक् ?","सन्निमित्ते वरं त्यागः (क-भागः)","सन्निमित्ते वरं त्यागः (ख-भागः)","सम्यग्वर्णप्रयोगेण ब्रह्मलोके महीयते","वर्णोच्चारण-शिक्षा १"],
+      "referenceSections":["व्याकरणम्","शब्दरूपाणि","धातुरूपाणि"]
+    },
+    {
+      "subjectCode":"MATHEMATICS","curricularArea":"MATHEMATICS","title":"Ganita Prakash","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "parts":[
+        {"part":1,"chapters":["A Square and a Cube","Power Play","A Story of Numbers","Quadrilaterals","Number Play","We Distribute, Yet Things Multiply","Proportional Reasoning-1"]},
+        {"part":2,"chapters":["Fractions in Disguise","The Baudhayana-Pythagoras Theorem","Proportional Reasoning-2","Exploring Some Geometric Themes","Tales by Dots and Lines","Algebra Play","Area"]}
+      ]
+    },
+    {
+      "subjectCode":"SCIENCE","curricularArea":"SCIENCE","title":"Curiosity","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "chapters":["Exploring the Investigative World of Science","The Invisible Living World: Beyond Our Naked Eye","Health: The Ultimate Treasure","Electricity: Magnetic and Heating Effects","Exploring Forces","Pressure, Winds, Storms, and Cyclones","Particulate Nature of Matter","Nature of Matter: Elements, Compounds, and Mixtures","The Amazing World of Solutes, Solvents, and Solutions","Light: Mirrors and Lenses","Keeping Time with the Skies","How Nature Works in Harmony","Our Home: Earth, a Unique Life Sustaining Planet"]
+    },
+    {
+      "subjectCode":"SOCIAL_SCIENCE","curricularArea":"SOCIAL_SCIENCE","title":"Exploring Society: India and Beyond","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "parts":[
+        {"part":1,"chapters":["Natural Resources and Their Use","Reshaping India’s Political Map","The Rise of the Marathas","The Colonial Era in India","Universal Franchise and India’s Electoral System","The Parliamentary System: Legislature and Executive","Factors of Production"]},
+        {"part":2,"chapters":["World Geography: Some Glimpses","India’s Long Road to Independence","A Journey Through Indian Architecture","The Role of the Judiciary in Our Society","Citizenship: Rights and Duties","Dynamics of Population","India’s Urban Landscape","Cultural Currents: 13th to 17th Centuries"]}
+      ]
+    },
+    {
+      "subjectCode":"ART_EDUCATION","curricularArea":"ART_EDUCATION","title":"Kriti","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "domains":[
+        {"name":"Theatre","chapters":["Bringing Words Alive — Play Reading","One Stage, Many Scripts","From Page to Stage","Applause and Advice"]},
+        {"name":"Music","chapters":["Discovering the Elements of Music","Musical Instruments","Indian Classical Music","Inspiration and Imagination","My World of Music"]},
+        {"name":"Dance and Movement","chapters":["Inner Dynamics of Dance","Pan Indian Dance Forms","Dance for Well-being","Innovation, Inclusivity and Inspiring Change","A Presentation of Dance and Choreography"]},
+        {"name":"Visual Arts","chapters":["Elements and Principles of Visual Art and Design","Still Life in Colour","People in Places","Arts of the People, With the People, For the People","Campaign for Art Awareness"]}
+      ]
+    },
+    {
+      "subjectCode":"PHYSICAL_EDUCATION_WELLBEING","curricularArea":"PHYSICAL_EDUCATION_WELLBEING","title":"Khel Yatra","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "chapters":["Foundations of Physical Education and Well-being","Physical and Motor Fitness","Fundamental Skills of Sports – Athletics","Fundamental Skills of Sports – Table Tennis","Fundamental Skills of Sports – Volleyball","Yoga"]
+    },
+    {
+      "subjectCode":"VOCATIONAL_EDUCATION","curricularArea":"VOCATIONAL_EDUCATION","title":"Kaushal Bodh","publisher":"NCERT","mappingRole":"PRIMARY_REFERENCE",
+      "projects":["Hydroponics: Growing Plants without Soil","Feeding and Caring for Farm Animals","Working with Wood and Bamboo","Home Automation","Water Audit for Water Management","Creating Advertisements"],
+      "culminatingActivity":"Planning for Kaushal Mela",
+      "referenceSections":["Annexure"]
+    },
+    {
+      "subjectCode":"CT_AI","curricularArea":"CT_AI","title":"Computational Thinking and Artificial Intelligence — Class 8 Student Handbook","publisher":"CBSE","mappingRole":"CROSS_CURRICULAR_REFERENCE",
+      "timeAllocationHours":{"advancedCT":40,"introductoryAI":20,"interdisciplinaryProjects":40,"total":100},
+      "part1ComputationalThinking":["A Square and a Cube","Power Play","A Story of Numbers","Quadrilaterals","Number Play","We Distribute, Yet Things Multiply","Proportional Reasoning-1","Fractions in Disguise","The Baudhayana-Pythagoras Theorem","Proportional Reasoning-2","Exploring Some Geometric Themes","Tales by Dots and Lines","Algebra Play","Area"],
+      "part2ArtificialIntelligence":["AI Project Lifecycle","Artificial Intelligence and Its Applications","Data and Fairness in AI","Ethics and Responsible AI"],
+      "crossCuttingSkills":["Decomposition","Pattern Recognition","Abstraction","Algorithm Design","Data Analysis","Troubleshooting","No-code AI tool use","Problem definition","Data collection","Testing and evaluation","Bias awareness","Fairness","Privacy","Responsible AI"]
+    }
+  ],
+  "contentMappingPolicy": {
+    "relationship":"MANY_CONTENT_RESOURCES_TO_ONE_OR_MORE_SYLLABUS_NODES",
+    "publicContentMayBeUnmapped":true,
+    "textbookIsNotContentDatabase":true,
+    "boardMappingIsSeparate":true,
+    "boardSpecificDifferencesAllowed":["chapter placement","terminology","depth","assessment style","additional or omitted concepts"]
+  }
+}
