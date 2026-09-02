@@ -12,6 +12,7 @@ on:
       - 'backend/src/scripts/installAtmosphericPressurePack.ts'
       - 'scripts/validate-content-pack.mjs'
       - 'scripts/validate-content-foundation.mjs'
+      - 'scripts/validate-syllabus-registry.mjs'
       - '.github/workflows/content-pack-ci.yml'
   push:
     branches:
@@ -26,6 +27,7 @@ on:
       - 'backend/src/scripts/installAtmosphericPressurePack.ts'
       - 'scripts/validate-content-pack.mjs'
       - 'scripts/validate-content-foundation.mjs'
+      - 'scripts/validate-syllabus-registry.mjs'
       - '.github/workflows/content-pack-ci.yml'
 
 permissions:
@@ -49,6 +51,9 @@ jobs:
 
       - name: Validate content foundation
         run: node scripts/validate-content-foundation.mjs content
+
+      - name: Validate syllabus registries
+        run: node scripts/validate-syllabus-registry.mjs content/syllabus
 
       - name: Build shared contracts
         working-directory: shared/contracts
