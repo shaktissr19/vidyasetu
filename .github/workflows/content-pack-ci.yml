@@ -9,6 +9,7 @@ on:
       - 'backend/src/scripts/installEffectsOfForcePack.ts'
       - 'backend/src/scripts/installContactNonContactPack.ts'
       - 'backend/src/scripts/installLiquidPressurePack.ts'
+      - 'backend/src/scripts/installAtmosphericPressurePack.ts'
       - 'scripts/validate-content-pack.mjs'
       - 'scripts/validate-content-foundation.mjs'
       - '.github/workflows/content-pack-ci.yml'
@@ -22,6 +23,7 @@ on:
       - 'backend/src/scripts/installEffectsOfForcePack.ts'
       - 'backend/src/scripts/installContactNonContactPack.ts'
       - 'backend/src/scripts/installLiquidPressurePack.ts'
+      - 'backend/src/scripts/installAtmosphericPressurePack.ts'
       - 'scripts/validate-content-pack.mjs'
       - 'scripts/validate-content-foundation.mjs'
       - '.github/workflows/content-pack-ci.yml'
@@ -66,6 +68,7 @@ jobs:
           test -f dist/scripts/installEffectsOfForcePack.js
           test -f dist/scripts/installContactNonContactPack.js
           test -f dist/scripts/installLiquidPressurePack.js
+          test -f dist/scripts/installAtmosphericPressurePack.js
 
       - name: Prove Pressure installer dry-run is write-free
         run: |
@@ -109,5 +112,14 @@ jobs:
           output="$(node backend/dist/scripts/installLiquidPressurePack.js)"
           printf '%s\n' "$output"
           grep -F "Pressure in Liquids pack validated: VS-C8-SCI-FP-LIQUID-PRESSURE-V1" <<<"$output"
+          grep -F "Question bank: 12 bilingual questions" <<<"$output"
+          grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
+
+      - name: Prove Atmospheric Pressure installer dry-run is write-free
+        run: |
+          set -euo pipefail
+          output="$(node backend/dist/scripts/installAtmosphericPressurePack.js)"
+          printf '%s\n' "$output"
+          grep -F "Atmospheric Pressure pack validated: VS-C8-SCI-FP-ATMOSPHERIC-V1" <<<"$output"
           grep -F "Question bank: 12 bilingual questions" <<<"$output"
           grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
