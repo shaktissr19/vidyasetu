@@ -58,6 +58,7 @@ router.post('/learning/assessments/:assessmentId/start', ctrl.startLearningAsses
 router.post('/learning/attempts/:attemptId/submit', validate(learningSubmitSchema), learningRuntimeCtrl.submitLearningAssessment);
 
 router.get('/notifications', ctrl.getNotifications);
+router.patch('/notifications/read-all', ctrl.markAllNotifRead);
 router.patch('/notifications/:id/read', ctrl.markNotifRead);
 router.get('/offline-downloads', ctrl.getOfflineDownloads);
 router.delete('/offline-downloads/:contentItemId', ctrl.removeOfflineDownload);

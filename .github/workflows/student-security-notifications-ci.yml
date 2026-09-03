@@ -1,0 +1,161 @@
+name: Student Security, Notifications and Deep Links CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/controllers/auth.controller.ts'
+      - 'backend/src/controllers/student.controller.ts'
+      - 'backend/src/routes/auth.routes.ts'
+      - 'backend/src/routes/student.routes.ts'
+      - 'backend/src/services/session.service.ts'
+      - 'frontend/src/app/student/page.tsx'
+      - 'frontend/src/components/layout/GlobalTopbar.tsx'
+      - 'frontend/src/components/student/**'
+      - 'frontend/src/services/authService.ts'
+      - 'frontend/src/services/studentService.ts'
+      - 'frontend/src/types/studentPortal.ts'
+      - 'scripts/student-security-notification-smoke.sh'
+      - '.github/workflows/student-security-notifications-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  student-security-notifications:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate smoke test
+        run: bash -n scripts/student-security-notification-smoke.sh
+
+      - name: Install native PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable current auth baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/014_student_identity_enrollment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/015_realistic_demo_identities.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO notifications (user_id, type, channel, title, body, reference_type)
+          SELECT id, 'SYSTEM', 'IN_APP', 'CI Learning update', 'Open your Learning workspace.', 'LEARNING'
+          FROM users WHERE mobile='9300000001';
+          INSERT INTO notifications (user_id, type, channel, title, body, reference_type)
+          SELECT id, 'SYSTEM', 'IN_APP', 'CI School update', 'Open your School workspace.', 'SCHOOL'
+          FROM users WHERE mobile='9300000001';
+          SQL
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM notifications n JOIN users u ON u.id=n.user_id WHERE u.mobile='9300000001' AND n.title LIKE 'CI % update' AND n.is_read=FALSE;")" = "2"
+
+      - name: Build contracts and compiled backend
+        run: |
+          cd shared/contracts
+          npm install --no-audit --no-fund
+          npm run build
+          cd ../../backend
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+
+      - name: Start compiled backend
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: student_security_ci_access_secret_2026
+          JWT_REFRESH_SECRET: student_security_ci_refresh_secret_2026
+          JWT_ACCESS_EXPIRY: 15m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-student-security-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5000/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vidyasetu-student-security-api.log
+          exit 1
+
+      - name: Run session and notification persistence E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          STUDENT_MOBILE: '9300000001'
+        run: bash scripts/student-security-notification-smoke.sh
+
+      - name: Validate persisted security and read state
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON u.id=rt.user_id WHERE u.mobile='9300000001' AND rt.revoked_at IS NULL AND rt.expires_at>NOW();")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON u.id=rt.user_id WHERE u.mobile='9300000001' AND rt.revoked_at IS NOT NULL;")" -ge "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM notifications n JOIN users u ON u.id=n.user_id WHERE u.mobile='9300000001' AND n.title LIKE 'CI % update' AND n.is_read=TRUE AND n.read_at IS NOT NULL;")" = "2"
+
+      - name: Strict frontend typecheck and production build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+
+      - name: Certify Student deep-link and notification wiring
+        run: |
+          set -euo pipefail
+          grep -q "section=notifications" frontend/src/components/layout/GlobalTopbar.tsx
+          grep -q "router.push(href, { scroll: false })" frontend/src/components/student/StudentPortal.tsx
+          grep -q "searchParams?.section" frontend/src/app/student/page.tsx
+          grep -q "markAllNotificationsRead" frontend/src/components/student/sections/NotificationsSection.tsx
+          grep -q "return 'homework'" frontend/src/components/student/sections/NotificationsSection.tsx
+          grep -q "return 'attendance'" frontend/src/components/student/sections/NotificationsSection.tsx
+          grep -q "return 'report'" frontend/src/components/student/sections/NotificationsSection.tsx
+          grep -q "getActiveSessions" frontend/src/components/student/sections/ProfileSecuritySection.tsx
+          grep -q "revokeOtherSessions" frontend/src/components/student/sections/ProfileSecuritySection.tsx
+          grep -q "'/auth/sessions'" frontend/src/services/authService.ts
+          grep -q "'/student/notifications/read-all'" frontend/src/services/studentService.ts
+
+      - name: Backend logs on failure
+        if: failure()
+        run: cat /tmp/vidyasetu-student-security-api.log || true
