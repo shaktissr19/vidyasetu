@@ -9,10 +9,14 @@ import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
 import {
   getPublicCompetitions,
+  getPublicLearningOverview,
   getPublicLearningResources,
+  getPublicOverview,
   getPublicSchools,
   type PublicCompetition,
+  type PublicLearningOverview,
   type PublicLearningResource,
+  type PublicOverview,
   type PublicSchool,
 } from '@/services/publicService';
 import styles from './publicHomeVisual.module.css';
@@ -31,13 +35,6 @@ const MODULES = [
   { title: 'Learning', copy: 'Access public resources for all grades', href: '/learn', tone: sample.orange, image: MODULE_IMAGES.learn },
   { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', tone: sample.rose, image: MODULE_IMAGES.competition },
   { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal, image: MODULE_IMAGES.communities },
-];
-
-const HOME_STATS = [
-  { icon: BookOpen, value: '10,000+', label: 'Learning Resources', note: 'Public content for all', tone: sample.statOrange },
-  { icon: Users, value: '1M+', label: 'Students Learning', note: 'Across India', tone: sample.statGreen },
-  { icon: Building2, value: '15K+', label: 'Schools Onboard', note: 'Growing every day', tone: sample.statViolet },
-  { icon: Trophy, value: '50+', label: 'Competitions', note: 'Opportunities for all', tone: sample.statRose },
 ];
 
 const JOURNEY = [
@@ -62,10 +59,16 @@ function gradeText(resource: PublicLearningResource): string {
   return 'Multiple learning levels';
 }
 
+function metric(value: number | undefined): string {
+  return typeof value === 'number' ? new Intl.NumberFormat('en-IN').format(value) : '—';
+}
+
 export default function PublicHomeSampleExperience() {
   const [learning, setLearning] = useState<PublicLearningResource[]>([]);
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
+  const [overview, setOverview] = useState<PublicOverview | null>(null);
+  const [learningOverview, setLearningOverview] = useState<PublicLearningOverview | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -73,14 +76,25 @@ export default function PublicHomeSampleExperience() {
       getPublicLearningResources({ featured: true, limit: 3 }),
       getPublicSchools(),
       getPublicCompetitions(),
-    ]).then(([learningResult, schoolResult, competitionResult]) => {
+      getPublicOverview(),
+      getPublicLearningOverview(),
+    ]).then(([learningResult, schoolResult, competitionResult, overviewResult, learningOverviewResult]) => {
       if (!active) return;
       if (learningResult.status === 'fulfilled') setLearning(learningResult.value.data.data || []);
       if (schoolResult.status === 'fulfilled') setSchools((schoolResult.value.data.data || []).slice(0, 3));
       if (competitionResult.status === 'fulfilled') setCompetitions((competitionResult.value.data.data || []).slice(0, 3));
+      if (overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data.data);
+      if (learningOverviewResult.status === 'fulfilled') setLearningOverview(learningOverviewResult.value.data.data);
     });
     return () => { active = false; };
   }, []);
+
+  const homeStats = [
+    { icon: BookOpen, value: metric(learningOverview?.totalResources), label: 'Published Learning Resources', note: 'Live public catalogue', tone: sample.statOrange },
+    { icon: Users, value: metric(overview?.students), label: 'Active Students', note: 'Registered on VidyaSetu', tone: sample.statGreen },
+    { icon: Building2, value: metric(overview?.schools), label: 'Active Schools', note: 'Connected institutions', tone: sample.statViolet },
+    { icon: Trophy, value: metric(overview?.competitions), label: 'Competitions', note: 'Platform opportunities', tone: sample.statRose },
+  ];
 
   return (
     <div className={styles.page}>
@@ -135,8 +149,8 @@ export default function PublicHomeSampleExperience() {
             ))}
           </div>
 
-          <div className={sample.statsStrip} aria-label="VidyaSetu platform scale">
-            {HOME_STATS.map(({ icon: Icon, value, label, note, tone }) => (
+          <div className={sample.statsStrip} aria-label="Live VidyaSetu platform metrics">
+            {homeStats.map(({ icon: Icon, value, label, note, tone }) => (
               <div className={sample.stat} key={label}>
                 <span className={`${sample.statIcon} ${tone}`}><Icon size={24} strokeWidth={1.9} /></span>
                 <span className={sample.statCopy}><strong>{value}</strong><b>{label}</b><small>{note}</small></span>
