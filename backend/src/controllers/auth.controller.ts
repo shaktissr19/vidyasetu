@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { QueryResultRow } from 'pg';
 import type { LanguageCode, UserRole, UUID } from '@vidyasetu/contracts';
 import * as authService from '../services/auth.service';
+import * as sessionService from '../services/session.service';
 import { query } from '../config/db';
 import * as R from '../utils/response';
 
@@ -35,6 +36,10 @@ interface RefreshBody {
 
 interface LogoutBody {
   refreshToken?: string;
+}
+
+interface RevokeOtherSessionsBody {
+  refreshToken: string;
 }
 
 interface UpdateProfileBody extends authService.UpdateProfileInput {}
@@ -258,6 +263,40 @@ export async function logout(
     const accessToken = req.headers.authorization?.split(' ')[1];
     if (refreshToken) await authService.logout(refreshToken, accessToken);
     return R.ok(res, { message: 'Logged out successfully' });
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function getSessions(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await sessionService.listActiveSessions(user.userId));
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function revokeOtherSessions(
+  req: BodyRequest<RevokeOtherSessionsBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    const result = await sessionService.revokeOtherSessions(user.userId, req.body.refreshToken);
+    return R.ok(res, {
+      ...result,
+      message: result.revokedCount
+        ? `Signed out ${result.revokedCount} other active session${result.revokedCount === 1 ? '' : 's'}`
+        : 'No other active sessions were found',
+    });
   } catch (err: unknown) {
     next(err);
   }
