@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 import { logout as apiLogout } from '@/services/authService';
+import { getNotifications } from '@/services/studentService';
 
 const NAV: ReadonlyArray<readonly [string, string]> = [
   ['Home', '/'],
@@ -37,6 +39,19 @@ export default function GlobalTopbar() {
   const router = useRouter();
   const { user, isLoggedIn, refreshToken, logout } = useAuthStore();
   const { lang, toggleLang } = useLanguageStore();
+  const isStudent = isLoggedIn && user?.role === 'STUDENT';
+
+  const notificationsQuery = useQuery({
+    queryKey: ['student-notifications'],
+    queryFn: async () => (await getNotifications()).data.data || [],
+    enabled: isStudent,
+    staleTime: 10_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+  const unreadCount = isStudent
+    ? (notificationsQuery.data || []).filter((item) => !item.is_read).length
+    : 0;
 
   async function handleLogout() {
     try {
@@ -80,6 +95,26 @@ export default function GlobalTopbar() {
         </button>
         {isLoggedIn ? (
           <>
+            {isStudent && (
+              <button
+                onClick={() => router.push('/student?section=notifications')}
+                title={unreadCount ? `${unreadCount} unread Student notification${unreadCount === 1 ? '' : 's'}` : 'Student notifications'}
+                aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+                style={{
+                  position: 'relative', border: '1px solid #D9DEE8', background: unreadCount ? '#FFF8F0' : '#fff',
+                  color: '#0D1B3E', minWidth: 40, height: 38, borderRadius: 10, fontSize: 18, cursor: 'pointer',
+                }}
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -7, right: -7, minWidth: 20, height: 20, padding: '0 5px', borderRadius: 999,
+                    background: '#FF6B00', color: '#fff', border: '2px solid #fff', fontSize: 10, fontWeight: 900,
+                    display: 'grid', placeItems: 'center', lineHeight: 1,
+                  }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </button>
+            )}
             <button onClick={() => router.push(accountPath(user?.role))} title="Open your dashboard" style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
               My Dashboard
             </button>
