@@ -68,10 +68,15 @@ function normalizedSubjectKeys(row: SubjectRow): string[] {
 async function main(): Promise<void> {
   const concepts = loadClass8LearningConceptRegistry();
   const subjectCount = new Set(concepts.map((concept) => concept.subjectCode)).size;
-  const chapterCount = new Set(concepts.map((concept) => concept.chapterCode)).size;
+  const chapterCount = new Set(
+    concepts.map((concept) => concept.chapterCode).filter((code): code is string => Boolean(code)),
+  ).size;
+  const nodeTypeCount = new Set(concepts.map((concept) => concept.nodeType)).size;
 
   console.log(`Canonical concept registry validated: ${concepts.length} concepts`);
-  console.log(`Scope: CLASS_8 / ${subjectCount} subjects / ${chapterCount} chapters / ${concepts[0]?.academicYear || 'unknown session'}`);
+  console.log(
+    `Scope: CLASS_8 / ${subjectCount} subjects / ${chapterCount} chapters / ${nodeTypeCount} node types / ${concepts[0]?.academicYear || 'unknown session'}`,
+  );
 
   if (!isCommitRequested()) {
     console.log('DRY RUN ONLY — no database writes were made.');
@@ -109,11 +114,12 @@ async function main(): Promise<void> {
       const subjectId = subjectIds.get(concept.subjectCode.toUpperCase()) || null;
       await client.query(
         `INSERT INTO learning_concepts
-          (code,name,academic_year,grade_id,subject_id,subject_code,chapter_code,chapter_title,
+          (code,name,node_type,academic_year,grade_id,subject_id,subject_code,chapter_code,chapter_title,
            registry_status,registry_source,sequence,is_active)
-         VALUES ($1,$2,$3,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11,TRUE)
+         VALUES ($1,$2,$3,$4,$5::uuid,$6::uuid,$7,$8,$9,$10,$11,$12,TRUE)
          ON CONFLICT (code) DO UPDATE SET
            name=EXCLUDED.name,
+           node_type=EXCLUDED.node_type,
            academic_year=EXCLUDED.academic_year,
            grade_id=EXCLUDED.grade_id,
            subject_id=EXCLUDED.subject_id,
@@ -127,6 +133,7 @@ async function main(): Promise<void> {
         [
           concept.code,
           concept.name,
+          concept.nodeType,
           concept.academicYear,
           grade.id,
           subjectId,
