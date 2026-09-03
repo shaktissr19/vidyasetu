@@ -230,7 +230,7 @@ export async function supportsGroundedDoubts(): Promise<boolean> {
 
 function canonicalGradeCode(ctx: StudentContextRow): string {
   if (ctx.grade_code) return ctx.grade_code;
-  const raw = String(ctx.class_name || ctx.grade_level || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  const raw = String(ctx.grade_level || ctx.class_name || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
   if (['PN', 'PRENURSERY', 'PRE_NURSERY'].includes(raw)) return 'PRE_NURSERY';
   if (raw === 'NURSERY') return 'NURSERY';
   if (['LKG', 'LOWER_KG', 'LOWER_KINDERGARTEN'].includes(raw)) return 'LKG';
@@ -280,7 +280,7 @@ function resourceScopeSql(boardParam: number, gradeCodeParam: number, classParam
 
 async function getStudentContext(studentId: UUID, expectedUserId?: UUID | null): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
-    `SELECT s.id AS student_id,s.user_id,s.grade_level,s.grade_code,sc.class_name,
+    `SELECT s.id AS student_id,s.user_id,s.grade_level,to_jsonb(s)->>'grade_code' AS grade_code,sc.class_name,
             s.school_id,s.school_link_status,NULL::text AS board_code
      FROM students s
      LEFT JOIN school_classes sc ON sc.id=s.class_id
