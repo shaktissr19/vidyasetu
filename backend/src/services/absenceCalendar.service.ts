@@ -29,9 +29,9 @@ export interface AttendanceCandidate {
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HOLIDAY' | 'HALF_DAY';
   remark?: string | null;
 }
-export interface AttendanceResolved extends AttendanceCandidate {
+export type AttendanceResolved = Omit<AttendanceCandidate, 'status'> & {
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HOLIDAY' | 'HALF_DAY' | 'EXCUSED';
-}
+};
 
 interface StudentContextRow extends QueryResultRow {
   id: UUID;
@@ -97,13 +97,13 @@ function httpError(message: string, statusCode: number): Error & { statusCode: n
 function isoDate(value: string | Date): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }
-function assertDateRange(startDate: string, endDate: string): void {
-  if (startDate > endDate) throw httpError('Leave start date cannot be after end date', 400);
+function assertDateRange(startDate: string, endDate: string, maxDays = 60): void {
+  if (startDate > endDate) throw httpError('Start date cannot be after end date', 400);
   const start = new Date(`${startDate}T00:00:00Z`);
   const end = new Date(`${endDate}T00:00:00Z`);
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw httpError('Invalid date range', 400);
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
-  if (days > 60) throw httpError('A single leave request cannot exceed 60 days', 400);
+  if (days > maxDays) throw httpError(`Date range cannot exceed ${maxDays} days`, 400);
 }
 
 async function studentForUser(userId: UUID): Promise<StudentContextRow> {
@@ -145,6 +145,7 @@ async function noOverlappingLeave(
   endDate: string,
   excludeId: UUID | null = null,
 ): Promise<void> {
+  await client.query('SELECT id FROM students WHERE id=$1 FOR UPDATE', [studentId]);
   const { rows: [overlap] } = await client.query<CountRow>(
     `SELECT COUNT(*)::int AS count
      FROM student_leave_requests
@@ -162,7 +163,7 @@ async function createLeave(
   requesterRole: 'STUDENT' | 'PARENT',
   input: LeaveCreateInput,
 ): Promise<LeaveRow> {
-  assertDateRange(input.startDate, input.endDate);
+  assertDateRange(input.startDate, input.endDate, 60);
   const leave = await transaction(async (client) => {
     await noOverlappingLeave(client, student.id, input.startDate, input.endDate);
     const { rows: [created] } = await client.query<LeaveRow>(
@@ -230,9 +231,7 @@ export async function listParentLeaves(parentUserId: UUID, studentId: UUID): Pro
 
 async function cancelLeave(requesterId: UUID, leaveId: UUID, studentId?: UUID): Promise<LeaveRow> {
   return transaction(async (client) => {
-    const { rows: [row] } = await client.query<LeaveRow>(
-      `SELECT * FROM student_leave_requests WHERE id=$1 FOR UPDATE`, [leaveId],
-    );
+    const { rows: [row] } = await client.query<LeaveRow>('SELECT * FROM student_leave_requests WHERE id=$1 FOR UPDATE', [leaveId]);
     if (!row) throw httpError('Leave request not found', 404);
     if (studentId && row.student_id !== studentId) throw httpError('Leave request does not belong to this Student', 403);
     if (row.requested_by !== requesterId) throw httpError('Only the original requester can cancel this leave request', 403);
@@ -255,21 +254,14 @@ export async function cancelParentLeave(parentUserId: UUID, studentId: UUID, lea
 
 async function teacherClassIds(schoolId: UUID, teacherId: UUID): Promise<UUID[]> {
   const { rows } = await query<TeacherClassRow>(
-    `SELECT DISTINCT ta.class_id
-     FROM teacher_assignments ta
+    `SELECT DISTINCT ta.class_id FROM teacher_assignments ta
      WHERE ta.school_id=$1 AND ta.teacher_id=$2 AND ta.is_class_teacher=TRUE`,
     [schoolId, teacherId],
   );
   return rows.map((row) => row.class_id);
 }
 
-async function assertCanReview(
-  client: PoolClient,
-  schoolId: UUID,
-  role: UserRole,
-  teacherId: UUID | undefined,
-  classId: UUID,
-): Promise<void> {
+async function assertCanReview(client: PoolClient, schoolId: UUID, role: UserRole, teacherId: UUID | undefined, classId: UUID): Promise<void> {
   if (role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN') return;
   if (role !== 'TEACHER' || !teacherId) throw httpError('Leave review is restricted to School Admins and class teachers', 403);
   const { rows: [assigned] } = await client.query<CountRow>(
@@ -277,15 +269,10 @@ async function assertCanReview(
      WHERE school_id=$1 AND teacher_id=$2 AND class_id=$3 AND is_class_teacher=TRUE`,
     [schoolId, teacherId, classId],
   );
-  if (Number(assigned?.count || 0) !== 1) throw httpError('Only the assigned class teacher can review this leave request', 403);
+  if (Number(assigned?.count || 0) < 1) throw httpError('Only the assigned class teacher can review this leave request', 403);
 }
 
-export async function listSchoolLeaves(
-  schoolId: UUID,
-  role: UserRole,
-  teacherId?: UUID,
-  status?: LeaveStatus,
-): Promise<LeaveRow[]> {
+export async function listSchoolLeaves(schoolId: UUID, role: UserRole, teacherId?: UUID, status?: LeaveStatus): Promise<LeaveRow[]> {
   let scope = 'lr.school_id=$1';
   const params: unknown[] = [schoolId];
   if (role === 'TEACHER') {
@@ -331,20 +318,15 @@ export async function reviewLeave(
     await assertCanReview(client, schoolId, role, teacherId, row.class_id);
     const nextStatus: LeaveStatus = input.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
     const { rows: [decision] } = await client.query<LeaveRow>(
-      `UPDATE student_leave_requests
-       SET status=$2,reviewed_by=$3,reviewed_at=NOW(),review_note=$4
-       WHERE id=$1 RETURNING *`,
+      `UPDATE student_leave_requests SET status=$2,reviewed_by=$3,reviewed_at=NOW(),review_note=$4 WHERE id=$1 RETURNING *`,
       [leaveId, nextStatus, reviewerUserId, input.note?.trim() || null],
     );
     if (!decision) throw new Error('Leave review returned no row');
-
     if (nextStatus === 'APPROVED') {
       await client.query(
-        `UPDATE attendance
-         SET status='EXCUSED',remark=CASE
+        `UPDATE attendance SET status='EXCUSED',remark=CASE
            WHEN remark IS NULL OR btrim(remark)='' THEN 'Approved leave'
-           ELSE remark || ' · Approved leave' END,
-           marked_by=$2
+           ELSE remark || ' · Approved leave' END,marked_by=$2
          WHERE student_id=$1 AND date BETWEEN $3::date AND $4::date AND status='ABSENT'`,
         [row.student_id, reviewerUserId, row.start_date, row.end_date],
       );
@@ -380,19 +362,13 @@ async function setCalendarClasses(client: PoolClient, eventId: UUID, schoolId: U
   const unique = [...new Set(classIds)];
   await validateCalendarClasses(client, schoolId, unique);
   await client.query('DELETE FROM school_calendar_event_classes WHERE event_id=$1', [eventId]);
-  for (const classId of unique) {
-    await client.query('INSERT INTO school_calendar_event_classes(event_id,class_id) VALUES($1,$2)', [eventId, classId]);
-  }
+  for (const classId of unique) await client.query('INSERT INTO school_calendar_event_classes(event_id,class_id) VALUES($1,$2)', [eventId, classId]);
 }
 
-export async function createCalendarEvent(
-  schoolId: UUID,
-  createdBy: UUID,
-  input: CalendarEventInput,
-): Promise<CalendarRow> {
-  assertDateRange(input.startDate, input.endDate);
+export async function createCalendarEvent(schoolId: UUID, createdBy: UUID, input: CalendarEventInput): Promise<CalendarRow> {
+  assertDateRange(input.startDate, input.endDate, 366);
   if (input.isSchoolClosed && input.eventType !== 'HOLIDAY') throw httpError('Only a HOLIDAY event can close the School', 400);
-  const created = await transaction(async (client) => {
+  return transaction(async (client) => {
     const { rows: [row] } = await client.query<CalendarRow>(
       `INSERT INTO school_calendar_events
          (school_id,title,description,event_type,start_date,end_date,is_school_closed,created_by)
@@ -404,14 +380,9 @@ export async function createCalendarEvent(
     await setCalendarClasses(client, row.id, schoolId, input.classIds || []);
     return row;
   });
-  return created;
 }
 
-export async function updateCalendarEvent(
-  schoolId: UUID,
-  eventId: UUID,
-  input: Partial<CalendarEventInput>,
-): Promise<CalendarRow> {
+export async function updateCalendarEvent(schoolId: UUID, eventId: UUID, input: Partial<CalendarEventInput>): Promise<CalendarRow> {
   return transaction(async (client) => {
     const { rows: [current] } = await client.query<CalendarRow>(
       'SELECT * FROM school_calendar_events WHERE id=$1 AND school_id=$2 AND is_active=TRUE FOR UPDATE',
@@ -420,18 +391,17 @@ export async function updateCalendarEvent(
     if (!current) throw httpError('Calendar event not found', 404);
     const startDate = input.startDate || isoDate(current.start_date);
     const endDate = input.endDate || isoDate(current.end_date);
-    assertDateRange(startDate, endDate);
+    assertDateRange(startDate, endDate, 366);
     const eventType = input.eventType || current.event_type;
     const closed = typeof input.isSchoolClosed === 'boolean' ? input.isSchoolClosed : current.is_school_closed;
     if (closed && eventType !== 'HOLIDAY') throw httpError('Only a HOLIDAY event can close the School', 400);
     const { rows: [row] } = await client.query<CalendarRow>(
       `UPDATE school_calendar_events SET
-         title=COALESCE($3,title),description=COALESCE($4,description),event_type=$5,
-         start_date=$6,end_date=$7,is_school_closed=$8
+         title=COALESCE($3,title),description=CASE WHEN $4::boolean THEN $5 ELSE description END,event_type=$6,
+         start_date=$7,end_date=$8,is_school_closed=$9
        WHERE id=$1 AND school_id=$2 RETURNING *`,
-      [eventId, schoolId, input.title?.trim() || null,
-       input.description === undefined ? null : input.description?.trim() || '',
-       eventType, startDate, endDate, closed],
+      [eventId, schoolId, input.title?.trim() || null, input.description !== undefined,
+       input.description?.trim() || null, eventType, startDate, endDate, closed],
     );
     if (!row) throw new Error('Calendar event update returned no row');
     if (input.classIds) await setCalendarClasses(client, eventId, schoolId, input.classIds);
@@ -462,10 +432,9 @@ function calendarSelect(scope: string): string {
 }
 
 export async function listSchoolCalendar(schoolId: UUID, from?: string, to?: string): Promise<CalendarRow[]> {
-  const params: unknown[] = [schoolId, from || null, to || null];
   return (await query<CalendarRow>(calendarSelect(
     `sce.school_id=$1 AND ($2::date IS NULL OR sce.end_date >= $2::date) AND ($3::date IS NULL OR sce.start_date <= $3::date)`,
-  ), params)).rows;
+  ), [schoolId, from || null, to || null])).rows;
 }
 
 async function calendarForStudent(student: StudentContextRow, from?: string, to?: string): Promise<CalendarRow[]> {
@@ -491,8 +460,7 @@ export async function resolveAttendanceRecords(
   records: AttendanceCandidate[],
 ): Promise<AttendanceResolved[]> {
   const { rows: [closedDay] } = await query<ClosedDayRow>(
-    `SELECT sce.id,sce.title
-     FROM school_calendar_events sce
+    `SELECT sce.id,sce.title FROM school_calendar_events sce
      WHERE sce.school_id=$1 AND sce.is_active=TRUE AND sce.is_school_closed=TRUE
        AND $3::date BETWEEN sce.start_date AND sce.end_date
        AND (NOT EXISTS (SELECT 1 FROM school_calendar_event_classes x WHERE x.event_id=sce.id)
@@ -515,10 +483,7 @@ export async function resolveAttendanceRecords(
     [schoolId, studentIds, date],
   );
   const excused = new Set(approved.map((row) => row.student_id));
-  return records.map((record) => {
-    if (record.status === 'ABSENT' && excused.has(record.studentId)) {
-      return { ...record, status: 'EXCUSED', remark: record.remark?.trim() || 'Approved leave' };
-    }
-    return record;
-  });
+  return records.map((record) => record.status === 'ABSENT' && excused.has(record.studentId)
+    ? { ...record, status: 'EXCUSED', remark: record.remark?.trim() || 'Approved leave' }
+    : record);
 }
