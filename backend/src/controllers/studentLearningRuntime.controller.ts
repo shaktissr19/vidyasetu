@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
 import * as studentConceptMasteryService from '../services/studentConceptMastery.service';
+import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
 import * as R from '../utils/response';
 
 export async function getLearningHome(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -11,7 +12,18 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
       studentLearningHubService.getLearningHome(user.userId),
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
     ]);
-    return R.ok(res, { ...home, conceptMastery });
+    const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    return R.ok(res, { ...home, conceptMastery, adaptivePlan });
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getAdaptiveLearningPlan(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    const conceptMastery = await studentConceptMasteryService.getStudentConceptMastery(user.userId);
+    const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    return R.ok(res, adaptivePlan);
   } catch (err: unknown) { next(err); }
 }
 
