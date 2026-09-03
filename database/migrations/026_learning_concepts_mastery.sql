@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS learning_concepts (
   code               VARCHAR(180) NOT NULL UNIQUE,
   name               VARCHAR(300) NOT NULL,
   name_hi            VARCHAR(300),
+  node_type          VARCHAR(40)  NOT NULL DEFAULT 'CHAPTER_CONCEPT',
   academic_year      VARCHAR(10)  NOT NULL,
   grade_id           UUID         NOT NULL REFERENCES education_grade_levels(id) ON DELETE RESTRICT,
   subject_id         UUID         REFERENCES subjects(id) ON DELETE SET NULL,
@@ -31,6 +32,11 @@ CREATE TABLE IF NOT EXISTS learning_concepts (
   updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- Keep the migration idempotent for any non-production environment that may
+-- have applied an earlier draft of migration 026 before node types were added.
+ALTER TABLE learning_concepts
+  ADD COLUMN IF NOT EXISTS node_type VARCHAR(40) NOT NULL DEFAULT 'CHAPTER_CONCEPT';
+
 CREATE OR REPLACE TRIGGER trg_learning_concepts_updated_at
   BEFORE UPDATE ON learning_concepts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -44,6 +50,9 @@ CREATE INDEX IF NOT EXISTS idx_learning_concepts_subject_id
 CREATE INDEX IF NOT EXISTS idx_learning_concepts_chapter
   ON learning_concepts(chapter_code, sequence)
   WHERE chapter_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_learning_concepts_node_type
+  ON learning_concepts(node_type, grade_id, subject_code)
+  WHERE is_active=TRUE;
 
 -- A resource, question or assessment may legitimately span more than one
 -- canonical syllabus concept. Do not collapse this to a single concept_id.
@@ -114,7 +123,9 @@ CREATE INDEX IF NOT EXISTS idx_scp_concept_mastery
   WHERE mastery_pct IS NOT NULL;
 
 COMMENT ON TABLE learning_concepts IS
-  'Canonical syllabus concept identities. Language and media assets map to these concepts rather than becoming separate learning identities.';
+  'Canonical syllabus concept/strand identities. Language and media assets map to these nodes rather than becoming separate learning identities.';
+COMMENT ON COLUMN learning_concepts.node_type IS
+  'Registry node shape, for example CHAPTER_CONCEPT, SKILL_STRAND, SUBJECT_CONCEPT, PROJECT_CONCEPT or STRAND.';
 COMMENT ON TABLE learning_resource_concepts IS
   'Many-to-many mapping because a learning resource may support one or several canonical concepts.';
 COMMENT ON TABLE learning_question_concepts IS
