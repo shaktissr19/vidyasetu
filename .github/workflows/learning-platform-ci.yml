@@ -36,12 +36,15 @@ jobs:
           test -s database/migrations/022_learning_practice_personalization.sql
           test -s database/migrations/023_global_learning_bulk_importer.sql
           test -s database/migrations/024_student_global_grade_sync.sql
+          test -s database/migrations/026_learning_concepts_mastery.sql
           grep -q "PRE_NURSERY" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "CLASS_12" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "learning_import_batches" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "learning_import_rows" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "import_key" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "sync_student_grade_code" database/migrations/024_student_global_grade_sync.sql
+          grep -q "learning_concepts" database/migrations/026_learning_concepts_mastery.sql
+          grep -q "student_concept_progress" database/migrations/026_learning_concepts_mastery.sql
           grep -q "Global Learning Bulk Importer" 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
           grep -q "Pre-Nursery to Class 12" frontend/src/components/public/PublicLearningLibrary.tsx
           test -s 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
@@ -106,13 +109,14 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/022_learning_practice_personalization.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/023_global_learning_bulk_importer.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/024_student_global_grade_sync.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/026_learning_concepts_mastery.sql
           done
 
       - name: Validate global Learning database invariants
         env:
           PGPASSWORD: postgres
         run: |
-          for table in education_boards education_grade_levels learning_content_sources learning_resources learning_resource_grades learning_questions learning_question_grades learning_assessments student_learning_attempts learning_source_intake learning_import_batches learning_import_rows; do
+          for table in education_boards education_grade_levels learning_content_sources learning_resources learning_resource_grades learning_questions learning_question_grades learning_assessments student_learning_attempts learning_source_intake learning_import_batches learning_import_rows learning_concepts learning_resource_concepts learning_question_concepts learning_assessment_concepts student_concept_progress; do
             test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
           done
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM education_grade_levels WHERE is_active=TRUE;")" -eq 16
