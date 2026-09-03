@@ -15,15 +15,36 @@ interface StudentIdRow extends QueryResultRow { id: UUID; }
 interface ChatBody {
   message: string;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  conceptCode?: string | null;
+}
+interface EscalateBody {
+  question: string;
+  aiResponse: string;
+  conceptCode?: string | null;
 }
 
 const chatSchema = z.object({
-  message: z.string().min(1).max(1000),
+  message: z.string().trim().min(1).max(1600),
   history: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string(),
-  })).optional().default([]),
+    content: z.string().max(4000),
+  })).max(20).optional().default([]),
+  conceptCode: z.string().trim().max(180).nullable().optional(),
 });
+
+const escalateSchema = z.object({
+  question: z.string().trim().min(3).max(2000),
+  aiResponse: z.string().trim().min(1).max(5000),
+  conceptCode: z.string().trim().max(180).nullable().optional(),
+});
+
+async function studentForUser(userId: UUID): Promise<UUID | null> {
+  const { rows: [student] } = await query<StudentIdRow>(
+    "SELECT id FROM students WHERE user_id=$1 AND status='ACTIVE'",
+    [userId],
+  );
+  return student?.id || null;
+}
 
 router.use(authenticate);
 router.use(authorize('STUDENT'));
@@ -37,12 +58,54 @@ router.post('/chat', validate(chatSchema), async (
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    const { rows: [student] } = await query<StudentIdRow>(
-      'SELECT id FROM students WHERE user_id = $1',
-      [user.userId],
+    const studentId = await studentForUser(user.userId);
+    if (!studentId) return R.notFound(res, 'Student profile not found');
+    return R.ok(res, await aiService.chat(
+      user.userId,
+      studentId,
+      req.body.message,
+      req.body.history,
+      req.body.conceptCode || null,
+    ));
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+router.get('/history', async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> => {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    const studentId = await studentForUser(user.userId);
+    if (!studentId) return R.notFound(res, 'Student profile not found');
+    return R.ok(res, await aiService.getTutorHistory(studentId, user.userId));
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+router.post('/escalate', validate(escalateSchema), async (
+  req: Request<Record<string, string>, unknown, EscalateBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> => {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    const studentId = await studentForUser(user.userId);
+    if (!studentId) return R.notFound(res, 'Student profile not found');
+    const doubt = await aiService.escalateTutorToDoubt(
+      user.userId,
+      studentId,
+      req.body.question,
+      req.body.aiResponse,
+      req.body.conceptCode || null,
     );
-    if (!student) return R.notFound(res, 'Student profile not found');
-    return R.ok(res, await aiService.chat(user.userId, student.id, req.body.message, req.body.history));
+    return R.created(res, doubt);
   } catch (err: unknown) {
     next(err);
   }
