@@ -16,6 +16,7 @@ import schoolRoutes = require('./routes/school.routes');
 import schoolHomeworkRoutes = require('./routes/schoolHomework.routes');
 import schoolLearningInsightsRoutes = require('./routes/schoolLearningInsights.routes');
 import schoolAbsenceRoutes = require('./routes/schoolAbsence.routes');
+import schoolAttendanceGovernanceRoutes = require('./routes/schoolAttendanceGovernance.routes');
 import parentRoutes = require('./routes/parent.routes');
 import parentLearningInsightsRoutes = require('./routes/parentLearningInsights.routes');
 import parentAbsenceRoutes = require('./routes/parentAbsence.routes');
@@ -66,6 +67,8 @@ app.use(`${API}/school/grievances`, schoolGrievanceRoutes);
 app.use(`${API}/school/homework`, schoolHomeworkRoutes);
 app.use(`${API}/school/learning-insights`, schoolLearningInsightsRoutes);
 app.use(`${API}/school/absence`, schoolAbsenceRoutes);
+// Must precede the legacy School router so attendance honours approved leave and closed calendar days.
+app.use(`${API}/school`, schoolAttendanceGovernanceRoutes);
 app.use(`${API}/school`, schoolRoutes);
 app.use(`${API}/parent/learning-insights`, parentLearningInsightsRoutes);
 app.use(`${API}/parent/absence`, parentAbsenceRoutes);
