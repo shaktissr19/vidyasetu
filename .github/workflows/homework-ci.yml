@@ -51,7 +51,8 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/016_demo_academic_year_alignment.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/029_homework_student_notifications.sql
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc \"SELECT COUNT(*) FROM information_schema.tables WHERE table_name IN ('homework_assignments','homework_submissions');\")" = "2"
+          TABLE_COUNT="$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_name IN ('homework_assignments','homework_submissions');")"
+          test "$TABLE_COUNT" = "2"
 
       - name: Build contracts and compiled backend
         run: |
@@ -107,10 +108,14 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc \"SELECT COUNT(*) FROM homework_assignments WHERE status='DRAFT';\")" = "0"
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc \"SELECT COUNT(*) FROM homework_assignments WHERE status='CLOSED';\")" = "1"
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc \"SELECT COUNT(*) FROM homework_submissions WHERE status='REVIEWED' AND marks_awarded=9;\")" = "1"
-          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc \"SELECT COUNT(*) FROM notifications WHERE type IN ('HOMEWORK_ASSIGNED','HOMEWORK_FEEDBACK');\")" -ge "2"
+          DRAFT_COUNT="$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM homework_assignments WHERE status='DRAFT';")"
+          CLOSED_COUNT="$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM homework_assignments WHERE status='CLOSED';")"
+          REVIEWED_COUNT="$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM homework_submissions WHERE status='REVIEWED' AND marks_awarded=9;")"
+          NOTIFICATION_COUNT="$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM notifications WHERE type IN ('HOMEWORK_ASSIGNED','HOMEWORK_FEEDBACK');")"
+          test "$DRAFT_COUNT" = "0"
+          test "$CLOSED_COUNT" = "1"
+          test "$REVIEWED_COUNT" = "1"
+          test "$NOTIFICATION_COUNT" -ge "2"
 
       - name: Backend logs on failure
         if: failure()
