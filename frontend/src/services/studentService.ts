@@ -53,6 +53,73 @@ export interface LearningHomeAssessment {
   last_percentage?: number | null;
 }
 
+export interface ConceptMasteryItem {
+  conceptId: string;
+  code: string;
+  name: string;
+  nameHi?: string | null;
+  nodeType: string;
+  subjectCode: string;
+  subjectName?: string | null;
+  chapterCode?: string | null;
+  chapterTitle?: string | null;
+  state: 'NOT_STARTED' | 'LEARNING' | 'PRACTISING' | 'NEEDS_REVIEW' | 'MASTERED';
+  exposurePct: number;
+  resourceCompletionPct: number;
+  practiceBestPct?: number | null;
+  masteryPct?: number | null;
+  practiceAttempts: number;
+  masteryAttempts: number;
+  needsReview: boolean;
+}
+
+export interface AdaptiveLearningTarget {
+  kind: 'RESOURCE' | 'ASSESSMENT';
+  id: string;
+  publicSlug?: string | null;
+  title: string;
+  summary?: string | null;
+  resourceType?: string | null;
+  assessmentType?: string | null;
+  evidenceRole?: 'PRACTICE' | 'MASTERY' | null;
+  progressPct?: number | null;
+  questionCount?: number | null;
+  passingPct?: number | null;
+  lastPercentage?: number | null;
+}
+
+export interface AdaptiveLearningAction {
+  id: string;
+  rank: number;
+  urgency: 'HIGH' | 'FOCUS' | 'NEXT';
+  actionType: 'CONTINUE_RESOURCE' | 'REVIEW_RESOURCE' | 'PRACTICE' | 'MASTERY_CHECK' | 'START_NEXT_CONCEPT';
+  conceptId: string;
+  conceptCode: string;
+  conceptName: string;
+  subjectCode: string;
+  subjectName?: string | null;
+  chapterTitle?: string | null;
+  state: ConceptMasteryItem['state'];
+  title: string;
+  reason: string;
+  estimatedMinutes: number;
+  target: AdaptiveLearningTarget;
+}
+
+export interface AdaptiveLearningPlan {
+  generatedAt: string;
+  headline: string;
+  summary: {
+    learning: number;
+    practising: number;
+    needsReview: number;
+    mastered: number;
+    nextActions: number;
+    estimatedMinutes: number;
+  };
+  actions: AdaptiveLearningAction[];
+}
+
 export interface StudentLearningHome {
   learner: { studentId: string; className: number; schoolName?: string | null; boardCode: string; boardName: string };
   progress: { started: number; completed: number; average_progress: number };
@@ -60,6 +127,8 @@ export interface StudentLearningHome {
   assessments: LearningHomeAssessment[];
   bookmarks: Array<{ id: string; public_slug?: string | null; title: string; category: string; created_at: string }>;
   recentAttempts: Array<{ id: string; assessment_id: string; title: string; status: string; percentage?: number | null; correct_count: number; wrong_count: number; skipped_count: number; submitted_at?: string | null; started_at: string }>;
+  conceptMastery?: ConceptMasteryItem[];
+  adaptivePlan?: AdaptiveLearningPlan;
 }
 
 export interface StudentLearningQuestion {
@@ -114,6 +183,7 @@ export const getOfflineDownloads = () => api.get<ApiEnvelope<StudentOfflineDownl
 export const removeOfflineDownload = (contentItemId: string) => api.delete<ApiEnvelope<{ removed?: boolean }>>(`/student/offline-downloads/${contentItemId}`);
 
 export const getStudentLearningHome = () => api.get<ApiEnvelope<StudentLearningHome>>('/student/learning/home');
+export const getStudentAdaptiveLearningPlan = () => api.get<ApiEnvelope<AdaptiveLearningPlan>>('/student/learning/adaptive-plan');
 export const updateStudentLearningProgress = (resourceId: string, progressPct: number) =>
   api.patch<ApiEnvelope<{ resource_id: string; progress_pct: number; is_completed: boolean }>>(`/student/learning/resources/${resourceId}/progress`, { progressPct });
 export const bookmarkLearningResource = (resourceId: string) => api.post<ApiEnvelope<{ bookmarked: boolean }>>(`/student/learning/resources/${resourceId}/bookmark`);

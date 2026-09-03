@@ -31,6 +31,7 @@ jobs:
           bash -n scripts/learning-platform-phase2-e2e-smoke.sh
           bash -n scripts/learning-bulk-importer-e2e-smoke.sh
           bash -n scripts/student-concept-mastery-e2e-smoke.sh
+          bash -n scripts/adaptive-learning-remediation-e2e-smoke.sh
           test -s database/migrations/014_student_identity_enrollment.sql
           test -s database/migrations/020_learning_platform_foundation.sql
           test -s database/migrations/021_learning_original_academic_starter.sql
@@ -49,6 +50,8 @@ jobs:
           grep -q "student_concept_progress" database/migrations/026_learning_concepts_mastery.sql
           grep -q "evidence_role" database/migrations/027_student_concept_mastery_runtime.sql
           grep -q "Concept mastery" frontend/src/components/student/sections/ConceptMasteryPanel.tsx
+          grep -q "Next best actions" frontend/src/components/student/sections/AdaptiveLearningPanel.tsx
+          grep -q "adaptive-plan" backend/src/routes/student.routes.ts
           grep -q "Global Learning Bulk Importer" 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
           grep -q "Pre-Nursery to Class 12" frontend/src/components/public/PublicLearningLibrary.tsx
           test -s 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
@@ -71,6 +74,7 @@ jobs:
           npm run build
           test -s dist/index.js
           test -s dist/services/studentConceptMastery.service.js
+          test -s dist/services/studentAdaptiveLearning.service.js
           test -s dist/controllers/studentLearningRuntime.controller.js
           test -s dist/scripts/syncLearningConceptRegistry.js
 
@@ -204,6 +208,16 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
         run: bash scripts/student-concept-mastery-e2e-smoke.sh
+
+      - name: Run Adaptive Learning and Remediation E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/adaptive-learning-remediation-e2e-smoke.sh
 
       - name: Run Global Learning Bulk Importer E2E
         env:

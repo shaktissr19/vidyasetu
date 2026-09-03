@@ -17,6 +17,7 @@ import {
 } from '@/services/studentService';
 import type { StudentSectionProps } from '@/types/studentPortal';
 import SubjectsSection from './SubjectsSection';
+import AdaptiveLearningPanel from './AdaptiveLearningPanel';
 import styles from '../StudentPortal.module.css';
 
 export default function LearningSection(props: StudentSectionProps) {
@@ -70,7 +71,7 @@ export default function LearningSection(props: StudentSectionProps) {
     } finally { setBusy(''); }
   }
 
-  async function openAssessment(assessment: LearningHomeAssessment): Promise<void> {
+  async function openAssessment(assessment: { id: string }): Promise<void> {
     setBusy(`assessment-${assessment.id}`);
     setResult(null);
     setAnswers({});
@@ -134,12 +135,18 @@ export default function LearningSection(props: StudentSectionProps) {
             </div>
           </div>
 
+          <AdaptiveLearningPanel
+            plan={home.adaptivePlan}
+            busy={busy}
+            onStartAssessment={(assessmentId) => openAssessment({ id: assessmentId })}
+          />
+
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>📝 Practice & self-assessment</div>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>Short practice sets are separate from competitions. They help you learn, get explanations and build mastery at your own pace.</p>
             {home.assessments.length === 0 ? <div className={styles.empty}>Practice sets for your class and board are being added.</div> : (
               <div className={styles.contentGrid}>
-                {home.assessments.slice(0, 6).map((assessment) => (
+                {home.assessments.slice(0, 6).map((assessment: LearningHomeAssessment) => (
                   <div className={styles.contentItem} key={assessment.id}>
                     <div className={styles.contentTop}><span className={styles.contentType}>{assessment.assessment_type.replaceAll('_', ' ')}</span></div>
                     <div className={styles.contentTitle}>{assessment.title}</div>

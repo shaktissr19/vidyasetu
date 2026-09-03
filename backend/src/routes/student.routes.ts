@@ -48,6 +48,7 @@ router.get('/report-card', ctrl.getReportCard);
 router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
 
 router.get('/learning/home', learningRuntimeCtrl.getLearningHome);
+router.get('/learning/adaptive-plan', learningRuntimeCtrl.getAdaptiveLearningPlan);
 router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), learningRuntimeCtrl.updateLearningResourceProgress);
 router.post('/learning/resources/:resourceId/bookmark', ctrl.addLearningBookmark);
 router.delete('/learning/resources/:resourceId/bookmark', ctrl.removeLearningBookmark);
