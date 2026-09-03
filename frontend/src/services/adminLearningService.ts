@@ -48,9 +48,10 @@ export interface SaveLearningStudioResource {
 }
 
 export interface LearningStudioQuestion {
-  id: string; public_code: string; prompt: string; question_type: string; difficulty: string; marks: number;
+  id: string; public_code: string; prompt: string; prompt_hi?: string | null; question_type: string; difficulty: string; marks: number;
+  negative_marks: number; explanation?: string | null; explanation_hi?: string | null;
   class_min?: number | null; class_max?: number | null; visibility: string; review_status: string;
-  subject_name?: string | null; source_code: string; board_codes: string[]; option_count: number;
+  subject_name?: string | null; source_code: string; board_codes: string[]; option_count: number; missing_hindi_option_count: number;
 }
 
 export interface SaveLearningStudioQuestion {
@@ -69,7 +70,7 @@ export interface LearningStudioAssessment {
   id: string; public_slug?: string | null; title: string; summary?: string | null; assessment_type: string;
   visibility: string; review_status: string; class_min?: number | null; class_max?: number | null;
   time_limit_mins?: number | null; passing_pct: number; max_attempts?: number | null; is_featured_public: boolean;
-  subject_name?: string | null; question_count: number; total_marks: number; board_codes: string[];
+  subject_name?: string | null; question_count: number; published_question_count: number; total_marks: number; board_codes: string[];
 }
 
 export interface SaveLearningStudioAssessment {
@@ -145,8 +146,10 @@ export const updateLearningStudioStatus = (resourceId: string, status: string, n
 
 export const getLearningStudioQuestions = () => api.get<ApiEnvelope<LearningStudioQuestion[]>>('/admin/learning/questions');
 export const createLearningStudioQuestion = (payload: SaveLearningStudioQuestion) => api.post<ApiEnvelope<{ id: string; public_code: string }>>('/admin/learning/questions', payload);
+export const updateLearningStudioQuestionStatus = (questionId: string, status: string) => api.patch<ApiEnvelope<LearningStudioQuestion>>(`/admin/learning/questions/${questionId}/status`, { status });
 export const getLearningStudioAssessments = () => api.get<ApiEnvelope<LearningStudioAssessment[]>>('/admin/learning/assessments');
 export const createLearningStudioAssessment = (payload: SaveLearningStudioAssessment) => api.post<ApiEnvelope<{ id: string; public_slug: string }>>('/admin/learning/assessments', payload);
+export const updateLearningStudioAssessmentStatus = (assessmentId: string, status: string) => api.patch<ApiEnvelope<LearningStudioAssessment>>(`/admin/learning/assessments/${assessmentId}/status`, { status });
 export const getLearningStudioIntake = () => api.get<ApiEnvelope<LearningStudioIntake[]>>('/admin/learning/intake');
 export const createLearningStudioIntake = (payload: SaveLearningStudioIntake) => api.post<ApiEnvelope<{ id: string; title: string; status: string }>>('/admin/learning/intake', payload);
 export const updateLearningStudioIntakeStatus = (intakeId: string, status: string, note?: string) => api.patch<ApiEnvelope<LearningStudioIntake>>(`/admin/learning/intake/${intakeId}/status`, { status, note });
