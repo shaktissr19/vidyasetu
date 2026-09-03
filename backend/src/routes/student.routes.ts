@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/student.controller';
+import * as learningRuntimeCtrl from '../controllers/studentLearningRuntime.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -46,14 +47,14 @@ router.get('/attendance/:year/:month', ctrl.getAttendance);
 router.get('/report-card', ctrl.getReportCard);
 router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
 
-router.get('/learning/home', ctrl.getLearningHome);
-router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), ctrl.updateLearningResourceProgress);
+router.get('/learning/home', learningRuntimeCtrl.getLearningHome);
+router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), learningRuntimeCtrl.updateLearningResourceProgress);
 router.post('/learning/resources/:resourceId/bookmark', ctrl.addLearningBookmark);
 router.delete('/learning/resources/:resourceId/bookmark', ctrl.removeLearningBookmark);
 router.get('/learning/assessments', ctrl.getLearningAssessments);
 router.get('/learning/assessments/:assessmentId', ctrl.getLearningAssessment);
 router.post('/learning/assessments/:assessmentId/start', ctrl.startLearningAssessment);
-router.post('/learning/attempts/:attemptId/submit', validate(learningSubmitSchema), ctrl.submitLearningAssessment);
+router.post('/learning/attempts/:attemptId/submit', validate(learningSubmitSchema), learningRuntimeCtrl.submitLearningAssessment);
 
 router.get('/notifications', ctrl.getNotifications);
 router.patch('/notifications/:id/read', ctrl.markNotifRead);
