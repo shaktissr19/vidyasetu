@@ -59,6 +59,17 @@ export async function createQuestion(
   } catch (error: unknown) { next(error); }
 }
 
+export async function updateQuestionStatus(
+  req: Request<{ questionId: UUID }, unknown, { status: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await practiceService.updateQuestionStatus(req.params.questionId, req.body.status, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
 export async function assessments(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await practiceService.listAssessments()); }
   catch (error: unknown) { next(error); }
@@ -72,6 +83,17 @@ export async function createAssessment(
   try {
     if (!req.user) return R.unauthorized(res);
     return R.created(res, await practiceService.createAssessment(req.body, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function updateAssessmentStatus(
+  req: Request<{ assessmentId: UUID }, unknown, { status: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await practiceService.updateAssessmentStatus(req.params.assessmentId, req.body.status, req.user.userId));
   } catch (error: unknown) { next(error); }
 }
 
