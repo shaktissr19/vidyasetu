@@ -120,8 +120,10 @@ router.patch('/resources/:resourceId/status', validate(statusSchema), ctrl.updat
 
 router.get('/questions', ctrl.questions);
 router.post('/questions', validate(questionSchema), ctrl.createQuestion);
+router.patch('/questions/:questionId/status', validate(statusSchema), ctrl.updateQuestionStatus);
 router.get('/assessments', ctrl.assessments);
 router.post('/assessments', validate(assessmentSchema), ctrl.createAssessment);
+router.patch('/assessments/:assessmentId/status', validate(statusSchema), ctrl.updateAssessmentStatus);
 router.get('/intake', ctrl.intake);
 router.post('/intake', validate(intakeSchema), ctrl.createIntake);
 router.patch('/intake/:intakeId/status', validate(intakeStatusSchema), ctrl.updateIntakeStatus);
