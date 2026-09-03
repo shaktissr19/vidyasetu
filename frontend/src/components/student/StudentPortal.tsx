@@ -12,6 +12,7 @@ import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import GroupsHub from '@/components/groups/GroupsHub';
 import DashboardSection from './sections/DashboardSection';
 import LearningSection from './sections/LearningSection';
+import ConceptMasteryPanel from './sections/ConceptMasteryPanel';
 import AITutorSection from './sections/AITutorSection';
 import DoubtForumSection from './sections/DoubtForumSection';
 import ExamsSection from './sections/ExamsSection';
@@ -96,7 +97,7 @@ export default function StudentPortal() {
 
   let content: ReactNode;
   switch (section) {
-    case 'subjects': content = <LearningSection {...shared} />; break;
+    case 'subjects': content = <><LearningSection {...shared} /><ConceptMasteryPanel /></>; break;
     case 'ai': content = <AITutorSection {...shared} />; break;
     case 'doubts': content = <DoubtForumSection {...shared} />; break;
     case 'exams': content = <ExamsSection {...shared} />; break;

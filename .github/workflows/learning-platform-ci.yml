@@ -30,6 +30,7 @@ jobs:
           bash -n scripts/learning-platform-e2e-smoke.sh
           bash -n scripts/learning-platform-phase2-e2e-smoke.sh
           bash -n scripts/learning-bulk-importer-e2e-smoke.sh
+          bash -n scripts/student-concept-mastery-e2e-smoke.sh
           test -s database/migrations/014_student_identity_enrollment.sql
           test -s database/migrations/020_learning_platform_foundation.sql
           test -s database/migrations/021_learning_original_academic_starter.sql
@@ -37,6 +38,7 @@ jobs:
           test -s database/migrations/023_global_learning_bulk_importer.sql
           test -s database/migrations/024_student_global_grade_sync.sql
           test -s database/migrations/026_learning_concepts_mastery.sql
+          test -s database/migrations/027_student_concept_mastery_runtime.sql
           grep -q "PRE_NURSERY" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "CLASS_12" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "learning_import_batches" database/migrations/023_global_learning_bulk_importer.sql
@@ -45,6 +47,8 @@ jobs:
           grep -q "sync_student_grade_code" database/migrations/024_student_global_grade_sync.sql
           grep -q "learning_concepts" database/migrations/026_learning_concepts_mastery.sql
           grep -q "student_concept_progress" database/migrations/026_learning_concepts_mastery.sql
+          grep -q "evidence_role" database/migrations/027_student_concept_mastery_runtime.sql
+          grep -q "Concept mastery" frontend/src/components/student/sections/ConceptMasteryPanel.tsx
           grep -q "Global Learning Bulk Importer" 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
           grep -q "Pre-Nursery to Class 12" frontend/src/components/public/PublicLearningLibrary.tsx
           test -s 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
@@ -66,6 +70,9 @@ jobs:
           npm run typecheck
           npm run build
           test -s dist/index.js
+          test -s dist/services/studentConceptMastery.service.js
+          test -s dist/controllers/studentLearningRuntime.controller.js
+          test -s dist/scripts/syncLearningConceptRegistry.js
 
       - name: Typecheck and build frontend
         working-directory: frontend
@@ -110,7 +117,19 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/023_global_learning_bulk_importer.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/024_student_global_grade_sync.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/026_learning_concepts_mastery.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/027_student_concept_mastery_runtime.sql
           done
+
+      - name: Synchronize canonical Class 8 concept registry in disposable database
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: |
+          node dist/scripts/syncLearningConceptRegistry.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
 
       - name: Validate global Learning database invariants
         env:
@@ -127,6 +146,8 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT vidyasetu_grade_code_from_legacy('8');")" = "CLASS_8"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources WHERE visibility='PUBLIC' AND review_status='PUBLISHED';")" -ge 12
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_questions WHERE review_status='PUBLISHED';")" -ge 8
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_concepts WHERE is_active=TRUE;")" -gt 0
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_assessment_concepts' AND column_name='evidence_role');")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT requires_item_license_check FROM learning_content_sources WHERE code='NROER';")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT allow_rehosting_default FROM learning_content_sources WHERE code='NROER';")" = "f"
 
@@ -173,6 +194,16 @@ jobs:
         env:
           API_BASE: http://127.0.0.1:5000/api/v1
         run: bash scripts/learning-platform-phase2-e2e-smoke.sh
+
+      - name: Run Student concept mastery runtime E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/student-concept-mastery-e2e-smoke.sh
 
       - name: Run Global Learning Bulk Importer E2E
         env:
