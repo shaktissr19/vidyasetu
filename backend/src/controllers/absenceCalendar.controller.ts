@@ -11,7 +11,8 @@ function user(req: Request) {
   return req.user;
 }
 function schoolId(req: Request): UUID {
-  const value = user(req).schoolId;
+  const actor = user(req);
+  const value = actor.schoolId || (actor.role === 'SUPER_ADMIN' ? q(req.query.schoolId) : undefined);
   if (!value) throw Object.assign(new Error('School context is required'), { statusCode: 400 });
   return value;
 }
