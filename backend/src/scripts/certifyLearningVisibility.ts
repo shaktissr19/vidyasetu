@@ -41,6 +41,15 @@ async function expectForbidden(work: () => Promise<unknown>, label: string): Pro
   throw new Error(`${label}: expected 403 access denial`);
 }
 
+async function schoolAdminUserId(schoolId: UUID): Promise<UUID> {
+  const { rows: [admin] } = await query<AdminRow>(
+    `SELECT admin_user_id AS user_id FROM schools WHERE id=$1 AND admin_user_id IS NOT NULL`,
+    [schoolId],
+  );
+  if (!admin) throw new Error(`School Admin fixture missing for ${schoolId}`);
+  return admin.user_id;
+}
+
 async function main(): Promise<void> {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error('Learning visibility certification is test-only and requires NODE_ENV=test');
@@ -50,28 +59,27 @@ async function main(): Promise<void> {
     `SELECT psl.parent_user_id,psl.student_id,s.user_id AS student_user_id,s.class_id,s.school_id
      FROM parent_student_links psl
      JOIN students s ON s.id=psl.student_id
+     JOIN school_classes sc ON sc.id=s.class_id
      WHERE s.status='ACTIVE' AND s.class_id IS NOT NULL AND s.school_id IS NOT NULL
+       AND sc.class_name='8'
      ORDER BY psl.created_at NULLS LAST,psl.id
      LIMIT 1`,
   );
-  assert(link, 'No linked Parent/Student fixture available');
+  assert(link, 'No linked Class 8 Parent/Student fixture available');
+  const parentSchoolAdminUserId = await schoolAdminUserId(link.school_id);
 
-  const { rows: [admin] } = await query<AdminRow>(
-    `SELECT admin_user_id AS user_id FROM schools WHERE id=$1 AND admin_user_id IS NOT NULL`,
-    [link.school_id],
-  );
-  assert(admin, 'School Admin fixture missing');
-
+  // Teacher authorization is an independent contract. A Parent-linked child is
+  // not required to be in the same School as an arbitrary seeded Teacher.
   const { rows: [teacher] } = await query<TeacherFixtureRow>(
     `SELECT t.id AS teacher_id,t.user_id AS teacher_user_id,ta.school_id,ta.class_id,ta.subject_code
      FROM teacher_assignments ta
      JOIN teachers t ON t.id=ta.teacher_id AND t.status='ACTIVE'
-     WHERE ta.school_id=$1
+     JOIN school_classes sc ON sc.id=ta.class_id AND sc.school_id=ta.school_id AND sc.is_active=TRUE
      ORDER BY ta.created_at NULLS LAST,ta.id
      LIMIT 1`,
-    [link.school_id],
   );
   assert(teacher, 'Teacher assignment fixture missing');
+  const teacherSchoolAdminUserId = await schoolAdminUserId(teacher.school_id);
 
   const { rows: [forceConcept] } = await query<IdCodeRow>(
     `SELECT lc.id,sub.code
@@ -138,7 +146,7 @@ async function main(): Promise<void> {
 
   const schoolOverview = await getSchoolLearningOverview(
     link.school_id,
-    admin.user_id,
+    parentSchoolAdminUserId,
     'SCHOOL_ADMIN',
     link.class_id,
     forceConcept.code,
@@ -166,9 +174,13 @@ async function main(): Promise<void> {
     teacher.teacher_id,
   );
 
-  const schoolTargets = await getSchoolLearningTargets(link.school_id, admin.user_id, 'SCHOOL_ADMIN');
+  const teacherSchoolTargets = await getSchoolLearningTargets(
+    teacher.school_id,
+    teacherSchoolAdminUserId,
+    'SCHOOL_ADMIN',
+  );
   const assignedKeys = new Set(teacherTargets.map((item) => `${item.class_id}|${item.subject_code}`));
-  const unassigned = schoolTargets.find((item) => !assignedKeys.has(`${item.class_id}|${item.subject_code}`));
+  const unassigned = teacherSchoolTargets.find((item) => !assignedKeys.has(`${item.class_id}|${item.subject_code}`));
   if (unassigned) {
     await expectForbidden(
       () => getSchoolLearningOverview(
