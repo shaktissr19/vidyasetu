@@ -112,7 +112,9 @@ const intakeStatusSchema = z.object({
 
 router.get('/options', ctrl.options);
 router.get('/resources', ctrl.resources);
+router.get('/review-packs', ctrl.reviewPacks);
 router.get('/review/pressure-v1', ctrl.pressureReview);
+router.get('/review/:packKey', ctrl.contentPackReview);
 router.post('/resources', validate(resourceSchema), ctrl.createResource);
 router.patch('/resources/:resourceId/status', validate(statusSchema), ctrl.updateStatus);
 
