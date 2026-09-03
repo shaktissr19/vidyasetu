@@ -8,7 +8,7 @@ import { getDashboard } from '@/services/studentService';
 import { getDashboardSnapshot, isNetworkOnlyFailure, saveDashboardSnapshot } from '@/lib/offlineLearning';
 import { apiErrorStatus, apiErrorText } from '@/utils/errors';
 import type { StudentDashboard } from '@/types/api';
-import type { StudentSectionProps } from '@/types/studentPortal';
+import type { StudentSectionId, StudentSectionProps } from '@/types/studentPortal';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import GroupsHub from '@/components/groups/GroupsHub';
 import DashboardSection from './sections/DashboardSection';
@@ -26,22 +26,7 @@ import OfflineSection from './sections/OfflineSection';
 import ProfileSecuritySection from './sections/ProfileSecuritySection';
 import styles from './StudentPortal.module.css';
 
-type StudentPortalSection =
-  | 'dashboard'
-  | 'subjects'
-  | 'homework'
-  | 'ai'
-  | 'doubts'
-  | 'exams'
-  | 'groups'
-  | 'attendance'
-  | 'school'
-  | 'report'
-  | 'notifications'
-  | 'offline'
-  | 'profile';
-
-const MENU: ReadonlyArray<readonly [StudentPortalSection, string, string]> = [
+const MENU: ReadonlyArray<readonly [StudentSectionId, string, string]> = [
   ['dashboard', '🏠', 'Dashboard'],
   ['subjects', '📚', 'Learning'],
   ['homework', '📝', 'Homework'],
@@ -58,13 +43,13 @@ const MENU: ReadonlyArray<readonly [StudentPortalSection, string, string]> = [
 ];
 
 interface StudentPortalProps {
-  initialSection?: StudentPortalSection;
+  initialSection?: StudentSectionId;
 }
 
 export default function StudentPortal({ initialSection = 'dashboard' }: StudentPortalProps) {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [section, setSection] = useState<StudentPortalSection>(initialSection);
+  const [section, setSection] = useState<StudentSectionId>(initialSection);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [usingOfflineSnapshot, setUsingOfflineSnapshot] = useState(false);
@@ -127,6 +112,8 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
     if (!next) return;
     setSection(next);
     setSidebarOpen(false);
+    const href = next === 'dashboard' ? '/student' : `/student?section=${encodeURIComponent(next)}`;
+    router.push(href, { scroll: false });
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
