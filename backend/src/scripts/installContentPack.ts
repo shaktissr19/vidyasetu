@@ -10,6 +10,7 @@ import {
   listForcePressurePackConfigs,
   type ContentPackConfig,
 } from '../config/contentPackRegistry';
+import { class8LearningConceptCodeSet } from '../config/learningConceptRegistry';
 import { createLearningResource } from '../services/adminLearning.service';
 import { createAssessment, createQuestion } from '../services/adminLearningPractice.service';
 
@@ -86,6 +87,15 @@ interface SubjectRow extends QueryResultRow {
 interface IdStatusRow extends QueryResultRow {
   id: UUID;
   review_status: string;
+}
+
+interface ConceptIdRow extends QueryResultRow {
+  id: UUID;
+  code: string;
+}
+
+interface TableRow extends QueryResultRow {
+  concept_table: string | null;
 }
 
 interface LoadedPack {
@@ -196,6 +206,41 @@ function validateQuestion(question: PackQuestion, packId: string): void {
   }
 }
 
+function validateConceptMappings(config: ContentPackConfig, questionCodes: Set<string>): void {
+  const canonicalCodes = class8LearningConceptCodeSet();
+  if (!config.conceptCodes?.length) throw new Error(`${config.key}: at least one canonical concept code is required`);
+
+  for (const conceptCode of config.conceptCodes) {
+    if (!canonicalCodes.has(conceptCode)) {
+      throw new Error(`${config.key}: canonical concept ${conceptCode} is missing from the Class 8 syllabus registry`);
+    }
+  }
+
+  if (config.conceptCodes.length > 1) {
+    if (!config.questionConceptCodes) {
+      throw new Error(`${config.key}: multi-concept packs require explicit questionConceptCodes mappings`);
+    }
+    for (const questionCode of questionCodes) {
+      if (!config.questionConceptCodes[questionCode]?.length) {
+        throw new Error(`${config.key}: ${questionCode} requires an explicit concept mapping`);
+      }
+    }
+  }
+
+  for (const [questionCode, mappedCodes] of Object.entries(config.questionConceptCodes || {})) {
+    if (!questionCodes.has(questionCode)) throw new Error(`${config.key}: concept mapping references unknown question ${questionCode}`);
+    if (!mappedCodes.length) throw new Error(`${config.key}: ${questionCode} concept mapping cannot be empty`);
+    for (const conceptCode of mappedCodes) {
+      if (!config.conceptCodes.includes(conceptCode)) {
+        throw new Error(`${config.key}: ${questionCode} maps to ${conceptCode}, which is outside the pack concept scope`);
+      }
+      if (!canonicalCodes.has(conceptCode)) {
+        throw new Error(`${config.key}: ${questionCode} maps to unknown canonical concept ${conceptCode}`);
+      }
+    }
+  }
+}
+
 function loadAndValidatePack(packKey: string): LoadedPack {
   const config = getForcePressurePackConfig(packKey);
   const packDir = path.join(FORCE_PRESSURE_PACK_ROOT, config.folder);
@@ -241,6 +286,7 @@ function loadAndValidatePack(packKey: string): LoadedPack {
     if (codes.has(question.publicCode)) throw new Error(`${manifest.packId}: duplicate question ${question.publicCode}`);
     codes.add(question.publicCode);
   }
+  validateConceptMappings(config, codes);
 
   const lessonAsset = manifest.sequence.find((item) => item.type === 'ARTICLE' && item.stage === 'UNDERSTAND')
     || manifest.sequence.find((item) => item.type === 'ARTICLE');
@@ -277,6 +323,26 @@ async function findScienceSubject(): Promise<UUID | null> {
      LIMIT 1`,
   );
   return subject?.id || null;
+}
+
+async function resolveConceptIds(config: ContentPackConfig): Promise<Map<string, UUID>> {
+  const { rows: [tableCheck] } = await query<TableRow>(
+    "SELECT to_regclass('public.learning_concepts')::text AS concept_table",
+  );
+  if (!tableCheck?.concept_table) {
+    throw new Error('Canonical concept schema is missing. Apply migration 026 and synchronize the syllabus concept registry before staging content.');
+  }
+
+  const { rows } = await query<ConceptIdRow>(
+    'SELECT id,code FROM learning_concepts WHERE code=ANY($1::varchar[]) AND is_active=TRUE',
+    [config.conceptCodes],
+  );
+  const ids = new Map(rows.map((row) => [row.code, row.id] as const));
+  const missing = config.conceptCodes.filter((code) => !ids.has(code));
+  if (missing.length) {
+    throw new Error(`Canonical concepts are not synchronized in the database: ${missing.join(', ')}`);
+  }
+  return ids;
 }
 
 async function ensureResourceGrade(resourceId: UUID): Promise<void> {
@@ -481,6 +547,48 @@ async function ensureDraftAssessment(
   return assessmentId;
 }
 
+async function linkConcepts(
+  table: 'learning_resource_concepts' | 'learning_question_concepts' | 'learning_assessment_concepts',
+  idColumn: 'resource_id' | 'question_id' | 'assessment_id',
+  entityId: UUID,
+  conceptCodes: readonly string[],
+  conceptIds: Map<string, UUID>,
+): Promise<void> {
+  for (let index = 0; index < conceptCodes.length; index += 1) {
+    const code = conceptCodes[index];
+    const conceptId = conceptIds.get(code);
+    if (!conceptId) throw new Error(`Canonical concept ${code} was not resolved`);
+    await query(
+      `INSERT INTO ${table} (${idColumn},concept_id,is_primary,sort_order)
+       VALUES ($1::uuid,$2::uuid,$3,$4)
+       ON CONFLICT (${idColumn},concept_id) DO UPDATE SET
+         is_primary=EXCLUDED.is_primary,
+         sort_order=EXCLUDED.sort_order`,
+      [entityId, conceptId, index === 0, index],
+    );
+  }
+}
+
+async function ensureConceptMappings(
+  pack: LoadedPack,
+  resourceId: UUID,
+  questionIds: Map<string, UUID>,
+  practiceId: UUID,
+  masteryId: UUID,
+  conceptIds: Map<string, UUID>,
+): Promise<void> {
+  const { config } = pack;
+  await linkConcepts('learning_resource_concepts', 'resource_id', resourceId, config.conceptCodes, conceptIds);
+
+  for (const [questionCode, questionId] of questionIds.entries()) {
+    const codes = config.questionConceptCodes?.[questionCode] || config.conceptCodes;
+    await linkConcepts('learning_question_concepts', 'question_id', questionId, codes, conceptIds);
+  }
+
+  await linkConcepts('learning_assessment_concepts', 'assessment_id', practiceId, config.conceptCodes, conceptIds);
+  await linkConcepts('learning_assessment_concepts', 'assessment_id', masteryId, config.conceptCodes, conceptIds);
+}
+
 async function main(): Promise<void> {
   const packArg = argumentValue('pack');
   if (!packArg) {
@@ -493,6 +601,7 @@ async function main(): Promise<void> {
 
   console.log(`Content pack validated: ${manifest.packId} (${manifest.version || 'unversioned-draft'})`);
   console.log(`Pack key: ${config.key}`);
+  console.log(`Canonical concepts: ${config.conceptCodes.join(', ')}`);
   console.log(`Learner lesson: English ${bodyEn.length} chars; Hindi ${bodyHi.length} chars`);
   console.log(`Question bank: ${bank.questions.length} bilingual questions`);
   console.log(`Practice questions: ${practiceAsset.questionIds?.length || 0}`);
@@ -500,7 +609,7 @@ async function main(): Promise<void> {
 
   if (!isCommitRequested()) {
     console.log('DRY RUN ONLY — no database writes were made.');
-    console.log('To stage as DRAFT, rerun with --commit --admin-user-id <SUPER_ADMIN_UUID>.');
+    console.log('To stage as DRAFT, apply/sync the canonical concept registry, then rerun with --commit --admin-user-id <SUPER_ADMIN_UUID>.');
     return;
   }
 
@@ -508,6 +617,10 @@ async function main(): Promise<void> {
   if (!adminArg || !isUuid(adminArg)) throw new Error('--commit requires a valid --admin-user-id UUID');
   const adminUserId = adminArg as UUID;
   await requireSuperAdmin(adminUserId);
+
+  // Resolve every concept before creating or updating any staged learning row.
+  // This prevents a missing migration/sync from leaving a partially installed pack.
+  const conceptIds = await resolveConceptIds(config);
 
   const subjectId = await findScienceSubject();
   if (!subjectId) console.warn('Science subject row was not found; subject_label will still be stored.');
@@ -532,12 +645,14 @@ async function main(): Promise<void> {
     subjectId,
     questionIds,
   );
+  await ensureConceptMappings(pack, resourceId, questionIds, practiceId, masteryId, conceptIds);
 
   console.log('CONTENT PACK STAGED SUCCESSFULLY — DRAFT ONLY');
   console.log(`Resource: ${config.resourceSlug} (${resourceId})`);
   console.log(`Questions: ${questionIds.size}`);
   console.log(`Assessment: ${config.assessmentSlugs[0]} (${practiceId})`);
   console.log(`Assessment: ${config.assessmentSlugs[1]} (${masteryId})`);
+  console.log(`Canonical concept mappings: ${config.conceptCodes.join(', ')}`);
   console.log('No resource, question or assessment was published. Academic review remains mandatory.');
 }
 
