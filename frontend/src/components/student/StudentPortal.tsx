@@ -23,7 +23,20 @@ import OfflineSection from './sections/OfflineSection';
 import ProfileSecuritySection from './sections/ProfileSecuritySection';
 import styles from './StudentPortal.module.css';
 
-const MENU: ReadonlyArray<readonly [string, string, string]> = [
+type StudentPortalSection =
+  | 'dashboard'
+  | 'subjects'
+  | 'ai'
+  | 'doubts'
+  | 'exams'
+  | 'groups'
+  | 'attendance'
+  | 'school'
+  | 'report'
+  | 'offline'
+  | 'profile';
+
+const MENU: ReadonlyArray<readonly [StudentPortalSection, string, string]> = [
   ['dashboard', '🏠', 'Dashboard'],
   ['subjects', '📚', 'Learning'],
   ['ai', '🤖', 'AI Tutor'],
@@ -37,12 +50,20 @@ const MENU: ReadonlyArray<readonly [string, string, string]> = [
   ['profile', '👤', 'Profile & Security'],
 ];
 
-export default function StudentPortal() {
+interface StudentPortalProps {
+  initialSection?: StudentPortalSection;
+}
+
+export default function StudentPortal({ initialSection = 'dashboard' }: StudentPortalProps) {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [section, setSection] = useState('dashboard');
+  const [section, setSection] = useState<StudentPortalSection>(initialSection);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState('');
+
+  useEffect(() => {
+    setSection(initialSection);
+  }, [initialSection]);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('vs_access_token') : null;
@@ -82,7 +103,9 @@ export default function StudentPortal() {
   }, []);
 
   function goSection(id: string): void {
-    setSection(id);
+    const next = MENU.find(([menuId]) => menuId === id)?.[0];
+    if (!next) return;
+    setSection(next);
     setSidebarOpen(false);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
