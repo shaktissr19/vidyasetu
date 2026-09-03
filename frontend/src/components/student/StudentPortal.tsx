@@ -13,12 +13,14 @@ import GroupsHub from '@/components/groups/GroupsHub';
 import DashboardSection from './sections/DashboardSection';
 import LearningSection from './sections/LearningSection';
 import ConceptMasteryPanel from './sections/ConceptMasteryPanel';
+import HomeworkSection from './sections/HomeworkSection';
 import AITutorSection from './sections/AITutorSection';
 import DoubtForumSection from './sections/DoubtForumSection';
 import ExamsSection from './sections/ExamsSection';
 import AttendanceSection from './sections/AttendanceSection';
 import MySchoolSection from './sections/MySchoolSection';
 import ReportCardSection from './sections/ReportCardSection';
+import NotificationsSection from './sections/NotificationsSection';
 import OfflineSection from './sections/OfflineSection';
 import ProfileSecuritySection from './sections/ProfileSecuritySection';
 import styles from './StudentPortal.module.css';
@@ -26,6 +28,7 @@ import styles from './StudentPortal.module.css';
 type StudentPortalSection =
   | 'dashboard'
   | 'subjects'
+  | 'homework'
   | 'ai'
   | 'doubts'
   | 'exams'
@@ -33,12 +36,14 @@ type StudentPortalSection =
   | 'attendance'
   | 'school'
   | 'report'
+  | 'notifications'
   | 'offline'
   | 'profile';
 
 const MENU: ReadonlyArray<readonly [StudentPortalSection, string, string]> = [
   ['dashboard', '🏠', 'Dashboard'],
   ['subjects', '📚', 'Learning'],
+  ['homework', '📝', 'Homework'],
   ['ai', '🤖', 'AI Tutor'],
   ['doubts', '💬', 'Doubt Forum'],
   ['exams', '🏆', 'Competitions'],
@@ -46,6 +51,7 @@ const MENU: ReadonlyArray<readonly [StudentPortalSection, string, string]> = [
   ['attendance', '📅', 'Attendance'],
   ['school', '🏫', 'My School'],
   ['report', '📄', 'Report Card'],
+  ['notifications', '🔔', 'Notifications'],
   ['offline', '📶', 'Offline Mode'],
   ['profile', '👤', 'Profile & Security'],
 ];
@@ -61,15 +67,11 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    setSection(initialSection);
-  }, [initialSection]);
-
+  useEffect(() => { setSection(initialSection); }, [initialSection]);
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('vs_access_token') : null;
     if (!token) router.replace('/login');
   }, [router]);
-
   useEffect(() => {
     if (!toast) return undefined;
     const timer = setTimeout(() => setToast(''), 3200);
@@ -121,6 +123,7 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   let content: ReactNode;
   switch (section) {
     case 'subjects': content = <><LearningSection {...shared} /><ConceptMasteryPanel /></>; break;
+    case 'homework': content = <HomeworkSection {...shared} />; break;
     case 'ai': content = <AITutorSection {...shared} />; break;
     case 'doubts': content = <DoubtForumSection {...shared} />; break;
     case 'exams': content = <ExamsSection {...shared} />; break;
@@ -128,6 +131,7 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
     case 'attendance': content = <AttendanceSection {...shared} />; break;
     case 'school': content = <MySchoolSection {...shared} />; break;
     case 'report': content = <ReportCardSection {...shared} />; break;
+    case 'notifications': content = <NotificationsSection {...shared} />; break;
     case 'offline': content = <OfflineSection {...shared} />; break;
     case 'profile': content = <ProfileSecuritySection {...shared} />; break;
     default: content = <DashboardSection {...shared} greeting={greeting} />;
