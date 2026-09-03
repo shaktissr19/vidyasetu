@@ -32,6 +32,7 @@ jobs:
           bash -n scripts/learning-bulk-importer-e2e-smoke.sh
           bash -n scripts/student-concept-mastery-e2e-smoke.sh
           bash -n scripts/adaptive-learning-remediation-e2e-smoke.sh
+          bash -n scripts/grounded-ai-doubt-resolution-e2e-smoke.sh
           test -s database/migrations/014_student_identity_enrollment.sql
           test -s database/migrations/020_learning_platform_foundation.sql
           test -s database/migrations/021_learning_original_academic_starter.sql
@@ -40,6 +41,7 @@ jobs:
           test -s database/migrations/024_student_global_grade_sync.sql
           test -s database/migrations/026_learning_concepts_mastery.sql
           test -s database/migrations/027_student_concept_mastery_runtime.sql
+          test -s database/migrations/028_grounded_ai_doubt_resolution.sql
           grep -q "PRE_NURSERY" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "CLASS_12" database/migrations/023_global_learning_bulk_importer.sql
           grep -q "learning_import_batches" database/migrations/023_global_learning_bulk_importer.sql
@@ -49,9 +51,13 @@ jobs:
           grep -q "learning_concepts" database/migrations/026_learning_concepts_mastery.sql
           grep -q "student_concept_progress" database/migrations/026_learning_concepts_mastery.sql
           grep -q "evidence_role" database/migrations/027_student_concept_mastery_runtime.sql
+          grep -q "ai_tutor_events" database/migrations/028_grounded_ai_doubt_resolution.sql
           grep -q "Concept mastery" frontend/src/components/student/sections/ConceptMasteryPanel.tsx
           grep -q "Next best actions" frontend/src/components/student/sections/AdaptiveLearningPanel.tsx
+          grep -q "Privacy-first tutor history" frontend/src/components/student/sections/AITutorSection.tsx
           grep -q "adaptive-plan" backend/src/routes/student.routes.ts
+          grep -q "'/escalate'" backend/src/routes/ai.routes.ts
+          ! grep -q "Q:.*A:" backend/src/services/ai.service.ts
           grep -q "Global Learning Bulk Importer" 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
           grep -q "Pre-Nursery to Class 12" frontend/src/components/public/PublicLearningLibrary.tsx
           test -s 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
@@ -75,6 +81,7 @@ jobs:
           test -s dist/index.js
           test -s dist/services/studentConceptMastery.service.js
           test -s dist/services/studentAdaptiveLearning.service.js
+          test -s dist/services/ai.service.js
           test -s dist/controllers/studentLearningRuntime.controller.js
           test -s dist/scripts/syncLearningConceptRegistry.js
 
@@ -122,6 +129,7 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/024_student_global_grade_sync.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/026_learning_concepts_mastery.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/027_student_concept_mastery_runtime.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/028_grounded_ai_doubt_resolution.sql
           done
 
       - name: Synchronize canonical Class 8 concept registry in disposable database
@@ -139,7 +147,7 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          for table in education_boards education_grade_levels learning_content_sources learning_resources learning_resource_grades learning_questions learning_question_grades learning_assessments student_learning_attempts learning_source_intake learning_import_batches learning_import_rows learning_concepts learning_resource_concepts learning_question_concepts learning_assessment_concepts student_concept_progress; do
+          for table in education_boards education_grade_levels learning_content_sources learning_resources learning_resource_grades learning_questions learning_question_grades learning_assessments student_learning_attempts learning_source_intake learning_import_batches learning_import_rows learning_concepts learning_resource_concepts learning_question_concepts learning_assessment_concepts student_concept_progress ai_tutor_events; do
             test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
           done
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM education_grade_levels WHERE is_active=TRUE;")" -eq 16
@@ -152,6 +160,8 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_questions WHERE review_status='PUBLISHED';")" -ge 8
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_concepts WHERE is_active=TRUE;")" -gt 0
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_assessment_concepts' AND column_name='evidence_role');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='doubts' AND column_name='school_id';")" = "YES"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='doubt_answers' AND column_name='ai_grounded');")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT requires_item_license_check FROM learning_content_sources WHERE code='NROER';")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT allow_rehosting_default FROM learning_content_sources WHERE code='NROER';")" = "f"
 
@@ -218,6 +228,16 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
         run: bash scripts/adaptive-learning-remediation-e2e-smoke.sh
+
+      - name: Run Grounded AI Tutor and Doubt Resolution E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/grounded-ai-doubt-resolution-e2e-smoke.sh
 
       - name: Run Global Learning Bulk Importer E2E
         env:
