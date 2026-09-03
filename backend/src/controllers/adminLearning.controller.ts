@@ -16,6 +16,20 @@ export async function resources(_req: Request, res: Response, next: NextFunction
   catch (error: unknown) { next(error); }
 }
 
+export async function reviewPacks(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, reviewService.listSupportedContentPacks()); }
+  catch (error: unknown) { next(error); }
+}
+
+export async function contentPackReview(
+  req: Request<{ packKey: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try { return R.ok(res, await reviewService.getContentPackReview(req.params.packKey)); }
+  catch (error: unknown) { next(error); }
+}
+
 export async function pressureReview(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await reviewService.getPressurePackReview()); }
   catch (error: unknown) { next(error); }
