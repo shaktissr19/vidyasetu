@@ -30,6 +30,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --no-audit --no-fund
