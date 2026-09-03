@@ -9,6 +9,11 @@ interface ClassRow extends QueryResultRow {
   class_name: string;
   section: string | null;
 }
+interface SubjectRow extends QueryResultRow {
+  id: UUID;
+  code: string;
+  name: string;
+}
 interface TargetRow extends QueryResultRow {
   class_id: UUID;
   class_name: string;
@@ -117,7 +122,7 @@ async function assertSchoolTarget(
   classId: UUID,
   subjectCode: string,
   teacherIdInput?: UUID | null,
-): Promise<ClassRow> {
+): Promise<{ classRow: ClassRow; subject: SubjectRow }> {
   const { rows: [classRow] } = await query<ClassRow>(
     `SELECT id,class_name,section FROM school_classes
      WHERE id=$1 AND school_id=$2 AND is_active=TRUE`,
@@ -125,7 +130,10 @@ async function assertSchoolTarget(
   );
   if (!classRow) throw appError('Class is not active in this School', 404);
 
-  const { rows: [subject] } = await query<IdRow>('SELECT id FROM subjects WHERE code=$1 AND is_active=TRUE', [subjectCode]);
+  const { rows: [subject] } = await query<SubjectRow>(
+    'SELECT id,code,name FROM subjects WHERE code=$1 AND is_active=TRUE',
+    [subjectCode],
+  );
   if (!subject) throw appError('Subject is not available', 404);
 
   if (role === 'TEACHER') {
@@ -138,10 +146,10 @@ async function assertSchoolTarget(
     );
     if (!assignment) throw appError('Teachers can view learning insights only for their assigned class and subject', 403);
   }
-  return classRow;
+  return { classRow, subject };
 }
 
-async function mappedConcepts(className: string, subjectCode: string): Promise<ConceptRow[]> {
+async function mappedConcepts(className: string, subjectId: UUID): Promise<ConceptRow[]> {
   const numericClass = Number.parseInt(className, 10);
   if (!Number.isFinite(numericClass) || numericClass < 1 || numericClass > 12) return [];
   const gradeCode = `CLASS_${numericClass}`;
@@ -157,11 +165,11 @@ async function mappedConcepts(className: string, subjectCode: string): Promise<C
      LEFT JOIN learning_resources lr ON lr.id=lrc.resource_id
      LEFT JOIN learning_assessment_concepts lac ON lac.concept_id=lc.id
      LEFT JOIN learning_assessments la ON la.id=lac.assessment_id
-     WHERE lc.is_active=TRUE AND lc.subject_code=$2
+     WHERE lc.is_active=TRUE AND lc.subject_id=$2
        AND (lrc.resource_id IS NOT NULL OR lac.assessment_id IS NOT NULL)
      GROUP BY lc.id
      ORDER BY lc.sequence,lc.code`,
-    [gradeCode, subjectCode],
+    [gradeCode, subjectId],
   );
   return rows;
 }
@@ -179,8 +187,16 @@ export async function getSchoolLearningOverview(
   teacherIdInput?: UUID | null,
 ) {
   const normalizedSubject = subjectCode.trim().toUpperCase();
-  const classRow = await assertSchoolTarget(schoolId, userId, role, classId, normalizedSubject, teacherIdInput);
-  const concepts = await mappedConcepts(classRow.class_name, normalizedSubject);
+  const { classRow, subject } = await assertSchoolTarget(
+    schoolId,
+    userId,
+    role,
+    classId,
+    normalizedSubject,
+    teacherIdInput,
+  );
+  const concepts = await mappedConcepts(classRow.class_name, subject.id);
+  const conceptIds = new Set(concepts.map((concept) => concept.concept_id));
   const { rows: students } = await query<StudentRow>(
     `SELECT s.id,s.user_id,s.student_code,s.roll_number,u.name
      FROM students s
@@ -193,7 +209,7 @@ export async function getSchoolLearningOverview(
 
   const masteryRows = await Promise.all(students.map(async (student) => {
     const mastery = await getStudentConceptMastery(student.user_id);
-    return { student, map: masteryByConcept(mastery.filter((item) => item.subjectCode === normalizedSubject)) };
+    return { student, map: masteryByConcept(mastery.filter((item) => conceptIds.has(item.conceptId))) };
   }));
 
   const studentInsights = masteryRows.map(({ student, map }) => {
@@ -250,6 +266,7 @@ export async function getSchoolLearningOverview(
       className: classRow.class_name,
       section: classRow.section,
       subjectCode: normalizedSubject,
+      subjectName: subject.name,
       studentCount: students.length,
       conceptCount: concepts.length,
     },
