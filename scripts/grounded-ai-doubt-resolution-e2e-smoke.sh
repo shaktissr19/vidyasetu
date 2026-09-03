@@ -38,16 +38,24 @@ RESOURCE_ID="$(psqlq "SELECT lrc.resource_id FROM learning_resource_concepts lrc
 [[ -n "$RESOURCE_ID" ]] || fail "Published mapped resource fixture missing"
 
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
-  -v student_id="$STUDENT_ID" -v concept_id="$CONCEPT_ID" -v resource_id="$RESOURCE_ID" -v practice_id="$PRACTICE_ID" <<'SQL'
+  -v student_id="$STUDENT_ID" -v concept_id="$CONCEPT_ID" -v resource_id="$RESOURCE_ID" <<'SQL'
 DELETE FROM ai_tutor_events WHERE student_id=:'student_id'::uuid;
 DELETE FROM doubts WHERE student_id=:'student_id'::uuid AND origin='AI_TUTOR';
 DELETE FROM student_learning_answers
 WHERE attempt_id IN (
-  SELECT id FROM student_learning_attempts
-  WHERE student_id=:'student_id'::uuid AND assessment_id=:'practice_id'::uuid
+  SELECT sla.id
+  FROM student_learning_attempts sla
+  JOIN learning_assessment_concepts lac ON lac.assessment_id=sla.assessment_id
+  WHERE sla.student_id=:'student_id'::uuid
+    AND lac.concept_id=:'concept_id'::uuid
 );
 DELETE FROM student_learning_attempts
-WHERE student_id=:'student_id'::uuid AND assessment_id=:'practice_id'::uuid;
+WHERE student_id=:'student_id'::uuid
+  AND assessment_id IN (
+    SELECT assessment_id
+    FROM learning_assessment_concepts
+    WHERE concept_id=:'concept_id'::uuid
+  );
 DELETE FROM student_concept_progress
 WHERE student_id=:'student_id'::uuid AND concept_id=:'concept_id'::uuid;
 DELETE FROM student_learning_resource_progress
@@ -67,6 +75,9 @@ FAIL_PAYLOAD="$(psqlq "SELECT jsonb_build_object('answers',jsonb_agg(jsonb_build
 curl -fsS -X POST "$API_BASE/student/learning/attempts/$PATTEMPT/submit" \
   -H "Authorization: Bearer $STUDENT_TOKEN" -H 'Content-Type: application/json' \
   -d "$FAIL_PAYLOAD" | jq -e '.data.status=="GRADED" and .data.percentage<60' >/dev/null || fail "Practice fixture did not fail"
+
+LEARNER_STATE="$(psqlq "SELECT mastery_state FROM student_concept_progress WHERE student_id='$STUDENT_ID' AND concept_id='$CONCEPT_ID' LIMIT 1;")"
+[[ "$LEARNER_STATE" == "NEEDS_REVIEW" ]] || fail "Expected isolated concept state NEEDS_REVIEW, got: ${LEARNER_STATE:-missing}"
 
 log "Grounded Tutor uses published VidyaSetu source and mastery context"
 QUESTION="Explain this concept carefully $PRIVATE_MARKER"
