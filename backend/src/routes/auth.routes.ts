@@ -57,6 +57,7 @@ const registerStudentSchema = z.object({
 });
 
 const refreshSchema = z.object({ refreshToken: z.string().min(10) });
+const revokeOtherSessionsSchema = z.object({ refreshToken: z.string().min(10) });
 const profileSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   username: z.string().trim().min(3).max(60).regex(/^[A-Za-z0-9._-]+$/).optional(),
@@ -77,6 +78,8 @@ router.post('/forgot-password', otpLimiter, validate(forgotPasswordSchema), ctrl
 router.post('/reset-password', validate(resetPasswordSchema), ctrl.resetPassword);
 router.post('/refresh', validate(refreshSchema), ctrl.refresh);
 router.post('/logout', authenticate, ctrl.logout);
+router.get('/sessions', authenticate, ctrl.getSessions);
+router.post('/sessions/revoke-others', authenticate, validate(revokeOtherSessionsSchema), ctrl.revokeOtherSessions);
 router.patch('/profile', authenticate, validate(profileSchema), ctrl.updateProfile);
 router.post('/set-password', authenticate, validate(setPasswordSchema), ctrl.setPassword);
 router.get('/me', authenticate, ctrl.getMe);
