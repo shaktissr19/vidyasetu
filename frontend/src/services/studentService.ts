@@ -178,7 +178,9 @@ export const getLeaderboard = (scope = 'class') => api.get<ApiEnvelope<Leaderboa
 export const getReportCard = (term?: string | number | null, year?: string | number | null) => api.get<ApiEnvelope<ReportCardData>>('/student/report-card', { params: { term, year } });
 export const markContentComplete = (itemId: string) => api.post<ApiEnvelope<{ completed?: boolean }>>(`/student/content/${itemId}/complete`);
 export const getNotifications = () => api.get<ApiEnvelope<ParentNotification[]>>('/student/notifications');
-export const markNotifRead = (id: string) => api.patch<ApiEnvelope<{ id: string; is_read?: boolean }>>(`/student/notifications/${id}/read`);
+export const markNotifRead = (id: string) => api.patch<ApiEnvelope<{ id?: string; is_read?: boolean; message?: string }>>(`/student/notifications/${id}/read`);
+export const markAllNotificationsRead = () =>
+  api.patch<ApiEnvelope<{ message?: string; updatedCount?: number }>>('/student/notifications/read-all');
 export const getOfflineDownloads = () => api.get<ApiEnvelope<StudentOfflineDownloadsData>>('/student/offline-downloads');
 export const removeOfflineDownload = (contentItemId: string) => api.delete<ApiEnvelope<{ removed?: boolean }>>(`/student/offline-downloads/${contentItemId}`);
 
