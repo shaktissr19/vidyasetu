@@ -4,8 +4,11 @@ on:
   pull_request:
     paths:
       - 'content/**'
+      - 'database/migrations/026_learning_concepts_mastery.sql'
       - 'backend/src/config/contentPackRegistry.ts'
+      - 'backend/src/config/learningConceptRegistry.ts'
       - 'backend/src/scripts/installContentPack.ts'
+      - 'backend/src/scripts/syncLearningConceptRegistry.ts'
       - 'backend/src/scripts/installPressurePack.ts'
       - 'backend/src/scripts/installForcePack.ts'
       - 'backend/src/scripts/installEffectsOfForcePack.ts'
@@ -21,8 +24,11 @@ on:
       - main
     paths:
       - 'content/**'
+      - 'database/migrations/026_learning_concepts_mastery.sql'
       - 'backend/src/config/contentPackRegistry.ts'
+      - 'backend/src/config/learningConceptRegistry.ts'
       - 'backend/src/scripts/installContentPack.ts'
+      - 'backend/src/scripts/syncLearningConceptRegistry.ts'
       - 'backend/src/scripts/installPressurePack.ts'
       - 'backend/src/scripts/installForcePack.ts'
       - 'backend/src/scripts/installEffectsOfForcePack.ts'
@@ -73,12 +79,21 @@ jobs:
           npm run typecheck
           npm run build
           test -f dist/scripts/installContentPack.js
+          test -f dist/scripts/syncLearningConceptRegistry.js
           test -f dist/scripts/installPressurePack.js
           test -f dist/scripts/installForcePack.js
           test -f dist/scripts/installEffectsOfForcePack.js
           test -f dist/scripts/installContactNonContactPack.js
           test -f dist/scripts/installLiquidPressurePack.js
           test -f dist/scripts/installAtmosphericPressurePack.js
+
+      - name: Prove concept registry synchronizer dry-run is write-free
+        run: |
+          set -euo pipefail
+          output="$(node backend/dist/scripts/syncLearningConceptRegistry.js)"
+          printf '%s\n' "$output"
+          grep -F "Canonical concept registry validated:" <<<"$output"
+          grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
 
       - name: Prove generic installer dry-run across all six packs
         run: |
@@ -88,6 +103,7 @@ jobs:
             output="$(node backend/dist/scripts/installContentPack.js --pack "$pack")"
             printf '%s\n' "$output"
             grep -F "Content pack validated:" <<<"$output"
+            grep -F "Canonical concepts:" <<<"$output"
             grep -F "Question bank: 12 bilingual questions" <<<"$output"
             grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
           done
