@@ -10,6 +10,7 @@ export type StudentSectionId =
   | 'exams'
   | 'groups'
   | 'attendance'
+  | 'leave'
   | 'school'
   | 'report'
   | 'notifications'
