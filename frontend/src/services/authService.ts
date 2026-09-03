@@ -24,6 +24,14 @@ export interface AuthSessionPayload {
   isNewUser?: boolean;
 }
 
+export interface ActiveSession {
+  id: string;
+  deviceInfo: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
 export interface RegistrationClassOption {
   id: string;
   className: string;
@@ -97,5 +105,8 @@ export const setPassword = (currentPassword: string | null | undefined, newPassw
 
 export const refreshToken = (token: string) => api.post<ApiEnvelope<{ accessToken: string }>>('/auth/refresh', { refreshToken: token });
 export const logout = (token?: string | null) => api.post<ApiEnvelope<{ message?: string }>>('/auth/logout', { refreshToken: token });
+export const getActiveSessions = () => api.get<ApiEnvelope<ActiveSession[]>>('/auth/sessions');
+export const revokeOtherSessions = (token: string) =>
+  api.post<ApiEnvelope<{ revokedCount: number; message?: string }>>('/auth/sessions/revoke-others', { refreshToken: token });
 export const updateProfile = (data: Payload) => api.patch<ApiEnvelope<SessionUser>>('/auth/profile', data);
 export const getMe = () => api.get<ApiEnvelope<StudentProfile & SessionUser>>('/auth/me');
