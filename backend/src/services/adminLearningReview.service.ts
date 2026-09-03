@@ -2,6 +2,12 @@ import fs = require('fs');
 import path = require('path');
 import type { QueryResultRow } from 'pg';
 import { query } from '../config/db';
+import {
+  FORCE_PRESSURE_PACK_ROOT,
+  getForcePressurePackConfig,
+  listForcePressurePackConfigs,
+  type ContentPackConfig,
+} from '../config/contentPackRegistry';
 
 interface PackSequenceItem {
   order?: number;
@@ -91,61 +97,6 @@ interface AssessmentRow extends QueryResultRow {
   questions: Array<{ publicCode: string; order: number }>;
 }
 
-interface PackConfig {
-  key: string;
-  folder: string;
-  resourceSlug: string;
-  resourceAssetId: string;
-  assessmentSlugs: readonly [string, string];
-}
-
-const PACK_ROOT = path.resolve(__dirname, '../../../content/class-8/science/force-and-pressure');
-
-const PACKS: Record<string, PackConfig> = {
-  pressure: {
-    key: 'pressure',
-    folder: 'pressure',
-    resourceSlug: 'class-8-science-pressure-v1',
-    resourceAssetId: 'VS-PRESSURE-ARTICLE-01',
-    assessmentSlugs: ['class-8-science-pressure-practice-v1', 'class-8-science-pressure-mastery-v1'],
-  },
-  force: {
-    key: 'force',
-    folder: 'force',
-    resourceSlug: 'class-8-science-force-v1',
-    resourceAssetId: 'VS-FORCE-ARTICLE-01',
-    assessmentSlugs: ['class-8-science-force-practice-v1', 'class-8-science-force-mastery-v1'],
-  },
-  'effects-of-force': {
-    key: 'effects-of-force',
-    folder: 'effects-of-force',
-    resourceSlug: 'class-8-science-effects-of-force-v1',
-    resourceAssetId: 'VS-EFFECTS-ARTICLE-01',
-    assessmentSlugs: ['class-8-science-effects-of-force-practice-v1', 'class-8-science-effects-of-force-mastery-v1'],
-  },
-  'contact-noncontact': {
-    key: 'contact-noncontact',
-    folder: 'contact-noncontact',
-    resourceSlug: 'class-8-science-contact-noncontact-forces-v1',
-    resourceAssetId: 'VS-CN-LESSON-01',
-    assessmentSlugs: ['class-8-science-contact-noncontact-practice-v1', 'class-8-science-contact-noncontact-mastery-v1'],
-  },
-  'pressure-in-liquids': {
-    key: 'pressure-in-liquids',
-    folder: 'pressure-in-liquids',
-    resourceSlug: 'class-8-science-pressure-in-liquids-v1',
-    resourceAssetId: 'VS-LP-LESSON-01',
-    assessmentSlugs: ['class-8-science-pressure-in-liquids-practice-v1', 'class-8-science-pressure-in-liquids-mastery-v1'],
-  },
-  'atmospheric-pressure': {
-    key: 'atmospheric-pressure',
-    folder: 'atmospheric-pressure',
-    resourceSlug: 'class-8-science-atmospheric-pressure-v1',
-    resourceAssetId: 'VS-AP-LESSON-01',
-    assessmentSlugs: ['class-8-science-atmospheric-pressure-practice-v1', 'class-8-science-atmospheric-pressure-mastery-v1'],
-  },
-};
-
 function notFound(message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode: 404 });
 }
@@ -154,10 +105,12 @@ function readJson<T>(packDir: string, fileName: string): T {
   return JSON.parse(fs.readFileSync(path.join(packDir, fileName), 'utf8')) as T;
 }
 
-function packConfig(packKey: string): PackConfig {
-  const config = PACKS[packKey.toLowerCase()];
-  if (!config) throw notFound(`Unsupported learning content pack: ${packKey}`);
-  return config;
+function packConfig(packKey: string): ContentPackConfig {
+  try {
+    return getForcePressurePackConfig(packKey);
+  } catch {
+    throw notFound(`Unsupported learning content pack: ${packKey}`);
+  }
 }
 
 function uniqueStages(sequence: PackSequenceItem[]): string[] {
@@ -165,12 +118,12 @@ function uniqueStages(sequence: PackSequenceItem[]): string[] {
 }
 
 export function listSupportedContentPacks() {
-  return Object.values(PACKS).map(({ key, folder, resourceSlug }) => ({ key, folder, resourceSlug }));
+  return listForcePressurePackConfigs().map(({ key, folder, resourceSlug }) => ({ key, folder, resourceSlug }));
 }
 
 export async function getContentPackReview(packKey: string) {
   const config = packConfig(packKey);
-  const packDir = path.join(PACK_ROOT, config.folder);
+  const packDir = path.join(FORCE_PRESSURE_PACK_ROOT, config.folder);
   const manifest = readJson<PackManifest>(packDir, 'pack-manifest.json');
   const bank = readJson<QuestionBank>(packDir, 'question-bank.json');
 

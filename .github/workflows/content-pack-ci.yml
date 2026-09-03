@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'content/**'
+      - 'backend/src/config/contentPackRegistry.ts'
+      - 'backend/src/scripts/installContentPack.ts'
       - 'backend/src/scripts/installPressurePack.ts'
       - 'backend/src/scripts/installForcePack.ts'
       - 'backend/src/scripts/installEffectsOfForcePack.ts'
@@ -19,6 +21,8 @@ on:
       - main
     paths:
       - 'content/**'
+      - 'backend/src/config/contentPackRegistry.ts'
+      - 'backend/src/scripts/installContentPack.ts'
       - 'backend/src/scripts/installPressurePack.ts'
       - 'backend/src/scripts/installForcePack.ts'
       - 'backend/src/scripts/installEffectsOfForcePack.ts'
@@ -68,12 +72,25 @@ jobs:
           npm install --no-audit --no-fund
           npm run typecheck
           npm run build
+          test -f dist/scripts/installContentPack.js
           test -f dist/scripts/installPressurePack.js
           test -f dist/scripts/installForcePack.js
           test -f dist/scripts/installEffectsOfForcePack.js
           test -f dist/scripts/installContactNonContactPack.js
           test -f dist/scripts/installLiquidPressurePack.js
           test -f dist/scripts/installAtmosphericPressurePack.js
+
+      - name: Prove generic installer dry-run across all six packs
+        run: |
+          set -euo pipefail
+          for pack in pressure force effects-of-force contact-noncontact pressure-in-liquids atmospheric-pressure; do
+            echo "--- generic dry-run: $pack ---"
+            output="$(node backend/dist/scripts/installContentPack.js --pack "$pack")"
+            printf '%s\n' "$output"
+            grep -F "Content pack validated:" <<<"$output"
+            grep -F "Question bank: 12 bilingual questions" <<<"$output"
+            grep -F "DRY RUN ONLY — no database writes were made." <<<"$output"
+          done
 
       - name: Prove Pressure installer dry-run is write-free
         run: |
