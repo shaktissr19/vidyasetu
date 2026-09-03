@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import useAuthStore from '@/store/authStore';
 import { getDashboard } from '@/services/studentService';
+import { getDashboardSnapshot, isNetworkOnlyFailure, saveDashboardSnapshot } from '@/lib/offlineLearning';
 import { apiErrorStatus, apiErrorText } from '@/utils/errors';
 import type { StudentDashboard } from '@/types/api';
 import type { StudentSectionProps } from '@/types/studentPortal';
@@ -66,6 +67,7 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   const [section, setSection] = useState<StudentPortalSection>(initialSection);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState('');
+  const [usingOfflineSnapshot, setUsingOfflineSnapshot] = useState(false);
 
   useEffect(() => { setSection(initialSection); }, [initialSection]);
   useEffect(() => {
@@ -79,8 +81,24 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   }, [toast]);
 
   const dashboardQuery = useQuery<StudentDashboard>({
-    queryKey: ['student-dashboard'],
-    queryFn: async () => (await getDashboard()).data.data,
+    queryKey: ['student-dashboard', user?.id || 'active-session'],
+    queryFn: async () => {
+      try {
+        const dashboard = (await getDashboard()).data.data;
+        if (user?.id) await saveDashboardSnapshot(user.id, dashboard);
+        setUsingOfflineSnapshot(false);
+        return dashboard;
+      } catch (error: unknown) {
+        if (user?.id && isNetworkOnlyFailure(error)) {
+          const snapshot = await getDashboardSnapshot(user.id);
+          if (snapshot) {
+            setUsingOfflineSnapshot(true);
+            return snapshot;
+          }
+        }
+        throw error;
+      }
+    },
     staleTime: 20_000,
     retry: 1,
   });
@@ -163,6 +181,12 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   return (
     <div className={styles.shell}>
       <GlobalTopbar />
+      {usingOfflineSnapshot && (
+        <div style={{ margin: '10px 18px 0', padding: '10px 14px', borderRadius: 10, background: '#FFF7E8', border: '1px solid #F7D79A', color: '#6B4A0B', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <span>📶 You are viewing the last saved Student dashboard. Saved lessons and queued learning progress remain available in Offline Mode.</span>
+          <button className={styles.secondary} onClick={() => goSection('offline')}>Open Offline Mode</button>
+        </div>
+      )}
       <div className={styles.layout}>
         <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
           <button className={styles.mobileMenu} onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle Student menu">☰ Student Menu</button>
