@@ -64,8 +64,8 @@ export default function NotificationsSection({ notify }: StudentSectionProps) {
       router.push('/student/homework');
       return;
     }
-    if (item.type.includes('EXAM')) router.push('/student/exams');
-    else if (item.type.includes('DOUBT')) router.push('/student/doubts');
+    if (item.type.includes('EXAM')) router.push('/exams');
+    else if (item.type.includes('DOUBT')) router.push('/doubts');
     else if (item.type.includes('ANNOUNCEMENT') || item.type.includes('ATTENDANCE')) router.push('/student');
   }
 
