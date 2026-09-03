@@ -101,6 +101,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     const status = queryString(req.query.status);
     const mine = queryString(req.query.mine);
     const ctx = await getUserSchoolContext(req);
+    const enhanced = await aiService.supportsGroundedDoubts();
     const conditions = ['1=1'];
     const params: unknown[] = [];
     let index = 1;
@@ -119,9 +120,8 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     if (mine === 'true' && ctx.student_id) { conditions.push(`d.student_id=$${index++}`); params.push(ctx.student_id); }
 
     const where = conditions.join(' AND ');
-    const [{ rows }, { rows: [countRow] }] = await Promise.all([
-      query(
-        `SELECT d.id,d.title,d.body,d.image_url,d.status,
+    const listSql = enhanced
+      ? `SELECT d.id,d.title,d.body,d.image_url,d.status,
                 d.subject_code,d.answer_count,d.upvote_count,d.ai_answered,
                 d.origin,d.learning_concept_id,
                 lc.code AS concept_code,lc.name AS concept_name,lc.name_hi AS concept_name_hi,
@@ -140,9 +140,29 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
          LEFT JOIN learning_concepts lc ON lc.id=d.learning_concept_id
          WHERE ${where}
          ORDER BY CASE d.status WHEN 'OPEN' THEN 1 WHEN 'RESOLVED' THEN 2 ELSE 3 END,d.created_at DESC
-         LIMIT $${index + 1} OFFSET $${index + 2}`,
-        [...params, ctx.student_id || null, limit, offset],
-      ),
+         LIMIT $${index + 1} OFFSET $${index + 2}`
+      : `SELECT d.id,d.title,d.body,d.image_url,d.status,
+                d.subject_code,d.answer_count,d.upvote_count,d.ai_answered,
+                'FORUM'::text AS origin,NULL::uuid AS learning_concept_id,
+                NULL::text AS concept_code,NULL::text AS concept_name,NULL::text AS concept_name_hi,
+                d.created_at,d.updated_at,
+                u.name AS student_name,
+                COALESCE(sc.class_name,st.grade_level) AS class_name,sc.section,
+                sub.name AS subject_name,sub.name_hi AS subject_name_hi,
+                ch.title AS chapter_title,
+                (d.student_id=$${index}) AS is_mine
+         FROM doubts d
+         JOIN students st ON st.id=d.student_id
+         JOIN users u ON u.id=st.user_id
+         LEFT JOIN school_classes sc ON sc.id=st.class_id
+         LEFT JOIN subjects sub ON sub.code=d.subject_code
+         LEFT JOIN chapters ch ON ch.id=d.chapter_id
+         WHERE ${where}
+         ORDER BY CASE d.status WHEN 'OPEN' THEN 1 WHEN 'RESOLVED' THEN 2 ELSE 3 END,d.created_at DESC
+         LIMIT $${index + 1} OFFSET $${index + 2}`;
+
+    const [{ rows }, { rows: [countRow] }] = await Promise.all([
+      query(listSql, [...params, ctx.student_id || null, limit, offset]),
       query<CountRow>(`SELECT COUNT(*) FROM doubts d WHERE ${where}`, params),
     ]);
     return R.ok(res, rows, paginationMeta(Number.parseInt(countRow?.count || '0', 10), page, limit));
@@ -163,15 +183,26 @@ export async function create(
       subjectCode = subject?.code || null;
     }
     const forumSchoolId = ctx.school_link_status === 'APPROVED' ? ctx.school_id : null;
-    const { rows: [doubt] } = await query(
-      `INSERT INTO doubts
-         (student_id,school_id,subject_code,chapter_id,content_item_id,title,body,image_url,origin)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'FORUM')
-       RETURNING *`,
-      [ctx.student_id, forumSchoolId, subjectCode, req.body.chapterId || null,
-       req.body.contentItemId || null, req.body.title, req.body.body, req.body.imageUrl || null],
-    );
-    return R.created(res, doubt);
+    const enhanced = await aiService.supportsGroundedDoubts();
+    const values = [ctx.student_id, forumSchoolId, subjectCode, req.body.chapterId || null,
+      req.body.contentItemId || null, req.body.title, req.body.body, req.body.imageUrl || null];
+    const result = enhanced
+      ? await query(
+          `INSERT INTO doubts
+             (student_id,school_id,subject_code,chapter_id,content_item_id,title,body,image_url,origin)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'FORUM')
+           RETURNING *`,
+          values,
+        )
+      : await query(
+          `INSERT INTO doubts
+             (student_id,school_id,subject_code,chapter_id,content_item_id,title,body,image_url)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+           RETURNING *`,
+          values,
+        );
+    const doubt = result.rows[0];
+    return R.created(res, enhanced ? doubt : { ...doubt, origin: 'FORUM', learning_concept_id: null });
   } catch (err: unknown) { next(err); }
 }
 
@@ -179,40 +210,75 @@ export async function get(req: Request, res: Response, next: NextFunction): Prom
   try {
     const user = authenticated(req, res); if (!user) return;
     const ctx = await getUserSchoolContext(req);
-    const { rows: [doubt] } = await query<DoubtAccessRow>(
-      `SELECT d.*,u.name AS student_name,
-              COALESCE(sc.class_name,st.grade_level) AS class_name,sc.section,
-              sub.name AS subject_name,sub.name_hi AS subject_name_hi,
-              ch.title AS chapter_title,
-              lc.code AS concept_code,lc.name AS concept_name,lc.name_hi AS concept_name_hi,
-              (d.student_id=$2) AS is_mine
-       FROM doubts d
-       JOIN students st ON st.id=d.student_id
-       JOIN users u ON u.id=st.user_id
-       LEFT JOIN school_classes sc ON sc.id=st.class_id
-       LEFT JOIN subjects sub ON sub.code=d.subject_code
-       LEFT JOIN chapters ch ON ch.id=d.chapter_id
-       LEFT JOIN learning_concepts lc ON lc.id=d.learning_concept_id
-       WHERE d.id=$1`,
-      [req.params.doubtId, ctx.student_id || null],
-    );
+    const enhanced = await aiService.supportsGroundedDoubts();
+    const doubtResult = enhanced
+      ? await query<DoubtAccessRow>(
+          `SELECT d.*,u.name AS student_name,
+                  COALESCE(sc.class_name,st.grade_level) AS class_name,sc.section,
+                  sub.name AS subject_name,sub.name_hi AS subject_name_hi,
+                  ch.title AS chapter_title,
+                  lc.code AS concept_code,lc.name AS concept_name,lc.name_hi AS concept_name_hi,
+                  (d.student_id=$2) AS is_mine
+           FROM doubts d
+           JOIN students st ON st.id=d.student_id
+           JOIN users u ON u.id=st.user_id
+           LEFT JOIN school_classes sc ON sc.id=st.class_id
+           LEFT JOIN subjects sub ON sub.code=d.subject_code
+           LEFT JOIN chapters ch ON ch.id=d.chapter_id
+           LEFT JOIN learning_concepts lc ON lc.id=d.learning_concept_id
+           WHERE d.id=$1`,
+          [req.params.doubtId, ctx.student_id || null],
+        )
+      : await query<DoubtAccessRow>(
+          `SELECT d.*, 'FORUM'::text AS origin,NULL::uuid AS learning_concept_id,
+                  NULL::text AS concept_code,NULL::text AS concept_name,NULL::text AS concept_name_hi,
+                  u.name AS student_name,
+                  COALESCE(sc.class_name,st.grade_level) AS class_name,sc.section,
+                  sub.name AS subject_name,sub.name_hi AS subject_name_hi,
+                  ch.title AS chapter_title,
+                  (d.student_id=$2) AS is_mine
+           FROM doubts d
+           JOIN students st ON st.id=d.student_id
+           JOIN users u ON u.id=st.user_id
+           LEFT JOIN school_classes sc ON sc.id=st.class_id
+           LEFT JOIN subjects sub ON sub.code=d.subject_code
+           LEFT JOIN chapters ch ON ch.id=d.chapter_id
+           WHERE d.id=$1`,
+          [req.params.doubtId, ctx.student_id || null],
+        );
+    const doubt = doubtResult.rows[0];
     if (!doubt) return R.notFound(res, 'Doubt not found');
     if (!forumAllowed(ctx, doubt.school_id)) return R.forbidden(res, 'Doubt is outside your school');
-    const { rows: answers } = await query(
-      `SELECT da.id,da.body,da.image_url,da.is_ai_answer,da.is_accepted,
-              da.ai_grounded,da.ai_concept_id,da.ai_sources,da.ai_provider,
-              alc.code AS ai_concept_code,alc.name AS ai_concept_name,
-              da.upvote_count,da.created_at,da.updated_at,
-              da.author_id,u.name AS answerer_name,u.role AS answerer_role,
-              EXISTS(SELECT 1 FROM doubt_answer_upvotes dau WHERE dau.answer_id=da.id AND dau.user_id=$2) AS upvoted_by_me
-       FROM doubt_answers da
-       JOIN users u ON u.id=da.author_id
-       LEFT JOIN learning_concepts alc ON alc.id=da.ai_concept_id
-       WHERE da.doubt_id=$1
-       ORDER BY da.is_accepted DESC,da.is_ai_answer DESC,da.upvote_count DESC,da.created_at ASC`,
-      [req.params.doubtId, user.userId],
-    );
-    return R.ok(res, { ...doubt, answers });
+
+    const answerResult = enhanced
+      ? await query(
+          `SELECT da.id,da.body,da.image_url,da.is_ai_answer,da.is_accepted,
+                  da.ai_grounded,da.ai_concept_id,da.ai_sources,da.ai_provider,
+                  alc.code AS ai_concept_code,alc.name AS ai_concept_name,
+                  da.upvote_count,da.created_at,da.updated_at,
+                  da.author_id,u.name AS answerer_name,u.role AS answerer_role,
+                  EXISTS(SELECT 1 FROM doubt_answer_upvotes dau WHERE dau.answer_id=da.id AND dau.user_id=$2) AS upvoted_by_me
+           FROM doubt_answers da
+           JOIN users u ON u.id=da.author_id
+           LEFT JOIN learning_concepts alc ON alc.id=da.ai_concept_id
+           WHERE da.doubt_id=$1
+           ORDER BY da.is_accepted DESC,da.is_ai_answer DESC,da.upvote_count DESC,da.created_at ASC`,
+          [req.params.doubtId, user.userId],
+        )
+      : await query(
+          `SELECT da.id,da.body,da.image_url,da.is_ai_answer,da.is_accepted,
+                  FALSE AS ai_grounded,NULL::uuid AS ai_concept_id,'[]'::jsonb AS ai_sources,NULL::text AS ai_provider,
+                  NULL::text AS ai_concept_code,NULL::text AS ai_concept_name,
+                  da.upvote_count,da.created_at,da.updated_at,
+                  da.author_id,u.name AS answerer_name,u.role AS answerer_role,
+                  EXISTS(SELECT 1 FROM doubt_answer_upvotes dau WHERE dau.answer_id=da.id AND dau.user_id=$2) AS upvoted_by_me
+           FROM doubt_answers da
+           JOIN users u ON u.id=da.author_id
+           WHERE da.doubt_id=$1
+           ORDER BY da.is_accepted DESC,da.is_ai_answer DESC,da.upvote_count DESC,da.created_at ASC`,
+          [req.params.doubtId, user.userId],
+        );
+    return R.ok(res, { ...doubt, answers: answerResult.rows });
   } catch (err: unknown) { next(err); }
 }
 
