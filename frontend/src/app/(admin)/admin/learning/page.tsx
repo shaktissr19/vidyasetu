@@ -26,6 +26,15 @@ const CATEGORIES: Array<{ value: LearningCategory; label: string }> = [
   { value: 'DIGITAL_CITIZENSHIP', label: 'Digital Citizenship' },
 ];
 
+const REVIEW_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ['SUBMITTED', 'ARCHIVED'],
+  SUBMITTED: ['DRAFT', 'ACADEMIC_REVIEW', 'ARCHIVED'],
+  ACADEMIC_REVIEW: ['SUBMITTED', 'APPROVED', 'ARCHIVED'],
+  APPROVED: ['ACADEMIC_REVIEW', 'PUBLISHED', 'ARCHIVED'],
+  PUBLISHED: ['ARCHIVED'],
+  ARCHIVED: ['DRAFT'],
+};
+
 const INITIAL: SaveLearningStudioResource = {
   title: '',
   summary: '',
@@ -62,9 +71,9 @@ export default function AdminLearningStudioPage() {
   );
 
   const createMutation = useMutation({
-    mutationFn: () => createLearningStudioResource(form),
+    mutationFn: () => createLearningStudioResource({ ...form, reviewStatus: 'DRAFT' }),
     onSuccess: async () => {
-      toast.success('Learning resource created');
+      toast.success('Learning resource created as DRAFT');
       setForm(INITIAL);
       await queryClient.invalidateQueries({ queryKey: ['learning-studio-resources'] });
     },
@@ -137,11 +146,10 @@ export default function AdminLearningStudioPage() {
                 {['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY'].map((type) => <option key={type}>{type}</option>)}
               </select>
             </label>
-            <label className={styles.field}>Initial review state
-              <select className={styles.select} value={form.reviewStatus} onChange={(event) => setForm((value) => ({ ...value, reviewStatus: event.target.value as SaveLearningStudioResource['reviewStatus'] }))}>
-                {['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED'].map((type) => <option key={type}>{type}</option>)}
-              </select>
-            </label>
+            <div className={styles.field}>
+              <span>Initial review state</span>
+              <div style={{ border: '1px solid rgba(255,255,255,.12)', borderRadius: 9, padding: '10px 12px', color: '#ffb27a', fontWeight: 800 }}>DRAFT — mandatory</div>
+            </div>
             <label className={styles.field}>From class
               <input className={styles.input} type="number" min={1} max={12} value={form.classMin || ''} onChange={(event) => setForm((value) => ({ ...value, classMin: event.target.value ? Number(event.target.value) : null }))} />
             </label>
@@ -201,45 +209,52 @@ export default function AdminLearningStudioPage() {
 
           <label className={styles.field} style={{ flexDirection: 'row', alignItems: 'center' }}>
             <input type="checkbox" checked={Boolean(form.isFeaturedPublic)} onChange={(event) => setForm((value) => ({ ...value, isFeaturedPublic: event.target.checked }))} />
-            Feature on public Learning / homepage
+            Feature on public Learning / homepage after publication
           </label>
+
+          <div style={{ border: '1px solid rgba(255,178,122,.24)', background: 'rgba(255,141,50,.06)', borderRadius: 10, padding: 11, marginBottom: 14, color: 'rgba(255,255,255,.68)', fontSize: 11, lineHeight: 1.6 }}>
+            New resources always start as <b style={{ color: '#ffb27a' }}>DRAFT</b>. Publication can only occur after the controlled review sequence below.
+          </div>
 
           <button
             className="btn-primary"
             disabled={createMutation.isPending || !form.title.trim() || (form.resourceType === 'ARTICLE' && !form.bodyMarkdown?.trim())}
             onClick={() => createMutation.mutate()}
           >
-            {createMutation.isPending ? 'Saving…' : 'Create resource'}
+            {createMutation.isPending ? 'Saving…' : 'Create draft resource'}
           </button>
         </section>
 
         <section className={styles.adminPanel}>
           <h2>Library & review workflow</h2>
           <p style={{ color: 'rgba(255,255,255,.5)', fontSize: 12, lineHeight: 1.6 }}>
-            Recommended path: DRAFT → SUBMITTED → ACADEMIC REVIEW → APPROVED → PUBLISHED. Public resources only appear after PUBLISHED.
+            Enforced path: DRAFT → SUBMITTED → ACADEMIC REVIEW → APPROVED → PUBLISHED. The backend rejects skipped review stages. Public resources only appear after PUBLISHED.
           </p>
           {resourcesQuery.isLoading ? <p>Loading…</p> : (
             <div className={styles.adminList}>
-              {(resourcesQuery.data || []).map((resource) => (
-                <article className={styles.adminItem} key={resource.id}>
-                  <div className={styles.adminItemTop}>
-                    <div>
-                      <strong>{resource.title}</strong>
-                      <p>{resource.source_name} · {resource.category.replaceAll('_', ' ')} · {resource.visibility} · {resource.licence}</p>
+              {(resourcesQuery.data || []).map((resource) => {
+                const nextStatuses = REVIEW_TRANSITIONS[resource.review_status] || [];
+                return (
+                  <article className={styles.adminItem} key={resource.id}>
+                    <div className={styles.adminItemTop}>
+                      <div>
+                        <strong>{resource.title}</strong>
+                        <p>{resource.source_name} · {resource.category.replaceAll('_', ' ')} · {resource.visibility} · {resource.licence}</p>
+                      </div>
+                      <span className={styles.badge}>{resource.review_status.replaceAll('_', ' ')}</span>
                     </div>
-                    <span className={styles.badge}>{resource.review_status.replaceAll('_', ' ')}</span>
-                  </div>
-                  <div className={styles.pillRow}>
-                    {(resource.board_codes || []).map((board) => <span className={styles.pill} key={board}>{board}</span>)}
-                    {resource.class_min && <span className={styles.pill}>Class {resource.class_min}{resource.class_max && resource.class_max !== resource.class_min ? `–${resource.class_max}` : ''}</span>}
-                  </div>
-                  <div className={styles.statusRow}>
-                    {['SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED'].map((status) => (
-                      <button type="button" key={status} className={styles.tinyButton} disabled={statusMutation.isPending || resource.review_status === status} onClick={() => statusMutation.mutate({ id: resource.id, status })}>{status.replaceAll('_', ' ')}</button>
-                    ))}
-                  </div>
-                </article>
-              ))}
+                    <div className={styles.pillRow}>
+                      {(resource.board_codes || []).map((board) => <span className={styles.pill} key={board}>{board}</span>)}
+                      {resource.class_min && <span className={styles.pill}>Class {resource.class_min}{resource.class_max && resource.class_max !== resource.class_min ? `–${resource.class_max}` : ''}</span>}
+                    </div>
+                    <div className={styles.statusRow}>
+                      {nextStatuses.map((status) => (
+                        <button type="button" key={status} className={styles.tinyButton} disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: resource.id, status })}>{status.replaceAll('_', ' ')}</button>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
               {!resourcesQuery.data?.length && <p style={{ color: 'rgba(255,255,255,.5)' }}>No Learning Studio resources yet.</p>}
             </div>
           )}
