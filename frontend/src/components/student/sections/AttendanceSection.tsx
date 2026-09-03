@@ -26,9 +26,11 @@ export default function AttendanceSection(_props: StudentSectionProps) {
 
   const monthName = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(cursor);
   const summary: AttendanceSummary = attendanceQuery.data?.summary || {};
+  const records = attendanceQuery.data?.records || [];
+  const excusedDays = records.filter((record) => record.status === 'EXCUSED').length;
   const recordMap = useMemo<Record<string, AttendanceRecord>>(() => Object.fromEntries(
-    (attendanceQuery.data?.records || []).map(record => [String(record.date || '').slice(0, 10), record])
-  ), [attendanceQuery.data]);
+    records.map(record => [String(record.date || '').slice(0, 10), record])
+  ), [records]);
 
   const calendarCells = useMemo<Array<CalendarCell | null>>(() => {
     const first = new Date(year, month - 1, 1);
@@ -59,14 +61,15 @@ export default function AttendanceSection(_props: StudentSectionProps) {
   return (
     <>
       <div className={styles.sectionHeader}>
-        <div><h1 className={styles.title}>📅 Attendance</h1><div className={styles.subtitle}>Daily records and monthly summary from your school attendance register.</div></div>
+        <div><h1 className={styles.title}>📅 Attendance</h1><div className={styles.subtitle}>Daily records and monthly summary from your school attendance register. Approved leave is shown separately as Excused.</div></div>
         <div style={{ display: 'flex', gap: 8 }}><button className={styles.secondary} onClick={() => moveMonth(-1)}>←</button><button className={styles.secondary} onClick={() => setCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Current Month</button><button className={styles.secondary} onClick={() => moveMonth(1)}>→</button></div>
       </div>
 
       {attendanceQuery.isError && <div className={styles.error}>{apiErrorText(attendanceQuery.error, 'Attendance could not be loaded')}</div>}
       <div className={styles.statGrid}>
         <div className={styles.stat} style={{ '--accent': '#138808' }}><div className={styles.statLabel}>Present</div><div className={styles.statValue}>{summary.present_days || 0}</div><div className={styles.statSub}>{monthName}</div></div>
-        <div className={styles.stat} style={{ '--accent': '#ef4444' }}><div className={styles.statLabel}>Absent</div><div className={styles.statValue}>{summary.absent_days || 0}</div><div className={styles.statSub}>{monthName}</div></div>
+        <div className={styles.stat} style={{ '--accent': '#ef4444' }}><div className={styles.statLabel}>Absent</div><div className={styles.statValue}>{summary.absent_days || 0}</div><div className={styles.statSub}>Unexcused</div></div>
+        <div className={styles.stat} style={{ '--accent': '#6D4BC3' }}><div className={styles.statLabel}>Excused</div><div className={styles.statValue}>{excusedDays}</div><div className={styles.statSub}>Approved leave</div></div>
         <div className={styles.stat} style={{ '--accent': '#f5c518' }}><div className={styles.statLabel}>Late / Half Day</div><div className={styles.statValue}>{Number(summary.late_days || 0) + Number(summary.half_days || 0)}</div><div className={styles.statSub}>Recorded exceptions</div></div>
         <div className={styles.stat} style={{ '--accent': '#0d1b3e' }}><div className={styles.statLabel}>Attendance %</div><div className={styles.statValue}>{summary.percentage != null ? `${Number(summary.percentage).toFixed(0)}%` : '—'}</div><div className={styles.statSub}>{summary.working_days || 0} working days</div></div>
       </div>
@@ -78,7 +81,7 @@ export default function AttendanceSection(_props: StudentSectionProps) {
             <div className={styles.calendar}>
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <div className={styles.calHead} key={day}>{day}</div>)}
               {calendarCells.map((cell, index) => cell ? (
-                <div className={`${styles.calDay} ${dayClass(cell.record, cell.date)}`} key={`${cell.day}-${index}`}>
+                <div className={`${styles.calDay} ${dayClass(cell.record, cell.date)}`} style={cell.record?.status === 'EXCUSED' ? { background: '#F5F0FF', borderColor: '#D8C9F4', color: '#5B3AA8' } : undefined} key={`${cell.day}-${index}`}>
                   <div className={styles.calNum}>{cell.day}</div>
                   <div className={styles.calStatus}>{cell.record?.status ? cell.record.status.replace('_', ' ') : ([0, 6].includes(cell.date.getDay()) ? 'Weekend' : '—')}</div>
                   {cell.record?.remark && <div style={{ fontSize: 9, marginTop: 3, color: '#667085' }}>{cell.record.remark}</div>}
