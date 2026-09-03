@@ -4,6 +4,14 @@ import type { ApiEnvelope } from '@/types/api';
 export type HomeworkAssignmentStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
 export type HomeworkSubmissionStatus = 'SUBMITTED' | 'LATE' | 'REVIEWED' | 'RETURNED' | 'NOT_SUBMITTED';
 
+export interface HomeworkTarget {
+  class_id: string;
+  class_name: string;
+  section?: string | null;
+  subject_code: string;
+  subject_name: string;
+}
+
 export interface StudentHomeworkItem {
   id: string;
   title: string;
@@ -86,6 +94,7 @@ export const getStudentHomeworkDetail = (homeworkId: string) =>
 export const submitStudentHomework = (homeworkId: string, payload: { answerText?: string | null; attachmentUrl?: string | null }) =>
   api.post<ApiEnvelope<Record<string, unknown>>>(`/student/homework/${homeworkId}/submit`, payload);
 
+export const getHomeworkTargets = () => api.get<ApiEnvelope<HomeworkTarget[]>>('/school/homework/targets');
 export const getSchoolHomework = (status?: string) =>
   api.get<ApiEnvelope<SchoolHomeworkItem[]>>('/school/homework', { params: status ? { status } : undefined });
 export const createSchoolHomework = (payload: HomeworkDraftPayload) =>
