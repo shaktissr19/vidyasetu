@@ -1,0 +1,146 @@
+name: Offline Learning and PWA CI
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'docs/offline-learning-sync-contract.md'
+      - 'docs/pwa-student-shell-contract.md'
+      - '.github/workflows/offline-pwa-ci.yml'
+  push:
+    branches: [feature/offline-learning-sync, main]
+    paths:
+      - 'frontend/**'
+      - 'docs/offline-learning-sync-contract.md'
+      - 'docs/pwa-student-shell-contract.md'
+      - '.github/workflows/offline-pwa-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  offline-pwa-certification:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Strict frontend TypeScript
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Production Next.js build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Validate service-worker security boundary
+        run: |
+          set -euo pipefail
+          test -s frontend/public/sw.js
+          node --check frontend/public/sw.js
+          grep -q "url.pathname.startsWith('/api/')" frontend/public/sw.js
+          grep -q "API responses cannot be stored for offline use" frontend/public/sw.js
+          if grep -Eq 'vs_access_token|vs_refresh_token|localStorage|Authorization|indexedDB' frontend/public/sw.js; then
+            echo 'Service worker crossed the authentication/storage boundary.'
+            exit 1
+          fi
+          if grep -Eq "cache\.put\([^)]*/api/|caches\.open\([^)]*api" frontend/public/sw.js; then
+            echo 'Service worker appears to cache API traffic.'
+            exit 1
+          fi
+
+      - name: Validate resilient queue policy
+        run: |
+          set -euo pipefail
+          test -s frontend/src/lib/offlineLearning.ts
+          grep -q "'CONTENT_COMPLETE'" frontend/src/lib/offlineLearning.ts
+          grep -q "'RESOURCE_PROGRESS'" frontend/src/lib/offlineLearning.ts
+          grep -q "db.put('syncQueue'" frontend/src/lib/offlineLearning.ts
+          grep -q "status === 401 || status === 403" frontend/src/lib/offlineLearning.ts
+          grep -q "'PERMANENT_FAILURE'" frontend/src/lib/offlineLearning.ts
+          grep -q 'Math.min(5 \* 60_000' frontend/src/lib/offlineLearning.ts
+          grep -q 'vidyasetu-offline-v1' frontend/src/lib/offlineLearning.ts
+          if grep -Eq '/(auth|homework|competition|exams|payment|payments)/' frontend/src/lib/offlineLearning.ts; then
+            echo 'High-consequence endpoint found in offline replay engine.'
+            exit 1
+          fi
+          node <<'NODE'
+          const fs = require('fs');
+          const src = fs.readFileSync('frontend/src/lib/offlineLearning.ts', 'utf8');
+          const required = [
+            '`${userId}:${kind}:${targetId}`',
+            "status: 'PENDING'",
+            "status: 'PERMANENT_FAILURE'",
+            "nextAttemptAt: Date.now() + retryDelayMs(attempts)",
+            "await db.delete('syncQueue', entry.dedupeKey)",
+          ];
+          for (const snippet of required) {
+            if (!src.includes(snippet)) throw new Error(`Missing offline queue invariant: ${snippet}`);
+          }
+          NODE
+
+      - name: Validate installable PWA assets
+        run: |
+          set -euo pipefail
+          test -s frontend/public/manifest.json
+          test -s frontend/public/icon-192.png
+          test -s frontend/public/icon-512.png
+          node <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('frontend/public/manifest.json', 'utf8'));
+          if (manifest.id !== '/student') throw new Error('PWA id must be /student');
+          if (manifest.start_url !== '/student') throw new Error('PWA start_url must be /student');
+          if (manifest.scope !== '/') throw new Error('PWA scope must be /');
+          if (manifest.display !== 'standalone') throw new Error('PWA display must be standalone');
+          const icons = new Map((manifest.icons || []).map((icon) => [icon.sizes, icon.src]));
+          if (icons.get('192x192') !== '/icon-192.png') throw new Error('192px icon missing from manifest');
+          if (icons.get('512x512') !== '/icon-512.png') throw new Error('512px icon missing from manifest');
+          function pngSize(path) {
+            const data = fs.readFileSync(path);
+            if (data.toString('hex', 0, 8) !== '89504e470d0a1a0a') throw new Error(`${path} is not a PNG`);
+            return [data.readUInt32BE(16), data.readUInt32BE(20)];
+          }
+          const small = pngSize('frontend/public/icon-192.png');
+          const large = pngSize('frontend/public/icon-512.png');
+          if (small[0] !== 192 || small[1] !== 192) throw new Error(`192px icon is ${small.join('x')}`);
+          if (large[0] !== 512 || large[1] !== 512) throw new Error(`512px icon is ${large.join('x')}`);
+          NODE
+
+      - name: Validate PWA runtime wiring
+        run: |
+          set -euo pipefail
+          grep -q "navigator.serviceWorker.register('/sw.js'" frontend/src/components/layout/PwaRuntime.tsx
+          grep -q '<PwaRuntime />' frontend/src/components/layout/Providers.tsx
+          grep -q 'flushOfflineQueue(userId)' frontend/src/components/layout/PwaRuntime.tsx
+          grep -q 'user?.role' frontend/src/components/layout/PwaRuntime.tsx
+          grep -q 'getDashboardSnapshot' frontend/src/components/student/StudentPortal.tsx
+          grep -q 'listLocalOfflineDownloads' frontend/src/components/student/sections/OfflineSection.tsx
+          grep -q 'promptPwaInstall' frontend/src/components/student/sections/OfflineSection.tsx
+
+      - name: Confirm high-consequence Student writes remain online-only
+        run: |
+          set -euo pipefail
+          ! grep -q 'submitStudentLearningAssessment' frontend/src/lib/offlineLearning.ts
+          ! grep -q 'submitQuiz' frontend/src/lib/offlineLearning.ts
+          ! grep -q 'submitHomework' frontend/src/lib/offlineLearning.ts
+          ! grep -q 'competition' frontend/src/lib/offlineLearning.ts
+          echo 'Offline/PWA safety contract passed.'

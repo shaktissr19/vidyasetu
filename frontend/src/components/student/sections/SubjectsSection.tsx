@@ -12,6 +12,12 @@ import {
   submitQuiz,
   downloadOffline,
 } from '@/services/contentService';
+import {
+  cacheLearningAsset,
+  completeContentResilient,
+  saveLocalOfflineDownload,
+} from '@/lib/offlineLearning';
+import useAuthStore from '@/store/authStore';
 import { apiErrorText } from '@/utils/errors';
 import type { ContentChapter, ContentItem, ContentSubject, QuizQuestion, QuizResult } from '@/types/api';
 import type { StudentSectionProps } from '@/types/studentPortal';
@@ -43,6 +49,7 @@ interface PortalQuizResult extends QuizResult {
 
 export default function SubjectsSection({ dashboard, student, notify, refreshDashboard }: StudentSectionProps) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [subject, setSubject] = useState<ContentSubject | null>(null);
   const [chapter, setChapter] = useState<PortalChapter | null>(null);
   const [quizItem, setQuizItem] = useState<PortalContentItem | null>(null);
@@ -84,11 +91,19 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
   }, [subject?.id]);
 
   const completeMutation = useMutation({
-    mutationFn: (itemId: string) => markComplete(itemId),
-    onSuccess: async () => {
-      notify('✅ Lesson marked complete. Learning progress updated.');
+    mutationFn: async (itemId: string) => {
+      if (!user?.id) {
+        await markComplete(itemId);
+        return { queued: false };
+      }
+      return completeContentResilient(user.id, itemId);
+    },
+    onSuccess: async (result) => {
+      notify(result.queued
+        ? '📶 Lesson completion saved on this device. It will sync when you reconnect.'
+        : '✅ Lesson marked complete. Learning progress updated.');
       await queryClient.invalidateQueries({ queryKey: ['content-items'] });
-      await refreshDashboard();
+      if (!result.queued) await refreshDashboard();
     },
     onError: (error: unknown) => notify(`⚠️ ${apiErrorText(error)}`),
   });
@@ -125,15 +140,25 @@ export default function SubjectsSection({ dashboard, student, notify, refreshDas
 
   async function saveOffline(item: PortalContentItem): Promise<void> {
     try {
+      if (!user?.id) throw new Error('Student account is not available');
       const payload = (await downloadOffline(item.id)).data.data;
-      if (payload?.url && 'caches' in window) {
-        const absolute = payload.url.startsWith('/') ? `${window.location.origin}${payload.url}` : payload.url;
-        const cache = await caches.open('vidyasetu-learning-v1');
-        const fetched = await fetch(absolute, { credentials: 'include' });
-        if (fetched.ok) await cache.put(absolute, fetched.clone());
-      }
-      notify('📥 Saved to your Offline Mode list.');
-      await queryClient.invalidateQueries({ queryKey: ['offline-downloads'] });
+      if (!payload?.url) throw new Error('Offline download URL unavailable');
+      await cacheLearningAsset(payload.url);
+      await saveLocalOfflineDownload(user.id, {
+        contentItemId: item.id,
+        fileUrl: payload.url,
+        title: item.title,
+        subjectName: subject?.name || null,
+        chapterNumber: chapter?.chapter_number || null,
+        chapterTitle: chapter?.title || null,
+        type: item.type,
+        fileSizeKb: item.file_size_kb || null,
+      });
+      notify('📥 Saved on this device for Offline Mode.');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['offline-downloads'] }),
+        queryClient.invalidateQueries({ queryKey: ['offline-local-downloads', user.id] }),
+      ]);
     } catch (error: unknown) {
       notify(`⚠️ ${apiErrorText(error)}`);
     }

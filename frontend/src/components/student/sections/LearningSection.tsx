@@ -15,6 +15,8 @@ import {
   type LearningHomeAssessment,
   type StudentLearningAssessmentDetail,
 } from '@/services/studentService';
+import { updateLearningProgressResilient } from '@/lib/offlineLearning';
+import useAuthStore from '@/store/authStore';
 import type { StudentSectionProps } from '@/types/studentPortal';
 import SubjectsSection from './SubjectsSection';
 import AdaptiveLearningPanel from './AdaptiveLearningPanel';
@@ -22,6 +24,7 @@ import styles from '../StudentPortal.module.css';
 
 export default function LearningSection(props: StudentSectionProps) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [activeAssessment, setActiveAssessment] = useState<StudentLearningAssessmentDetail | null>(null);
   const [attemptId, setAttemptId] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -63,9 +66,15 @@ export default function LearningSection(props: StudentSectionProps) {
   async function markComplete(resourceId: string): Promise<void> {
     setBusy(`progress-${resourceId}`);
     try {
-      await updateStudentLearningProgress(resourceId, 100);
-      await refreshHome();
-      props.notify('Learning resource marked complete');
+      const outcome = user?.id
+        ? await updateLearningProgressResilient(user.id, resourceId, 100)
+        : (await updateStudentLearningProgress(resourceId, 100), { queued: false });
+      if (outcome.queued) {
+        props.notify('📶 Learning progress saved on this device. It will sync when you reconnect.');
+      } else {
+        await refreshHome();
+        props.notify('Learning resource marked complete');
+      }
     } catch {
       props.notify('Could not update learning progress');
     } finally { setBusy(''); }

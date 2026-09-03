@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import Providers from '@/components/layout/Providers';
@@ -6,8 +6,24 @@ import Providers from '@/components/layout/Providers';
 export const metadata: Metadata = {
   title: 'VidyaSetu — Connected Education for India',
   description: 'One connected education platform for student learning, schools, teachers, parents, competitions and education communities across India.',
+  applicationName: 'VidyaSetu',
   manifest: '/manifest.json',
-  icons: { icon: '/favicon.ico' },
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'VidyaSetu',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#FF6B00',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
