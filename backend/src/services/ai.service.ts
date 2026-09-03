@@ -138,6 +138,8 @@ interface HistoryRow extends QueryResultRow {
   concept_name: string | null;
   created_at: string | Date;
 }
+interface ReadyRow extends QueryResultRow { ready: boolean; }
+interface BoardCodeRow extends QueryResultRow { board_code: string | null; }
 
 interface TutorContext {
   student: StudentContextRow;
@@ -159,6 +161,71 @@ function appError(message: string, statusCode: number): Error & { statusCode: nu
 function providerName(): string {
   if (process.env.NODE_ENV === 'test') return 'mock';
   return String(process.env.AI_PROVIDER || 'mock').toLowerCase();
+}
+
+async function learningGroundingAvailable(): Promise<boolean> {
+  const { rows: [row] } = await query<ReadyRow>(
+    `SELECT (
+       to_regclass('public.education_boards') IS NOT NULL
+       AND to_regclass('public.education_grade_levels') IS NOT NULL
+       AND to_regclass('public.learning_concepts') IS NOT NULL
+       AND to_regclass('public.learning_resource_concepts') IS NOT NULL
+       AND to_regclass('public.learning_resources') IS NOT NULL
+       AND to_regclass('public.learning_content_sources') IS NOT NULL
+       AND to_regclass('public.learning_resource_grades') IS NOT NULL
+       AND to_regclass('public.learning_resource_boards') IS NOT NULL
+       AND to_regclass('public.student_concept_progress') IS NOT NULL
+       AND to_regclass('public.student_learning_resource_progress') IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='schools' AND column_name='board_id'
+       )
+     ) AS ready`,
+  );
+  return Boolean(row?.ready);
+}
+
+async function tutorHistoryAvailable(): Promise<boolean> {
+  const { rows: [row] } = await query<ReadyRow>(
+    `SELECT (
+       to_regclass('public.ai_tutor_events') IS NOT NULL
+       AND to_regclass('public.learning_concepts') IS NOT NULL
+     ) AS ready`,
+  );
+  return Boolean(row?.ready);
+}
+
+export async function supportsGroundedDoubts(): Promise<boolean> {
+  const { rows: [row] } = await query<ReadyRow>(
+    `SELECT (
+       to_regclass('public.learning_concepts') IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='doubts' AND column_name='learning_concept_id'
+       )
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='doubts' AND column_name='origin'
+       )
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='doubt_answers' AND column_name='ai_grounded'
+       )
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='doubt_answers' AND column_name='ai_concept_id'
+       )
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='doubt_answers' AND column_name='ai_sources'
+       )
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='doubt_answers' AND column_name='ai_provider'
+       )
+     ) AS ready`,
+  );
+  return Boolean(row?.ready);
 }
 
 function canonicalGradeCode(ctx: StudentContextRow): string {
@@ -214,17 +281,27 @@ function resourceScopeSql(boardParam: number, gradeCodeParam: number, classParam
 async function getStudentContext(studentId: UUID, expectedUserId?: UUID | null): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
     `SELECT s.id AS student_id,s.user_id,s.grade_level,s.grade_code,sc.class_name,
-            s.school_id,s.school_link_status,eb.code AS board_code
+            s.school_id,s.school_link_status,NULL::text AS board_code
      FROM students s
      LEFT JOIN school_classes sc ON sc.id=s.class_id
-     LEFT JOIN schools sch ON sch.id=s.school_id
-     LEFT JOIN education_boards eb ON eb.id=sch.board_id
      WHERE s.id=$1 AND s.status='ACTIVE'
        AND ($2::uuid IS NULL OR s.user_id=$2::uuid)`,
     [studentId, expectedUserId || null],
   );
   if (!student) throw appError('Student profile not found', 404);
   return student;
+}
+
+async function loadStudentBoardCode(student: StudentContextRow): Promise<string | null> {
+  if (!student.school_id) return null;
+  const { rows: [row] } = await query<BoardCodeRow>(
+    `SELECT eb.code AS board_code
+     FROM schools sch
+     LEFT JOIN education_boards eb ON eb.id=sch.board_id
+     WHERE sch.id=$1`,
+    [student.school_id],
+  );
+  return row?.board_code || null;
 }
 
 function normalizedWords(value: string): string[] {
@@ -409,7 +486,22 @@ async function buildTutorContext(
   const student = await getStudentContext(studentId, userId);
   const gradeCode = canonicalGradeCode(student);
   const grade = gradeNumber(gradeCode);
-  const board = student.board_code || 'COMMON';
+  const groundingReady = await learningGroundingAvailable();
+  if (!groundingReady) {
+    return {
+      student,
+      gradeCode,
+      grade,
+      board: 'COMMON',
+      concept: null,
+      sourceRows: [],
+      sources: [],
+      nextAction: null,
+    };
+  }
+
+  const board = (await loadStudentBoardCode(student)) || 'COMMON';
+  student.board_code = board;
   const concept = await resolveConcept(student, gradeCode, message, history, requestedConceptCode);
   const sourceRows = concept
     ? await loadGroundingSources(student, concept.id, gradeCode, grade, board)
@@ -522,6 +614,7 @@ async function recordTutorEvent(
   doubtId?: UUID | null,
 ): Promise<void> {
   try {
+    if (!(await tutorHistoryAvailable())) return;
     await query(
       `INSERT INTO ai_tutor_events
          (student_id,learning_concept_id,event_type,grounded,source_count,mastery_state,provider,doubt_id)
@@ -597,6 +690,7 @@ export async function chat(
 
 export async function getTutorHistory(studentId: UUID, userId: UUID): Promise<TutorHistoryEvent[]> {
   await getStudentContext(studentId, userId);
+  if (!(await tutorHistoryAvailable())) return [];
   const { rows } = await query<HistoryRow>(
     `SELECT ate.id,ate.event_type,ate.grounded,ate.source_count,ate.mastery_state,
             ate.provider,ate.doubt_id,lc.code AS concept_code,lc.name AS concept_name,ate.created_at
@@ -628,6 +722,9 @@ export async function escalateTutorToDoubt(
   priorTutorResponse: string,
   conceptCode?: string | null,
 ) {
+  if (!(await supportsGroundedDoubts())) {
+    throw appError('Intelligent doubt escalation is not available until the Learning schema is installed', 503);
+  }
   const context = await buildTutorContext(userId, studentId, question, [], conceptCode);
   const concept = context.concept;
   const titleBase = concept ? `Need help with ${concept.name}` : question.trim();
@@ -673,17 +770,30 @@ export async function escalateTutorToDoubt(
 }
 
 export async function answerDoubt(doubtId: UUID, studentId: UUID) {
-  const { rows: [doubt] } = await query<DoubtRow>(
-    `SELECT d.id,d.student_id,st.user_id AS owner_user_id,d.title,d.body,d.subject_code,d.chapter_id,
-            sub.name AS subject_name,ch.title AS chapter_title,lc.code AS concept_code
-     FROM doubts d
-     JOIN students st ON st.id=d.student_id
-     LEFT JOIN subjects sub ON sub.code=d.subject_code
-     LEFT JOIN chapters ch ON ch.id=d.chapter_id
-     LEFT JOIN learning_concepts lc ON lc.id=d.learning_concept_id
-     WHERE d.id=$1 AND d.student_id=$2`,
-    [doubtId, studentId],
-  );
+  const enhancedDoubtSchema = await supportsGroundedDoubts();
+  const doubtResult = enhancedDoubtSchema
+    ? await query<DoubtRow>(
+        `SELECT d.id,d.student_id,st.user_id AS owner_user_id,d.title,d.body,d.subject_code,d.chapter_id,
+                sub.name AS subject_name,ch.title AS chapter_title,lc.code AS concept_code
+         FROM doubts d
+         JOIN students st ON st.id=d.student_id
+         LEFT JOIN subjects sub ON sub.code=d.subject_code
+         LEFT JOIN chapters ch ON ch.id=d.chapter_id
+         LEFT JOIN learning_concepts lc ON lc.id=d.learning_concept_id
+         WHERE d.id=$1 AND d.student_id=$2`,
+        [doubtId, studentId],
+      )
+    : await query<DoubtRow>(
+        `SELECT d.id,d.student_id,st.user_id AS owner_user_id,d.title,d.body,d.subject_code,d.chapter_id,
+                sub.name AS subject_name,ch.title AS chapter_title,NULL::text AS concept_code
+         FROM doubts d
+         JOIN students st ON st.id=d.student_id
+         LEFT JOIN subjects sub ON sub.code=d.subject_code
+         LEFT JOIN chapters ch ON ch.id=d.chapter_id
+         WHERE d.id=$1 AND d.student_id=$2`,
+        [doubtId, studentId],
+      );
+  const doubt = doubtResult.rows[0];
   if (!doubt) throw appError('Doubt not found', 404);
 
   const message = `${doubt.title}\n\n${doubt.body}`;
@@ -702,7 +812,6 @@ export async function answerDoubt(doubtId: UUID, studentId: UUID) {
   );
   if (!systemUser) throw appError('AI author user is not configured', 500);
 
-  const sourceJson = JSON.stringify(tutor.sources);
   const { rows: [existing] } = await query<IdRow>(
     `SELECT id FROM doubt_answers
      WHERE doubt_id=$1 AND is_ai_answer=TRUE
@@ -711,21 +820,36 @@ export async function answerDoubt(doubtId: UUID, studentId: UUID) {
   );
 
   let answerId: UUID;
-  if (existing) {
-    await query(
-      `UPDATE doubt_answers SET
-         body=$1,ai_grounded=$2,ai_concept_id=$3,ai_sources=$4::jsonb,ai_provider=$5,updated_at=NOW()
-       WHERE id=$6`,
-      [tutor.response, tutor.grounded, tutor.concept?.id || null, sourceJson, tutor.provider, existing.id],
-    );
+  if (enhancedDoubtSchema) {
+    const sourceJson = JSON.stringify(tutor.sources);
+    if (existing) {
+      await query(
+        `UPDATE doubt_answers SET
+           body=$1,ai_grounded=$2,ai_concept_id=$3,ai_sources=$4::jsonb,ai_provider=$5,updated_at=NOW()
+         WHERE id=$6`,
+        [tutor.response, tutor.grounded, tutor.concept?.id || null, sourceJson, tutor.provider, existing.id],
+      );
+      answerId = existing.id;
+    } else {
+      const { rows: [answer] } = await query<IdRow>(
+        `INSERT INTO doubt_answers
+           (doubt_id,author_id,body,is_ai_answer,ai_grounded,ai_concept_id,ai_sources,ai_provider)
+         VALUES ($1,$2,$3,TRUE,$4,$5,$6::jsonb,$7)
+         RETURNING id`,
+        [doubtId, systemUser.id, tutor.response, tutor.grounded, tutor.concept?.id || null, sourceJson, tutor.provider],
+      );
+      if (!answer) throw new Error('AI answer insert returned no row');
+      answerId = answer.id;
+    }
+  } else if (existing) {
+    await query(`UPDATE doubt_answers SET body=$1,updated_at=NOW() WHERE id=$2`, [tutor.response, existing.id]);
     answerId = existing.id;
   } else {
     const { rows: [answer] } = await query<IdRow>(
-      `INSERT INTO doubt_answers
-         (doubt_id,author_id,body,is_ai_answer,ai_grounded,ai_concept_id,ai_sources,ai_provider)
-       VALUES ($1,$2,$3,TRUE,$4,$5,$6::jsonb,$7)
+      `INSERT INTO doubt_answers (doubt_id,author_id,body,is_ai_answer)
+       VALUES ($1,$2,$3,TRUE)
        RETURNING id`,
-      [doubtId, systemUser.id, tutor.response, tutor.grounded, tutor.concept?.id || null, sourceJson, tutor.provider],
+      [doubtId, systemUser.id, tutor.response],
     );
     if (!answer) throw new Error('AI answer insert returned no row');
     answerId = answer.id;
