@@ -17,6 +17,14 @@ login(){
   jq -er '.data.accessToken' <<<"$response"
 }
 
+advance_status(){
+  local path="$1" status="$2" token="$3"
+  curl -fsS -X PATCH "$API_BASE/$path" \
+    -H "Authorization: Bearer $token" \
+    -H 'Content-Type: application/json' \
+    -d "{\"status\":\"$status\"}"
+}
+
 log "Public structured practice catalogue"
 PUBLIC="$(curl -fsS "$API_BASE/public/learning/assessments?class=8&board=CBSE")"
 jq -e '.success == true and (.data | any(.public_slug=="class-8-maths-quick-practice"))' <<<"$PUBLIC" >/dev/null || fail "Starter public practice assessment missing"
@@ -50,18 +58,39 @@ PAYLOAD="$(jq -n --arg q1 "$Q1" --arg q2 "$Q2" --arg q3 "$Q3" --arg q4 "$Q4" '{a
 RESULT="$(curl -fsS -X POST "$API_BASE/student/learning/attempts/$ATTEMPT_ID/submit" -H "Authorization: Bearer $STUDENT_TOKEN" -H 'Content-Type: application/json' -d "$PAYLOAD")"
 jq -e '.data.status=="GRADED" and .data.percentage==100 and .data.correct_count==4 and (.data.feedback | length==4)' <<<"$RESULT" >/dev/null || fail "Student practice grading is incorrect"
 
-log "Authenticate Platform Admin and create original question"
+log "Authenticate Platform Admin and create governed bilingual question"
 ADMIN_TOKEN="$(login "$ADMIN_MOBILE" SUPER_ADMIN)"
 QCODE="CIQ-$(date +%s)-$RANDOM"
-QUESTION_PAYLOAD="$(jq -n --arg code "$QCODE" '{publicCode:$code,prompt:"What habit makes a study plan more useful?",questionType:"MCQ_SINGLE",difficulty:"EASY",explanation:"A realistic plan that is reviewed and adjusted is more useful than an impossible schedule.",correctAnswer:{option:"B"},marks:1,classMin:6,classMax:10,sourceCode:"VIDYASETU_ORIGINAL",licence:"VIDYASETU_ORIGINAL",visibility:"REGISTERED",reviewStatus:"PUBLISHED",boardCodes:["COMMON"],options:[{key:"A",text:"Never changing it"},{key:"B",text:"Reviewing and adjusting it regularly"},{key:"C",text:"Adding every possible task"},{key:"D",text:"Skipping breaks"}]}')"
+QUESTION_PAYLOAD="$(jq -n --arg code "$QCODE" '{publicCode:$code,prompt:"What habit makes a study plan more useful?",promptHi:"कौन-सी आदत अध्ययन योजना को अधिक उपयोगी बनाती है?",questionType:"MCQ_SINGLE",difficulty:"EASY",explanation:"A realistic plan that is reviewed and adjusted is more useful than an impossible schedule.",explanationHi:"एक यथार्थवादी योजना की नियमित समीक्षा और आवश्यक बदलाव उसे अधिक उपयोगी बनाते हैं।",correctAnswer:{option:"B"},marks:1,negativeMarks:0,classMin:6,classMax:10,sourceCode:"VIDYASETU_ORIGINAL",licence:"VIDYASETU_ORIGINAL",visibility:"REGISTERED",reviewStatus:"DRAFT",boardCodes:["COMMON"],options:[{key:"A",text:"Never changing it",textHi:"उसे कभी न बदलना"},{key:"B",text:"Reviewing and adjusting it regularly",textHi:"नियमित समीक्षा और बदलाव करना"},{key:"C",text:"Adding every possible task",textHi:"हर संभव कार्य जोड़ देना"},{key:"D",text:"Skipping breaks",textHi:"विराम छोड़ देना"}]}')"
 CREATED_Q="$(curl -fsS -X POST "$API_BASE/admin/learning/questions" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d "$QUESTION_PAYLOAD")"
 NEW_QID="$(jq -er '.data.id' <<<"$CREATED_Q")"
 
-log "Create assessment from question bank"
+log "Question governance rejects direct DRAFT to PUBLISHED"
+Q_BYPASS_CODE="$(curl -sS -o /tmp/question-publish-bypass.json -w '%{http_code}' -X PATCH "$API_BASE/admin/learning/questions/$NEW_QID/status" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"status":"PUBLISHED"}')"
+[[ "$Q_BYPASS_CODE" == "400" ]] || fail "Question review workflow must reject DRAFT to PUBLISHED"
+
+log "Advance question through governed review workflow"
+advance_status "admin/learning/questions/$NEW_QID/status" SUBMITTED "$ADMIN_TOKEN" | jq -e '.data.review_status=="SUBMITTED"' >/dev/null || fail "Question SUBMITTED transition failed"
+advance_status "admin/learning/questions/$NEW_QID/status" ACADEMIC_REVIEW "$ADMIN_TOKEN" | jq -e '.data.review_status=="ACADEMIC_REVIEW"' >/dev/null || fail "Question ACADEMIC_REVIEW transition failed"
+advance_status "admin/learning/questions/$NEW_QID/status" APPROVED "$ADMIN_TOKEN" | jq -e '.data.review_status=="APPROVED"' >/dev/null || fail "Question APPROVED transition failed"
+advance_status "admin/learning/questions/$NEW_QID/status" PUBLISHED "$ADMIN_TOKEN" | jq -e '.data.review_status=="PUBLISHED" and .data.published_at != null' >/dev/null || fail "Question PUBLISHED transition failed"
+
+log "Create governed bilingual assessment"
 ASLUG="ci-practice-$(date +%s)-$RANDOM"
-ASSESS_PAYLOAD="$(jq -n --arg slug "$ASLUG" --arg qid "$NEW_QID" '{publicSlug:$slug,title:"CI Study Skills Practice",summary:"Disposable Phase 2 assessment",assessmentType:"PRACTICE",visibility:"PUBLIC",reviewStatus:"PUBLISHED",classMin:6,classMax:10,timeLimitMins:5,passingPct:40,boardCodes:["COMMON"],questionIds:[$qid]}')"
-curl -fsS -X POST "$API_BASE/admin/learning/assessments" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d "$ASSESS_PAYLOAD" | jq -e '.success==true and .data.id != null' >/dev/null || fail "Admin assessment creation failed"
-curl -fsS "$API_BASE/public/learning/assessments/$ASLUG" | jq -e '.data.questions | length==1' >/dev/null || fail "New published assessment not publicly visible"
+ASSESS_PAYLOAD="$(jq -n --arg slug "$ASLUG" --arg qid "$NEW_QID" '{publicSlug:$slug,title:"CI Study Skills Practice",titleHi:"सीआई अध्ययन कौशल अभ्यास",summary:"Disposable Phase 2 assessment",assessmentType:"PRACTICE",visibility:"PUBLIC",reviewStatus:"DRAFT",classMin:6,classMax:10,timeLimitMins:5,passingPct:40,boardCodes:["COMMON"],questionIds:[$qid]}')"
+CREATED_ASSESSMENT="$(curl -fsS -X POST "$API_BASE/admin/learning/assessments" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d "$ASSESS_PAYLOAD")"
+NEW_ASSESSMENT_ID="$(jq -er '.data.id' <<<"$CREATED_ASSESSMENT")"
+
+log "Assessment governance rejects direct DRAFT to PUBLISHED"
+A_BYPASS_CODE="$(curl -sS -o /tmp/assessment-publish-bypass.json -w '%{http_code}' -X PATCH "$API_BASE/admin/learning/assessments/$NEW_ASSESSMENT_ID/status" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"status":"PUBLISHED"}')"
+[[ "$A_BYPASS_CODE" == "400" ]] || fail "Assessment review workflow must reject DRAFT to PUBLISHED"
+
+log "Advance assessment through governed review workflow"
+advance_status "admin/learning/assessments/$NEW_ASSESSMENT_ID/status" SUBMITTED "$ADMIN_TOKEN" | jq -e '.data.review_status=="SUBMITTED"' >/dev/null || fail "Assessment SUBMITTED transition failed"
+advance_status "admin/learning/assessments/$NEW_ASSESSMENT_ID/status" ACADEMIC_REVIEW "$ADMIN_TOKEN" | jq -e '.data.review_status=="ACADEMIC_REVIEW"' >/dev/null || fail "Assessment ACADEMIC_REVIEW transition failed"
+advance_status "admin/learning/assessments/$NEW_ASSESSMENT_ID/status" APPROVED "$ADMIN_TOKEN" | jq -e '.data.review_status=="APPROVED"' >/dev/null || fail "Assessment APPROVED transition failed"
+advance_status "admin/learning/assessments/$NEW_ASSESSMENT_ID/status" PUBLISHED "$ADMIN_TOKEN" | jq -e '.data.review_status=="PUBLISHED" and .data.published_at != null' >/dev/null || fail "Assessment PUBLISHED transition failed"
+curl -fsS "$API_BASE/public/learning/assessments/$ASLUG" | jq -e '.data.questions | length==1' >/dev/null || fail "Governed published assessment not publicly visible"
 
 log "NROER question source validation rejects spoofed hostname"
 SPOOF_QCODE="$(curl -sS -o /tmp/spoof-question.json -w '%{http_code}' -X POST "$API_BASE/admin/learning/questions" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"publicCode":"CI-NROER-SPOOF-'"$RANDOM"'","prompt":"Spoofed source must fail","questionType":"MCQ_SINGLE","difficulty":"EASY","correctAnswer":{"option":"A"},"marks":1,"classMin":8,"classMax":8,"sourceCode":"NROER","sourceUrl":"https://example.com/?next=https://nroer.gov.in/resource","licence":"CC_BY_SA","attributionText":"Fake attribution","visibility":"REGISTERED","reviewStatus":"DRAFT","boardCodes":["COMMON"],"options":[{"key":"A","text":"A"},{"key":"B","text":"B"}]}')"

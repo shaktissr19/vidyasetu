@@ -58,8 +58,37 @@ export interface SaveIntakeInput {
   subjectHint?: string | null;
 }
 
+type LearningReviewStatus = 'DRAFT' | 'SUBMITTED' | 'ACADEMIC_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+
+const REVIEW_STATUSES = new Set<LearningReviewStatus>([
+  'DRAFT', 'SUBMITTED', 'ACADEMIC_REVIEW', 'APPROVED', 'PUBLISHED', 'ARCHIVED',
+]);
+
+const REVIEW_TRANSITIONS: Record<LearningReviewStatus, ReadonlySet<LearningReviewStatus>> = {
+  DRAFT: new Set(['SUBMITTED', 'ARCHIVED']),
+  SUBMITTED: new Set(['DRAFT', 'ACADEMIC_REVIEW', 'ARCHIVED']),
+  ACADEMIC_REVIEW: new Set(['SUBMITTED', 'APPROVED', 'ARCHIVED']),
+  APPROVED: new Set(['ACADEMIC_REVIEW', 'PUBLISHED', 'ARCHIVED']),
+  PUBLISHED: new Set(['ARCHIVED']),
+  ARCHIVED: new Set(['DRAFT']),
+};
+
 function appError(message: string, statusCode = 400): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
+}
+
+function normalizeReviewStatus(value: string): LearningReviewStatus {
+  const normalized = value.trim().toUpperCase() as LearningReviewStatus;
+  if (!REVIEW_STATUSES.has(normalized)) throw appError('Invalid learning review status');
+  return normalized;
+}
+
+function assertReviewTransition(fromStatus: string, nextStatus: LearningReviewStatus): void {
+  const from = normalizeReviewStatus(fromStatus);
+  if (from === nextStatus) throw appError(`Item is already ${nextStatus}`);
+  if (!REVIEW_TRANSITIONS[from].has(nextStatus)) {
+    throw appError(`Invalid review transition: ${from} → ${nextStatus}. Follow DRAFT → SUBMITTED → ACADEMIC_REVIEW → APPROVED → PUBLISHED.`);
+  }
 }
 
 function slugify(value: string): string {
@@ -79,11 +108,13 @@ function isNroerUrl(value: string): boolean {
 
 export async function listQuestions() {
   const { rows } = await query(
-    `SELECT lq.id,lq.public_code,lq.prompt,lq.question_type,lq.difficulty,lq.marks::float,
+    `SELECT lq.id,lq.public_code,lq.prompt,lq.prompt_hi,lq.question_type,lq.difficulty,lq.marks::float,
+            lq.negative_marks::float,lq.explanation,lq.explanation_hi,
             lq.class_min,lq.class_max,lq.visibility,lq.review_status,lq.created_at,
             sub.name AS subject_name,lcs.code AS source_code,
             COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes,
-            COUNT(DISTINCT lqo.id)::int AS option_count
+            COUNT(DISTINCT lqo.id)::int AS option_count,
+            COUNT(DISTINCT lqo.id) FILTER(WHERE NULLIF(BTRIM(lqo.option_text_hi),'') IS NULL)::int AS missing_hindi_option_count
      FROM learning_questions lq
      JOIN learning_content_sources lcs ON lcs.id=lq.source_id
      LEFT JOIN subjects sub ON sub.id=lq.subject_id
@@ -98,6 +129,11 @@ export async function listQuestions() {
 
 export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) {
   if (input.classMin && input.classMax && input.classMin > input.classMax) throw appError('classMin cannot exceed classMax');
+  const requestedStatus = normalizeReviewStatus(input.reviewStatus || 'DRAFT');
+  if (requestedStatus !== 'DRAFT') {
+    throw appError('New learning questions must start in DRAFT and pass the review workflow before publication.');
+  }
+
   const sourceCode = (input.sourceCode || 'VIDYASETU_ORIGINAL').toUpperCase();
   const { rows: [source] } = await query<{ id: UUID; source_kind: string } & QueryResultRow>(
     `SELECT id,source_kind FROM learning_content_sources WHERE code=$1 AND is_active=TRUE`, [sourceCode],
@@ -124,22 +160,19 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
     );
     if (boards.length !== new Set(boardCodes).size) throw appError('One or more board codes are invalid');
 
-    const status = input.reviewStatus || 'DRAFT';
     const { rows: [question] } = await client.query<{ id: UUID; public_code: string }>(
       `INSERT INTO learning_questions
        (public_code,prompt,prompt_hi,question_type,difficulty,explanation,explanation_hi,correct_answer,
         marks,negative_marks,class_min,class_max,subject_id,source_id,source_url,licence,attribution_text,
         visibility,review_status,created_by,reviewed_by,published_at)
        VALUES($1,$2,$3,$4::learning_question_type,$5::learning_difficulty,$6,$7,$8::jsonb,$9,$10,$11,$12,$13::uuid,$14::uuid,$15,$16::learning_license_code,$17,
-              $18::learning_visibility,$19::learning_review_status,$20::uuid,
-              CASE WHEN $19::learning_review_status IN ('APPROVED'::learning_review_status,'PUBLISHED'::learning_review_status) THEN $20::uuid ELSE NULL::uuid END,
-              CASE WHEN $19::learning_review_status='PUBLISHED'::learning_review_status THEN NOW() ELSE NULL::timestamptz END)
+              $18::learning_visibility,'DRAFT'::learning_review_status,$19::uuid,NULL::uuid,NULL::timestamptz)
        RETURNING id,public_code`,
       [publicCode,input.prompt.trim(),input.promptHi?.trim() || null,input.questionType,input.difficulty,
        input.explanation?.trim() || null,input.explanationHi?.trim() || null,JSON.stringify(input.correctAnswer),
        input.marks || 1,input.negativeMarks || 0,input.classMin || null,input.classMax || null,input.subjectId || null,
        source.id,input.sourceUrl?.trim() || null,input.licence || (sourceCode === 'VIDYASETU_ORIGINAL' ? 'VIDYASETU_ORIGINAL' : 'OTHER'),
-       input.attributionText?.trim() || null,input.visibility || 'REGISTERED',status,createdBy],
+       input.attributionText?.trim() || null,input.visibility || 'REGISTERED',createdBy],
     );
 
     for (let index = 0; index < options.length; index += 1) {
@@ -157,12 +190,63 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
   });
 }
 
+export async function updateQuestionStatus(questionId: UUID, nextStatus: string, reviewerId: UUID) {
+  const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+
+  return transaction(async (client) => {
+    const { rows: [existing] } = await client.query<{
+      review_status: string;
+      prompt_hi: string | null;
+      explanation_hi: string | null;
+      question_type: string;
+      negative_marks: number;
+    }>(
+      `SELECT review_status,prompt_hi,explanation_hi,question_type,negative_marks::float
+       FROM learning_questions WHERE id=$1::uuid FOR UPDATE`,
+      [questionId],
+    );
+    if (!existing) throw appError('Learning question not found', 404);
+    assertReviewTransition(existing.review_status, normalizedNextStatus);
+
+    if (['APPROVED','PUBLISHED'].includes(normalizedNextStatus)) {
+      if (!existing.prompt_hi?.trim() || !existing.explanation_hi?.trim()) {
+        throw appError('Academic approval requires both Hindi prompt and Hindi explanation.');
+      }
+      if (Number(existing.negative_marks) !== 0) {
+        throw appError('VidyaSetu learning-practice questions cannot be approved with negative marking.');
+      }
+      if (['MCQ_SINGLE','MCQ_MULTIPLE','TRUE_FALSE'].includes(existing.question_type)) {
+        const { rows: [options] } = await client.query<{ total: number; missing_hindi: number }>(
+          `SELECT COUNT(*)::int AS total,
+                  COUNT(*) FILTER(WHERE NULLIF(BTRIM(option_text_hi),'') IS NULL)::int AS missing_hindi
+           FROM learning_question_options WHERE question_id=$1::uuid`,
+          [questionId],
+        );
+        if (!options || options.total < 2) throw appError('Objective questions require at least two answer options before approval.');
+        if (options.missing_hindi > 0) throw appError('Academic approval requires Hindi text for every answer option.');
+      }
+    }
+
+    const { rows: [updated] } = await client.query(
+      `UPDATE learning_questions
+       SET review_status=$2::learning_review_status,
+           reviewed_by=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN $3::uuid ELSE reviewed_by END,
+           published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
+       WHERE id=$1::uuid
+       RETURNING id,public_code,review_status,published_at`,
+      [questionId, normalizedNextStatus, reviewerId],
+    );
+    return updated;
+  });
+}
+
 export async function listAssessments() {
   const { rows } = await query(
     `SELECT la.id,la.public_slug,la.title,la.summary,la.assessment_type,la.visibility,la.review_status,
             la.class_min,la.class_max,la.time_limit_mins,la.passing_pct::float,la.max_attempts,
             la.is_featured_public,sub.name AS subject_name,
             COUNT(DISTINCT laq.question_id)::int AS question_count,
+            COUNT(DISTINCT laq.question_id) FILTER(WHERE lq.review_status='PUBLISHED')::int AS published_question_count,
             COALESCE(SUM(COALESCE(laq.marks_override,lq.marks)),0)::float AS total_marks,
             COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes
      FROM learning_assessments la
@@ -179,6 +263,10 @@ export async function listAssessments() {
 export async function createAssessment(input: SaveAssessmentInput, createdBy: UUID) {
   if (!input.questionIds.length) throw appError('Assessment requires at least one question');
   if (input.classMin && input.classMax && input.classMin > input.classMax) throw appError('classMin cannot exceed classMax');
+  const requestedStatus = normalizeReviewStatus(input.reviewStatus || 'DRAFT');
+  if (requestedStatus !== 'DRAFT') {
+    throw appError('New learning assessments must start in DRAFT and pass the review workflow before publication.');
+  }
   const boardCodes = (input.boardCodes?.length ? input.boardCodes : ['COMMON']).map((code) => code.toUpperCase());
   const slug = input.publicSlug?.trim() || slugify(input.title);
 
@@ -191,16 +279,14 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
       `SELECT id FROM learning_questions WHERE id=ANY($1::uuid[])`, [input.questionIds],
     );
     if (questions.length !== new Set(input.questionIds).size) throw appError('One or more question IDs are invalid');
-    const status = input.reviewStatus || 'DRAFT';
+
     const { rows: [assessment] } = await client.query<{ id: UUID; public_slug: string }>(
       `INSERT INTO learning_assessments
        (public_slug,title,title_hi,summary,assessment_type,visibility,review_status,class_min,class_max,subject_id,
         time_limit_mins,passing_pct,max_attempts,shuffle_questions,is_featured_public,created_by,reviewed_by,published_at)
-       VALUES($1,$2,$3,$4,$5::learning_assessment_type,$6::learning_visibility,$7::learning_review_status,$8,$9,$10::uuid,$11,$12,$13,$14,$15,$16::uuid,
-              CASE WHEN $7::learning_review_status IN ('APPROVED'::learning_review_status,'PUBLISHED'::learning_review_status) THEN $16::uuid ELSE NULL::uuid END,
-              CASE WHEN $7::learning_review_status='PUBLISHED'::learning_review_status THEN NOW() ELSE NULL::timestamptz END)
+       VALUES($1,$2,$3,$4,$5::learning_assessment_type,$6::learning_visibility,'DRAFT'::learning_review_status,$7,$8,$9::uuid,$10,$11,$12,$13,$14,$15::uuid,NULL::uuid,NULL::timestamptz)
        RETURNING id,public_slug`,
-      [slug,input.title.trim(),input.titleHi?.trim() || null,input.summary?.trim() || null,input.assessmentType,input.visibility,status,
+      [slug,input.title.trim(),input.titleHi?.trim() || null,input.summary?.trim() || null,input.assessmentType,input.visibility,
        input.classMin || null,input.classMax || null,input.subjectId || null,input.timeLimitMins || null,input.passingPct ?? 40,input.maxAttempts || null,
        Boolean(input.shuffleQuestions),Boolean(input.isFeaturedPublic),createdBy],
     );
@@ -214,6 +300,57 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
       );
     }
     return assessment;
+  });
+}
+
+export async function updateAssessmentStatus(assessmentId: UUID, nextStatus: string, reviewerId: UUID) {
+  const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+
+  return transaction(async (client) => {
+    const { rows: [existing] } = await client.query<{ review_status: string; public_slug: string | null }>(
+      `SELECT review_status,public_slug FROM learning_assessments WHERE id=$1::uuid FOR UPDATE`,
+      [assessmentId],
+    );
+    if (!existing) throw appError('Learning assessment not found', 404);
+    assertReviewTransition(existing.review_status, normalizedNextStatus);
+
+    if (normalizedNextStatus === 'PUBLISHED' && !existing.public_slug) {
+      throw appError('Published assessments require a public slug.');
+    }
+
+    if (['APPROVED','PUBLISHED'].includes(normalizedNextStatus)) {
+      const { rows: [questionState] } = await client.query<{
+        total: number;
+        not_approved: number;
+        not_published: number;
+      }>(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER(WHERE lq.review_status NOT IN ('APPROVED','PUBLISHED'))::int AS not_approved,
+                COUNT(*) FILTER(WHERE lq.review_status <> 'PUBLISHED')::int AS not_published
+         FROM learning_assessment_questions laq
+         JOIN learning_questions lq ON lq.id=laq.question_id
+         WHERE laq.assessment_id=$1::uuid`,
+        [assessmentId],
+      );
+      if (!questionState || questionState.total < 1) throw appError('Assessment requires at least one question before approval.');
+      if (normalizedNextStatus === 'APPROVED' && questionState.not_approved > 0) {
+        throw appError('All assessment questions must be APPROVED or PUBLISHED before assessment approval.');
+      }
+      if (normalizedNextStatus === 'PUBLISHED' && questionState.not_published > 0) {
+        throw appError('All assessment questions must be PUBLISHED before the assessment can be published.');
+      }
+    }
+
+    const { rows: [updated] } = await client.query(
+      `UPDATE learning_assessments
+       SET review_status=$2::learning_review_status,
+           reviewed_by=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN $3::uuid ELSE reviewed_by END,
+           published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
+       WHERE id=$1::uuid
+       RETURNING id,public_slug,title,review_status,published_at`,
+      [assessmentId, normalizedNextStatus, reviewerId],
+    );
+    return updated;
   });
 }
 
