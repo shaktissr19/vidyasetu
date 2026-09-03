@@ -4,7 +4,7 @@ import type { QueryResultRow } from 'pg';
 import { query } from '../config/db';
 
 interface PackSequenceItem {
-  order: number;
+  order?: number;
   stage: string;
   assetId: string;
   type: string;
@@ -17,16 +17,21 @@ interface PackSequenceItem {
 
 interface PackManifest {
   packId: string;
-  version: string;
+  version?: string;
   status: string;
   subject: string;
-  theme: string;
+  theme?: string;
   concept: string;
   languages: string[];
-  contentIdentity: string[];
-  learningOutcomes: Array<{ id: string; en: string; hi: string }>;
+  contentIdentity?: string[];
+  learningOutcomes?: Array<{ id?: string; en: string; hi: string }>;
   sequence: PackSequenceItem[];
   publicationPolicy?: { autoPublish?: boolean; requiredReviews?: string[] };
+}
+
+interface QuestionBank {
+  packId: string;
+  questions: Array<{ publicCode: string }>;
 }
 
 interface ResourceRow extends QueryResultRow {
@@ -62,6 +67,7 @@ interface QuestionRow extends QueryResultRow {
   explanation_hi: string | null;
   correct_answer: unknown;
   marks: number;
+  negative_marks: number;
   review_status: string;
   subject_label: string | null;
   topic_label: string | null;
@@ -85,17 +91,95 @@ interface AssessmentRow extends QueryResultRow {
   questions: Array<{ publicCode: string; order: number }>;
 }
 
-const PACK_DIR = path.resolve(
-  __dirname,
-  '../../../content/class-8/science/force-and-pressure/pressure',
-);
-
-function readManifest(): PackManifest {
-  return JSON.parse(fs.readFileSync(path.join(PACK_DIR, 'pack-manifest.json'), 'utf8')) as PackManifest;
+interface PackConfig {
+  key: string;
+  folder: string;
+  resourceSlug: string;
+  resourceAssetId: string;
+  assessmentSlugs: readonly [string, string];
 }
 
-export async function getPressurePackReview() {
-  const manifest = readManifest();
+const PACK_ROOT = path.resolve(__dirname, '../../../content/class-8/science/force-and-pressure');
+
+const PACKS: Record<string, PackConfig> = {
+  pressure: {
+    key: 'pressure',
+    folder: 'pressure',
+    resourceSlug: 'class-8-science-pressure-v1',
+    resourceAssetId: 'VS-PRESSURE-ARTICLE-01',
+    assessmentSlugs: ['class-8-science-pressure-practice-v1', 'class-8-science-pressure-mastery-v1'],
+  },
+  force: {
+    key: 'force',
+    folder: 'force',
+    resourceSlug: 'class-8-science-force-v1',
+    resourceAssetId: 'VS-FORCE-ARTICLE-01',
+    assessmentSlugs: ['class-8-science-force-practice-v1', 'class-8-science-force-mastery-v1'],
+  },
+  'effects-of-force': {
+    key: 'effects-of-force',
+    folder: 'effects-of-force',
+    resourceSlug: 'class-8-science-effects-of-force-v1',
+    resourceAssetId: 'VS-EFFECTS-ARTICLE-01',
+    assessmentSlugs: ['class-8-science-effects-of-force-practice-v1', 'class-8-science-effects-of-force-mastery-v1'],
+  },
+  'contact-noncontact': {
+    key: 'contact-noncontact',
+    folder: 'contact-noncontact',
+    resourceSlug: 'class-8-science-contact-noncontact-forces-v1',
+    resourceAssetId: 'VS-CN-LESSON-01',
+    assessmentSlugs: ['class-8-science-contact-noncontact-practice-v1', 'class-8-science-contact-noncontact-mastery-v1'],
+  },
+  'pressure-in-liquids': {
+    key: 'pressure-in-liquids',
+    folder: 'pressure-in-liquids',
+    resourceSlug: 'class-8-science-pressure-in-liquids-v1',
+    resourceAssetId: 'VS-LP-LESSON-01',
+    assessmentSlugs: ['class-8-science-pressure-in-liquids-practice-v1', 'class-8-science-pressure-in-liquids-mastery-v1'],
+  },
+  'atmospheric-pressure': {
+    key: 'atmospheric-pressure',
+    folder: 'atmospheric-pressure',
+    resourceSlug: 'class-8-science-atmospheric-pressure-v1',
+    resourceAssetId: 'VS-AP-LESSON-01',
+    assessmentSlugs: ['class-8-science-atmospheric-pressure-practice-v1', 'class-8-science-atmospheric-pressure-mastery-v1'],
+  },
+};
+
+function notFound(message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode: 404 });
+}
+
+function readJson<T>(packDir: string, fileName: string): T {
+  return JSON.parse(fs.readFileSync(path.join(packDir, fileName), 'utf8')) as T;
+}
+
+function packConfig(packKey: string): PackConfig {
+  const config = PACKS[packKey.toLowerCase()];
+  if (!config) throw notFound(`Unsupported learning content pack: ${packKey}`);
+  return config;
+}
+
+function uniqueStages(sequence: PackSequenceItem[]): string[] {
+  return [...new Set(sequence.map((item) => item.stage).filter(Boolean))];
+}
+
+export function listSupportedContentPacks() {
+  return Object.values(PACKS).map(({ key, folder, resourceSlug }) => ({ key, folder, resourceSlug }));
+}
+
+export async function getContentPackReview(packKey: string) {
+  const config = packConfig(packKey);
+  const packDir = path.join(PACK_ROOT, config.folder);
+  const manifest = readJson<PackManifest>(packDir, 'pack-manifest.json');
+  const bank = readJson<QuestionBank>(packDir, 'question-bank.json');
+
+  if (bank.packId !== manifest.packId) {
+    throw new Error(`Question bank packId does not match manifest for ${config.key}`);
+  }
+
+  const questionCodes = bank.questions.map((question) => question.publicCode);
+  const assessmentSlugs = [...config.assessmentSlugs];
 
   const [{ rows: resourceRows }, { rows: questionRows }, { rows: assessmentRows }] = await Promise.all([
     query<ResourceRow>(
@@ -108,32 +192,36 @@ export async function getPressurePackReview() {
        JOIN learning_content_sources lcs ON lcs.id=lr.source_id
        LEFT JOIN learning_resource_boards lrb ON lrb.resource_id=lr.id
        LEFT JOIN education_boards eb ON eb.id=lrb.board_id
-       WHERE lr.public_slug='class-8-science-pressure-v1'
+       WHERE lr.public_slug=$1
        GROUP BY lr.id,lcs.id`,
+      [config.resourceSlug],
     ),
-    query<QuestionRow>(
-      `SELECT lq.id,lq.public_code,lq.prompt,lq.prompt_hi,lq.question_type,lq.difficulty,
-              lq.explanation,lq.explanation_hi,lq.correct_answer,lq.marks::float,lq.review_status,
-              lq.subject_label,lq.topic_label,
-              COALESCE((
-                SELECT ARRAY_AGG(DISTINCT eb.code ORDER BY eb.code)
-                FROM learning_question_boards lqb
-                JOIN education_boards eb ON eb.id=lqb.board_id
-                WHERE lqb.question_id=lq.id
-              ),ARRAY[]::varchar[]) AS board_codes,
-              COALESCE((
-                SELECT JSON_AGG(JSON_BUILD_OBJECT(
-                  'key',lqo.option_key,
-                  'text',lqo.option_text,
-                  'textHi',lqo.option_text_hi
-                ) ORDER BY lqo.sort_order)
-                FROM learning_question_options lqo
-                WHERE lqo.question_id=lq.id
-              ),'[]'::json) AS options
-       FROM learning_questions lq
-       WHERE lq.public_code LIKE 'VS8S-PRES-%'
-       ORDER BY lq.public_code`,
-    ),
+    questionCodes.length
+      ? query<QuestionRow>(
+          `SELECT lq.id,lq.public_code,lq.prompt,lq.prompt_hi,lq.question_type,lq.difficulty,
+                  lq.explanation,lq.explanation_hi,lq.correct_answer,lq.marks::float,lq.negative_marks::float,
+                  lq.review_status,lq.subject_label,lq.topic_label,
+                  COALESCE((
+                    SELECT ARRAY_AGG(DISTINCT eb.code ORDER BY eb.code)
+                    FROM learning_question_boards lqb
+                    JOIN education_boards eb ON eb.id=lqb.board_id
+                    WHERE lqb.question_id=lq.id
+                  ),ARRAY[]::varchar[]) AS board_codes,
+                  COALESCE((
+                    SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                      'key',lqo.option_key,
+                      'text',lqo.option_text,
+                      'textHi',lqo.option_text_hi
+                    ) ORDER BY lqo.sort_order)
+                    FROM learning_question_options lqo
+                    WHERE lqo.question_id=lq.id
+                  ),'[]'::json) AS options
+           FROM learning_questions lq
+           WHERE lq.public_code=ANY($1::varchar[])
+           ORDER BY ARRAY_POSITION($1::varchar[],lq.public_code)`,
+          [questionCodes],
+        )
+      : Promise.resolve({ rows: [] as QuestionRow[] } as { rows: QuestionRow[] }),
     query<AssessmentRow>(
       `SELECT la.id,la.public_slug,la.title,la.title_hi,la.summary,la.summary_hi,
               la.assessment_type,la.visibility,la.review_status,la.passing_pct::float,
@@ -154,44 +242,64 @@ export async function getPressurePackReview() {
                 WHERE laq.assessment_id=la.id
               ),'[]'::json) AS questions
        FROM learning_assessments la
-       WHERE la.public_slug IN (
-         'class-8-science-pressure-practice-v1',
-         'class-8-science-pressure-mastery-v1'
-       )
-       ORDER BY la.public_slug`,
+       WHERE la.public_slug=ANY($1::varchar[])
+       ORDER BY ARRAY_POSITION($1::varchar[],la.public_slug)`,
+      [assessmentSlugs],
     ),
   ]);
 
   const resource = resourceRows[0] || null;
-  const stagedTypes = new Set<string>();
-  if (resource) stagedTypes.add(resource.resource_type);
-  if (assessmentRows.length) stagedTypes.add('QUIZ');
+  const assessmentBySlug = new Map(assessmentRows.map((assessment) => [assessment.public_slug, assessment]));
+  const quizItems = manifest.sequence.filter((item) => item.type === 'QUIZ');
+  const quizAssetToSlug = new Map<string, string>();
+  quizItems.forEach((item, index) => {
+    const slug = assessmentSlugs[index];
+    if (slug) quizAssetToSlug.set(item.assetId, slug);
+  });
 
-  const sequence = manifest.sequence.map((item) => ({
-    ...item,
-    implementationStatus:
-      item.type === 'ARTICLE' && item.assetId === 'VS-PRESSURE-ARTICLE-01'
-        ? (resource ? 'STAGED_DRAFT' : 'MISSING')
-        : item.type === 'QUIZ'
-          ? (assessmentRows.some((assessment) =>
-              assessment.public_slug.includes(item.assetId === 'VS-PRESSURE-MASTERY-01' ? 'mastery' : 'practice'))
-              ? 'STAGED_DRAFT'
-              : 'MISSING')
-          : 'PRODUCTION_SCRIPT_READY',
-  }));
+  const hasProductionScripts = fs.existsSync(path.join(packDir, 'media-scripts.md'));
+  const sequence = manifest.sequence.map((item, index) => {
+    let implementationStatus: string;
+    if (item.assetId === config.resourceAssetId) {
+      implementationStatus = resource ? `STAGED_${resource.review_status}` : 'MISSING';
+    } else if (item.type === 'QUIZ') {
+      const slug = quizAssetToSlug.get(item.assetId);
+      const assessment = slug ? assessmentBySlug.get(slug) : undefined;
+      implementationStatus = assessment ? `STAGED_${assessment.review_status}` : 'MISSING';
+    } else {
+      implementationStatus = hasProductionScripts ? 'PRODUCTION_SCRIPT_READY' : 'AUTHORING_READY';
+    }
+
+    return {
+      ...item,
+      order: item.order ?? index + 1,
+      implementationStatus,
+    };
+  });
+
+  const allQuestionsPresent = questionRows.length === questionCodes.length;
+  const allQuestionTextBilingual = allQuestionsPresent && questionRows.every((question) =>
+    Boolean(question.prompt_hi?.trim() && question.explanation_hi?.trim()),
+  );
+  const allObjectiveOptionsBilingual = questionRows.every((question) =>
+    question.options.length === 0 || question.options.every((option) => Boolean(option.textHi?.trim())),
+  );
 
   return {
+    packKey: config.key,
+    supportedPacks: listSupportedContentPacks(),
     manifest: {
       packId: manifest.packId,
-      version: manifest.version,
+      version: manifest.version || 'unversioned',
       status: manifest.status,
       subject: manifest.subject,
-      theme: manifest.theme,
+      theme: manifest.theme || 'Force and Pressure',
       concept: manifest.concept,
       languages: manifest.languages,
-      contentIdentity: manifest.contentIdentity,
-      learningOutcomes: manifest.learningOutcomes,
+      contentIdentity: manifest.contentIdentity?.length ? manifest.contentIdentity : uniqueStages(manifest.sequence),
+      learningOutcomes: manifest.learningOutcomes || [],
       requiredReviews: manifest.publicationPolicy?.requiredReviews || [],
+      publicationPolicyDeclared: Boolean(manifest.publicationPolicy),
     },
     resource,
     questions: questionRows,
@@ -199,18 +307,28 @@ export async function getPressurePackReview() {
     sequence,
     completeness: {
       resourceCount: resource ? 1 : 0,
+      expectedResourceCount: 1,
       questionCount: questionRows.length,
+      expectedQuestionCount: questionCodes.length,
       assessmentCount: assessmentRows.length,
+      expectedAssessmentCount: assessmentSlugs.length,
       allBilingual:
         Boolean(resource?.title_hi && resource?.body_markdown_hi) &&
-        questionRows.length === 12 &&
-        questionRows.every((question) => Boolean(question.prompt_hi && question.explanation_hi)),
+        allQuestionTextBilingual &&
+        allObjectiveOptionsBilingual,
       allDraft:
         (!resource || resource.review_status === 'DRAFT') &&
         questionRows.every((question) => question.review_status === 'DRAFT') &&
         assessmentRows.every((assessment) => assessment.review_status === 'DRAFT'),
+      noNegativeMarking: questionRows.every((question) => Number(question.negative_marks) === 0),
       mediaBinariesReady: false,
-      note: 'Video, practical-video, worksheet and audio production scripts exist in the pack, but final media binaries are not attached yet.',
+      note: hasProductionScripts
+        ? 'Production scripts/specifications exist for non-database media assets, but final video, practical-video, worksheet and audio binaries are not attached yet.'
+        : 'Final media binaries are not attached and this pack does not currently expose a media-scripts.md production specification.',
     },
   };
+}
+
+export async function getPressurePackReview() {
+  return getContentPackReview('pressure');
 }
