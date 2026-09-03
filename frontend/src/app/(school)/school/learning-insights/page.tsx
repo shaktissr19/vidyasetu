@@ -136,7 +136,7 @@ export default function SchoolLearningInsightsPage() {
                     </div>
                     <div className="text-xs mt-3" style={{ color: 'var(--slate)' }}>
                       Published assets: {concept.publishedResourceCount} lesson(s) · {concept.publishedAssessmentCount} assessment(s)
-                      {concept.averageMasteryPct !== null ? ` · Avg mastery ${Math.round(concept.averageMasteryPct)}%` : ''}
+                      {concept.averageMasteryPct != null ? ` · Avg mastery ${Math.round(concept.averageMasteryPct)}%` : ''}
                     </div>
                   </div>
                 ))}
