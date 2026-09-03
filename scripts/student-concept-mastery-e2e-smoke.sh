@@ -160,6 +160,6 @@ STILL_MASTERED="$(concept_json)"
 jq -e '.state=="MASTERED" and .needsReview==false and .practiceAttempts==2 and .masteryAttempts==1 and .masteryPct==100' <<<"$STILL_MASTERED" >/dev/null || fail "Later practice incorrectly demoted MASTERED state"
 
 DB_STATE="$(psqlq "SELECT state||'|'||practice_attempts||'|'||mastery_attempts||'|'||COALESCE(mastery_pct::text,'')||'|'||needs_review FROM student_concept_progress WHERE student_id='$STUDENT_ID' AND concept_id='$CONCEPT_ID';")"
-[[ "$DB_STATE" == "MASTERED|2|1|100.00|f" ]] || fail "Persisted concept state mismatch: $DB_STATE"
+[[ "$DB_STATE" == "MASTERED|2|1|100.00|false" ]] || fail "Persisted concept state mismatch: $DB_STATE"
 
 printf '\nStudent concept mastery runtime E2E smoke passed.\n'
