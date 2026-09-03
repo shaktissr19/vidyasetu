@@ -68,19 +68,6 @@ async function main(): Promise<void> {
   assert(link, 'No linked Class 8 Parent/Student fixture available');
   const parentSchoolAdminUserId = await schoolAdminUserId(link.school_id);
 
-  // Teacher authorization is an independent contract. A Parent-linked child is
-  // not required to be in the same School as an arbitrary seeded Teacher.
-  const { rows: [teacher] } = await query<TeacherFixtureRow>(
-    `SELECT t.id AS teacher_id,t.user_id AS teacher_user_id,ta.school_id,ta.class_id,ta.subject_code
-     FROM teacher_assignments ta
-     JOIN teachers t ON t.id=ta.teacher_id AND t.status='ACTIVE'
-     JOIN school_classes sc ON sc.id=ta.class_id AND sc.school_id=ta.school_id AND sc.is_active=TRUE
-     ORDER BY ta.created_at NULLS LAST,ta.id
-     LIMIT 1`,
-  );
-  assert(teacher, 'Teacher assignment fixture missing');
-  const teacherSchoolAdminUserId = await schoolAdminUserId(teacher.school_id);
-
   const { rows: [forceConcept] } = await query<IdCodeRow>(
     `SELECT lc.id,sub.code
      FROM learning_concepts lc
@@ -88,6 +75,30 @@ async function main(): Promise<void> {
      WHERE lc.code='C8-SCI-05-C01'`,
   );
   assert(forceConcept, 'Canonical Force concept or operational Science subject missing');
+
+  // The generic development seed intentionally does not promise Teacher
+  // assignments. Provision one deterministic assignment in this disposable,
+  // NODE_ENV=test-only harness so Teacher authorization is certified against
+  // a real row rather than depending on unrelated demo fixture completeness.
+  const { rows: [teacher] } = await query<TeacherFixtureRow>(
+    `SELECT t.id AS teacher_id,t.user_id AS teacher_user_id,t.school_id,
+            sc.id AS class_id,$1::text AS subject_code
+     FROM teachers t
+     JOIN school_classes sc ON sc.school_id=t.school_id AND sc.is_active=TRUE
+     WHERE t.status='ACTIVE'
+     ORDER BY CASE WHEN sc.class_name='8' THEN 0 ELSE 1 END,t.created_at,sc.class_name,sc.section
+     LIMIT 1`,
+    [forceConcept.code],
+  );
+  assert(teacher, 'No active Teacher + class fixture available');
+  await query(
+    `INSERT INTO teacher_assignments
+       (teacher_id,school_id,class_id,subject_code,academic_year,is_class_teacher)
+     VALUES ($1,$2,$3,$4,'2026-27',FALSE)
+     ON CONFLICT (teacher_id,class_id,subject_code,academic_year) DO NOTHING`,
+    [teacher.teacher_id, teacher.school_id, teacher.class_id, teacher.subject_code],
+  );
+  const teacherSchoolAdminUserId = await schoolAdminUserId(teacher.school_id);
 
   const { rows: [resourceLinks] } = await query<CountRow>(
     `SELECT COUNT(*)::int AS count
@@ -164,7 +175,7 @@ async function main(): Promise<void> {
     'TEACHER',
     teacher.teacher_id,
   );
-  assert(teacherTargets.length >= 1, 'Teacher has no assigned learning target');
+  assert(teacherTargets.length >= 1, 'Teacher has no assigned learning target after test fixture provisioning');
   await getSchoolLearningOverview(
     teacher.school_id,
     teacher.teacher_user_id,
