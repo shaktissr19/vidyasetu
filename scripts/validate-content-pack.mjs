@@ -4,6 +4,8 @@ import path from 'node:path';
 
 const ROOT = path.resolve(process.argv[2] || 'content');
 const REQUIRED_STAGES = ['SEE', 'UNDERSTAND', 'DO', 'PRACTISE', 'APPLY', 'REVISE'];
+const ALLOWED_DIFFICULTIES = new Set(['FOUNDATION', 'EASY', 'MEDIUM', 'HARD', 'CHALLENGE']);
+const ALLOWED_DIFFICULTY_LABEL = 'FOUNDATION, EASY, MEDIUM, HARD, CHALLENGE';
 
 function fail(message) {
   console.error(`CONTENT QA FAILED: ${message}`);
@@ -78,6 +80,11 @@ for (const manifestFile of manifests) {
     if (!code) fail(`${label}: question missing publicCode`);
     if (codes.has(code)) fail(`${label}: duplicate question publicCode ${code}`);
     codes.add(code);
+
+    const difficulty = String(q?.difficulty || '').trim().toUpperCase();
+    if (!ALLOWED_DIFFICULTIES.has(difficulty)) {
+      fail(`${label}/${code}: difficulty must be one of ${ALLOWED_DIFFICULTY_LABEL}; received ${difficulty || '(missing)'}`);
+    }
 
     for (const field of ['prompt', 'promptHi', 'explanation', 'explanationHi']) {
       if (!String(q?.[field] || '').trim()) fail(`${label}/${code}: ${field} is required`);

@@ -82,7 +82,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-CNF-007","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"COMPARE","learningOutcomeIds":["LO-CN-01","LO-CN-03"],
+      "publicCode":"VS8S-CNF-007","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"COMPARE","learningOutcomeIds":["LO-CN-01","LO-CN-03"],
       "prompt":"Which pair contains two non-contact forces?","promptHi":"कौन-सी जोड़ी में दोनों असंपर्क बल हैं?",
       "options":[
         {"key":"A","text":"Friction and muscular force","textHi":"घर्षण और पेशीय बल"},
@@ -96,7 +96,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-CNF-008","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"APPLY","learningOutcomeIds":["LO-CN-02"],"misconceptionId":"MC-CN-03",
+      "publicCode":"VS8S-CNF-008","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"APPLY","learningOutcomeIds":["LO-CN-02"],"misconceptionId":"MC-CN-03",
       "prompt":"Why is friction classified as a contact force?","promptHi":"घर्षण को संपर्क बल क्यों माना जाता है?",
       "options":[
         {"key":"A","text":"Because it is always produced by muscles","textHi":"क्योंकि यह हमेशा मांसपेशियों से उत्पन्न होता है"},
@@ -110,7 +110,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-CNF-009","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"REASON","learningOutcomeIds":["LO-CN-03","LO-CN-04"],
+      "publicCode":"VS8S-CNF-009","type":"MCQ_SINGLE","difficulty":"HARD","skill":"REASON","learningOutcomeIds":["LO-CN-03","LO-CN-04"],
       "prompt":"A large classroom magnet is brought close to a steel paper clip. The clip starts moving before the magnet touches it. What is the strongest evidence from this observation?",
       "promptHi":"एक बड़ा कक्षा चुंबक स्टील की पेपर क्लिप के पास लाया जाता है। चुंबक के छूने से पहले क्लिप चलने लगती है। इस अवलोकन से सबसे मजबूत प्रमाण क्या मिलता है?",
       "options":[
@@ -125,7 +125,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-CNF-010","type":"TRUE_FALSE","difficulty":"STANDARD","skill":"UNDERSTAND","learningOutcomeIds":["LO-CN-04"],"misconceptionId":"MC-CN-04",
+      "publicCode":"VS8S-CNF-010","type":"TRUE_FALSE","difficulty":"MEDIUM","skill":"UNDERSTAND","learningOutcomeIds":["LO-CN-04"],"misconceptionId":"MC-CN-04",
       "prompt":"Gravity stops acting on an object when the object is resting on a table.","promptHi":"जब कोई वस्तु मेज़ पर स्थिर रखी हो तो गुरुत्वाकर्षण उस पर काम करना बंद कर देता है।",
       "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
       "correctAnswer":{"option":"FALSE"},
@@ -134,7 +134,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-CNF-011","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"ANALYSE","learningOutcomeIds":["LO-CN-05"],
+      "publicCode":"VS8S-CNF-011","type":"MCQ_SINGLE","difficulty":"HARD","skill":"ANALYSE","learningOutcomeIds":["LO-CN-05"],
       "prompt":"A student holds a steel paper clip near a magnet while standing still. Which statement best shows why one object can be involved in several force interactions at once?",
       "promptHi":"एक विद्यार्थी स्थिर खड़ा होकर चुंबक के पास स्टील की पेपर क्लिप पकड़े है। कौन-सा कथन सबसे अच्छी तरह दिखाता है कि एक वस्तु पर एक साथ कई बल-परस्पर क्रियाएँ हो सकती हैं?",
       "options":[

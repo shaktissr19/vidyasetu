@@ -54,7 +54,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-005","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"EXPERIMENT","learningOutcomeIds":["LO-LP-03"],
+      "publicCode":"VS8S-LP-005","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"EXPERIMENT","learningOutcomeIds":["LO-LP-03"],
       "prompt":"Why should the three holes in the bottle experiment be approximately the same size?",
       "promptHi":"बोतल प्रयोग में तीनों छेद लगभग समान आकार के क्यों होने चाहिए?",
       "options":[
@@ -69,7 +69,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-006","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"REASON","learningOutcomeIds":["LO-LP-04"],"misconceptionId":"MC-LP-03",
+      "publicCode":"VS8S-LP-006","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"REASON","learningOutcomeIds":["LO-LP-04"],"misconceptionId":"MC-LP-03",
       "prompt":"Two containers have different shapes but contain the same liquid. We compare two points at the same depth below their liquid surfaces under similar conditions. Which reasoning is best?",
       "promptHi":"दो अलग आकार के कंटेनर में वही द्रव है। समान परिस्थितियों में उनकी द्रव सतह से समान गहराई वाले दो बिंदुओं की तुलना की जाती है। कौन-सा तर्क सबसे सही है?",
       "options":[
@@ -84,7 +84,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-007","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"APPLY","learningOutcomeIds":["LO-LP-05"],
+      "publicCode":"VS8S-LP-007","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"APPLY","learningOutcomeIds":["LO-LP-05"],
       "prompt":"Why must the lower region of a large dam withstand more water pressure than the upper region?",
       "promptHi":"बड़े बाँध के निचले हिस्से को ऊपर के हिस्से से अधिक जल-दाब क्यों सहना पड़ता है?",
       "options":[
@@ -99,7 +99,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-008","type":"MCQ_SINGLE","difficulty":"STANDARD","skill":"APPLY","learningOutcomeIds":["LO-LP-02","LO-LP-05"],
+      "publicCode":"VS8S-LP-008","type":"MCQ_SINGLE","difficulty":"MEDIUM","skill":"APPLY","learningOutcomeIds":["LO-LP-02","LO-LP-05"],
       "prompt":"A diver moves deeper in the same body of water. What happens to the surrounding liquid pressure?",
       "promptHi":"एक गोताखोर उसी जलाशय में अधिक गहराई पर जाता है। आसपास का द्रव दाब क्या होगा?",
       "options":[
@@ -114,7 +114,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-009","type":"TRUE_FALSE","difficulty":"STANDARD","skill":"UNDERSTAND","learningOutcomeIds":["LO-LP-04"],"misconceptionId":"MC-LP-04",
+      "publicCode":"VS8S-LP-009","type":"TRUE_FALSE","difficulty":"MEDIUM","skill":"UNDERSTAND","learningOutcomeIds":["LO-LP-04"],"misconceptionId":"MC-LP-04",
       "prompt":"A liquid at rest exerts no pressure because it is not moving.","promptHi":"स्थिर द्रव कोई दाब नहीं डालता क्योंकि वह चल नहीं रहा है।",
       "options":[{"key":"TRUE","text":"True","textHi":"सही"},{"key":"FALSE","text":"False","textHi":"गलत"}],
       "correctAnswer":{"option":"FALSE"},
@@ -123,7 +123,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-010","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"ANALYSE","learningOutcomeIds":["LO-LP-03"],
+      "publicCode":"VS8S-LP-010","type":"MCQ_SINGLE","difficulty":"HARD","skill":"ANALYSE","learningOutcomeIds":["LO-LP-03"],
       "prompt":"In the bottle experiment, the lowest hole produces a surprisingly weak stream. What should a careful student check before rejecting the depth-pressure idea?",
       "promptHi":"बोतल प्रयोग में सबसे नीचे वाले छेद से बहुत कमजोर धार निकलती है। गहराई-दाब के विचार को गलत मानने से पहले सावधान विद्यार्थी को क्या जाँचना चाहिए?",
       "options":[
@@ -138,7 +138,7 @@
       "marks":1,"negativeMarks":0
     },
     {
-      "publicCode":"VS8S-LP-011","type":"MCQ_SINGLE","difficulty":"ADVANCED","skill":"TRANSFER","learningOutcomeIds":["LO-LP-01","LO-LP-02"],
+      "publicCode":"VS8S-LP-011","type":"MCQ_SINGLE","difficulty":"HARD","skill":"TRANSFER","learningOutcomeIds":["LO-LP-01","LO-LP-02"],
       "prompt":"A tall water tank has two identical outlets, one near the top and one much lower. With both outlets below the same water surface and other conditions similar, which outlet is expected to have greater liquid pressure?",
       "promptHi":"एक ऊँची पानी की टंकी में दो समान आउटलेट हैं, एक ऊपर के पास और दूसरा बहुत नीचे। दोनों एक ही जल-सतह के नीचे हैं और अन्य परिस्थितियाँ समान हैं। किस आउटलेट पर द्रव दाब अधिक होने की अपेक्षा है?",
       "options":[
