@@ -41,8 +41,42 @@ interface SourceRow extends QueryResultRow {
 
 interface ResourceIdRow extends QueryResultRow { id: UUID; }
 
+type LearningReviewStatus = 'DRAFT' | 'SUBMITTED' | 'ACADEMIC_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+
+const REVIEW_STATUSES = new Set<LearningReviewStatus>([
+  'DRAFT',
+  'SUBMITTED',
+  'ACADEMIC_REVIEW',
+  'APPROVED',
+  'PUBLISHED',
+  'ARCHIVED',
+]);
+
+const REVIEW_TRANSITIONS: Record<LearningReviewStatus, ReadonlySet<LearningReviewStatus>> = {
+  DRAFT: new Set(['SUBMITTED', 'ARCHIVED']),
+  SUBMITTED: new Set(['DRAFT', 'ACADEMIC_REVIEW', 'ARCHIVED']),
+  ACADEMIC_REVIEW: new Set(['SUBMITTED', 'APPROVED', 'ARCHIVED']),
+  APPROVED: new Set(['ACADEMIC_REVIEW', 'PUBLISHED', 'ARCHIVED']),
+  PUBLISHED: new Set(['ARCHIVED']),
+  ARCHIVED: new Set(['DRAFT']),
+};
+
 function badRequest(message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode: 400 });
+}
+
+function normalizeReviewStatus(value: string): LearningReviewStatus {
+  const normalized = value.trim().toUpperCase() as LearningReviewStatus;
+  if (!REVIEW_STATUSES.has(normalized)) throw badRequest('Invalid learning review status.');
+  return normalized;
+}
+
+function assertReviewTransition(fromStatus: string, toStatus: LearningReviewStatus): void {
+  const from = normalizeReviewStatus(fromStatus);
+  if (from === toStatus) throw badRequest(`Learning resource is already ${toStatus}.`);
+  if (!REVIEW_TRANSITIONS[from].has(toStatus)) {
+    throw badRequest(`Invalid review transition: ${from} → ${toStatus}. Follow DRAFT → SUBMITTED → ACADEMIC_REVIEW → APPROVED → PUBLISHED.`);
+  }
 }
 
 function slugify(value: string): string {
@@ -150,7 +184,10 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
 
   const boardCodes = (input.boardCodes?.length ? input.boardCodes : ['COMMON'])
     .map((code) => code.toUpperCase());
-  const requestedStatus = input.reviewStatus || 'DRAFT';
+  const requestedStatus = normalizeReviewStatus(input.reviewStatus || 'DRAFT');
+  if (requestedStatus !== 'DRAFT') {
+    throw badRequest('New learning resources must start in DRAFT and pass the review workflow before publication.');
+  }
   const slug = input.publicSlug?.trim() || slugify(input.title);
 
   return transaction(async (client) => {
@@ -171,9 +208,7 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
          ($1,$2,$3,$4,$5,$6,$7,$8::learning_resource_type,$9::learning_category,
           $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16,$17,
           $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::uuid,
-          CASE WHEN $11::learning_review_status IN ('APPROVED','PUBLISHED') THEN $27::uuid ELSE NULL::uuid END,
-          CASE WHEN $11::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE NULL::timestamptz END,
-          CASE WHEN $11::learning_review_status='PUBLISHED' THEN NOW() ELSE NULL::timestamptz END)
+          NULL::uuid,NULL::timestamptz,NULL::timestamptz)
        RETURNING id`,
       [
         slug, input.title.trim(), input.titleHi?.trim() || null, input.summary?.trim() || null,
@@ -213,13 +248,19 @@ export async function updateLearningResourceStatus(
   reviewerId: UUID,
   note?: string | null,
 ) {
+  const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+
   return transaction(async (client) => {
     const { rows: [existing] } = await client.query<{ review_status: string; visibility: string; public_slug: string | null }>(
       `SELECT review_status, visibility, public_slug FROM learning_resources WHERE id=$1::uuid FOR UPDATE`,
       [resourceId],
     );
     if (!existing) throw Object.assign(new Error('Learning resource not found'), { statusCode: 404 });
-    if (nextStatus === 'PUBLISHED' && !existing.public_slug) throw badRequest('Published resources require a public slug.');
+
+    assertReviewTransition(existing.review_status, normalizedNextStatus);
+    if (normalizedNextStatus === 'PUBLISHED' && !existing.public_slug) {
+      throw badRequest('Published resources require a public slug.');
+    }
 
     const { rows: [updated] } = await client.query(
       `UPDATE learning_resources
@@ -229,13 +270,13 @@ export async function updateLearningResourceStatus(
            published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
        WHERE id=$1::uuid
        RETURNING id, public_slug, title, review_status, visibility, published_at`,
-      [resourceId, nextStatus, reviewerId],
+      [resourceId, normalizedNextStatus, reviewerId],
     );
 
     await client.query(
       `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
        VALUES ($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5)`,
-      [resourceId, reviewerId, existing.review_status, nextStatus, note?.trim() || null],
+      [resourceId, reviewerId, existing.review_status, normalizedNextStatus, note?.trim() || null],
     );
 
     return updated;

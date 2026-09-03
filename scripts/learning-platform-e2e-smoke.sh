@@ -7,6 +7,19 @@ ADMIN_MOBILE="${ADMIN_MOBILE:-9000000000}"
 fail() { printf 'FAILED: %s\n' "$*" >&2; exit 1; }
 log() { printf '\n==> %s\n' "$*"; }
 
+advance_resource() {
+  local resource_id="$1"
+  shift
+  local status response
+  for status in "$@"; do
+    response="$(curl -fsS -X PATCH "$API_BASE/admin/learning/resources/$resource_id/status" \
+      -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+      -d "{\"status\":\"$status\",\"note\":\"CI governed review transition\"}")"
+    [[ "$(jq -r '.data.review_status' <<< "$response")" == "$status" ]] \
+      || fail "Resource $resource_id did not transition to $status"
+  done
+}
+
 log "Public Learning overview"
 OVERVIEW="$(curl -fsS "$API_BASE/public/learning/overview")"
 [[ "$(jq -r '.success' <<< "$OVERVIEW")" == "true" ]] || fail "Learning overview unsuccessful"
@@ -62,7 +75,7 @@ OPTIONS="$(curl -fsS "$API_BASE/admin/learning/options" -H "Authorization: Beare
 jq -e '.data.sources | any(.code=="VIDYASETU_ORIGINAL")' <<< "$OPTIONS" >/dev/null || fail "VidyaSetu Original source missing"
 jq -e '.data.boards | any(.code=="CBSE") and any(.code=="UPMSP")' <<< "$OPTIONS" >/dev/null || fail "Expected board options missing"
 
-log "Create and immediately publish an original cross-board article"
+log "Create original cross-board article as DRAFT and publish through governed review"
 SLUG="ci-learning-$(date +%s)-$RANDOM"
 CREATE_PAYLOAD="$(jq -n --arg slug "$SLUG" '{
   title:"CI Learning Resource",
@@ -71,7 +84,7 @@ CREATE_PAYLOAD="$(jq -n --arg slug "$SLUG" '{
   resourceType:"ARTICLE",
   category:"STUDY_SKILLS",
   visibility:"PUBLIC",
-  reviewStatus:"PUBLISHED",
+  reviewStatus:"DRAFT",
   language:"en",
   classMin:8,
   classMax:10,
@@ -84,8 +97,16 @@ CREATED="$(curl -fsS -X POST "$API_BASE/admin/learning/resources" -H "Authorizat
 RESOURCE_ID="$(jq -er '.data.id' <<< "$CREATED")"
 [[ -n "$RESOURCE_ID" ]] || fail "Learning Studio did not return a resource id"
 
+log "Reject skipped DRAFT -> PUBLISHED transition"
+SKIP_CODE="$(curl -sS -o /tmp/skipped-publication.json -w '%{http_code}' -X PATCH "$API_BASE/admin/learning/resources/$RESOURCE_ID/status" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"status":"PUBLISHED","note":"CI must prove review stages cannot be skipped"}')"
+[[ "$SKIP_CODE" == "400" ]] || fail "DRAFT -> PUBLISHED must be rejected; got HTTP $SKIP_CODE"
+
+advance_resource "$RESOURCE_ID" SUBMITTED ACADEMIC_REVIEW APPROVED PUBLISHED
+
 PUBLIC_CREATED="$(curl -fsS "$API_BASE/public/learning/resources/$SLUG")"
-[[ "$(jq -r '.data.title' <<< "$PUBLIC_CREATED")" == "CI Learning Resource" ]] || fail "Published Learning Studio resource is not public"
+[[ "$(jq -r '.data.title' <<< "$PUBLIC_CREATED")" == "CI Learning Resource" ]] || fail "Governed Learning Studio resource is not public after publication"
 jq -e '.data.board_codes | index("CBSE") and index("UPMSP")' <<< "$PUBLIC_CREATED" >/dev/null || fail "Cross-board mapping missing"
 
 log "Reject unsafe NROER import without attribution"
@@ -94,7 +115,7 @@ BAD_CODE="$(curl -sS -o /tmp/bad-nroer.json -w '%{http_code}' -X POST "$API_BASE
   -d '{"title":"Unsafe NROER copy","resourceType":"EXTERNAL_LINK","category":"ACADEMIC","visibility":"PUBLIC","sourceCode":"NROER","sourceUrl":"https://nroer.gov.in/","externalUrl":"https://nroer.gov.in/","licence":"CC_BY_SA","boardCodes":["COMMON"]}')"
 [[ "$BAD_CODE" == "400" ]] || fail "NROER resource without attribution must be rejected; got HTTP $BAD_CODE"
 
-log "Create governed NROER external reference"
+log "Create governed NROER external reference as DRAFT"
 NROER_SLUG="ci-nroer-$(date +%s)-$RANDOM"
 NROER_PAYLOAD="$(jq -n --arg slug "$NROER_SLUG" '{
   title:"CI NROER Reference",
@@ -102,7 +123,7 @@ NROER_PAYLOAD="$(jq -n --arg slug "$NROER_SLUG" '{
   resourceType:"EXTERNAL_LINK",
   category:"ACADEMIC",
   visibility:"PUBLIC",
-  reviewStatus:"PUBLISHED",
+  reviewStatus:"DRAFT",
   language:"en",
   classMin:8,
   classMax:8,
@@ -114,7 +135,9 @@ NROER_PAYLOAD="$(jq -n --arg slug "$NROER_SLUG" '{
   boardCodes:["COMMON"],
   publicSlug:$slug
 }')"
-curl -fsS -X POST "$API_BASE/admin/learning/resources" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$NROER_PAYLOAD" >/tmp/nroer-created.json
-[[ "$(jq -r '.success' /tmp/nroer-created.json)" == "true" ]] || fail "Governed NROER reference creation failed"
+NROER_CREATED="$(curl -fsS -X POST "$API_BASE/admin/learning/resources" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$NROER_PAYLOAD")"
+[[ "$(jq -r '.success' <<< "$NROER_CREATED")" == "true" ]] || fail "Governed NROER reference creation failed"
+NROER_ID="$(jq -er '.data.id' <<< "$NROER_CREATED")"
+advance_resource "$NROER_ID" SUBMITTED ACADEMIC_REVIEW APPROVED PUBLISHED
 
 printf '\nLearning Platform E2E smoke passed.\n'
