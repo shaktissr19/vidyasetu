@@ -76,7 +76,7 @@ curl -fsS -X POST "$API_BASE/student/learning/attempts/$PATTEMPT/submit" \
   -H "Authorization: Bearer $STUDENT_TOKEN" -H 'Content-Type: application/json' \
   -d "$FAIL_PAYLOAD" | jq -e '.data.status=="GRADED" and .data.percentage<60' >/dev/null || fail "Practice fixture did not fail"
 
-LEARNER_STATE="$(psqlq "SELECT mastery_state FROM student_concept_progress WHERE student_id='$STUDENT_ID' AND concept_id='$CONCEPT_ID' LIMIT 1;")"
+LEARNER_STATE="$(psqlq "SELECT state FROM student_concept_progress WHERE student_id='$STUDENT_ID' AND concept_id='$CONCEPT_ID' LIMIT 1;")"
 [[ "$LEARNER_STATE" == "NEEDS_REVIEW" ]] || fail "Expected isolated concept state NEEDS_REVIEW, got: ${LEARNER_STATE:-missing}"
 
 log "Grounded Tutor uses published VidyaSetu source and mastery context"
