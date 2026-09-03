@@ -203,6 +203,20 @@ export async function markNotifRead(req: Request, res: Response, next: NextFunct
   } catch (err: unknown) { next(err); }
 }
 
+export async function markAllNotifRead(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    const result = await query(
+      `UPDATE notifications
+       SET is_read = TRUE, read_at = COALESCE(read_at, NOW())
+       WHERE user_id = $1 AND is_read = FALSE`,
+      [user.userId],
+    );
+    return R.ok(res, { message: 'All notifications marked as read', updatedCount: result.rowCount || 0 });
+  } catch (err: unknown) { next(err); }
+}
+
 export async function getOfflineDownloads(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     const user = req.user;
