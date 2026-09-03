@@ -15,6 +15,7 @@ const ADMIN_MENU = (t: Translate) => [
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
   { href: '/school/classes', icon: '🏷️', label: t('कक्षाएँ और सेक्शन', 'Classes & Sections') },
   { href: '/school/teachers', icon: '👩‍🏫', label: t('शिक्षक', 'Teachers') },
+  { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/fees', icon: '💰', label: t('फीस', 'Fees') },
   { href: '/school/timetable', icon: '🗓️', label: t('टाइमटेबल', 'Timetable') },
@@ -30,6 +31,7 @@ const ADMIN_MENU = (t: Translate) => [
 const TEACHER_MENU = (t: Translate) => [
   { href: '/school/overview', icon: '🏠', label: t('ओवरव्यू', 'Overview'), exact: true },
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
+  { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/timetable', icon: '🗓️', label: t('टाइमटेबल', 'Timetable') },
   { href: '/school/homework', icon: '📝', label: t('होमवर्क', 'Homework') },
