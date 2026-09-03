@@ -74,26 +74,30 @@ export default function SubjectsPage() {
       ) : (
         <div>
           <div className="card mb-5" style={{ borderLeft: `4px solid ${SUBJECT_COLORS[selected.code] || 'var(--saffron)'}` }}>
-            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--navy)' }}>{selected.name}</h2>
-            <p className="text-sm" style={{ color: 'var(--slate)' }}>{selected.chapter_count || 0} chapters · Class {className}</p>
+            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--navy)' }}>{t(selected.name_hi || '', selected.name)}</h2>
+            <p className="text-sm" style={{ color: 'var(--slate)' }}>{selected.chapter_count || 0} {t('अध्याय', 'chapters')} · {t(`कक्षा ${className}`, `Class ${className}`)}</p>
           </div>
 
           {chapLoading ? (
             <div className="space-y-3">{[...Array(5)].map((_, i) => <CardSkeleton key={i} />)}</div>
           ) : chapters.length === 0 ? (
-            <EmptyState icon="📭" title="No chapters yet" subtitle="Content coming soon!" />
+            <EmptyState icon="📭" title={t('अभी कोई अध्याय नहीं', 'No chapters yet')} subtitle={t('सामग्री जल्द आएगी', 'Content coming soon!')} />
           ) : (
             <div className="space-y-3 stagger">
               {chapters.map(ch => (
-                <div key={ch.id} className="card flex items-center gap-4 hover:shadow-md transition-all cursor-pointer animate-fade-up" onClick={() => router.push(`/subjects/${ch.id}`)}>
+                <div
+                  key={ch.id}
+                  className="card flex items-center gap-4 hover:shadow-md transition-all cursor-pointer animate-fade-up"
+                  onClick={() => router.push(`/subjects/${selected.id}?chapter=${ch.id}`)}
+                >
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-extrabold text-lg flex-shrink-0" style={{ background: 'var(--saffron-pale)', color: 'var(--saffron)' }}>{ch.chapter_number}</div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: 'var(--navy)' }}>{ch.title}</p>
+                    <p className="font-semibold text-sm" style={{ color: 'var(--navy)' }}>{t(ch.title_hi || '', ch.title)}</p>
                     {ch.title_hi && <p className="text-xs font-devanagari" style={{ color: 'var(--slate)' }}>{ch.title_hi}</p>}
                     <div className="flex items-center gap-3 mt-1">
-                      {Number(ch.video_count || 0) > 0 && <span className="text-xs" style={{ color: 'var(--slate)' }}>🎥 {ch.video_count} videos</span>}
-                      {Number(ch.quiz_count || 0) > 0 && <span className="text-xs" style={{ color: 'var(--slate)' }}>📝 {ch.quiz_count} quizzes</span>}
-                      {ch.estimated_mins && <span className="text-xs" style={{ color: 'var(--slate)' }}>⏱ {ch.estimated_mins} min</span>}
+                      {Number(ch.video_count || 0) > 0 && <span className="text-xs" style={{ color: 'var(--slate)' }}>🎥 {ch.video_count} {t('वीडियो', 'videos')}</span>}
+                      {Number(ch.quiz_count || 0) > 0 && <span className="text-xs" style={{ color: 'var(--slate)' }}>📝 {ch.quiz_count} {t('क्विज़', 'quizzes')}</span>}
+                      {ch.estimated_mins && <span className="text-xs" style={{ color: 'var(--slate)' }}>⏱ {ch.estimated_mins} {t('मिनट', 'min')}</span>}
                     </div>
                   </div>
                   <span className="text-gray-300 text-lg">›</span>
