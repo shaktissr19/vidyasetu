@@ -4,7 +4,7 @@ import * as controller from '../controllers/homework.controller';
 import * as targetsController from '../controllers/homeworkTargets.controller';
 
 const router = Router();
-router.use(authenticate, authorize('SCHOOL_ADMIN', 'TEACHER'));
+router.use(authenticate, authorize('SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'));
 
 router.get('/targets', targetsController.getTargets);
 router.get('/', controller.listSchool);
