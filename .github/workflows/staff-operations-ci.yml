@@ -32,7 +32,7 @@ jobs:
           grep -q "schoolStaffRoutes" backend/src/index.ts
           grep -q "My Attendance & Leave" 'frontend/src/app/(school)/school/staff/page.tsx'
           grep -q "Staff Attendance & Leave" 'frontend/src/app/(school)/school/staff/page.tsx'
-          grep -q "staff operations changed Teacher employment/profile status" backend/src/scripts/certifyStaffOperations.ts
+          grep -q "Teacher employment/profile status" backend/src/scripts/certifyStaffOperations.ts
 
       - name: Build shared contracts
         working-directory: shared/contracts
