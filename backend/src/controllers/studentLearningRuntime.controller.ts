@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
 import * as studentConceptMasteryService from '../services/studentConceptMastery.service';
 import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
+import * as studentAdaptiveIntelligenceService from '../services/studentAdaptiveIntelligence.service';
 import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
 import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
 import logger = require('../utils/logger');
@@ -15,7 +16,8 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
       studentLearningHubService.getLearningHome(user.userId),
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
     ]);
-    const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const adaptivePlan = await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan);
     return R.ok(res, { ...home, conceptMastery, adaptivePlan });
   } catch (err: unknown) { next(err); }
 }
@@ -25,7 +27,8 @@ export async function getAdaptiveLearningPlan(req: Request, res: Response, next:
     const user = req.user;
     if (!user) return R.unauthorized(res);
     const conceptMastery = await studentConceptMasteryService.getStudentConceptMastery(user.userId);
-    const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const adaptivePlan = await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan);
     return R.ok(res, adaptivePlan);
   } catch (err: unknown) { next(err); }
 }
