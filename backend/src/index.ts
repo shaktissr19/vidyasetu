@@ -29,6 +29,7 @@ import parentTransportRoutes = require('./routes/parentTransport.routes');
 import parentDocumentsRoutes = require('./routes/parentDocuments.routes');
 import adminRoutes = require('./routes/admin.routes');
 import adminLearningRoutes = require('./routes/adminLearning.routes');
+import adminLearningPrerequisitesRoutes = require('./routes/adminLearningPrerequisites.routes');
 import competitionRoutes = require('./routes/competition.routes');
 import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
@@ -90,6 +91,8 @@ app.use(`${API}/parent/transport`, parentTransportRoutes);
 app.use(`${API}/parent/documents`, parentDocumentsRoutes);
 app.use(`${API}/parent`, parentRoutes);
 app.use(`${API}/admin/grievances`, adminGrievanceRoutes);
+// Specific prerequisite governance is mounted before the broader Learning Studio router.
+app.use(`${API}/admin/learning`, adminLearningPrerequisitesRoutes);
 app.use(`${API}/admin/learning`, adminLearningRoutes);
 app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/competition`, competitionRoutes);
