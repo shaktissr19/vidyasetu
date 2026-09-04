@@ -60,6 +60,34 @@ interface GateRow extends QueryResultRow {
   reviewed_at: string | Date | null;
 }
 
+interface ConceptCoverageRow extends QueryResultRow {
+  id: UUID;
+  code: string;
+  name: string;
+  name_hi: string | null;
+  node_type: string;
+  academic_year: string;
+  subject_code: string;
+  chapter_code: string | null;
+  chapter_title: string | null;
+  registry_status: string;
+  sequence: number;
+  learning_outcome: string | null;
+  learning_outcome_hi: string | null;
+  grade_code: string;
+  grade_name: string;
+  class_number: number | null;
+  subject_name: string;
+}
+
+export interface ConceptCoverageItem extends ConceptCoverageRow {
+  readiness: {
+    score: number;
+    learnerReady: boolean;
+    blockers: string[];
+  };
+}
+
 function appError(message: string, statusCode = 400): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
 }
@@ -354,7 +382,7 @@ export async function setQualityGate(
   return row;
 }
 
-export async function listConceptCoverage(filters: { classNumber?: number | null; subjectCode?: string | null } = {}) {
+export async function listConceptCoverage(filters: { classNumber?: number | null; subjectCode?: string | null } = {}): Promise<ConceptCoverageItem[]> {
   const values: unknown[] = [];
   const conditions = ['lc.is_active=TRUE'];
   if (filters.classNumber) {
@@ -365,7 +393,7 @@ export async function listConceptCoverage(filters: { classNumber?: number | null
     values.push(filters.subjectCode.toUpperCase());
     conditions.push(`lc.subject_code=$${values.length}`);
   }
-  const { rows } = await query<QueryResultRow>(
+  const { rows } = await query<ConceptCoverageRow>(
     `SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.node_type,lc.academic_year,lc.subject_code,lc.chapter_code,lc.chapter_title,
             lc.registry_status,lc.sequence,lc.learning_outcome,lc.learning_outcome_hi,
             egl.code AS grade_code,egl.name AS grade_name,egl.class_number,
@@ -378,9 +406,9 @@ export async function listConceptCoverage(filters: { classNumber?: number | null
      LIMIT 1000`,
     values,
   );
-  const result = [];
+  const result: ConceptCoverageItem[] = [];
   for (const row of rows) {
-    const readiness = await getConceptReadiness(row.id as UUID);
+    const readiness = await getConceptReadiness(row.id);
     result.push({ ...row, readiness: {
       score: readiness.score,
       learnerReady: readiness.readyForPublication && readiness.score >= 90,
