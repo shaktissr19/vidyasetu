@@ -196,6 +196,11 @@ export interface AttendanceRosterRow {
   name: string;
   attendance_status?: string | null;
   remark?: string | null;
+  approved_leave?: boolean;
+  leave_request_id?: string | null;
+  leave_reason?: string | null;
+  school_closed?: boolean;
+  closure_title?: string | null;
 }
 
 export interface AttendanceSummaryRow {
@@ -207,6 +212,7 @@ export interface AttendanceSummaryRow {
   absent: number | string;
   late: number | string;
   half_day: number | string;
+  excused?: number | string;
   holiday?: number | string;
 }
 
