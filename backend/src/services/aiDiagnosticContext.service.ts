@@ -1,6 +1,7 @@
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query } from '../config/db';
+import { diagnosticIntelligenceAvailable } from './studentDiagnosticRuntime.service';
 
 export interface AIDiagnosticContext {
   conceptId: UUID;
@@ -33,11 +34,15 @@ interface ContextRow extends QueryResultRow {
 /**
  * Returns only explainable learner evidence for the authenticated Student.
  * The caller already owns studentId; no broader learner lookup is performed.
+ * If migrations 037/038 have not yet been activated, the established tutor
+ * continues without diagnostic context rather than failing the chat.
  */
 export async function getAIDiagnosticContext(
   studentId: UUID,
   conceptCode?: string | null,
 ): Promise<AIDiagnosticContext | null> {
+  if (!(await diagnosticIntelligenceAvailable())) return null;
+
   const values: unknown[] = [studentId];
   const conceptFilter = conceptCode?.trim()
     ? (values.push(conceptCode.trim()), `AND lc.code=$${values.length}`)
