@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as learningService from '../services/publicLearning.service';
 import * as catalogueService from '../services/publicLearningCatalogueV2.service';
+import * as filterOptionsService from '../services/publicLearningFilterOptions.service';
 import * as practiceService from '../services/publicLearningPractice.service';
 import * as R from '../utils/response';
 
@@ -36,6 +37,13 @@ export async function overview(_req: Request, res: Response, next: NextFunction)
   try {
     freshLearningResponse(res);
     return R.ok(res, await learningService.getPublicLearningOverview());
+  } catch (error: unknown) { next(error); }
+}
+
+export async function filterOptions(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    freshLearningResponse(res);
+    return R.ok(res, await filterOptionsService.getPublicLearningFilterOptions());
   } catch (error: unknown) { next(error); }
 }
 
