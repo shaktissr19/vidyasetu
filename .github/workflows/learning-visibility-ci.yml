@@ -84,7 +84,8 @@ jobs:
             024_student_global_grade_sync.sql \
             026_learning_concepts_mastery.sql \
             027_student_concept_mastery_runtime.sql \
-            028_grounded_ai_doubt_resolution.sql; do
+            028_grounded_ai_doubt_resolution.sql \
+            036_learning_content_quality_governance.sql; do
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
 
