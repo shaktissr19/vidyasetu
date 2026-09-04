@@ -4,11 +4,57 @@ import * as learningService from '../services/adminLearning.service';
 import * as practiceService from '../services/adminLearningPractice.service';
 import * as importService from '../services/adminLearningImport.service';
 import * as reviewService from '../services/adminLearningReview.service';
+import * as qualityService from '../services/learningQuality.service';
 import * as R from '../utils/response';
 
 export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await learningService.getLearningStudioOptions()); }
   catch (error: unknown) { next(error); }
+}
+
+export async function concepts(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const parsedClass = typeof req.query.class === 'string' ? Number.parseInt(req.query.class, 10) : null;
+    const classNumber = Number.isFinite(parsedClass) ? parsedClass : null;
+    const subjectCode = typeof req.query.subject === 'string' ? req.query.subject : null;
+    return R.ok(res, await learningService.listLearningConcepts(classNumber, subjectCode));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function coverage(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const parsedClass = typeof req.query.class === 'string' ? Number.parseInt(req.query.class, 10) : null;
+    const classNumber = Number.isFinite(parsedClass) ? parsedClass : null;
+    const subjectCode = typeof req.query.subject === 'string' ? req.query.subject : null;
+    return R.ok(res, await qualityService.getCoverageSummary({ classNumber, subjectCode }));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function readiness(
+  req: Request<{ entityType: string; entityId: UUID }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try { return R.ok(res, await qualityService.getEntityReadiness(req.params.entityType, req.params.entityId)); }
+  catch (error: unknown) { next(error); }
+}
+
+export async function setQualityGate(
+  req: Request<{ entityType: string; entityId: UUID; gateCode: string }, unknown, { status: string; note?: string | null }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await qualityService.setQualityGate(
+      req.params.entityType,
+      req.params.entityId,
+      req.params.gateCode,
+      req.body.status,
+      req.user.userId,
+      req.body.note,
+    ));
+  } catch (error: unknown) { next(error); }
 }
 
 export async function resources(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {

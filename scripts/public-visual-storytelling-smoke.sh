@@ -87,7 +87,7 @@ require_text "$LEARN" 'Load 6 more' 'Learning must preserve load-more behavior'
 require_text "$LEARN" 'View all learning' 'Learning must preserve catalogue navigation'
 require_text "$LEARN" 'getPublicLearningResources' 'Learning resources must remain API-backed'
 require_text "$LEARN" 'getPublicLearningAssessments' 'Learning practice must remain API-backed'
-require_text "$CATALOGUE" '<SubjectVisual input={resource} selectedGrade={grade}' 'Catalogue fallback must stay grade-aware'
+require_text "$CATALOGUE" 'selectedGrade={grade || undefined}' 'Catalogue fallback must stay grade-aware'
 
 printf '==> Competition and auth preservation\n'
 require_text "$COMPETITION" 'listCompetitions()' 'Competition listing must remain intact'

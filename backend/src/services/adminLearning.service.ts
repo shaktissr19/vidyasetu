@@ -1,6 +1,14 @@
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
+import { getResourceReadiness } from './learningQuality.service';
+
+export interface LearningConceptMappingInput {
+  conceptId: UUID;
+  journeyStage: 'SEE' | 'UNDERSTAND' | 'DO' | 'PRACTISE' | 'APPLY' | 'REVISE';
+  isPrimary?: boolean;
+  sortOrder?: number;
+}
 
 export interface SaveLearningResourceInput {
   title: string;
@@ -30,6 +38,7 @@ export interface SaveLearningResourceInput {
   isFeaturedPublic?: boolean;
   boardCodes?: string[];
   publicSlug?: string | null;
+  conceptMappings?: LearningConceptMappingInput[];
 }
 
 interface SourceRow extends QueryResultRow {
@@ -148,9 +157,37 @@ export async function getLearningStudioOptions() {
   return { boards: boards.rows, sources: sources.rows };
 }
 
+export async function listLearningConcepts(classNumber?: number | null, subjectCode?: string | null) {
+  const values: unknown[] = [];
+  const conditions = ['lc.is_active=TRUE'];
+  if (classNumber) {
+    values.push(classNumber);
+    conditions.push(`egl.class_number=$${values.length}`);
+  }
+  if (subjectCode?.trim()) {
+    values.push(subjectCode.trim().toUpperCase());
+    conditions.push(`lc.subject_code=$${values.length}`);
+  }
+  const { rows } = await query(
+    `SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.node_type,lc.academic_year,lc.subject_code,
+            lc.chapter_code,lc.chapter_title,lc.registry_status,lc.sequence,
+            lc.learning_outcome,lc.learning_outcome_hi,
+            egl.code AS grade_code,egl.name AS grade_name,egl.class_number,
+            COALESCE(sub.name,lc.subject_code) AS subject_name
+     FROM learning_concepts lc
+     JOIN education_grade_levels egl ON egl.id=lc.grade_id
+     LEFT JOIN subjects sub ON sub.id=lc.subject_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY egl.sort_order,lc.subject_code,lc.sequence,lc.code
+     LIMIT 1500`,
+    values,
+  );
+  return rows;
+}
+
 export async function listLearningResources() {
   const { rows } = await query(
-    `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,
+    `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,lr.summary_hi,
             lr.resource_type, lr.category, lr.visibility, lr.review_status,
             lr.language, lr.class_min, lr.class_max, lr.licence,
             lr.source_url, lr.external_url, lr.attribution_text,
@@ -159,11 +196,13 @@ export async function listLearningResources() {
             COALESCE(
               ARRAY_AGG(DISTINCT eb.code) FILTER (WHERE eb.code IS NOT NULL),
               ARRAY[]::varchar[]
-            ) AS board_codes
+            ) AS board_codes,
+            COUNT(DISTINCT lrc.concept_id)::int AS concept_count
      FROM learning_resources lr
      JOIN learning_content_sources lcs ON lcs.id=lr.source_id
      LEFT JOIN learning_resource_boards lrb ON lrb.resource_id=lr.id
      LEFT JOIN education_boards eb ON eb.id=lrb.board_id
+     LEFT JOIN learning_resource_concepts lrc ON lrc.resource_id=lr.id
      GROUP BY lr.id, lcs.id
      ORDER BY lr.updated_at DESC
      LIMIT 250`,
@@ -189,6 +228,7 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
     throw badRequest('New learning resources must start in DRAFT and pass the review workflow before publication.');
   }
   const slug = input.publicSlug?.trim() || slugify(input.title);
+  const conceptMappings = input.conceptMappings || [];
 
   return transaction(async (client) => {
     const { rows: boards } = await client.query<{ id: UUID; code: string }>(
@@ -196,6 +236,15 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
       [boardCodes],
     );
     if (boards.length !== new Set(boardCodes).size) throw badRequest('One or more selected board codes are invalid.');
+
+    if (conceptMappings.length) {
+      const uniqueConceptIds = [...new Set(conceptMappings.map((mapping) => mapping.conceptId))];
+      const { rows: concepts } = await client.query<{ id: UUID }>(
+        `SELECT id FROM learning_concepts WHERE id=ANY($1::uuid[]) AND is_active=TRUE`,
+        [uniqueConceptIds],
+      );
+      if (concepts.length !== uniqueConceptIds.length) throw badRequest('One or more selected canonical concepts are invalid.');
+    }
 
     const { rows: [resource] } = await client.query<ResourceIdRow>(
       `INSERT INTO learning_resources
@@ -232,6 +281,16 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
       );
     }
 
+    for (const mapping of conceptMappings) {
+      await client.query(
+        `INSERT INTO learning_resource_concepts(resource_id,concept_id,is_primary,sort_order,journey_stage)
+         VALUES($1::uuid,$2::uuid,$3,$4,$5::learning_journey_stage)
+         ON CONFLICT(resource_id,concept_id) DO UPDATE SET
+           is_primary=EXCLUDED.is_primary,sort_order=EXCLUDED.sort_order,journey_stage=EXCLUDED.journey_stage`,
+        [resource.id, mapping.conceptId, mapping.isPrimary !== false, mapping.sortOrder || 0, mapping.journeyStage],
+      );
+    }
+
     await client.query(
       `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
        VALUES ($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`,
@@ -249,6 +308,16 @@ export async function updateLearningResourceStatus(
   note?: string | null,
 ) {
   const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+
+  const readiness = ['APPROVED', 'PUBLISHED'].includes(normalizedNextStatus)
+    ? await getResourceReadiness(resourceId)
+    : null;
+  if (normalizedNextStatus === 'APPROVED' && readiness && !readiness.readyForApproval) {
+    throw badRequest(`Resource is not ready for approval: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  }
+  if (normalizedNextStatus === 'PUBLISHED' && readiness && !readiness.readyForPublication) {
+    throw badRequest(`Resource is not publish-ready: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  }
 
   return transaction(async (client) => {
     const { rows: [existing] } = await client.query<{ review_status: string; visibility: string; public_slug: string | null }>(

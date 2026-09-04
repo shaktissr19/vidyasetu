@@ -20,6 +20,16 @@ advance_resource() {
   done
 }
 
+assert_quality_blocks_approval() {
+  local resource_id="$1"
+  local code
+  code="$(curl -sS -o /tmp/quality-blocked-approval.json -w '%{http_code}' -X PATCH \
+    "$API_BASE/admin/learning/resources/$resource_id/status" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+    -d '{"status":"APPROVED","note":"CI expects incomplete content to remain blocked"}')"
+  [[ "$code" == "400" ]] || fail "Incomplete resource approval must be quality-blocked; got HTTP $code"
+}
+
 log "Public Learning overview"
 OVERVIEW="$(curl -fsS "$API_BASE/public/learning/overview")"
 [[ "$(jq -r '.success' <<< "$OVERVIEW")" == "true" ]] || fail "Learning overview unsuccessful"
@@ -75,7 +85,7 @@ OPTIONS="$(curl -fsS "$API_BASE/admin/learning/options" -H "Authorization: Beare
 jq -e '.data.sources | any(.code=="VIDYASETU_ORIGINAL")' <<< "$OPTIONS" >/dev/null || fail "VidyaSetu Original source missing"
 jq -e '.data.boards | any(.code=="CBSE") and any(.code=="UPMSP")' <<< "$OPTIONS" >/dev/null || fail "Expected board options missing"
 
-log "Create original cross-board article as DRAFT and publish through governed review"
+log "Create incomplete original cross-board article as DRAFT"
 SLUG="ci-learning-$(date +%s)-$RANDOM"
 CREATE_PAYLOAD="$(jq -n --arg slug "$SLUG" '{
   title:"CI Learning Resource",
@@ -103,11 +113,14 @@ SKIP_CODE="$(curl -sS -o /tmp/skipped-publication.json -w '%{http_code}' -X PATC
   -d '{"status":"PUBLISHED","note":"CI must prove review stages cannot be skipped"}')"
 [[ "$SKIP_CODE" == "400" ]] || fail "DRAFT -> PUBLISHED must be rejected; got HTTP $SKIP_CODE"
 
-advance_resource "$RESOURCE_ID" SUBMITTED ACADEMIC_REVIEW APPROVED PUBLISHED
-
-PUBLIC_CREATED="$(curl -fsS "$API_BASE/public/learning/resources/$SLUG")"
-[[ "$(jq -r '.data.title' <<< "$PUBLIC_CREATED")" == "CI Learning Resource" ]] || fail "Governed Learning Studio resource is not public after publication"
-jq -e '.data.board_codes | index("CBSE") and index("UPMSP")' <<< "$PUBLIC_CREATED" >/dev/null || fail "Cross-board mapping missing"
+log "Old review stages still work, but Learning 2.0 quality gates prevent incomplete approval"
+advance_resource "$RESOURCE_ID" SUBMITTED ACADEMIC_REVIEW
+assert_quality_blocks_approval "$RESOURCE_ID"
+READINESS="$(curl -fsS "$API_BASE/admin/learning/readiness/RESOURCE/$RESOURCE_ID" -H "Authorization: Bearer $TOKEN")"
+jq -e '.success == true and .data.readyForApproval == false and (.data.blockers | length > 0)' <<< "$READINESS" >/dev/null \
+  || fail "Readiness endpoint must explain why incomplete content cannot be approved"
+PUBLIC_CODE="$(curl -sS -o /tmp/unpublished-learning.json -w '%{http_code}' "$API_BASE/public/learning/resources/$SLUG")"
+[[ "$PUBLIC_CODE" == "404" ]] || fail "Incomplete review content must not be public; got HTTP $PUBLIC_CODE"
 
 log "Reject unsafe NROER import without attribution"
 BAD_CODE="$(curl -sS -o /tmp/bad-nroer.json -w '%{http_code}' -X POST "$API_BASE/admin/learning/resources" \
@@ -138,6 +151,7 @@ NROER_PAYLOAD="$(jq -n --arg slug "$NROER_SLUG" '{
 NROER_CREATED="$(curl -fsS -X POST "$API_BASE/admin/learning/resources" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$NROER_PAYLOAD")"
 [[ "$(jq -r '.success' <<< "$NROER_CREATED")" == "true" ]] || fail "Governed NROER reference creation failed"
 NROER_ID="$(jq -er '.data.id' <<< "$NROER_CREATED")"
-advance_resource "$NROER_ID" SUBMITTED ACADEMIC_REVIEW APPROVED PUBLISHED
+advance_resource "$NROER_ID" SUBMITTED ACADEMIC_REVIEW
+assert_quality_blocks_approval "$NROER_ID"
 
-printf '\nLearning Platform E2E smoke passed.\n'
+printf '\nLearning Platform Phase 1 regression smoke passed under Learning 2.0 governance.\n'

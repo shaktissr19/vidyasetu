@@ -2,6 +2,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import * as ctrl from '../controllers/adminLearning.controller';
+import * as qualityCtrl from '../controllers/learningQualityAdmin.controller';
+import * as mediaCtrl from '../controllers/adminLearningMedia.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -13,6 +15,13 @@ const importUpload = multer({
 
 router.use(authenticate);
 router.use(authorize('SUPER_ADMIN'));
+
+const conceptMappingSchema = z.object({
+  conceptId: z.string().uuid(),
+  journeyStage: z.enum(['SEE','UNDERSTAND','DO','PRACTISE','APPLY','REVISE']),
+  isPrimary: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(500).optional(),
+});
 
 const resourceSchema = z.object({
   title: z.string().trim().min(3).max(300),
@@ -42,6 +51,7 @@ const resourceSchema = z.object({
   isFeaturedPublic: z.boolean().optional(),
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   publicSlug: z.string().trim().min(3).max(180).regex(/^[a-z0-9-]+$/).nullable().optional(),
+  conceptMappings: z.array(conceptMappingSchema).max(12).optional(),
 });
 
 const statusSchema = z.object({
@@ -71,6 +81,13 @@ const questionSchema = z.object({
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   options: z.array(z.object({ key: z.string().trim().min(1).max(10), text: z.string().trim().min(1).max(2000), textHi: z.string().trim().max(2000).nullable().optional() })).max(12).optional(),
+  conceptIds: z.array(z.string().uuid()).max(12).optional(),
+  cognitiveSkill: z.enum(['REMEMBER','UNDERSTAND','APPLY','ANALYSE','EVALUATE','CREATE']).optional(),
+  skillCode: z.string().trim().max(120).nullable().optional(),
+  learningOutcomeCode: z.string().trim().max(160).nullable().optional(),
+  misconceptionCode: z.string().trim().max(160).nullable().optional(),
+  misconceptionText: z.string().trim().max(3000).nullable().optional(),
+  misconceptionTextHi: z.string().trim().max(3000).nullable().optional(),
 });
 
 const assessmentSchema = z.object({
@@ -91,6 +108,25 @@ const assessmentSchema = z.object({
   isFeaturedPublic: z.boolean().optional(),
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   questionIds: z.array(z.string().uuid()).min(1).max(200),
+  conceptIds: z.array(z.string().uuid()).max(30).optional(),
+});
+
+const conceptMetadataSchema = z.object({
+  nameHi: z.string().trim().max(300).nullable().optional(),
+  description: z.string().trim().max(8000).nullable().optional(),
+  descriptionHi: z.string().trim().max(8000).nullable().optional(),
+  learningOutcome: z.string().trim().max(4000).nullable().optional(),
+  learningOutcomeHi: z.string().trim().max(4000).nullable().optional(),
+}).refine((value) => Object.keys(value).length > 0, { message: 'At least one concept metadata field is required' });
+
+const qualityGateSchema = z.object({
+  status: z.enum(['PENDING','PASS','FAIL','NOT_APPLICABLE']),
+  note: z.string().trim().max(3000).nullable().optional(),
+});
+
+const mediaUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(240),
+  contentType: z.enum(['video/mp4','audio/mpeg','audio/mp4','audio/wav','application/pdf','image/png','image/jpeg','image/webp']),
 });
 
 const intakeSchema = z.object({
@@ -111,6 +147,13 @@ const intakeStatusSchema = z.object({
 });
 
 router.get('/options', ctrl.options);
+router.get('/concepts', qualityCtrl.concepts);
+router.patch('/concepts/:conceptId', validate(conceptMetadataSchema), qualityCtrl.updateConcept);
+router.get('/coverage', qualityCtrl.coverage);
+router.get('/readiness/:entityType/:entityId', qualityCtrl.readiness);
+router.put('/quality/:entityType/:entityId/:gateCode', validate(qualityGateSchema), qualityCtrl.setQualityGate);
+router.post('/media/upload-url', validate(mediaUploadSchema), mediaCtrl.uploadUrl);
+
 router.get('/resources', ctrl.resources);
 router.get('/review-packs', ctrl.reviewPacks);
 router.get('/review/pressure-v1', ctrl.pressureReview);
