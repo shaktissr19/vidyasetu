@@ -79,13 +79,13 @@ interface StaffRosterDbRow extends QueryResultRow {
   leave_reason: string | null;
   approved_leave: boolean;
 }
-export interface StaffRosterRow extends StaffRosterDbRow {
+export type StaffRosterRow = Omit<StaffRosterDbRow, 'attendance_status' | 'remark'> & {
   attendance_status: StaffAttendanceStatus | '';
   remark: string | null;
   operational_availability: 'SCHOOL_CLOSED' | 'APPROVED_LEAVE' | 'RECORDED' | 'WORKING';
   school_closed: boolean;
   closure_title: string | null;
-}
+};
 
 function httpError(message: string, statusCode: number): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
