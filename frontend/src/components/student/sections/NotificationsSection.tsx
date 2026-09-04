@@ -23,6 +23,7 @@ function iconFor(type: string): string {
   if (type.includes('EXAM')) return '🏆';
   if (type.includes('ANNOUNCEMENT')) return '📢';
   if (type.includes('DOUBT')) return '💬';
+  if (type.includes('PTM')) return '🤝';
   if (type.includes('REPORT') || type.includes('RESULT')) return '📄';
   if (type.includes('LEARNING')) return '📚';
   return '🔔';
@@ -41,6 +42,7 @@ function destinationFor(item: StudentNotification): StudentSectionId | null {
   if (referenceType.includes('EXAM') || type.includes('EXAM') || type.includes('COMPETITION')) return 'exams';
   if (referenceType.includes('DOUBT') || type.includes('DOUBT')) return 'doubts';
   if (referenceType.includes('ATTENDANCE') || type.includes('ATTENDANCE')) return 'attendance';
+  if (referenceType.includes('PTM') || type.includes('PTM')) return 'ptm';
   if (referenceType.includes('REPORT') || referenceType.includes('RESULT') || type.includes('REPORT') || type.includes('RESULT')) return 'report';
   if (referenceType.includes('LEARNING') || type.includes('LEARNING') || type.includes('CONTENT')) return 'subjects';
   if (referenceType.includes('SCHOOL') || type.includes('ANNOUNCEMENT') || type.includes('SCHOOL') || type.includes('FEE')) return 'school';
