@@ -38,7 +38,7 @@ pass_resource_gates(){
 
 pass_question_gates(){
   local id="$1" token="$2"
-  for gate in ACADEMIC_ACCURACY AGE_APPROPRIATENESS ENGLISH_QUALITY HINDI_QUALITY LEARNING_OUTCOME_ALIGNMENT; do
+  for gate in ACADEMIC_ACCURACY AGE_APPROPRIATENESS ENGLISH_QUALITY HINDI_QUALITY COPYRIGHT_LICENSING; do
     set_gate QUESTION "$id" "$gate" "$token"
   done
 }
