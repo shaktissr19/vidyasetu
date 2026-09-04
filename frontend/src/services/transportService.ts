@@ -84,7 +84,7 @@ export const createVehicle = (payload: {
   driverName: string; driverPhone: string; attendantName?: string; attendantPhone?: string;
 }) => api.post<ApiEnvelope<TransportVehicle>>('/school/transport/vehicles', payload);
 export const getRoutes = () => api.get<ApiEnvelope<TransportRoute[]>>('/school/transport/routes');
-export const createRoute = (payload: { routeCode: string; name: string; vehicleId?: string; morningStart?: string; afternoonStart?: string }) =>
+export const createRoute = (payload: { routeCode: string; name: string; vehicleId: string; morningStart?: string; afternoonStart?: string }) =>
   api.post<ApiEnvelope<TransportRoute>>('/school/transport/routes', payload);
 export const createStop = (routeId: string, payload: { name: string; address?: string; sequenceNo: number; pickupTime?: string; dropTime?: string }) =>
   api.post<ApiEnvelope<TransportStop>>(`/school/transport/routes/${routeId}/stops`, payload);
