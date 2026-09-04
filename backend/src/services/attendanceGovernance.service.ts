@@ -5,8 +5,47 @@ import * as schoolService from './school.service';
 import { resolveAttendanceRecords, type AttendanceCandidate } from './absenceCalendar.service';
 
 interface ClosedDayRow extends QueryResultRow { title: string; }
+interface GovernanceSchemaRow extends QueryResultRow {
+  leave_table: boolean;
+  calendar_table: boolean;
+  calendar_class_table: boolean;
+  excused_status: boolean;
+}
+
+/**
+ * The attendance routes pre-date migration 029 and must remain operational while
+ * application code and the additive database migration are rolled out separately.
+ * This probe deliberately stays uncached so a long-running process begins using the
+ * governed path immediately after migration 029 is applied, without a restart.
+ */
+async function governanceSchemaReady(): Promise<boolean> {
+  const { rows: [row] } = await query<GovernanceSchemaRow>(
+    `SELECT
+       to_regclass('public.student_leave_requests') IS NOT NULL AS leave_table,
+       to_regclass('public.school_calendar_events') IS NOT NULL AS calendar_table,
+       to_regclass('public.school_calendar_event_classes') IS NOT NULL AS calendar_class_table,
+       EXISTS (
+         SELECT 1 FROM pg_enum e
+         JOIN pg_type t ON t.oid=e.enumtypid
+         WHERE t.typname='attendance_status' AND e.enumlabel='EXCUSED'
+       ) AS excused_status`,
+  );
+  return Boolean(row?.leave_table && row?.calendar_table && row?.calendar_class_table && row?.excused_status);
+}
 
 export async function getRoster(schoolId: UUID, classId: UUID, date: string) {
+  if (!(await governanceSchemaReady())) {
+    const legacyRows = await schoolService.getAttendanceRoster(schoolId, classId, date);
+    return legacyRows.map((row) => ({
+      ...row,
+      approved_leave: false,
+      leave_request_id: null,
+      leave_reason: null,
+      school_closed: false,
+      closure_title: null,
+    }));
+  }
+
   const { rows } = await query(
     `SELECT st.id,st.student_code,st.roll_number,u.name,
             COALESCE(a.status::text,
@@ -41,6 +80,8 @@ export async function getRoster(schoolId: UUID, classId: UUID, date: string) {
 }
 
 export async function getSummary(schoolId: UUID, date: string) {
+  if (!(await governanceSchemaReady())) return schoolService.getAttendanceSummary(schoolId, date);
+
   const { rows } = await query(
     `SELECT sc.id,sc.class_name,sc.section,
             COUNT(st.id) FILTER(WHERE st.status='ACTIVE' AND st.school_link_status='APPROVED')::INT AS total_students,
@@ -67,6 +108,9 @@ export async function mark(
   records: AttendanceCandidate[],
   markedBy: UUID,
 ) {
+  if (!(await governanceSchemaReady())) {
+    return schoolService.markAttendance(schoolId, classId, date, records, markedBy);
+  }
   const resolved = await resolveAttendanceRecords(schoolId, classId, date, records);
   return schoolService.markAttendance(schoolId, classId, date, resolved, markedBy);
 }
