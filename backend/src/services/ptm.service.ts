@@ -250,7 +250,7 @@ export async function listParentOptions(parentUserId: UUID, studentId: UUID): Pr
      FROM ptm_slots sl JOIN ptm_sessions ps ON ps.id=sl.session_id
      JOIN teachers t ON t.id=sl.teacher_id JOIN users u ON u.id=t.user_id
      JOIN teacher_assignments ta ON ta.teacher_id=t.id AND ta.school_id=sl.school_id AND ta.class_id=$2
-     LEFT JOIN subjects subj ON subj.id=ta.subject_id
+     LEFT JOIN subjects subj ON subj.code=ta.subject_code
      WHERE sl.school_id=$1 AND sl.is_active=TRUE AND ps.status='OPEN'
        AND NOW() BETWEEN ps.booking_opens_at AND ps.booking_closes_at AND sl.starts_at>NOW()
        AND NOT EXISTS(SELECT 1 FROM ptm_bookings b WHERE b.slot_id=sl.id AND b.status='BOOKED')
