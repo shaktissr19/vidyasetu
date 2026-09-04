@@ -1,0 +1,178 @@
+name: Diagnostic & Assessment Intelligence 2.0 CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic-intelligence:
+    name: Evidence, misconception, retention and isolation certification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 65
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Diagnostic 2.0 contracts
+        run: |
+          test -s database/migrations/037_diagnostic_assessment_intelligence.sql
+          test -s database/migrations/038_diagnostic_evidence_role_bridge.sql
+          grep -q "DIAGNOSTIC" database/migrations/037_diagnostic_assessment_intelligence.sql
+          grep -q "student_learning_evidence" database/migrations/037_diagnostic_assessment_intelligence.sql
+          grep -q "student_concept_intelligence" database/migrations/037_diagnostic_assessment_intelligence.sql
+          grep -q "student_concept_misconceptions" database/migrations/037_diagnostic_assessment_intelligence.sql
+          grep -q "learning_concept_prerequisites" database/migrations/037_diagnostic_assessment_intelligence.sql
+          grep -q "set_learning_assessment_concept_evidence_role" database/migrations/038_diagnostic_evidence_role_bridge.sql
+          grep -q "QUICK_DIAGNOSTIC" backend/src/services/studentAdaptiveIntelligence.service.ts
+          grep -q "SPACED_REVIEW" backend/src/services/studentAdaptiveIntelligence.service.ts
+          grep -q "REPAIR_MISCONCEPTION" backend/src/services/studentAdaptiveIntelligence.service.ts
+          grep -q "REVIEW_PREREQUISITE" backend/src/services/studentAdaptiveIntelligence.service.ts
+          grep -q "VIDYASETU VERIFIED LEARNER EVIDENCE" backend/src/services/aiDiagnosticContext.service.ts
+          grep -q "adminDiagnosticGovernanceRoutes" backend/src/index.ts
+          grep -q "adminLearningPrerequisitesRoutes" backend/src/index.ts
+          grep -q "My Knowledge Map" frontend/src/components/student/sections/DiagnosticKnowledgeMap.tsx
+          grep -q "Govern prerequisite graph" 'frontend/src/app/(admin)/admin/learning/diagnostics/page.tsx'
+          grep -q "Diagnostic Builder" 'frontend/src/app/(admin)/layout.tsx'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/services/studentDiagnosticIntelligence.service.js
+          test -s dist/services/studentAdaptiveIntelligence.service.js
+          test -s dist/services/diagnosticVisibility.service.js
+          test -s dist/services/learningPrerequisiteAdmin.service.js
+          test -s dist/services/diagnosticGovernance.service.js
+          test -s dist/services/aiDiagnosticContext.service.js
+          test -s dist/routes/adminLearningPrerequisites.routes.js
+          test -s dist/routes/adminDiagnosticGovernance.routes.js
+          test -s dist/scripts/certifyDiagnosticAssessmentIntelligence.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+          test -s 'src/app/(admin)/admin/learning/diagnostics/page.tsx'
+          test -s src/components/student/sections/DiagnosticKnowledgeMap.tsx
+          test -s src/components/learning/TeacherDiagnosticPanel.tsx
+          test -s src/components/learning/ParentDiagnosticPanel.tsx
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable Student, School, Parent and Learning baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql \
+            020_learning_platform_foundation.sql \
+            021_learning_original_academic_starter.sql \
+            022_learning_practice_personalization.sql \
+            023_global_learning_bulk_importer.sql \
+            024_student_global_grade_sync.sql \
+            026_learning_concepts_mastery.sql \
+            027_student_concept_mastery_runtime.sql \
+            028_grounded_ai_doubt_resolution.sql \
+            036_learning_content_quality_governance.sql; do
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+
+      - name: Apply Diagnostic 2.0 migrations twice to prove idempotence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for pass in 1 2; do
+            echo "Diagnostic migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/037_diagnostic_assessment_intelligence.sql
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/038_diagnostic_evidence_role_bridge.sql
+          done
+          for table in learning_concept_prerequisites student_learning_evidence student_concept_intelligence student_concept_misconceptions; do
+            test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='learning_assessment_type' AND e.enumlabel='DIAGNOSTIC');")" = "t"
+
+      - name: Synchronize canonical Class 8 concepts
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/syncLearningConceptRegistry.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+
+      - name: Stage Force pilot and governed concept mappings
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: |
+          node dist/scripts/installForcePack.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/backfillStagedConceptLinks.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+
+      - name: Run Diagnostic 2.0 behavioral certification
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyDiagnosticAssessmentIntelligence.js
+
+      - name: Re-run Teacher and Parent Learning visibility regression
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyLearningVisibility.js
