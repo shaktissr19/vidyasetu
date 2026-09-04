@@ -15,6 +15,7 @@ const ADMIN_MENU = (t: Translate) => [
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
   { href: '/school/classes', icon: '🏷️', label: t('कक्षाएँ और सेक्शन', 'Classes & Sections') },
   { href: '/school/teachers', icon: '👩‍🏫', label: t('शिक्षक', 'Teachers') },
+  { href: '/school/staff', icon: '🧑‍💼', label: t('स्टाफ उपस्थिति और छुट्टी', 'Staff Attendance & Leave') },
   { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/absence', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
@@ -32,6 +33,7 @@ const ADMIN_MENU = (t: Translate) => [
 const TEACHER_MENU = (t: Translate) => [
   { href: '/school/overview', icon: '🏠', label: t('ओवरव्यू', 'Overview'), exact: true },
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
+  { href: '/school/staff', icon: '🧑‍💼', label: t('मेरी उपस्थिति और छुट्टी', 'My Attendance & Leave') },
   { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/absence', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
