@@ -16,6 +16,7 @@ const MENU = (t: Translate) => [
   { href: '/parent/leave', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
   { href: '/parent/transport', icon: '🚌', label: t('परिवहन और सुरक्षा', 'Transport & Safety') },
   { href: '/parent/documents', icon: '📁', label: t('रिकॉर्ड और प्रमाणपत्र', 'Records & Certificates') },
+  { href: '/parent/library', icon: '📚', label: t('पुस्तकालय', 'Library') },
   { href: '/parent/notifications', icon: '🔔', label: t('सूचनाएँ', 'Notifications') },
   { href: '/parent/fees', icon: '💰', label: t('फीस', 'Fees') },
   { href: '/parent/report-card', icon: '📄', label: t('रिपोर्ट कार्ड', 'Report Card') },
@@ -28,25 +29,10 @@ export default function ParentLayout({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuthStore();
   const { t } = useLanguageStore();
   const router = useRouter();
-
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=parent'); return; }
     if (user?.role && user.role !== 'PARENT') router.replace('/login?role=parent');
   }, [isLoggedIn, user, router]);
-
   if (!isLoggedIn) return null;
-
-  return (
-    <div className="flex flex-col min-h-screen">
-      <GlobalTopbar />
-      <div className="dash-layout">
-        <DashSidebar
-          accentColor="var(--forest)"
-          profile={{ avatar: '👩', name: user?.name || 'Parent', subtitle: t('अभिभावक पोर्टल', 'Parent Portal'), badge: '✅ Verified' }}
-          menuItems={MENU(t)}
-        />
-        <main className="dash-main parent-main">{children}</main>
-      </div>
-    </div>
-  );
+  return <div className="flex flex-col min-h-screen"><GlobalTopbar /><div className="dash-layout"><DashSidebar accentColor="var(--forest)" profile={{avatar:'👩',name:user?.name||'Parent',subtitle:t('अभिभावक पोर्टल','Parent Portal'),badge:'✅ Verified'}} menuItems={MENU(t)} /><main className="dash-main parent-main">{children}</main></div></div>;
 }
