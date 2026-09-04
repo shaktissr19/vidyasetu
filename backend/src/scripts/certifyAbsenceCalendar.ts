@@ -165,7 +165,7 @@ async function main(): Promise<void> {
 
   const { rows: [decisionNotifications] } = await query<CountRow>(
     `SELECT COUNT(*)::int AS count FROM notifications
-     WHERE ref_id=$1 AND type='LEAVE_APPROVED' AND user_id IN ($2,$3)`,
+     WHERE reference_id=$1 AND type='LEAVE_APPROVED' AND user_id IN ($2,$3)`,
     [leave.id, fixture.student_user_id, fixture.parent_user_id],
   );
   assert(Number(decisionNotifications?.count || 0) >= 2, 'Student/Parent leave approval notifications were not created');
