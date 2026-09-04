@@ -3,6 +3,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import * as ctrl from '../controllers/adminLearning.controller';
 import * as qualityCtrl from '../controllers/learningQualityAdmin.controller';
+import * as mediaCtrl from '../controllers/adminLearningMedia.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -123,6 +124,11 @@ const qualityGateSchema = z.object({
   note: z.string().trim().max(3000).nullable().optional(),
 });
 
+const mediaUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(240),
+  contentType: z.enum(['video/mp4','audio/mpeg','audio/mp4','audio/wav','application/pdf','image/png','image/jpeg','image/webp']),
+});
+
 const intakeSchema = z.object({
   sourceCode: z.string().trim().min(2).max(40),
   sourceItemId: z.string().trim().max(220).nullable().optional(),
@@ -146,6 +152,7 @@ router.patch('/concepts/:conceptId', validate(conceptMetadataSchema), qualityCtr
 router.get('/coverage', qualityCtrl.coverage);
 router.get('/readiness/:entityType/:entityId', qualityCtrl.readiness);
 router.put('/quality/:entityType/:entityId/:gateCode', validate(qualityGateSchema), qualityCtrl.setQualityGate);
+router.post('/media/upload-url', validate(mediaUploadSchema), mediaCtrl.uploadUrl);
 
 router.get('/resources', ctrl.resources);
 router.get('/review-packs', ctrl.reviewPacks);
