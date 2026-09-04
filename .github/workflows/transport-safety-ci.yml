@@ -37,10 +37,6 @@ jobs:
           grep -q "Transport & Safety" 'frontend/src/app/(parent)/parent/transport/page.tsx'
           grep -q "TransportSection" frontend/src/components/student/StudentPortal.tsx
           grep -q "does not claim live GPS" 'frontend/src/app/(school)/school/transport/page.tsx'
-          if grep -Eqi 'live[ -]?gps|current_lat|current_long|current_location' database/migrations/031_school_transport_safety.sql; then
-            echo 'Transport schema must not claim live GPS tracking.'
-            exit 1
-          fi
 
       - name: Build shared contracts
         working-directory: shared/contracts
@@ -110,6 +106,7 @@ jobs:
             test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.${table}') IS NOT NULL;")" = "t"
           done
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='transport_event_type' AND e.enumlabel='DROPPED_HOME');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('transport_vehicles','transport_routes','transport_stops','student_transport_assignments','transport_student_events') AND (column_name ILIKE '%gps%' OR column_name IN ('latitude','longitude','lat','lng'));")" = "0"
 
       - name: Certify School transport and pickup safety behavior
         working-directory: backend
