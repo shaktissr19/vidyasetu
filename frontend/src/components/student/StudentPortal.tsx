@@ -23,6 +23,7 @@ import LeaveCalendarSection from './sections/LeaveCalendarSection';
 import TransportSection from './sections/TransportSection';
 import DocumentsSection from './sections/DocumentsSection';
 import LibrarySection from './sections/LibrarySection';
+import PtmSection from './sections/PtmSection';
 import MySchoolSection from './sections/MySchoolSection';
 import ReportCardSection from './sections/ReportCardSection';
 import NotificationsSection from './sections/NotificationsSection';
@@ -43,6 +44,7 @@ const MENU: ReadonlyArray<readonly [StudentSectionId, string, string]> = [
   ['transport', '🚌', 'Transport & Safety'],
   ['documents', '📁', 'Records & Certificates'],
   ['library', '📚', 'My Library'],
+  ['ptm', '🤝', 'PTM & Meetings'],
   ['school', '🏫', 'My School'],
   ['report', '📄', 'Report Card'],
   ['notifications', '🔔', 'Notifications'],
@@ -120,6 +122,7 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
     case 'transport': content = <TransportSection />; break;
     case 'documents': content = <DocumentsSection {...shared} />; break;
     case 'library': content = <LibrarySection />; break;
+    case 'ptm': content = <PtmSection />; break;
     case 'school': content = <MySchoolSection {...shared} />; break;
     case 'report': content = <ReportCardSection {...shared} />; break;
     case 'notifications': content = <NotificationsSection {...shared} />; break;
