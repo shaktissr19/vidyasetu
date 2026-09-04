@@ -17,7 +17,9 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
     ]);
     const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
-    const adaptivePlan = await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan);
+    const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
+      ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
+      : basePlan;
     return R.ok(res, { ...home, conceptMastery, adaptivePlan });
   } catch (err: unknown) { next(err); }
 }
@@ -28,7 +30,9 @@ export async function getAdaptiveLearningPlan(req: Request, res: Response, next:
     if (!user) return R.unauthorized(res);
     const conceptMastery = await studentConceptMasteryService.getStudentConceptMastery(user.userId);
     const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
-    const adaptivePlan = await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan);
+    const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
+      ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
+      : basePlan;
     return R.ok(res, adaptivePlan);
   } catch (err: unknown) { next(err); }
 }
@@ -37,9 +41,17 @@ export async function getDiagnosticProfile(req: Request, res: Response, next: Ne
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
+    if (!(await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable())) {
+      return R.ok(res, {
+        generatedAt: new Date().toISOString(),
+        summary: { conceptsAssessed: 0, reviewDue: 0, activeMisconceptions: 0, lowConfidence: 0 },
+        concepts: [],
+        schemaReady: false,
+      });
+    }
     await studentDiagnosticRuntimeService.reconcileMissingEvidenceForUser(user.userId);
     const profile = await studentDiagnosticIntelligenceService.getStudentDiagnosticProfile(user.userId);
-    return R.ok(res, profile);
+    return R.ok(res, { ...profile, schemaReady: true });
   } catch (err: unknown) { next(err); }
 }
 
