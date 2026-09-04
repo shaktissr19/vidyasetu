@@ -20,6 +20,7 @@ import DoubtForumSection from './sections/DoubtForumSection';
 import ExamsSection from './sections/ExamsSection';
 import AttendanceSection from './sections/AttendanceSection';
 import LeaveCalendarSection from './sections/LeaveCalendarSection';
+import TransportSection from './sections/TransportSection';
 import MySchoolSection from './sections/MySchoolSection';
 import ReportCardSection from './sections/ReportCardSection';
 import NotificationsSection from './sections/NotificationsSection';
@@ -37,6 +38,7 @@ const MENU: ReadonlyArray<readonly [StudentSectionId, string, string]> = [
   ['groups', '🤝', 'Communities'],
   ['attendance', '📅', 'Attendance'],
   ['leave', '🩺', 'Leave & Calendar'],
+  ['transport', '🚌', 'Transport & Safety'],
   ['school', '🏫', 'My School'],
   ['report', '📄', 'Report Card'],
   ['notifications', '🔔', 'Notifications'],
@@ -137,6 +139,7 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
     case 'groups': content = <GroupsHub title="Education Communities" subtitle="Learn, discuss and collaborate in moderated student, teacher, parent and school communities" accent="var(--forest)" />; break;
     case 'attendance': content = <AttendanceSection {...shared} />; break;
     case 'leave': content = <LeaveCalendarSection {...shared} />; break;
+    case 'transport': content = <TransportSection />; break;
     case 'school': content = <MySchoolSection {...shared} />; break;
     case 'report': content = <ReportCardSection {...shared} />; break;
     case 'notifications': content = <NotificationsSection {...shared} />; break;
