@@ -406,7 +406,7 @@ export async function getMyAttendance(userId: UUID, year: number, month: number)
   const teacher = await teacherForUser(userId);
   const [records, summary] = await Promise.all([
     query(
-      `SELECT date,status::text,remark,created_at,updated_at FROM teacher_attendance
+      `SELECT date::text AS date,status::text,remark,created_at,updated_at FROM teacher_attendance
        WHERE teacher_id=$1 AND EXTRACT(YEAR FROM date)=$2 AND EXTRACT(MONTH FROM date)=$3
        ORDER BY date`,
       [teacher.id, year, month],
