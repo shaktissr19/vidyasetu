@@ -14,6 +14,7 @@ export type StudentSectionId =
   | 'transport'
   | 'documents'
   | 'library'
+  | 'ptm'
   | 'school'
   | 'report'
   | 'notifications'

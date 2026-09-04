@@ -18,6 +18,7 @@ const SECTION_IDS = new Set<StudentSectionId>([
   'transport',
   'documents',
   'library',
+  'ptm',
   'school',
   'report',
   'notifications',
