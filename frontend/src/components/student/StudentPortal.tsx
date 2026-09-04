@@ -101,7 +101,8 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   function goSection(id: string): void {
     const next = MENU.find(([menuId]) => menuId === id)?.[0]; if (!next) return;
     setSection(next); setSidebarOpen(false);
-    router.push(next === 'dashboard' ? '/student' : `/student?section=${encodeURIComponent(next)}`, { scroll: false });
+    const href = next === 'dashboard' ? '/student' : `/student?section=${encodeURIComponent(next)}`;
+    router.push(href, { scroll: false });
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   const shared: StudentSectionProps = { dashboard, student, notify: setToast, goSection, refreshDashboard: async () => dashboardQuery.refetch() };
