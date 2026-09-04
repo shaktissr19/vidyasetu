@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as learningService from '../services/publicLearning.service';
+import * as catalogueService from '../services/publicLearningCatalogueV2.service';
 import * as practiceService from '../services/publicLearningPractice.service';
 import * as R from '../utils/response';
 
@@ -26,9 +27,6 @@ function optionalLimit(value: unknown): number | undefined {
 }
 
 function freshLearningResponse(res: Response): void {
-  // Learning content changes through Admin publishing/imports. Until explicit
-  // cache invalidation/versioning is introduced, never let a browser/proxy keep
-  // an old zero-count catalogue after new public content has been published.
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
@@ -44,11 +42,17 @@ export async function overview(_req: Request, res: Response, next: NextFunction)
 export async function resources(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     freshLearningResponse(res);
-    return R.ok(res, await learningService.listPublicLearningResources({
+    return R.ok(res, await catalogueService.listPublicLearningCatalogue({
       className: optionalClass(req.query.class),
       gradeCode: optionalText(req.query.grade),
       category: optionalText(req.query.category),
       board: optionalText(req.query.board),
+      subject: optionalText(req.query.subject),
+      concept: optionalText(req.query.concept),
+      resourceType: optionalText(req.query.type),
+      language: optionalText(req.query.lang),
+      journeyStage: optionalText(req.query.stage),
+      search: optionalText(req.query.q),
       limit: optionalLimit(req.query.limit),
       featuredOnly: req.query.featured === 'true',
     }));
