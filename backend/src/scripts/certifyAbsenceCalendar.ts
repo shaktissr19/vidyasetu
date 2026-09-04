@@ -57,10 +57,14 @@ async function main(): Promise<void> {
      JOIN students s ON s.id=psl.student_id AND s.status='ACTIVE' AND s.school_link_status='APPROVED'
      JOIN schools sch ON sch.id=s.school_id AND sch.admin_user_id IS NOT NULL
      WHERE s.class_id IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM teachers tx
+         WHERE tx.school_id=s.school_id AND tx.status='ACTIVE'
+       )
      ORDER BY psl.created_at NULLS LAST,psl.id
      LIMIT 1`,
   );
-  assert(fixture, 'No linked Parent/Student School fixture available');
+  assert(fixture, 'No linked Parent/Student fixture exists in a School with an active Teacher');
 
   const { rows: [classTeacher] } = await query<TeacherRow>(
     `SELECT t.id,t.user_id,t.school_id FROM teachers t
