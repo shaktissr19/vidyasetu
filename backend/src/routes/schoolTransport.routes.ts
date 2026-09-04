@@ -25,7 +25,7 @@ const vehiclePatch = vehicle.partial();
 const route = z.object({
   routeCode: z.string().trim().min(1).max(30),
   name: z.string().trim().min(2).max(120),
-  vehicleId: z.string().uuid().optional().nullable(),
+  vehicleId: z.string().uuid(),
   morningStart: time,
   afternoonStart: time,
   status: z.enum(['ACTIVE','INACTIVE']).optional(),
