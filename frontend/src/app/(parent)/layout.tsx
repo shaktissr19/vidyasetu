@@ -15,6 +15,7 @@ const MENU = (t: Translate) => [
   { href: '/parent/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/parent/leave', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
   { href: '/parent/transport', icon: '🚌', label: t('परिवहन और सुरक्षा', 'Transport & Safety') },
+  { href: '/parent/documents', icon: '📁', label: t('रिकॉर्ड और प्रमाणपत्र', 'Records & Certificates') },
   { href: '/parent/notifications', icon: '🔔', label: t('सूचनाएँ', 'Notifications') },
   { href: '/parent/fees', icon: '💰', label: t('फीस', 'Fees') },
   { href: '/parent/report-card', icon: '📄', label: t('रिपोर्ट कार्ड', 'Report Card') },

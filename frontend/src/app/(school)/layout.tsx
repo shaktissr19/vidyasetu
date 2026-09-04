@@ -17,6 +17,7 @@ const ADMIN_MENU = (t: Translate) => [
   { href: '/school/teachers', icon: '👩‍🏫', label: t('शिक्षक', 'Teachers') },
   { href: '/school/staff', icon: '🧑‍💼', label: t('स्टाफ उपस्थिति और छुट्टी', 'Staff Attendance & Leave') },
   { href: '/school/transport', icon: '🚌', label: t('परिवहन और सुरक्षा', 'Transport & Safety') },
+  { href: '/school/documents', icon: '📁', label: t('रिकॉर्ड और प्रमाणपत्र', 'Records & Certificates') },
   { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/absence', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },

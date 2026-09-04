@@ -1,0 +1,121 @@
+name: Student Records and Certificates CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  records-certificates-certification:
+    name: Requests, issuance, family access and public verification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate module contracts
+        run: |
+          set -Eeuo pipefail
+          test -s database/migrations/032_student_records_certificates.sql
+          grep -q "student_documents" database/migrations/032_student_records_certificates.sql
+          grep -q "student_document_requests" database/migrations/032_student_records_certificates.sql
+          grep -q "verification_code" database/migrations/032_student_records_certificates.sql
+          grep -q "schoolDocumentsRoutes" backend/src/index.ts
+          grep -q "studentDocumentsRoutes" backend/src/index.ts
+          grep -q "parentDocumentsRoutes" backend/src/index.ts
+          grep -q "publicDocumentsRoutes" backend/src/index.ts
+          grep -q "Records & Certificates" frontend/src/components/student/StudentPortal.tsx
+          grep -q "Student Records & Certificates" 'frontend/src/app/(school)/school/documents/page.tsx'
+          grep -q "Document Verification" 'frontend/src/app/verify/document/[code]/page.tsx'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/services/studentDocuments.service.js
+          test -s dist/scripts/certifyStudentDocuments.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable School, Student and Parent baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql; do
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+
+      - name: Apply Student records migration twice
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -Eeuo pipefail
+          for pass in 1 2; do
+            echo "Student records migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/032_student_records_certificates.sql
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.student_documents') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.student_document_requests') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='student_documents' AND column_name='verification_code');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='student_document_status' AND e.enumlabel='REVOKED');")" = "t"
+
+      - name: Certify Student records and certificates behavior
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+        run: node dist/scripts/certifyStudentDocuments.js
