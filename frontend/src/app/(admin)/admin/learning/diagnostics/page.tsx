@@ -1,19 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   createDiagnosticAssessment,
+  getConceptPrerequisites,
   getDiagnosticAssessments,
   getDiagnosticConcepts,
   getDiagnosticQuestions,
+  replaceConceptPrerequisites,
 } from '@/services/diagnosticAdminService';
 import { apiErrorText } from '@/utils/errors';
 
 const inputStyle = { width: '100%', marginTop: 5, padding: '9px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'white', border: '1px solid rgba(255,255,255,.12)' } as const;
 const labelStyle = { display: 'block', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 800 } as const;
+
+type DraftPrerequisite = { conceptId: string; strength: 'HELPFUL' | 'REQUIRED'; rationale: string };
 
 export default function DiagnosticBuilderPage() {
   const queryClient = useQueryClient();
@@ -23,6 +27,7 @@ export default function DiagnosticBuilderPage() {
   const [titleHi, setTitleHi] = useState('');
   const [summary, setSummary] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [prerequisites, setPrerequisites] = useState<DraftPrerequisite[]>([]);
 
   const conceptsQ = useQuery({
     queryKey: ['diagnostic-admin-concepts', classNumber],
@@ -36,6 +41,25 @@ export default function DiagnosticBuilderPage() {
     queryKey: ['diagnostic-admin-assessments'],
     queryFn: () => getDiagnosticAssessments().then((r) => (r.data.data || []).filter((item) => item.assessment_type === 'DIAGNOSTIC')),
   });
+  const prerequisitesQ = useQuery({
+    queryKey: ['diagnostic-prerequisites', conceptId],
+    queryFn: () => getConceptPrerequisites(conceptId).then((r) => r.data.data),
+    enabled: Boolean(conceptId),
+  });
+
+  useEffect(() => {
+    if (!conceptId) {
+      setPrerequisites([]);
+      return;
+    }
+    if (prerequisitesQ.data) {
+      setPrerequisites(prerequisitesQ.data.prerequisites.map((item) => ({
+        conceptId: item.conceptId,
+        strength: item.strength,
+        rationale: item.rationale || '',
+      })));
+    }
+  }, [conceptId, prerequisitesQ.data]);
 
   const eligible = useMemo(() => (questionsQ.data || []).filter((question) =>
     question.review_status === 'PUBLISHED'
@@ -51,6 +75,8 @@ export default function DiagnosticBuilderPage() {
   const difficultyCount = new Set(selectedRows.map((item) => item.difficulty)).size;
   const skillCount = new Set(selectedRows.map((item) => item.cognitive_skill).filter(Boolean)).size;
   const misconceptionCount = selectedRows.filter((item) => item.misconception_code).length;
+  const prerequisiteSet = useMemo(() => new Set(prerequisites.map((item) => item.conceptId)), [prerequisites]);
+  const prerequisiteCandidates = useMemo(() => (conceptsQ.data || []).filter((item) => item.id !== conceptId), [conceptsQ.data, conceptId]);
 
   const createMutation = useMutation({
     mutationFn: () => createDiagnosticAssessment({
@@ -65,8 +91,31 @@ export default function DiagnosticBuilderPage() {
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not create diagnostic')),
   });
 
+  const prerequisiteMutation = useMutation({
+    mutationFn: () => replaceConceptPrerequisites(conceptId, prerequisites.map((item) => ({
+      conceptId: item.conceptId,
+      strength: item.strength,
+      rationale: item.rationale.trim() || null,
+    }))),
+    onSuccess: async () => {
+      toast.success('Prerequisite graph saved');
+      await queryClient.invalidateQueries({ queryKey: ['diagnostic-prerequisites', conceptId] });
+    },
+    onError: (error: unknown) => toast.error(apiErrorText(error, 'Prerequisite graph was rejected')),
+  });
+
   function toggle(id: string): void {
     setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function togglePrerequisite(id: string): void {
+    setPrerequisites((current) => current.some((item) => item.conceptId === id)
+      ? current.filter((item) => item.conceptId !== id)
+      : [...current, { conceptId: id, strength: 'REQUIRED', rationale: '' }]);
+  }
+
+  function updatePrerequisite(id: string, patch: Partial<Omit<DraftPrerequisite, 'conceptId'>>): void {
+    setPrerequisites((current) => current.map((item) => item.conceptId === id ? { ...item, ...patch } : item));
   }
 
   const enoughDepth = selected.length >= 10 && difficultyCount >= 2 && skillCount >= 2;
@@ -78,7 +127,7 @@ export default function DiagnosticBuilderPage() {
           <div style={{ color: '#ff9a3c', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>DIAGNOSTIC & ASSESSMENT INTELLIGENCE 2.0</div>
           <h1 style={{ fontSize: 34, margin: '5px 0' }}>Governed Diagnostic Builder</h1>
           <p style={{ color: 'rgba(255,255,255,.62)', maxWidth: 950, lineHeight: 1.65 }}>
-            Build short concept diagnostics only from already reviewed bilingual Question Bank items. Diagnostics measure evidence quality, misconceptions and confidence; they do not automatically award mastery.
+            Build concept diagnostics only from reviewed bilingual Question Bank items, then govern the prerequisite graph that powers repair recommendations. Diagnostics measure evidence quality, misconceptions and confidence; they do not automatically award mastery.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}><Link href="/admin/learning/practice" className="btn-secondary">Question Bank</Link><Link href="/admin/learning" className="btn-secondary">Learning Studio</Link></div>
@@ -88,8 +137,8 @@ export default function DiagnosticBuilderPage() {
         <section style={{ padding: 17, borderRadius: 14, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.035)' }}>
           <h2 style={{ marginTop: 0 }}>1. Diagnostic identity</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 9 }}>
-            <label style={labelStyle}>Class<input style={inputStyle} type="number" min={1} max={12} value={classNumber} onChange={(e) => { setClassNumber(Number(e.target.value)); setConceptId(''); setSelected([]); }} /></label>
-            <label style={labelStyle}>Canonical concept<select style={inputStyle} value={conceptId} onChange={(e) => { setConceptId(e.target.value); setSelected([]); }}><option value="">Select concept</option>{(conceptsQ.data || []).map((concept) => <option key={concept.id} value={concept.id}>{concept.code} — {concept.name}</option>)}</select></label>
+            <label style={labelStyle}>Class<input style={inputStyle} type="number" min={1} max={12} value={classNumber} onChange={(e) => { setClassNumber(Number(e.target.value)); setConceptId(''); setSelected([]); setPrerequisites([]); }} /></label>
+            <label style={labelStyle}>Canonical concept<select style={inputStyle} value={conceptId} onChange={(e) => { setConceptId(e.target.value); setSelected([]); setPrerequisites([]); }}><option value="">Select concept</option>{(conceptsQ.data || []).map((concept) => <option key={concept.id} value={concept.id}>{concept.code} — {concept.name}</option>)}</select></label>
           </div>
           <label style={{ ...labelStyle, marginTop: 9 }}>English title<input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Class 8 Force quick diagnostic" /></label>
           <label style={{ ...labelStyle, marginTop: 9 }}>हिन्दी शीर्षक<input style={inputStyle} value={titleHi} onChange={(e) => setTitleHi(e.target.value)} placeholder="कक्षा 8 बल त्वरित जाँच" /></label>
@@ -132,6 +181,42 @@ export default function DiagnosticBuilderPage() {
           )}
         </section>
       </div>
+
+      <section style={{ marginTop: 18, padding: 17, borderRadius: 14, border: '1px solid rgba(255,255,255,.1)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>3. Govern prerequisite graph</h2>
+            <p style={{ color: 'rgba(255,255,255,.5)', fontSize: 12, marginBottom: 0 }}>Same-grade prerequisite links drive “repair the foundation first” recommendations. The API rejects self-links, duplicates, inactive concepts, cross-grade links and cycles.</p>
+          </div>
+          <button className="btn-primary" disabled={!conceptId || prerequisiteMutation.isPending || prerequisitesQ.isLoading} onClick={() => prerequisiteMutation.mutate()}>
+            {prerequisiteMutation.isPending ? 'Saving…' : 'Save prerequisite graph'}
+          </button>
+        </div>
+
+        {!conceptId ? <div style={{ color: 'rgba(255,255,255,.5)', marginTop: 14 }}>Select a canonical concept above to manage its prerequisites.</div> : prerequisitesQ.isError ? (
+          <div style={{ color: '#ff8e8e', marginTop: 14 }}>{apiErrorText(prerequisitesQ.error, 'Could not load prerequisite graph')}</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 9, marginTop: 14 }}>
+            {prerequisiteCandidates.map((candidate) => {
+              const selectedPrerequisite = prerequisites.find((item) => item.conceptId === candidate.id);
+              return (
+                <div key={candidate.id} style={{ border: `1px solid ${selectedPrerequisite ? 'rgba(71,209,140,.35)' : 'rgba(255,255,255,.08)'}`, borderRadius: 10, padding: 11, background: selectedPrerequisite ? 'rgba(71,209,140,.05)' : 'rgba(255,255,255,.025)' }}>
+                  <label style={{ display: 'flex', gap: 9, alignItems: 'start', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={prerequisiteSet.has(candidate.id)} onChange={() => togglePrerequisite(candidate.id)} />
+                    <div><strong>{candidate.code} — {candidate.name}</strong><div style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', marginTop: 2 }}>{candidate.subject_name || candidate.subject_code}{candidate.chapter_title ? ` · ${candidate.chapter_title}` : ''}</div></div>
+                  </label>
+                  {selectedPrerequisite ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 8, marginTop: 9 }}>
+                      <label style={labelStyle}>Strength<select style={inputStyle} value={selectedPrerequisite.strength} onChange={(e) => updatePrerequisite(candidate.id, { strength: e.target.value as 'HELPFUL' | 'REQUIRED' })}><option value="REQUIRED">Required</option><option value="HELPFUL">Helpful</option></select></label>
+                      <label style={labelStyle}>Rationale<input style={inputStyle} value={selectedPrerequisite.rationale} onChange={(e) => updatePrerequisite(candidate.id, { rationale: e.target.value })} placeholder="Why this foundation matters" /></label>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section style={{ marginTop: 18, padding: 17, borderRadius: 14, border: '1px solid rgba(255,255,255,.1)' }}>
         <h2 style={{ marginTop: 0 }}>Diagnostic review queue</h2>
