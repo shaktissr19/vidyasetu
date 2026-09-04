@@ -7,5 +7,6 @@ router.use(authenticate, authorize('SCHOOL_ADMIN', 'TEACHER'));
 
 router.get('/targets', controller.schoolTargets);
 router.get('/overview', controller.schoolOverview);
+router.get('/diagnostics', controller.schoolDiagnostics);
 
 export = router;
