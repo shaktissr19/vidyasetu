@@ -155,8 +155,26 @@ async function main(): Promise<void> {
      WHERE student_id=$1 AND year=EXTRACT(YEAR FROM $2::date) AND month=EXTRACT(MONTH FROM $2::date)`,
     [fixture.student_id, leaveStart],
   );
-  assert(Number(summary?.absent_days || 0) === 0, 'Approved leave remained in unexcused absent summary');
-  assert(Number(summary?.excused_days || 0) === 1, 'Approved leave was not counted in excused summary');
+  const { rows: [actualMonth] } = await query<SummaryRow>(
+    `SELECT
+       COUNT(*) FILTER (WHERE status='ABSENT')::int AS absent_days,
+       COUNT(*) FILTER (WHERE status='EXCUSED')::int AS excused_days
+     FROM attendance
+     WHERE student_id=$1
+       AND EXTRACT(YEAR FROM date)=EXTRACT(YEAR FROM $2::date)
+       AND EXTRACT(MONTH FROM date)=EXTRACT(MONTH FROM $2::date)`,
+    [fixture.student_id, leaveStart],
+  );
+  assert(summary, 'Attendance monthly summary was not created');
+  assert(Number(actualMonth?.excused_days || 0) >= 1, 'Approved leave was not represented as EXCUSED in attendance');
+  assert(
+    Number(summary.absent_days || 0) === Number(actualMonth?.absent_days || 0),
+    'Monthly absent summary does not match attendance records after leave approval',
+  );
+  assert(
+    Number(summary.excused_days || 0) === Number(actualMonth?.excused_days || 0),
+    'Monthly excused summary does not match attendance records after leave approval',
+  );
 
   const normalized = await resolveAttendanceRecords(fixture.school_id, fixture.class_id, leaveEnd, [
     { studentId: fixture.student_id, status: 'ABSENT' },
