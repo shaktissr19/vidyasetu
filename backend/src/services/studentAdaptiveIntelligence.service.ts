@@ -9,6 +9,9 @@ import type {
 import { getStudentDiagnosticProfile } from './studentDiagnosticIntelligence.service';
 import { reconcileMissingEvidenceForUser } from './studentDiagnosticRuntime.service';
 
+type StudentDiagnosticProfile = Awaited<ReturnType<typeof getStudentDiagnosticProfile>>;
+type DiagnosticConcept = StudentDiagnosticProfile['concepts'][number];
+
 export type DiagnosticAdaptiveActionType =
   | AdaptiveLearningAction['actionType']
   | 'QUICK_DIAGNOSTIC'
@@ -165,7 +168,7 @@ async function weakPrerequisite(studentId: UUID, conceptId: UUID): Promise<Prere
   return row || null;
 }
 
-function diagnosticMeta(concept: any) {
+function diagnosticMeta(concept: DiagnosticConcept) {
   return {
     proficiencyScore: Number(concept.proficiencyScore || 0),
     confidenceScore: Number(concept.confidenceScore || 0),
@@ -195,8 +198,8 @@ export async function enrichAdaptivePlanWithDiagnostics(
   for (const concept of profile.concepts) {
     if (injected.length >= 4) break;
     const meta = diagnosticMeta(concept);
-    const activeMisconception = concept.misconceptions.find((item: any) => item.state === 'ACTIVE')
-      || concept.misconceptions.find((item: any) => item.state === 'SUSPECTED');
+    const activeMisconception = concept.misconceptions.find((item) => item.state === 'ACTIVE')
+      || concept.misconceptions.find((item) => item.state === 'SUSPECTED');
 
     if (activeMisconception) {
       const target = await bestTargetForConcept(concept.conceptId, classNumber, 'REPAIR');
