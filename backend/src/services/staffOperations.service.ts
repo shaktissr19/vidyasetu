@@ -67,6 +67,25 @@ interface AttendanceSavedRow extends QueryResultRow {
   status: StaffAttendanceStatus;
   date: string | Date;
 }
+interface StaffRosterDbRow extends QueryResultRow {
+  id: UUID;
+  employee_id: string | null;
+  designation: string | null;
+  profile_status: string;
+  name: string;
+  attendance_status: StaffAttendanceStatus | null;
+  remark: string | null;
+  leave_request_id: UUID | null;
+  leave_reason: string | null;
+  approved_leave: boolean;
+}
+export interface StaffRosterRow extends StaffRosterDbRow {
+  attendance_status: StaffAttendanceStatus | '';
+  remark: string | null;
+  operational_availability: 'SCHOOL_CLOSED' | 'APPROVED_LEAVE' | 'RECORDED' | 'WORKING';
+  school_closed: boolean;
+  closure_title: string | null;
+}
 
 function httpError(message: string, statusCode: number): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
@@ -279,11 +298,11 @@ async function wholeSchoolClosure(schoolId: UUID, date: string): Promise<ClosedD
   return closed || null;
 }
 
-export async function getStaffRoster(schoolId: UUID, date: string) {
+export async function getStaffRoster(schoolId: UUID, date: string): Promise<StaffRosterRow[]> {
   await requireSchema();
   const [closed, roster] = await Promise.all([
     wholeSchoolClosure(schoolId, date),
-    query(
+    query<StaffRosterDbRow>(
       `SELECT t.id,t.employee_id,t.designation,t.status::text AS profile_status,u.name,
               ta.status::text AS attendance_status,ta.remark,
               lr.id AS leave_request_id,lr.reason AS leave_reason,
