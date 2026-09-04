@@ -4,6 +4,7 @@ import * as studentConceptMasteryService from '../services/studentConceptMastery
 import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
 import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
 import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
+import logger = require('../utils/logger');
 import * as R from '../utils/response';
 
 export async function getLearningHome(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -33,6 +34,7 @@ export async function getDiagnosticProfile(req: Request, res: Response, next: Ne
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
+    await studentDiagnosticRuntimeService.reconcileMissingEvidenceForUser(user.userId);
     const profile = await studentDiagnosticIntelligenceService.getStudentDiagnosticProfile(user.userId);
     return R.ok(res, profile);
   } catch (err: unknown) { next(err); }
@@ -62,11 +64,24 @@ export async function submitLearningAssessment(req: Request, res: Response, next
       req.body.answers || [],
       req.body.timeSpentSecs,
     );
-    await studentDiagnosticRuntimeService.captureAttemptEvidenceForUser(
-      user.userId,
-      req.params.attemptId,
-      result.assessment_id,
-    );
+
+    // Grading is the primary learner transaction. Diagnostic evidence is
+    // idempotently repairable, so a transient intelligence-write failure must
+    // never hide an already-graded result from the learner.
+    try {
+      await studentDiagnosticRuntimeService.captureAttemptEvidenceForUser(
+        user.userId,
+        req.params.attemptId,
+        result.assessment_id,
+      );
+    } catch (diagnosticError: unknown) {
+      logger.error('Diagnostic evidence capture deferred; it will be reconciled from the graded attempt', {
+        attemptId: req.params.attemptId,
+        assessmentId: result.assessment_id,
+        error: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError),
+      });
+    }
+
     await studentConceptMasteryService.reconcileStudentConceptProgress(user.userId);
     return R.ok(res, result);
   } catch (err: unknown) { next(err); }
