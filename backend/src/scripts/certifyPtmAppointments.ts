@@ -19,26 +19,36 @@ interface FixtureRow {
   student_id: string;
   student_user_id: string;
   class_id: string;
+  academic_year: string;
   parent_user_id: string;
   teacher_id: string;
   teacher_user_id: string;
+  subject_code: string;
 }
 
 async function main(): Promise<void> {
   const { rows: [fixture] } = await query<FixtureRow>(
     `SELECT s.school_id,sch.admin_user_id,s.id AS student_id,s.user_id AS student_user_id,s.class_id,
-            psl.parent_user_id,t.id AS teacher_id,t.user_id AS teacher_user_id
+            sc.academic_year,psl.parent_user_id,t.id AS teacher_id,t.user_id AS teacher_user_id,subj.code AS subject_code
      FROM students s
      JOIN schools sch ON sch.id=s.school_id
+     JOIN school_classes sc ON sc.id=s.class_id
      JOIN parent_student_links psl ON psl.student_id=s.id
-     JOIN teacher_assignments ta ON ta.school_id=s.school_id AND ta.class_id=s.class_id
-     JOIN teachers t ON t.id=ta.teacher_id AND t.school_id=s.school_id AND t.status='ACTIVE'
+     JOIN teachers t ON t.school_id=s.school_id AND t.status='ACTIVE'
+     CROSS JOIN LATERAL (SELECT code FROM subjects ORDER BY code LIMIT 1) subj
      WHERE s.status='ACTIVE' AND s.school_link_status='APPROVED'
        AND s.school_id IS NOT NULL AND s.class_id IS NOT NULL
-     ORDER BY s.created_at,s.id,ta.id
+     ORDER BY s.created_at,s.id,t.created_at,t.id
      LIMIT 1`,
   );
-  assert(fixture, 'PTM certification requires an active linked Student with an assigned Teacher');
+  assert(fixture, 'PTM certification requires a linked Student and active same-School Teacher');
+
+  await query(
+    `INSERT INTO teacher_assignments(teacher_id,school_id,class_id,subject_code,academic_year,is_class_teacher)
+     VALUES($1,$2,$3,$4,$5,FALSE)
+     ON CONFLICT (teacher_id,class_id,subject_code,academic_year) DO NOTHING`,
+    [fixture.teacher_id, fixture.school_id, fixture.class_id, fixture.subject_code, fixture.academic_year],
+  );
 
   const { rows: [otherParent] } = await query<{ id: string }>(
     `SELECT u.id FROM users u
