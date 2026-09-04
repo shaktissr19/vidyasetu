@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   bookmarkLearningResource,
+  getStudentDiagnosticProfile,
   getStudentLearningAssessment,
   getStudentLearningHome,
   removeLearningResourceBookmark,
@@ -20,6 +21,7 @@ import useAuthStore from '@/store/authStore';
 import type { StudentSectionProps } from '@/types/studentPortal';
 import SubjectsSection from './SubjectsSection';
 import AdaptiveLearningPanel from './AdaptiveLearningPanel';
+import DiagnosticKnowledgeMap from './DiagnosticKnowledgeMap';
 import styles from '../StudentPortal.module.css';
 
 export default function LearningSection(props: StudentSectionProps) {
@@ -36,6 +38,11 @@ export default function LearningSection(props: StudentSectionProps) {
     queryFn: () => getStudentLearningHome().then((response) => response.data.data),
     staleTime: 30_000,
   });
+  const diagnosticQuery = useQuery({
+    queryKey: ['student-diagnostic-profile'],
+    queryFn: () => getStudentDiagnosticProfile().then((response) => response.data.data),
+    staleTime: 30_000,
+  });
 
   const home = homeQuery.data;
   const growth = useMemo(
@@ -48,7 +55,10 @@ export default function LearningSection(props: StudentSectionProps) {
   );
 
   async function refreshHome(): Promise<void> {
-    await queryClient.invalidateQueries({ queryKey: ['student-learning-home'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['student-learning-home'] }),
+      queryClient.invalidateQueries({ queryKey: ['student-diagnostic-profile'] }),
+    ]);
   }
 
   async function toggleBookmark(resourceId: string, bookmarked: boolean): Promise<void> {
@@ -107,7 +117,7 @@ export default function LearningSection(props: StudentSectionProps) {
       const response = await submitStudentLearningAssessment(attemptId, payload);
       setResult(response.data.data);
       await refreshHome();
-      props.notify('Practice submitted and graded');
+      props.notify(activeAssessment.assessment_type === 'DIAGNOSTIC' ? 'Diagnostic completed — your learning map is updated' : 'Practice submitted and graded');
     } catch {
       props.notify('Could not submit practice');
     } finally { setBusy(''); }
@@ -150,10 +160,17 @@ export default function LearningSection(props: StudentSectionProps) {
             onStartAssessment={(assessmentId) => openAssessment({ id: assessmentId })}
           />
 
+          <DiagnosticKnowledgeMap
+            profile={diagnosticQuery.data}
+            loading={diagnosticQuery.isLoading}
+            error={diagnosticQuery.isError}
+            onRetry={() => { void diagnosticQuery.refetch(); }}
+          />
+
           <div className={styles.card} style={{ marginBottom: 18 }}>
-            <div className={styles.cardTitle}>📝 Practice & self-assessment</div>
-            <p style={{ color: 'var(--muted)', marginTop: 0 }}>Short practice sets are separate from competitions. They help you learn, get explanations and build mastery at your own pace.</p>
-            {home.assessments.length === 0 ? <div className={styles.empty}>Practice sets for your class and board are being added.</div> : (
+            <div className={styles.cardTitle}>📝 Practice, diagnostic & self-assessment</div>
+            <p style={{ color: 'var(--muted)', marginTop: 0 }}>Practice builds skill; short diagnostics improve VidyaSetu&apos;s confidence about what you understand; mastery checks prove learning. None of these are competitions.</p>
+            {home.assessments.length === 0 ? <div className={styles.empty}>Practice and diagnostic sets for your class and board are being added.</div> : (
               <div className={styles.contentGrid}>
                 {home.assessments.slice(0, 6).map((assessment: LearningHomeAssessment) => (
                   <div className={styles.contentItem} key={assessment.id}>
@@ -163,7 +180,7 @@ export default function LearningSection(props: StudentSectionProps) {
                     {assessment.last_percentage != null && <div className={styles.contentMeta}>Last score: <strong>{Math.round(Number(assessment.last_percentage))}%</strong></div>}
                     <div className={styles.contentActions}>
                       <button className={`${styles.miniBtn} ${styles.miniPrimary}`} disabled={busy === `assessment-${assessment.id}`} onClick={() => openAssessment(assessment)}>
-                        {busy === `assessment-${assessment.id}` ? 'Starting…' : 'Start practice'}
+                        {busy === `assessment-${assessment.id}` ? 'Starting…' : assessment.assessment_type === 'DIAGNOSTIC' ? 'Start quick diagnostic' : 'Start practice'}
                       </button>
                     </div>
                   </div>
@@ -210,10 +227,11 @@ export default function LearningSection(props: StudentSectionProps) {
                 <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'rgba(61,185,138,.1)' }}>
                   <strong style={{ fontSize: 22 }}>Score: {Math.round(result.percentage)}%</strong>
                   <div className={styles.contentMeta}>{result.correct_count} correct · {result.wrong_count} wrong · {result.skipped_count} skipped</div>
+                  <div className={styles.contentMeta} style={{ marginTop: 4 }}>Your concept evidence and next-best actions have been recalculated from this attempt.</div>
                 </div>
               ) : (
                 <button className={styles.primary} style={{ marginTop: 16 }} disabled={busy === 'submit-practice'} onClick={submitPractice}>
-                  {busy === 'submit-practice' ? 'Grading…' : 'Submit practice'}
+                  {busy === 'submit-practice' ? 'Grading…' : activeAssessment.assessment_type === 'DIAGNOSTIC' ? 'Submit diagnostic' : 'Submit practice'}
                 </button>
               )}
             </div>
