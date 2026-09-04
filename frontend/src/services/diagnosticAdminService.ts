@@ -49,6 +49,35 @@ export interface CreateDiagnosticPayload {
   passingPct?: number;
 }
 
+export interface DiagnosticPrerequisiteItem {
+  conceptId: string;
+  code: string;
+  name: string;
+  nameHi?: string | null;
+  strength: 'HELPFUL' | 'REQUIRED';
+  rationale?: string | null;
+  gradeCode: string;
+  classNumber?: number | null;
+  subjectCode: string;
+  subjectName?: string | null;
+  chapterTitle?: string | null;
+}
+
+export interface DiagnosticPrerequisiteResponse {
+  concept: {
+    id: string;
+    code: string;
+    name: string;
+    nameHi?: string | null;
+    gradeCode: string;
+    classNumber?: number | null;
+    subjectCode: string;
+    subjectName?: string | null;
+    chapterTitle?: string | null;
+  };
+  prerequisites: DiagnosticPrerequisiteItem[];
+}
+
 export const getDiagnosticConcepts = (classNumber: number) =>
   api.get<ApiEnvelope<DiagnosticAdminConcept[]>>('/admin/learning/concepts', { params: { class: classNumber } });
 
@@ -77,3 +106,11 @@ export const createDiagnosticAssessment = (payload: CreateDiagnosticPayload) =>
     questionIds: payload.questionIds,
     conceptIds: [payload.conceptId],
   });
+
+export const getConceptPrerequisites = (conceptId: string) =>
+  api.get<ApiEnvelope<DiagnosticPrerequisiteResponse>>(`/admin/learning/concepts/${conceptId}/prerequisites`);
+
+export const replaceConceptPrerequisites = (
+  conceptId: string,
+  prerequisites: Array<{ conceptId: string; strength: 'HELPFUL' | 'REQUIRED'; rationale?: string | null }>,
+) => api.put<ApiEnvelope<DiagnosticPrerequisiteResponse>>(`/admin/learning/concepts/${conceptId}/prerequisites`, { prerequisites });
