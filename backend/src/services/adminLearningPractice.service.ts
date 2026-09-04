@@ -1,6 +1,7 @@
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
+import { getAssessmentReadiness, getQuestionReadiness } from './learningQuality.service';
 
 export interface SaveQuestionInput {
   publicCode?: string;
@@ -24,6 +25,13 @@ export interface SaveQuestionInput {
   reviewStatus?: string;
   boardCodes?: string[];
   options?: Array<{ key: string; text: string; textHi?: string | null }>;
+  conceptIds?: UUID[];
+  cognitiveSkill?: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYSE' | 'EVALUATE' | 'CREATE';
+  skillCode?: string | null;
+  learningOutcomeCode?: string | null;
+  misconceptionCode?: string | null;
+  misconceptionText?: string | null;
+  misconceptionTextHi?: string | null;
 }
 
 export interface SaveAssessmentInput {
@@ -44,6 +52,7 @@ export interface SaveAssessmentInput {
   isFeaturedPublic?: boolean;
   boardCodes?: string[];
   questionIds: UUID[];
+  conceptIds?: UUID[];
 }
 
 export interface SaveIntakeInput {
@@ -106,13 +115,23 @@ function isNroerUrl(value: string): boolean {
   }
 }
 
+async function validateConceptIds(client: { query: Function }, conceptIds: UUID[]): Promise<void> {
+  const uniqueIds = [...new Set(conceptIds)];
+  if (!uniqueIds.length) return;
+  const result = await client.query(`SELECT id FROM learning_concepts WHERE id=ANY($1::uuid[]) AND is_active=TRUE`, [uniqueIds]);
+  if (result.rows.length !== uniqueIds.length) throw appError('One or more selected canonical concepts are invalid');
+}
+
 export async function listQuestions() {
   const { rows } = await query(
     `SELECT lq.id,lq.public_code,lq.prompt,lq.prompt_hi,lq.question_type,lq.difficulty,lq.marks::float,
             lq.negative_marks::float,lq.explanation,lq.explanation_hi,
             lq.class_min,lq.class_max,lq.visibility,lq.review_status,lq.created_at,
+            lq.cognitive_skill,lq.skill_code,lq.learning_outcome_code,
+            lq.misconception_code,lq.misconception_text,lq.misconception_text_hi,
             sub.name AS subject_name,lcs.code AS source_code,
             COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes,
+            COALESCE(ARRAY_AGG(DISTINCT lc.id::text) FILTER(WHERE lc.id IS NOT NULL),ARRAY[]::text[]) AS concept_ids,
             COUNT(DISTINCT lqo.id)::int AS option_count,
             COUNT(DISTINCT lqo.id) FILTER(WHERE NULLIF(BTRIM(lqo.option_text_hi),'') IS NULL)::int AS missing_hindi_option_count
      FROM learning_questions lq
@@ -121,6 +140,8 @@ export async function listQuestions() {
      LEFT JOIN learning_question_boards lqb ON lqb.question_id=lq.id
      LEFT JOIN education_boards eb ON eb.id=lqb.board_id
      LEFT JOIN learning_question_options lqo ON lqo.question_id=lq.id
+     LEFT JOIN learning_question_concepts lqc ON lqc.question_id=lq.id
+     LEFT JOIN learning_concepts lc ON lc.id=lqc.concept_id
      GROUP BY lq.id,sub.id,lcs.id
      ORDER BY lq.updated_at DESC LIMIT 500`,
   );
@@ -153,26 +174,32 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
   }
   const publicCode = (input.publicCode || `VSQ-${Date.now()}`).toUpperCase();
   const boardCodes = (input.boardCodes?.length ? input.boardCodes : ['COMMON']).map((code) => code.toUpperCase());
+  const conceptIds = input.conceptIds || [];
 
   return transaction(async (client) => {
     const { rows: boards } = await client.query<{ id: UUID; code: string }>(
       `SELECT id,code FROM education_boards WHERE code=ANY($1::varchar[]) AND is_active=TRUE`, [boardCodes],
     );
     if (boards.length !== new Set(boardCodes).size) throw appError('One or more board codes are invalid');
+    await validateConceptIds(client, conceptIds);
 
     const { rows: [question] } = await client.query<{ id: UUID; public_code: string }>(
       `INSERT INTO learning_questions
        (public_code,prompt,prompt_hi,question_type,difficulty,explanation,explanation_hi,correct_answer,
         marks,negative_marks,class_min,class_max,subject_id,source_id,source_url,licence,attribution_text,
-        visibility,review_status,created_by,reviewed_by,published_at)
+        visibility,review_status,created_by,reviewed_by,published_at,cognitive_skill,skill_code,
+        learning_outcome_code,misconception_code,misconception_text,misconception_text_hi)
        VALUES($1,$2,$3,$4::learning_question_type,$5::learning_difficulty,$6,$7,$8::jsonb,$9,$10,$11,$12,$13::uuid,$14::uuid,$15,$16::learning_license_code,$17,
-              $18::learning_visibility,'DRAFT'::learning_review_status,$19::uuid,NULL::uuid,NULL::timestamptz)
+              $18::learning_visibility,'DRAFT'::learning_review_status,$19::uuid,NULL::uuid,NULL::timestamptz,
+              $20::learning_cognitive_skill,$21,$22,$23,$24,$25)
        RETURNING id,public_code`,
       [publicCode,input.prompt.trim(),input.promptHi?.trim() || null,input.questionType,input.difficulty,
        input.explanation?.trim() || null,input.explanationHi?.trim() || null,JSON.stringify(input.correctAnswer),
        input.marks || 1,input.negativeMarks || 0,input.classMin || null,input.classMax || null,input.subjectId || null,
        source.id,input.sourceUrl?.trim() || null,input.licence || (sourceCode === 'VIDYASETU_ORIGINAL' ? 'VIDYASETU_ORIGINAL' : 'OTHER'),
-       input.attributionText?.trim() || null,input.visibility || 'REGISTERED',createdBy],
+       input.attributionText?.trim() || null,input.visibility || 'REGISTERED',createdBy,
+       input.cognitiveSkill || 'UNDERSTAND',input.skillCode?.trim() || null,input.learningOutcomeCode?.trim() || null,
+       input.misconceptionCode?.trim() || null,input.misconceptionText?.trim() || null,input.misconceptionTextHi?.trim() || null],
     );
 
     for (let index = 0; index < options.length; index += 1) {
@@ -186,46 +213,33 @@ export async function createQuestion(input: SaveQuestionInput, createdBy: UUID) 
     for (const board of boards) {
       await client.query(`INSERT INTO learning_question_boards(question_id,board_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`, [question.id, board.id]);
     }
+    for (let index = 0; index < conceptIds.length; index += 1) {
+      await client.query(
+        `INSERT INTO learning_question_concepts(question_id,concept_id,is_primary,sort_order)
+         VALUES($1::uuid,$2::uuid,$3,$4) ON CONFLICT(question_id,concept_id) DO UPDATE SET is_primary=EXCLUDED.is_primary,sort_order=EXCLUDED.sort_order`,
+        [question.id, conceptIds[index], index === 0, index + 1],
+      );
+    }
     return question;
   });
 }
 
 export async function updateQuestionStatus(questionId: UUID, nextStatus: string, reviewerId: UUID) {
   const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+  const readiness = ['APPROVED','PUBLISHED'].includes(normalizedNextStatus) ? await getQuestionReadiness(questionId) : null;
+  if (readiness && normalizedNextStatus === 'APPROVED' && !readiness.readyForApproval) {
+    throw appError(`Question is not ready for approval: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  }
+  if (readiness && normalizedNextStatus === 'PUBLISHED' && !readiness.readyForPublication) {
+    throw appError(`Question is not publish-ready: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  }
 
   return transaction(async (client) => {
-    const { rows: [existing] } = await client.query<{
-      review_status: string;
-      prompt_hi: string | null;
-      explanation_hi: string | null;
-      question_type: string;
-      negative_marks: number;
-    }>(
-      `SELECT review_status,prompt_hi,explanation_hi,question_type,negative_marks::float
-       FROM learning_questions WHERE id=$1::uuid FOR UPDATE`,
-      [questionId],
+    const { rows: [existing] } = await client.query<{ review_status: string }>(
+      `SELECT review_status FROM learning_questions WHERE id=$1::uuid FOR UPDATE`, [questionId],
     );
     if (!existing) throw appError('Learning question not found', 404);
     assertReviewTransition(existing.review_status, normalizedNextStatus);
-
-    if (['APPROVED','PUBLISHED'].includes(normalizedNextStatus)) {
-      if (!existing.prompt_hi?.trim() || !existing.explanation_hi?.trim()) {
-        throw appError('Academic approval requires both Hindi prompt and Hindi explanation.');
-      }
-      if (Number(existing.negative_marks) !== 0) {
-        throw appError('VidyaSetu learning-practice questions cannot be approved with negative marking.');
-      }
-      if (['MCQ_SINGLE','MCQ_MULTIPLE','TRUE_FALSE'].includes(existing.question_type)) {
-        const { rows: [options] } = await client.query<{ total: number; missing_hindi: number }>(
-          `SELECT COUNT(*)::int AS total,
-                  COUNT(*) FILTER(WHERE NULLIF(BTRIM(option_text_hi),'') IS NULL)::int AS missing_hindi
-           FROM learning_question_options WHERE question_id=$1::uuid`,
-          [questionId],
-        );
-        if (!options || options.total < 2) throw appError('Objective questions require at least two answer options before approval.');
-        if (options.missing_hindi > 0) throw appError('Academic approval requires Hindi text for every answer option.');
-      }
-    }
 
     const { rows: [updated] } = await client.query(
       `UPDATE learning_questions
@@ -242,19 +256,22 @@ export async function updateQuestionStatus(questionId: UUID, nextStatus: string,
 
 export async function listAssessments() {
   const { rows } = await query(
-    `SELECT la.id,la.public_slug,la.title,la.summary,la.assessment_type,la.visibility,la.review_status,
+    `SELECT la.id,la.public_slug,la.title,la.title_hi,la.summary,la.assessment_type,la.visibility,la.review_status,
             la.class_min,la.class_max,la.time_limit_mins,la.passing_pct::float,la.max_attempts,
             la.is_featured_public,sub.name AS subject_name,
             COUNT(DISTINCT laq.question_id)::int AS question_count,
             COUNT(DISTINCT laq.question_id) FILTER(WHERE lq.review_status='PUBLISHED')::int AS published_question_count,
             COALESCE(SUM(COALESCE(laq.marks_override,lq.marks)),0)::float AS total_marks,
-            COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes
+            COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes,
+            COALESCE(ARRAY_AGG(DISTINCT lc.id::text) FILTER(WHERE lc.id IS NOT NULL),ARRAY[]::text[]) AS concept_ids
      FROM learning_assessments la
      LEFT JOIN subjects sub ON sub.id=la.subject_id
      LEFT JOIN learning_assessment_questions laq ON laq.assessment_id=la.id
      LEFT JOIN learning_questions lq ON lq.id=laq.question_id
      LEFT JOIN learning_assessment_boards lab ON lab.assessment_id=la.id
      LEFT JOIN education_boards eb ON eb.id=lab.board_id
+     LEFT JOIN learning_assessment_concepts lac ON lac.assessment_id=la.id
+     LEFT JOIN learning_concepts lc ON lc.id=lac.concept_id
      GROUP BY la.id,sub.id ORDER BY la.updated_at DESC LIMIT 300`,
   );
   return rows;
@@ -269,6 +286,7 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
   }
   const boardCodes = (input.boardCodes?.length ? input.boardCodes : ['COMMON']).map((code) => code.toUpperCase());
   const slug = input.publicSlug?.trim() || slugify(input.title);
+  const conceptIds = input.conceptIds || [];
 
   return transaction(async (client) => {
     const { rows: boards } = await client.query<{ id: UUID; code: string }>(
@@ -279,6 +297,7 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
       `SELECT id FROM learning_questions WHERE id=ANY($1::uuid[])`, [input.questionIds],
     );
     if (questions.length !== new Set(input.questionIds).size) throw appError('One or more question IDs are invalid');
+    await validateConceptIds(client, conceptIds);
 
     const { rows: [assessment] } = await client.query<{ id: UUID; public_slug: string }>(
       `INSERT INTO learning_assessments
@@ -299,12 +318,26 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
         [assessment.id,input.questionIds[index],index + 1],
       );
     }
+    for (let index = 0; index < conceptIds.length; index += 1) {
+      await client.query(
+        `INSERT INTO learning_assessment_concepts(assessment_id,concept_id,is_primary,sort_order)
+         VALUES($1::uuid,$2::uuid,$3,$4) ON CONFLICT(assessment_id,concept_id) DO UPDATE SET is_primary=EXCLUDED.is_primary,sort_order=EXCLUDED.sort_order`,
+        [assessment.id, conceptIds[index], index === 0, index + 1],
+      );
+    }
     return assessment;
   });
 }
 
 export async function updateAssessmentStatus(assessmentId: UUID, nextStatus: string, reviewerId: UUID) {
   const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+  const readiness = ['APPROVED','PUBLISHED'].includes(normalizedNextStatus) ? await getAssessmentReadiness(assessmentId) : null;
+  if (readiness && normalizedNextStatus === 'APPROVED' && !readiness.readyForApproval) {
+    throw appError(`Assessment is not ready for approval: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  }
+  if (readiness && normalizedNextStatus === 'PUBLISHED' && !readiness.readyForPublication) {
+    throw appError(`Assessment is not publish-ready: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  }
 
   return transaction(async (client) => {
     const { rows: [existing] } = await client.query<{ review_status: string; public_slug: string | null }>(
@@ -313,33 +346,6 @@ export async function updateAssessmentStatus(assessmentId: UUID, nextStatus: str
     );
     if (!existing) throw appError('Learning assessment not found', 404);
     assertReviewTransition(existing.review_status, normalizedNextStatus);
-
-    if (normalizedNextStatus === 'PUBLISHED' && !existing.public_slug) {
-      throw appError('Published assessments require a public slug.');
-    }
-
-    if (['APPROVED','PUBLISHED'].includes(normalizedNextStatus)) {
-      const { rows: [questionState] } = await client.query<{
-        total: number;
-        not_approved: number;
-        not_published: number;
-      }>(
-        `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER(WHERE lq.review_status NOT IN ('APPROVED','PUBLISHED'))::int AS not_approved,
-                COUNT(*) FILTER(WHERE lq.review_status <> 'PUBLISHED')::int AS not_published
-         FROM learning_assessment_questions laq
-         JOIN learning_questions lq ON lq.id=laq.question_id
-         WHERE laq.assessment_id=$1::uuid`,
-        [assessmentId],
-      );
-      if (!questionState || questionState.total < 1) throw appError('Assessment requires at least one question before approval.');
-      if (normalizedNextStatus === 'APPROVED' && questionState.not_approved > 0) {
-        throw appError('All assessment questions must be APPROVED or PUBLISHED before assessment approval.');
-      }
-      if (normalizedNextStatus === 'PUBLISHED' && questionState.not_published > 0) {
-        throw appError('All assessment questions must be PUBLISHED before the assessment can be published.');
-      }
-    }
 
     const { rows: [updated] } = await client.query(
       `UPDATE learning_assessments
