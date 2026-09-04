@@ -1,5 +1,5 @@
 import type { QueryResultRow } from 'pg';
-import type { UUID } from '@vidyasetu/contracts';
+import type { UserRole, UUID } from '@vidyasetu/contracts';
 import { query } from '../config/db';
 import * as learningVisibility from './learningVisibility.service';
 
@@ -26,7 +26,7 @@ interface MisconceptionClusterRow extends QueryResultRow {
 export async function getSchoolDiagnosticOverview(
   schoolId: UUID,
   userId: UUID,
-  role: string,
+  role: UserRole,
   classId: UUID,
   subjectCode: string,
   teacherId: UUID | null,
@@ -193,7 +193,7 @@ export async function getParentDiagnosticInsight(parentUserId: UUID, studentId: 
       nextReviewAt: row.next_review_at,
       hasMisconceptionSignal: Boolean(row.dominant_misconception_code),
     })),
-    misconceptionSignals: misconceptions.rows.map((row: any) => ({
+    misconceptionSignals: misconceptions.rows.map((row: QueryResultRow) => ({
       conceptId: row.concept_id,
       conceptCode: row.code,
       conceptName: row.name,
