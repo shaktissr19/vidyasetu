@@ -54,6 +54,12 @@ export async function listPublicLearningCatalogue(filters: PublicLearningCatalog
       UPPER(COALESCE(sub.code,''))=UPPER($${p})
       OR COALESCE(sub.name,'') ILIKE $${p}
       OR COALESCE(lr.subject_label,'') ILIKE $${p}
+      OR EXISTS (
+        SELECT 1 FROM learning_resource_concepts lrcsub
+        JOIN learning_concepts lcsub ON lcsub.id=lrcsub.concept_id
+        WHERE lrcsub.resource_id=lr.id
+          AND (UPPER(lcsub.subject_code)=UPPER($${p}) OR lcsub.subject_code ILIKE $${p})
+      )
     )`);
   }
 
@@ -97,7 +103,7 @@ export async function listPublicLearningCatalogue(filters: PublicLearningCatalog
         SELECT 1 FROM learning_resource_concepts lrcs
         JOIN learning_concepts lcsrch ON lcsrch.id=lrcs.concept_id
         WHERE lrcs.resource_id=lr.id
-          AND (lcsrch.name ILIKE $${p} OR COALESCE(lcsrch.name_hi,'') ILIKE $${p} OR lcsrch.code ILIKE $${p})
+          AND (lcsrch.name ILIKE $${p} OR COALESCE(lcsrch.name_hi,'') ILIKE $${p} OR lcsrch.code ILIKE $${p} OR lcsrch.subject_code ILIKE $${p})
       )
     )`);
   }
@@ -113,7 +119,8 @@ export async function listPublicLearningCatalogue(filters: PublicLearningCatalog
             lr.subject_label,lr.topic_label,lr.thumbnail_url,lr.duration_secs,
             lr.is_featured_public,lr.published_at,lr.external_url,lr.source_url,
             lr.licence,lr.attribution_text,lr.is_offline_ready,
-            COALESCE(sub.name,lr.subject_label) AS subject_name,sub.code AS subject_code,
+            COALESCE(sub.name,lr.subject_label,MIN(lc.subject_code)) AS subject_name,
+            COALESCE(sub.code,MIN(lc.subject_code)) AS subject_code,
             lcs.code AS source_code,lcs.name AS source_name,lcs.source_kind,
             COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes,
             COALESCE(ARRAY_AGG(DISTINCT egl.code) FILTER(WHERE egl.code IS NOT NULL),ARRAY[]::varchar[]) AS grade_codes,
