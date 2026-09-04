@@ -1,6 +1,6 @@
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
-import { transaction } from '../config/db';
+import { query, transaction } from '../config/db';
 import { captureAttemptEvidenceAndRefresh } from './studentDiagnosticIntelligence.service';
 
 interface StudentRow extends QueryResultRow {
@@ -10,6 +10,25 @@ interface StudentRow extends QueryResultRow {
 interface AttemptRow extends QueryResultRow {
   id: UUID;
   assessment_id: UUID;
+}
+
+interface ReadyRow extends QueryResultRow { ready: boolean; }
+
+/**
+ * Allows the code release to coexist safely with an environment that has not
+ * yet received migrations 037/038. Diagnostic features become active as soon
+ * as the additive schema is present; established Learning remains available.
+ */
+export async function diagnosticIntelligenceAvailable(): Promise<boolean> {
+  const { rows: [row] } = await query<ReadyRow>(
+    `SELECT (
+       to_regclass('public.student_learning_evidence') IS NOT NULL
+       AND to_regclass('public.student_concept_intelligence') IS NOT NULL
+       AND to_regclass('public.student_concept_misconceptions') IS NOT NULL
+       AND to_regclass('public.learning_concept_prerequisites') IS NOT NULL
+     ) AS ready`,
+  );
+  return Boolean(row?.ready);
 }
 
 /**
@@ -22,6 +41,7 @@ export async function captureAttemptEvidenceForUser(
   attemptId: UUID,
   assessmentId: UUID,
 ): Promise<void> {
+  if (!(await diagnosticIntelligenceAvailable())) return;
   await transaction(async (client) => {
     const { rows: [student] } = await client.query<StudentRow>(
       `SELECT id FROM students WHERE user_id=$1 AND status='ACTIVE'`,
@@ -38,6 +58,7 @@ export async function captureAttemptEvidenceForUser(
  * unique key makes this safe to execute repeatedly.
  */
 export async function reconcileMissingEvidenceForUser(userId: UUID, limit = 200): Promise<number> {
+  if (!(await diagnosticIntelligenceAvailable())) return 0;
   return transaction(async (client) => {
     const { rows: [student] } = await client.query<StudentRow>(
       `SELECT id FROM students WHERE user_id=$1 AND status='ACTIVE'`,
