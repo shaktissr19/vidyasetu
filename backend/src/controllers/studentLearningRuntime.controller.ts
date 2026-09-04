@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
 import * as studentConceptMasteryService from '../services/studentConceptMastery.service';
 import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
+import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
+import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
 import * as R from '../utils/response';
 
 export async function getLearningHome(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -24,6 +26,15 @@ export async function getAdaptiveLearningPlan(req: Request, res: Response, next:
     const conceptMastery = await studentConceptMasteryService.getStudentConceptMastery(user.userId);
     const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
     return R.ok(res, adaptivePlan);
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getDiagnosticProfile(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    const profile = await studentDiagnosticIntelligenceService.getStudentDiagnosticProfile(user.userId);
+    return R.ok(res, profile);
   } catch (err: unknown) { next(err); }
 }
 
@@ -50,6 +61,11 @@ export async function submitLearningAssessment(req: Request, res: Response, next
       req.params.attemptId,
       req.body.answers || [],
       req.body.timeSpentSecs,
+    );
+    await studentDiagnosticRuntimeService.captureAttemptEvidenceForUser(
+      user.userId,
+      req.params.attemptId,
+      result.assessment_id,
     );
     await studentConceptMasteryService.reconcileStudentConceptProgress(user.userId);
     return R.ok(res, result);
