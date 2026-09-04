@@ -72,6 +72,45 @@ export interface TeacherLearningOverview {
   students: TeacherStudentLearningInsight[];
 }
 
+export interface TeacherDiagnosticOverview {
+  scope: TeacherLearningOverview['scope'];
+  summary: {
+    studentsWithEvidence: number;
+    lowConfidenceStudents: number;
+    reviewDueStudents: number;
+    activeMisconceptionStudents: number;
+  };
+  concepts: Array<{
+    conceptId: string;
+    code: string;
+    name: string;
+    nameHi?: string | null;
+    averageProficiency?: number | null;
+    averageConfidence?: number | null;
+    studentsWithEvidence: number;
+    lowConfidence: number;
+    reviewDue: number;
+    misconceptionSignals: number;
+  }>;
+  students: Array<{
+    studentId: string;
+    studentCode: string;
+    name: string;
+    evidenceConcepts: number;
+    averageProficiency?: number | null;
+    lowConfidenceConcepts: number;
+    reviewDueConcepts: number;
+    misconceptionConcepts: number;
+  }>;
+  misconceptionClusters: Array<{
+    conceptId: string;
+    misconceptionCode: string;
+    affectedStudents: number;
+    activeStudents: number;
+    suspectedStudents: number;
+  }>;
+}
+
 export interface ParentFocusConcept {
   conceptId: string;
   code: string;
@@ -120,11 +159,48 @@ export interface ParentLearningInsight {
   headline: string;
 }
 
+export interface ParentDiagnosticInsight {
+  student: ParentLearningInsight['student'];
+  headline: string;
+  summary: {
+    conceptsAssessed: number;
+    strongConcepts: number;
+    needsSupport: number;
+    reviewDue: number;
+    misconceptionSignals: number;
+  };
+  guidance: string[];
+  concepts: Array<{
+    conceptId: string;
+    proficiencyScore: number;
+    confidenceScore: number;
+    confidenceLevel: string;
+    evidenceCount: number;
+    retentionStatus: string;
+    nextReviewAt?: string | null;
+    hasMisconceptionSignal: boolean;
+  }>;
+  misconceptionSignals: Array<{
+    conceptId: string;
+    conceptCode: string;
+    conceptName: string;
+    conceptNameHi?: string | null;
+    misconceptionCode: string;
+    state: string;
+  }>;
+}
+
 export const getSchoolLearningTargets = () =>
   api.get<ApiEnvelope<LearningInsightTarget[]>>('/school/learning-insights/targets');
 
 export const getSchoolLearningOverview = (classId: string, subjectCode: string) =>
   api.get<ApiEnvelope<TeacherLearningOverview>>('/school/learning-insights/overview', { params: { classId, subjectCode } });
 
+export const getSchoolDiagnosticOverview = (classId: string, subjectCode: string) =>
+  api.get<ApiEnvelope<TeacherDiagnosticOverview>>('/school/learning-insights/diagnostics', { params: { classId, subjectCode } });
+
 export const getParentLearningInsight = (studentId: string) =>
   api.get<ApiEnvelope<ParentLearningInsight>>(`/parent/learning-insights/${studentId}`);
+
+export const getParentDiagnosticInsight = (studentId: string) =>
+  api.get<ApiEnvelope<ParentDiagnosticInsight>>(`/parent/learning-insights/${studentId}/diagnostics`);
