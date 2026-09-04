@@ -14,6 +14,7 @@ const MENU = [
   { href: '/admin/learning/coverage', icon: '🎯', label: 'Content Coverage' },
   { href: '/admin/learning/imports', icon: '📥', label: 'Bulk Learning Import' },
   { href: '/admin/learning/practice', icon: '🧠', label: 'Question Bank' },
+  { href: '/admin/learning/diagnostics', icon: '🧭', label: 'Diagnostic Builder' },
   { href: '/admin/learning/intake', icon: '🌐', label: 'OER Intake' },
   { href: '/admin/competitions', icon: '🏆', label: 'Competitions' },
   { href: '/admin/groups', icon: '🤝', label: 'Communities' },
