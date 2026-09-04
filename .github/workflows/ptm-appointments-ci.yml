@@ -1,0 +1,126 @@
+name: Parent Teacher Meetings CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ptm-certification:
+    name: Sessions, slots, linked-child booking and Teacher outcomes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate PTM contracts
+        run: |
+          set -Eeuo pipefail
+          test -s database/migrations/034_ptm_appointments.sql
+          grep -q "ptm_sessions" database/migrations/034_ptm_appointments.sql
+          grep -q "ptm_slots" database/migrations/034_ptm_appointments.sql
+          grep -q "ptm_bookings" database/migrations/034_ptm_appointments.sql
+          grep -q "uq_ptm_active_slot_booking" database/migrations/034_ptm_appointments.sql
+          grep -q "schoolPtmRoutes" backend/src/index.ts
+          grep -q "parentPtmRoutes" backend/src/index.ts
+          grep -q "studentPtmRoutes" backend/src/index.ts
+          grep -q "Parent–Teacher Meetings" 'frontend/src/app/(school)/school/ptm/page.tsx'
+          grep -q "Parent–Teacher Meetings" 'frontend/src/app/(parent)/parent/ptm/page.tsx'
+          grep -q "PTM & Meetings" frontend/src/components/student/StudentPortal.tsx
+          grep -q "return 'ptm'" frontend/src/components/student/sections/NotificationsSection.tsx
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/services/ptm.service.js
+          test -s dist/scripts/certifyPtmAppointments.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable School, Student and Parent baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql; do
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+
+      - name: Apply School Calendar and PTM migrations twice
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -Eeuo pipefail
+          for pass in 1 2; do
+            echo "School Calendar migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/029_absence_school_calendar.sql
+          done
+          for pass in 1 2; do
+            echo "PTM migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/034_ptm_appointments.sql
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.ptm_sessions') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.ptm_slots') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.ptm_bookings') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM pg_indexes WHERE indexname='uq_ptm_active_slot_booking';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM pg_indexes WHERE indexname='uq_ptm_active_student_teacher';")" = "1"
+
+      - name: Certify PTM behavior
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+        run: node dist/scripts/certifyPtmAppointments.js
