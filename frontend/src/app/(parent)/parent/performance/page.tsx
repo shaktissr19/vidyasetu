@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getChildren, getChildPerformance, type ParentSubjectPerformance } from '@/services/parentService';
 import { getParentLearningInsight, type LearningMasteryState } from '@/services/learningVisibilityService';
+import ParentDiagnosticPanel from '@/components/learning/ParentDiagnosticPanel';
 import { SectionHeader } from '@/components/ui/index';
 import useLanguageStore from '@/store/languageStore';
 import { apiErrorText } from '@/utils/errors';
@@ -125,6 +126,8 @@ export default function ParentPerformancePage() {
           )}
         </div>
       )}
+
+      {selectedChild ? <div className="mt-5"><ParentDiagnosticPanel studentId={selectedChild} /></div> : null}
 
       <div className="mt-5">
         {learningQ.isLoading ? (
