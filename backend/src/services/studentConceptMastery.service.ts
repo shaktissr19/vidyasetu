@@ -143,6 +143,7 @@ async function reconcileByStudentId(studentId: UUID): Promise<void> {
          LEFT JOIN student_learning_answers slaa
            ON slaa.attempt_id=sla.id AND slaa.question_id=lq.id
          WHERE sla.student_id=$1 AND sla.status='GRADED'
+           AND lac.evidence_role IN ('PRACTICE','MASTERY')
          GROUP BY lac.concept_id,lac.evidence_role,sla.id,la.passing_pct,sla.submitted_at
        ), scored AS (
          SELECT concept_id,evidence_role,attempt_id,passing_pct,submitted_at,
