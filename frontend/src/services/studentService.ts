@@ -73,6 +73,56 @@ export interface ConceptMasteryItem {
   needsReview: boolean;
 }
 
+export type DiagnosticConfidence = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+export type DiagnosticRetentionStatus = 'NOT_ASSESSED' | 'ACTIVE_LEARNING' | 'STABLE' | 'REVIEW_SOON' | 'REVIEW_DUE';
+export type DiagnosticMisconceptionState = 'SUSPECTED' | 'ACTIVE' | 'RESOLVED';
+
+export interface DiagnosticMisconception {
+  concept_id: string;
+  misconception_code: string;
+  state: DiagnosticMisconceptionState;
+  wrong_count: number;
+  correct_count: number;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  resolved_at?: string | null;
+}
+
+export interface DiagnosticConceptProfile {
+  conceptId: string;
+  code: string;
+  name: string;
+  nameHi?: string | null;
+  subjectCode: string;
+  subjectName?: string | null;
+  chapterTitle?: string | null;
+  proficiencyScore: number;
+  confidenceScore: number;
+  confidenceLevel: DiagnosticConfidence;
+  evidenceCount: number;
+  correctEvidenceCount: number;
+  diagnosticCount: number;
+  practiceCount: number;
+  masteryCount: number;
+  retentionStatus: DiagnosticRetentionStatus;
+  nextReviewAt?: string | null;
+  dominantMisconceptionCode?: string | null;
+  lastEvidenceAt?: string | null;
+  lastMasteryAt?: string | null;
+  misconceptions: DiagnosticMisconception[];
+}
+
+export interface StudentDiagnosticProfile {
+  generatedAt: string;
+  summary: {
+    conceptsAssessed: number;
+    reviewDue: number;
+    activeMisconceptions: number;
+    lowConfidence: number;
+  };
+  concepts: DiagnosticConceptProfile[];
+}
+
 export interface AdaptiveLearningTarget {
   kind: 'RESOURCE' | 'ASSESSMENT';
   id: string;
@@ -81,18 +131,29 @@ export interface AdaptiveLearningTarget {
   summary?: string | null;
   resourceType?: string | null;
   assessmentType?: string | null;
-  evidenceRole?: 'PRACTICE' | 'MASTERY' | null;
+  evidenceRole?: 'DIAGNOSTIC' | 'PRACTICE' | 'MASTERY' | null;
   progressPct?: number | null;
   questionCount?: number | null;
   passingPct?: number | null;
   lastPercentage?: number | null;
 }
 
+export type AdaptiveLearningActionType =
+  | 'CONTINUE_RESOURCE'
+  | 'REVIEW_RESOURCE'
+  | 'PRACTICE'
+  | 'MASTERY_CHECK'
+  | 'START_NEXT_CONCEPT'
+  | 'QUICK_DIAGNOSTIC'
+  | 'REPAIR_MISCONCEPTION'
+  | 'SPACED_REVIEW'
+  | 'REVIEW_PREREQUISITE';
+
 export interface AdaptiveLearningAction {
   id: string;
   rank: number;
   urgency: 'HIGH' | 'FOCUS' | 'NEXT';
-  actionType: 'CONTINUE_RESOURCE' | 'REVIEW_RESOURCE' | 'PRACTICE' | 'MASTERY_CHECK' | 'START_NEXT_CONCEPT';
+  actionType: AdaptiveLearningActionType;
   conceptId: string;
   conceptCode: string;
   conceptName: string;
@@ -104,6 +165,13 @@ export interface AdaptiveLearningAction {
   reason: string;
   estimatedMinutes: number;
   target: AdaptiveLearningTarget;
+  diagnostic?: {
+    proficiencyScore: number;
+    confidenceScore: number;
+    confidenceLevel: string;
+    retentionStatus: string;
+    misconceptionCode?: string | null;
+  };
 }
 
 export interface AdaptiveLearningPlan {
@@ -116,12 +184,15 @@ export interface AdaptiveLearningPlan {
     mastered: number;
     nextActions: number;
     estimatedMinutes: number;
+    reviewDue?: number;
+    activeMisconceptions?: number;
+    lowConfidence?: number;
   };
   actions: AdaptiveLearningAction[];
 }
 
 export interface StudentLearningHome {
-  learner: { studentId: string; className: number; schoolName?: string | null; boardCode: string; boardName: string };
+  learner: { studentId: string; className: number; gradeCode?: string; gradeLabel?: string; schoolName?: string | null; boardCode: string; boardName: string };
   progress: { started: number; completed: number; average_progress: number };
   recommendedResources: LearningHomeResource[];
   assessments: LearningHomeAssessment[];
@@ -186,6 +257,7 @@ export const removeOfflineDownload = (contentItemId: string) => api.delete<ApiEn
 
 export const getStudentLearningHome = () => api.get<ApiEnvelope<StudentLearningHome>>('/student/learning/home');
 export const getStudentAdaptiveLearningPlan = () => api.get<ApiEnvelope<AdaptiveLearningPlan>>('/student/learning/adaptive-plan');
+export const getStudentDiagnosticProfile = () => api.get<ApiEnvelope<StudentDiagnosticProfile>>('/student/learning/diagnostics/profile');
 export const updateStudentLearningProgress = (resourceId: string, progressPct: number) =>
   api.patch<ApiEnvelope<{ resource_id: string; progress_pct: number; is_completed: boolean }>>(`/student/learning/resources/${resourceId}/progress`, { progressPct });
 export const bookmarkLearningResource = (resourceId: string) => api.post<ApiEnvelope<{ bookmarked: boolean }>>(`/student/learning/resources/${resourceId}/bookmark`);

@@ -3,6 +3,7 @@ import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { z } from 'zod';
 import * as aiService from '../services/ai.service';
+import { diagnosticContextAsTutorHistory, getAIDiagnosticContext } from '../services/aiDiagnosticContext.service';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { aiLimiter } from '../middleware/rateLimit.middleware';
@@ -60,13 +61,21 @@ router.post('/chat', validate(chatSchema), async (
     if (!user) return R.unauthorized(res);
     const studentId = await studentForUser(user.userId);
     if (!studentId) return R.notFound(res, 'Student profile not found');
-    return R.ok(res, await aiService.chat(
+
+    const diagnosticContext = await getAIDiagnosticContext(studentId, req.body.conceptCode || null);
+    const verifiedContext = diagnosticContextAsTutorHistory(diagnosticContext);
+    const history = verifiedContext
+      ? [...(req.body.history || []), { role: 'assistant' as const, content: verifiedContext }]
+      : (req.body.history || []);
+
+    const response = await aiService.chat(
       user.userId,
       studentId,
       req.body.message,
-      req.body.history,
+      history,
       req.body.conceptCode || null,
-    ));
+    );
+    return R.ok(res, { ...response, diagnosticContext });
   } catch (err: unknown) {
     next(err);
   }

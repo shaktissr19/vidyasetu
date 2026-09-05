@@ -95,7 +95,7 @@ const assessmentSchema = z.object({
   title: z.string().trim().min(3).max(300),
   titleHi: z.string().trim().max(300).nullable().optional(),
   summary: z.string().trim().max(2000).nullable().optional(),
-  assessmentType: z.enum(['PRACTICE','CHAPTER_TEST','UNIT_TEST','MOCK','DAILY']),
+  assessmentType: z.enum(['DIAGNOSTIC','PRACTICE','CHAPTER_TEST','UNIT_TEST','MOCK','DAILY']),
   visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   classMin: z.number().int().min(1).max(12).nullable().optional(),

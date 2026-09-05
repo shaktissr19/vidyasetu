@@ -2,6 +2,10 @@ import type { NextFunction, Request, Response } from 'express';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
 import * as studentConceptMasteryService from '../services/studentConceptMastery.service';
 import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
+import * as studentAdaptiveIntelligenceService from '../services/studentAdaptiveIntelligence.service';
+import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
+import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
+import logger = require('../utils/logger');
 import * as R from '../utils/response';
 
 export async function getLearningHome(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -12,7 +16,10 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
       studentLearningHubService.getLearningHome(user.userId),
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
     ]);
-    const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
+      ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
+      : basePlan;
     return R.ok(res, { ...home, conceptMastery, adaptivePlan });
   } catch (err: unknown) { next(err); }
 }
@@ -22,8 +29,29 @@ export async function getAdaptiveLearningPlan(req: Request, res: Response, next:
     const user = req.user;
     if (!user) return R.unauthorized(res);
     const conceptMastery = await studentConceptMasteryService.getStudentConceptMastery(user.userId);
-    const adaptivePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
+    const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
+      ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
+      : basePlan;
     return R.ok(res, adaptivePlan);
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getDiagnosticProfile(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    if (!(await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable())) {
+      return R.ok(res, {
+        generatedAt: new Date().toISOString(),
+        summary: { conceptsAssessed: 0, reviewDue: 0, activeMisconceptions: 0, lowConfidence: 0 },
+        concepts: [],
+        schemaReady: false,
+      });
+    }
+    await studentDiagnosticRuntimeService.reconcileMissingEvidenceForUser(user.userId);
+    const profile = await studentDiagnosticIntelligenceService.getStudentDiagnosticProfile(user.userId);
+    return R.ok(res, { ...profile, schemaReady: true });
   } catch (err: unknown) { next(err); }
 }
 
@@ -51,6 +79,24 @@ export async function submitLearningAssessment(req: Request, res: Response, next
       req.body.answers || [],
       req.body.timeSpentSecs,
     );
+
+    // Grading is the primary learner transaction. Diagnostic evidence is
+    // idempotently repairable, so a transient intelligence-write failure must
+    // never hide an already-graded result from the learner.
+    try {
+      await studentDiagnosticRuntimeService.captureAttemptEvidenceForUser(
+        user.userId,
+        req.params.attemptId,
+        result.assessment_id,
+      );
+    } catch (diagnosticError: unknown) {
+      logger.error('Diagnostic evidence capture deferred; it will be reconciled from the graded attempt', {
+        attemptId: req.params.attemptId,
+        assessmentId: result.assessment_id,
+        error: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError),
+      });
+    }
+
     await studentConceptMasteryService.reconcileStudentConceptProgress(user.userId);
     return R.ok(res, result);
   } catch (err: unknown) { next(err); }

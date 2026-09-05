@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SectionHeader } from '@/components/ui/index';
+import TeacherDiagnosticPanel from '@/components/learning/TeacherDiagnosticPanel';
 import useLanguageStore from '@/store/languageStore';
 import {
   getSchoolLearningOverview,
@@ -109,6 +110,8 @@ export default function SchoolLearningInsightsPage() {
             <div className="card"><div className="text-2xl font-black" style={{ color: '#176B3A' }}>{data.summary.mastered}</div><div className="text-xs mt-1" style={{ color: 'var(--slate)' }}>Mastered signals</div></div>
             <div className="card"><div className="text-2xl font-black" style={{ color: 'var(--navy)' }}>{data.summary.learnerReadyConcepts}/{data.scope.conceptCount}</div><div className="text-xs mt-1" style={{ color: 'var(--slate)' }}>Learner-ready concepts</div></div>
           </div>
+
+          {selected ? <TeacherDiagnosticPanel classId={selected.class_id} subjectCode={selected.subject_code} /> : null}
 
           <div className="card mb-5">
             <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
