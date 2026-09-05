@@ -151,11 +151,13 @@ async function main(): Promise<void> {
   assert(link, 'No linked Class 8 Parent/Student fixture available');
 
   const { rows: [force] } = await query<ConceptRow>(
-    `SELECT id,code,name,subject_id,subject_code,grade_id
-     FROM learning_concepts WHERE code=$1 AND is_active=TRUE`,
+    `SELECT lc.id,lc.code,lc.name,lc.subject_id,sub.code AS subject_code,lc.grade_id
+     FROM learning_concepts lc
+     JOIN subjects sub ON sub.id=lc.subject_id AND sub.is_active=TRUE
+     WHERE lc.code=$1 AND lc.is_active=TRUE`,
     [FORCE_CODE],
   );
-  assert(force, 'Canonical Force concept missing');
+  assert(force, 'Canonical Force concept or operational Science subject missing');
 
   const schoolAdmin = await schoolAdminUserId(link.school_id);
 
@@ -363,10 +365,11 @@ async function main(): Promise<void> {
   assert(aiText?.includes('Historical mastery is not erased'), 'VidyaBot mastery/retention safety instruction missing');
 
   const { rows: [otherConcept] } = await query<ConceptRow>(
-    `SELECT id,code,name,subject_id,subject_code,grade_id
-     FROM learning_concepts
-     WHERE grade_id=$1 AND id<>$2 AND is_active=TRUE
-     ORDER BY sequence,code LIMIT 1`,
+    `SELECT lc.id,lc.code,lc.name,lc.subject_id,sub.code AS subject_code,lc.grade_id
+     FROM learning_concepts lc
+     JOIN subjects sub ON sub.id=lc.subject_id AND sub.is_active=TRUE
+     WHERE lc.grade_id=$1 AND lc.id<>$2 AND lc.is_active=TRUE
+     ORDER BY lc.sequence,lc.code LIMIT 1`,
     [force.grade_id, force.id],
   );
   assert(otherConcept, 'No same-grade concept available for prerequisite cycle certification');
