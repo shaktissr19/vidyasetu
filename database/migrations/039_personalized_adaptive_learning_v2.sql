@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS student_daily_learning_plan_items (
   target_title       TEXT        NOT NULL,
   title              TEXT        NOT NULL,
   reason             TEXT        NOT NULL,
+  evidence_snapshot  JSONB       NOT NULL DEFAULT '{}'::jsonb,
   estimated_minutes  SMALLINT    NOT NULL CHECK (estimated_minutes > 0 AND estimated_minutes <= 120),
   status             VARCHAR(16) NOT NULL DEFAULT 'PENDING'
     CHECK (status IN ('PENDING','COMPLETED','SKIPPED')),
@@ -82,6 +83,8 @@ CREATE TABLE IF NOT EXISTS student_daily_learning_plan_items (
   UNIQUE (plan_id, position),
   UNIQUE (plan_id, source_action_id)
 );
+ALTER TABLE student_daily_learning_plan_items
+  ADD COLUMN IF NOT EXISTS evidence_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;
 CREATE OR REPLACE TRIGGER trg_student_daily_learning_plan_items_updated_at
   BEFORE UPDATE ON student_daily_learning_plan_items
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -95,6 +98,8 @@ COMMENT ON TABLE student_adaptive_preferences IS
 COMMENT ON TABLE student_daily_learning_plans IS
   'Stable daily personalized learning journey snapshot generated from established adaptive and diagnostic evidence.';
 COMMENT ON TABLE student_daily_learning_plan_items IS
-  'Ordered explainable actions within a daily learning journey; completion is reconciled against actual resource/assessment activity.';
+  'Ordered explainable actions within a daily learning journey; each item keeps the evidence snapshot used when it was chosen and completion is reconciled against real learning activity.';
+COMMENT ON COLUMN student_daily_learning_plan_items.evidence_snapshot IS
+  'Immutable recommendation-time proficiency/confidence/retention/misconception metadata when available. It explains a choice but never becomes academic truth.';
 
 COMMIT;
