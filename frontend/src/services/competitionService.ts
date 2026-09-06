@@ -3,7 +3,6 @@ import type {
   ApiEnvelope,
   CompetitionExam,
   CompetitionLeaderboardRow,
-  ExamAttempt,
   ExamAttemptResult,
 } from '@/types/api';
 
@@ -22,6 +21,8 @@ export interface CompetitionExamV2 extends CompetitionExam {
   results_at?: string | null;
   marks_per_question?: string | number | null;
   negative_marks?: string | number | null;
+  instructions?: string | null;
+  instructions_hi?: string | null;
   registration_id?: string | null;
   registered_at?: string | null;
   attempt_status?: string | null;
@@ -34,6 +35,40 @@ export interface CompetitionExamV2 extends CompetitionExam {
   certificate_code?: string | null;
   certificate_enabled?: boolean;
   learning_feedback_enabled?: boolean;
+}
+
+export interface CompetitionAttemptQuestion {
+  id: string;
+  question_text: string;
+  question_hi?: string | null;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  option_a_hi?: string | null;
+  option_b_hi?: string | null;
+  option_c_hi?: string | null;
+  option_d_hi?: string | null;
+  subject_code?: string | null;
+  difficulty?: string | null;
+  sort_order?: number | null;
+}
+
+export interface CompetitionAttempt {
+  attemptId: string;
+  startedAt: string;
+  endsAt: string;
+  exam: CompetitionExamV2 & {
+    titleHi?: string | null;
+    durationMins: number;
+    totalQuestions: number;
+    marksPerQuestion: number;
+    negativeMarks: number;
+    instructions?: string | null;
+    instructionsHi?: string | null;
+    subjectCodes: string[];
+  };
+  questions: CompetitionAttemptQuestion[];
 }
 
 export interface CompetitionLeaderboardRowV2 extends CompetitionLeaderboardRow {
@@ -121,7 +156,7 @@ export interface CompetitionOfficialResult {
 export const listCompetitions = () => api.get<ApiEnvelope<CompetitionExamV2[]>>('/competition');
 export const listMyExams = () => api.get<ApiEnvelope<CompetitionExamV2[]>>('/competition/mine/list');
 export const registerExam = (examId: string) => api.post<ApiEnvelope<{ examId?: string; registered?: boolean; registrationId?: string }>>(`/competition/${examId}/register`);
-export const startAttempt = (examId: string) => api.post<ApiEnvelope<ExamAttempt>>(`/competition/${examId}/start`);
+export const startAttempt = (examId: string) => api.post<ApiEnvelope<CompetitionAttempt>>(`/competition/${examId}/start`);
 export const submitAttempt = (attemptId: string, responses: readonly CompetitionResponseInput[]) =>
   api.post<ApiEnvelope<CompetitionSubmitResult>>(`/competition/attempts/${attemptId}/submit`, { responses });
 export const getCompetitionResult = (attemptId: string) => api.get<ApiEnvelope<CompetitionOfficialResult>>(`/competition/attempts/${attemptId}/result`);
