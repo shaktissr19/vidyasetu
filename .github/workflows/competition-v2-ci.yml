@@ -39,7 +39,7 @@ jobs:
           grep -q "importLearningQuestions" backend/src/services/competitionPlatform.service.ts
           grep -q "competition-result" backend/src/routes/competition.routes.ts
           test -s 'frontend/src/app/(student)/exams/[examId]/page.tsx'
-          test -s 'frontend/src/app/(student)/competition/[examId]/result/page.tsx'
+          test -s 'frontend/src/app/(student)/exams/results/[attemptId]/page.tsx'
           test -s 'frontend/src/app/competition/[examId]/leaderboard/page.tsx'
 
       - name: Build shared contracts
