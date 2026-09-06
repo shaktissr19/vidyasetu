@@ -141,6 +141,8 @@ function selectActions(
     if (index >= 0) remaining.splice(index, 1);
   }
 
+  // Keep one high-value step rather than returning an empty plan if a future
+  // content estimate is slightly longer than the learner's smallest budget.
   if (chosen.length === 0 && source[0]) chosen.push(source[0]);
   return chosen;
 }
@@ -236,6 +238,9 @@ function serializePlan(plan: PlanRow, items: ItemRow[]) {
   const completedMinutes = items
     .filter((item) => item.status === 'COMPLETED')
     .reduce((sum, item) => sum + Number(item.estimated_minutes || 0), 0);
+  const remainingMinutes = items
+    .filter((item) => item.status === 'PENDING')
+    .reduce((sum, item) => sum + Number(item.estimated_minutes || 0), 0);
   const closedItems = items.filter((item) => item.status !== 'PENDING').length;
   return {
     id: plan.id,
@@ -248,7 +253,7 @@ function serializePlan(plan: PlanRow, items: ItemRow[]) {
     explanation: plan.explanation,
     estimatedMinutes: Number(plan.estimated_minutes || 0),
     completedMinutes,
-    remainingMinutes: Math.max(0, Number(plan.estimated_minutes || 0) - completedMinutes),
+    remainingMinutes,
     progressPct: items.length ? Math.round((closedItems / items.length) * 100) : 100,
     sourceGeneratedAt: plan.source_generated_at,
     completedAt: plan.completed_at,
@@ -288,6 +293,19 @@ async function persistNewPlan(
     : 'No urgent mapped learning action is available today. VidyaSetu will add a new journey when reviewed learning content or new learner evidence creates a useful next step.';
 
   return transaction(async (client) => {
+    // Serialize plan creation for the same learner/day. This prevents two
+    // simultaneous Learning Home requests from creating competing revisions.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`personalized:${studentId}:${planDate}`]);
+    const { rows: [existing] } = await client.query<PlanRow>(
+      `SELECT id,plan_date,revision,status,daily_minutes,plan_style,headline,explanation,
+              estimated_minutes,source_generated_at,completed_at,created_at
+       FROM student_daily_learning_plans
+       WHERE student_id=$1 AND plan_date=$2::date AND status='ACTIVE'
+       ORDER BY revision DESC LIMIT 1`,
+      [studentId, planDate],
+    );
+    if (existing) return existing;
+
     const { rows: [revisionRow] } = await client.query<RevisionRow>(
       `SELECT COALESCE(MAX(revision),0)::int + 1 AS revision
        FROM student_daily_learning_plans WHERE student_id=$1 AND plan_date=$2::date`,
@@ -343,9 +361,13 @@ export async function updatePersonalizedPreferences(
   if (![15, 25, 40].includes(dailyMinutes)) throw appError('Daily learning time must be 15, 25 or 40 minutes', 400);
   const planStyle = input.planStyle || current.planStyle;
   if (!['BALANCED', 'FOCUS'].includes(planStyle)) throw appError('Unsupported personalized plan style', 400);
-  const planDate = indiaDate();
+  if (dailyMinutes === current.dailyMinutes && planStyle === current.planStyle) {
+    return { dailyMinutes, planStyle, journeyWillRefresh: false };
+  }
 
+  const planDate = indiaDate();
   await transaction(async (client) => {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`personalized:${studentId}:${planDate}`]);
     await client.query(
       `INSERT INTO student_adaptive_preferences(student_id,daily_minutes,plan_style)
        VALUES($1,$2,$3)
@@ -353,9 +375,12 @@ export async function updatePersonalizedPreferences(
       [studentId, dailyMinutes, planStyle],
     );
     await client.query(
-      `UPDATE student_daily_learning_plans
-       SET status='SUPERSEDED'
-       WHERE student_id=$1 AND plan_date=$2::date AND status='ACTIVE'`,
+      `UPDATE student_daily_learning_plans SET status='SUPERSEDED'
+       WHERE id=(
+         SELECT id FROM student_daily_learning_plans
+         WHERE student_id=$1 AND plan_date=$2::date AND status IN ('ACTIVE','COMPLETED')
+         ORDER BY revision DESC LIMIT 1
+       )`,
       [studentId, planDate],
     );
   });
@@ -373,7 +398,9 @@ export async function getTodayPersonalizedJourney(userId: UUID) {
     plan = await activePlan(studentId, planDate);
     if (!plan) {
       const completed = await latestPlan(studentId, planDate);
-      if (completed) return { preferences, journey: serializePlan(completed, await itemsForPlan(completed.id)) };
+      if (completed?.status === 'COMPLETED') {
+        return { preferences, journey: serializePlan(completed, await itemsForPlan(completed.id)) };
+      }
     }
   }
 
