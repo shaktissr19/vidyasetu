@@ -11,7 +11,9 @@ type Translate = (hi: string, en?: string) => string;
 
 const MENU = (t: Translate) => [
   { href: '/parent/dashboard', icon: '🏠', label: t('अवलोकन', 'Overview'), exact: true },
+  { href: '/parent/learning-support', icon: '🤝', label: t('लर्निंग सपोर्ट', 'Learning Support') },
   { href: '/parent/performance', icon: '📊', label: t('प्रदर्शन', 'Performance') },
+  { href: '/parent/ptm', icon: '📅', label: t('PTM और फॉलो-अप', 'PTM & Follow-up') },
   { href: '/parent/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/parent/leave', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
   { href: '/parent/transport', icon: '🚌', label: t('परिवहन और सुरक्षा', 'Transport & Safety') },
