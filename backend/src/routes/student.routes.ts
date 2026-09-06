@@ -32,6 +32,10 @@ const learningSubmitSchema = z.object({
   answers: z.array(z.object({ questionId: z.string().uuid(), answer: z.unknown() })).max(200),
   timeSpentSecs: z.number().int().min(0).max(86400).nullable().optional(),
 });
+const personalizedPreferenceSchema = z.object({
+  dailyMinutes: z.union([z.literal(15), z.literal(25), z.literal(40)]),
+  planStyle: z.enum(['BALANCED', 'FOCUS']).optional(),
+});
 
 router.use(authenticate);
 router.use(authorize('STUDENT'));
@@ -50,6 +54,10 @@ router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
 router.get('/learning/home', learningRuntimeCtrl.getLearningHome);
 router.get('/learning/adaptive-plan', learningRuntimeCtrl.getAdaptiveLearningPlan);
 router.get('/learning/diagnostics/profile', learningRuntimeCtrl.getDiagnosticProfile);
+router.get('/learning/journey/today', learningRuntimeCtrl.getPersonalizedJourney);
+router.get('/learning/journey/preferences', learningRuntimeCtrl.getPersonalizedPreferences);
+router.patch('/learning/journey/preferences', validate(personalizedPreferenceSchema), learningRuntimeCtrl.updatePersonalizedPreferences);
+router.post('/learning/journey/items/:itemId/skip', learningRuntimeCtrl.skipPersonalizedJourneyItem);
 router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), learningRuntimeCtrl.updateLearningResourceProgress);
 router.post('/learning/resources/:resourceId/bookmark', ctrl.addLearningBookmark);
 router.delete('/learning/resources/:resourceId/bookmark', ctrl.removeLearningBookmark);
