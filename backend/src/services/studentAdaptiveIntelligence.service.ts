@@ -56,6 +56,8 @@ interface TargetRow extends QueryResultRow {
   assessment_type: string | null;
   evidence_role: 'DIAGNOSTIC' | 'PRACTICE' | 'MASTERY' | null;
   question_count: number | null;
+  max_attempts: number | null;
+  attempt_count: number | string;
 }
 
 interface PrerequisiteRow extends QueryResultRow {
@@ -100,10 +102,13 @@ function rowTarget(row: TargetRow): AdaptiveLearningTarget {
     assessmentType: row.assessment_type,
     evidenceRole: row.evidence_role === 'DIAGNOSTIC' ? null : row.evidence_role,
     questionCount: row.question_count,
+    maxAttempts: row.max_attempts == null ? null : Number(row.max_attempts),
+    attemptCount: Number(row.attempt_count || 0),
   };
 }
 
 async function bestTargetForConcept(
+  studentId: UUID,
   conceptId: UUID,
   classNumber: number | null,
   preference: 'DIAGNOSTIC' | 'REPAIR' | 'REVIEW',
@@ -113,37 +118,43 @@ async function bestTargetForConcept(
        SELECT la.id,la.public_slug,la.title,la.summary,'ASSESSMENT'::text AS item_type,
               NULL::text AS resource_type,la.assessment_type::text AS assessment_type,
               lac.evidence_role,COUNT(laq.question_id)::int AS question_count,
+              la.max_attempts,
+              (SELECT COUNT(*)::int FROM student_learning_attempts sla
+               WHERE sla.student_id=$1 AND sla.assessment_id=la.id
+                 AND sla.status IN ('IN_PROGRESS','GRADED')) AS attempt_count,
               CASE
-                WHEN $3='DIAGNOSTIC' AND (la.assessment_type::text='DIAGNOSTIC' OR lac.evidence_role='DIAGNOSTIC') THEN 0
-                WHEN $3='REVIEW' AND lac.evidence_role='PRACTICE' THEN 1
-                WHEN $3='REPAIR' AND lac.evidence_role='PRACTICE' THEN 1
+                WHEN $4='DIAGNOSTIC' AND (la.assessment_type::text='DIAGNOSTIC' OR lac.evidence_role='DIAGNOSTIC') THEN 0
+                WHEN $4='REVIEW' AND lac.evidence_role='PRACTICE' THEN 1
+                WHEN $4='REPAIR' AND lac.evidence_role='PRACTICE' THEN 1
                 WHEN lac.evidence_role='MASTERY' THEN 4 ELSE 3 END AS priority
        FROM learning_assessment_concepts lac
        JOIN learning_assessments la ON la.id=lac.assessment_id
        LEFT JOIN learning_assessment_questions laq ON laq.assessment_id=la.id
-       WHERE lac.concept_id=$1 AND la.review_status='PUBLISHED'
+       WHERE lac.concept_id=$2 AND la.review_status='PUBLISHED'
          AND la.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
-         AND ($2::int IS NULL OR ((la.class_min IS NULL OR la.class_min <= $2) AND (la.class_max IS NULL OR la.class_max >= $2)))
+         AND ($3::int IS NULL OR ((la.class_min IS NULL OR la.class_min <= $3) AND (la.class_max IS NULL OR la.class_max >= $3)))
        GROUP BY la.id,lac.evidence_role
        UNION ALL
        SELECT lr.id,lr.public_slug,lr.title,lr.summary,'RESOURCE'::text,
               lr.resource_type::text,NULL::text,NULL::varchar,NULL::int,
+              NULL::int,0::int,
               CASE
-                WHEN $3='REPAIR' AND lrc.journey_stage IN ('UNDERSTAND','DO') THEN 0
-                WHEN $3='REVIEW' AND lrc.journey_stage='REVISE' THEN 0
+                WHEN $4='REPAIR' AND lrc.journey_stage IN ('UNDERSTAND','DO') THEN 0
+                WHEN $4='REVIEW' AND lrc.journey_stage='REVISE' THEN 0
                 WHEN lrc.journey_stage='UNDERSTAND' THEN 2 ELSE 5 END
        FROM learning_resource_concepts lrc
        JOIN learning_resources lr ON lr.id=lrc.resource_id
-       WHERE lrc.concept_id=$1 AND lr.review_status='PUBLISHED'
+       WHERE lrc.concept_id=$2 AND lr.review_status='PUBLISHED'
          AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
-         AND ($2::int IS NULL OR ((lr.class_min IS NULL OR lr.class_min <= $2) AND (lr.class_max IS NULL OR lr.class_max >= $2)))
+         AND ($3::int IS NULL OR ((lr.class_min IS NULL OR lr.class_min <= $3) AND (lr.class_max IS NULL OR lr.class_max >= $3)))
      )
      SELECT id,public_slug,title,summary,item_type::text,resource_type,assessment_type,evidence_role,
-            question_count
+            question_count,max_attempts,attempt_count
      FROM candidates
+     WHERE item_type='RESOURCE' OR max_attempts IS NULL OR attempt_count < max_attempts
      ORDER BY priority,item_type DESC,id
      LIMIT 1`,
-    [conceptId, classNumber, preference],
+    [studentId, conceptId, classNumber, preference],
   );
   return row || null;
 }
@@ -202,7 +213,7 @@ export async function enrichAdaptivePlanWithDiagnostics(
       || concept.misconceptions.find((item) => item.state === 'SUSPECTED');
 
     if (activeMisconception) {
-      const target = await bestTargetForConcept(concept.conceptId, classNumber, 'REPAIR');
+      const target = await bestTargetForConcept(student.student_id, concept.conceptId, classNumber, 'REPAIR');
       if (target) {
         injected.push({
           id: `${concept.code}:misconception:${activeMisconception.misconception_code}:${target.id}`,
@@ -227,7 +238,7 @@ export async function enrichAdaptivePlanWithDiagnostics(
     }
 
     if (concept.retentionStatus === 'REVIEW_DUE' || concept.retentionStatus === 'REVIEW_SOON') {
-      const target = await bestTargetForConcept(concept.conceptId, classNumber, 'REVIEW');
+      const target = await bestTargetForConcept(student.student_id, concept.conceptId, classNumber, 'REVIEW');
       if (target) {
         injected.push({
           id: `${concept.code}:spaced-review:${target.id}`,
@@ -254,7 +265,7 @@ export async function enrichAdaptivePlanWithDiagnostics(
     if (Number(concept.proficiencyScore) < 60) {
       const prerequisite = await weakPrerequisite(student.student_id, concept.conceptId);
       if (prerequisite) {
-        const target = await bestTargetForConcept(prerequisite.concept_id, classNumber, 'REPAIR');
+        const target = await bestTargetForConcept(student.student_id, prerequisite.concept_id, classNumber, 'REPAIR');
         if (target) {
           injected.push({
             id: `${concept.code}:prerequisite:${prerequisite.concept_code}:${target.id}`,
@@ -280,7 +291,7 @@ export async function enrichAdaptivePlanWithDiagnostics(
     }
 
     if (concept.confidenceLevel === 'LOW' && Number(concept.evidenceCount) < 5) {
-      const target = await bestTargetForConcept(concept.conceptId, classNumber, 'DIAGNOSTIC');
+      const target = await bestTargetForConcept(student.student_id, concept.conceptId, classNumber, 'DIAGNOSTIC');
       if (target && target.assessment_type === 'DIAGNOSTIC') {
         injected.push({
           id: `${concept.code}:diagnostic:${target.id}`,
