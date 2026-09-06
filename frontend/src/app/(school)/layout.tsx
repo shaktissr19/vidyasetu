@@ -18,7 +18,9 @@ const ADMIN_MENU = (t: Translate) => [
   { href: '/school/staff', icon: '🧑‍💼', label: t('स्टाफ उपस्थिति और छुट्टी', 'Staff Attendance & Leave') },
   { href: '/school/transport', icon: '🚌', label: t('परिवहन और सुरक्षा', 'Transport & Safety') },
   { href: '/school/documents', icon: '📁', label: t('रिकॉर्ड और प्रमाणपत्र', 'Records & Certificates') },
+  { href: '/school/academic-workspace', icon: '🎯', label: t('अकादमिक वर्कस्पेस', 'Academic Workspace') },
   { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
+  { href: '/school/ptm', icon: '📅', label: t('PTM और हस्तक्षेप', 'PTM & Interventions') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/absence', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
   { href: '/school/fees', icon: '💰', label: t('फीस', 'Fees') },
@@ -36,7 +38,9 @@ const TEACHER_MENU = (t: Translate) => [
   { href: '/school/overview', icon: '🏠', label: t('ओवरव्यू', 'Overview'), exact: true },
   { href: '/school/students', icon: '👨‍🎓', label: t('छात्र', 'Students') },
   { href: '/school/staff', icon: '🧑‍💼', label: t('मेरी उपस्थिति और छुट्टी', 'My Attendance & Leave') },
+  { href: '/school/academic-workspace', icon: '🎯', label: t('अकादमिक वर्कस्पेस', 'Academic Workspace') },
   { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
+  { href: '/school/ptm', icon: '📅', label: t('PTM और हस्तक्षेप', 'PTM & Interventions') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/absence', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },
   { href: '/school/timetable', icon: '🗓️', label: t('टाइमटेबल', 'Timetable') },
@@ -51,12 +55,10 @@ export default function SchoolLayout({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuthStore();
   const { t } = useLanguageStore();
   const router = useRouter();
-
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=school'); return; }
     if (user?.role && !['SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(user.role)) router.replace('/login?role=school');
   }, [isLoggedIn, user, router]);
-
   if (!isLoggedIn || (user?.role && !['SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(user.role))) return null;
   const isTeacher = user?.role === 'TEACHER';
   return <div className="flex flex-col min-h-screen"><GlobalTopbar /><div className="dash-layout"><DashSidebar accentColor="var(--saffron)" profile={{avatar:isTeacher?'👩‍🏫':'🏫',name:user?.name||(isTeacher?'Teacher':'School Admin'),subtitle:isTeacher?'Teacher':'School Administrator',badge:isTeacher?'📚 Staff':'✅ Verified'}} menuItems={(isTeacher?TEACHER_MENU:ADMIN_MENU)(t)} /><main className="dash-main">{children}</main></div></div>;
