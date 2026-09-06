@@ -93,6 +93,13 @@ interface InterventionStudentRow extends QueryResultRow {
   student_name?: string;
   student_code?: string;
 }
+interface ParentInterventionRow extends InterventionRow {
+  student_status: InterventionStudentStatus;
+  parent_acknowledged_at: string | Date | null;
+  parent_note: string | null;
+  student_resolved_at: string | Date | null;
+  student_outcome_note: string | null;
+}
 
 function httpError(message: string, statusCode: number): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
@@ -433,7 +440,7 @@ export async function getParentLearningSupport(parentUserId: UUID, studentId: UU
     learningVisibility.getParentLearningInsight(parentUserId, studentId),
     diagnosticVisibility.getParentDiagnosticInsight(parentUserId, studentId),
   ]);
-  const { rows: interventions } = await query<InterventionRow & InterventionStudentRow>(
+  const { rows: interventions } = await query<ParentInterventionRow>(
     `SELECT li.*,lis.status AS student_status,lis.parent_acknowledged_at,lis.parent_note,lis.resolved_at AS student_resolved_at,
             lis.outcome_note AS student_outcome_note,tu.name AS teacher_name,lc.code AS concept_code,lc.name AS concept_name,lc.name_hi AS concept_name_hi,
             (SELECT cg.id FROM collaboration_groups cg WHERE cg.intervention_id=li.id AND cg.status<>'ARCHIVED' ORDER BY cg.created_at DESC LIMIT 1) AS community_group_id
