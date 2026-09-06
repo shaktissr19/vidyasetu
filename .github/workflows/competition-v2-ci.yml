@@ -135,6 +135,24 @@ jobs:
           DB_PASSWORD: postgres
         run: node dist/scripts/syncLearningConceptRegistry.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
 
+      - name: Stage governed Learning visibility regression fixtures
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          PGPASSWORD: postgres
+        run: |
+          node dist/scripts/installPressurePack.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/installForcePack.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/backfillStagedConceptLinks.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/backfillStagedConceptLinks.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resource_concepts lrc JOIN learning_resources lr ON lr.id=lrc.resource_id WHERE lr.public_slug IN ('class-8-science-pressure-v1','class-8-science-force-v1');")" = "2"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_question_concepts lqc JOIN learning_questions lq ON lq.id=lqc.question_id WHERE lq.public_code LIKE 'VS8S-PRES-%' OR lq.public_code LIKE 'VS8S-FORC-%';")" = "24"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_assessment_concepts lac JOIN learning_assessments la ON la.id=lac.assessment_id WHERE la.public_slug IN ('class-8-science-pressure-practice-v1','class-8-science-pressure-mastery-v1','class-8-science-force-practice-v1','class-8-science-force-mastery-v1');")" = "4"
+
       - name: Run Competition 2.0 behavioral certification
         working-directory: backend
         env:
