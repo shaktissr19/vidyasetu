@@ -324,8 +324,14 @@ export async function updatePlatformCompetitionStatus(examId: UUID, nextStatus: 
     await query("UPDATE exam_attempts SET score_released_at=NOW() WHERE exam_id=$1 AND status='SCORED' AND integrity_status='CLEAN'", [examId]);
   }
   const { rows: [updated] } = await query(
-    `UPDATE exams SET status=$1,published_at=CASE WHEN $1='REGISTRATION_OPEN' THEN COALESCE(published_at,NOW()) ELSE published_at END
-     WHERE id=$2 RETURNING *`,
+    `UPDATE exams
+     SET status=$1::exam_status,
+         published_at=CASE
+           WHEN $1::exam_status='REGISTRATION_OPEN'::exam_status THEN COALESCE(published_at,NOW())
+           ELSE published_at
+         END
+     WHERE id=$2
+     RETURNING *`,
     [nextStatus, examId],
   );
   return updated;
