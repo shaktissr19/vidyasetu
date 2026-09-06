@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import type { StudentPersonalizedJourney } from '@/services/studentService';
+import { getPersonalizedJourneySnapshot, savePersonalizedJourneySnapshot } from '@/lib/personalizedJourneyOffline';
+import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 import styles from '../StudentPortal.module.css';
 
@@ -38,13 +41,28 @@ export default function PersonalizedJourneyPanel({
   onChangeMinutes,
   onSkip,
 }: Props) {
+  const userId = useAuthStore((state) => state.user?.id || '');
   const lang = useLanguageStore((state) => state.lang);
   const t = useLanguageStore((state) => state.t);
+  const [cachedData, setCachedData] = useState<StudentPersonalizedJourney | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    if (!userId) return;
+    if (data) {
+      savePersonalizedJourneySnapshot(userId, data);
+      setCachedData(null);
+      return;
+    }
+    if (error) setCachedData(getPersonalizedJourneySnapshot(userId));
+  }, [data, error, userId]);
+
+  const effectiveData = data || cachedData || undefined;
+  const offlineFallback = !data && Boolean(cachedData);
+
+  if (loading && !effectiveData) {
     return <div className={styles.card} style={{ marginBottom: 18 }}><div className={styles.loading}>{t('आज का निजी लर्निंग प्लान बन रहा है…', 'Building today’s personalized learning journey…')}</div></div>;
   }
-  if (error || !data) {
+  if (!effectiveData) {
     return (
       <div className={styles.card} style={{ marginBottom: 18 }}>
         <div className={styles.error}>{t('आज का निजी लर्निंग प्लान लोड नहीं हो सका।', 'Today’s personalized learning journey could not be loaded.')}</div>
@@ -53,11 +71,18 @@ export default function PersonalizedJourneyPanel({
     );
   }
 
-  const { journey, preferences } = data;
+  const { journey, preferences } = effectiveData;
   const complete = journey.status === 'COMPLETED';
 
   return (
     <div className={styles.card} style={{ marginBottom: 18, border: '1px solid rgba(61,185,138,.22)', background: 'linear-gradient(135deg, rgba(61,185,138,.08), rgba(28,112,255,.06))' }}>
+      {offlineFallback ? (
+        <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 9, background: 'rgba(255,178,56,.12)' }}>
+          <strong>📶 {t('ऑफलाइन कॉपी', 'Offline copy')}</strong>
+          <span className={styles.contentMeta}> · {t('आज का आखिरी सिंक किया हुआ प्लान दिख रहा है। बदलाव और ऑनलाइन असेसमेंट कनेक्शन वापस आने पर उपलब्ध होंगे।', 'Showing the last synced copy of today’s plan. Changes and online assessments are available when your connection returns.')}</span>
+        </div>
+      ) : null}
+
       <div style={{ display: 'flex', gap: 14, justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 760 }}>
           <div className={styles.cardTitle}>🧭 {t('आज की सीखने की यात्रा', 'Today’s learning journey')}</div>
@@ -71,7 +96,7 @@ export default function PersonalizedJourneyPanel({
               <button
                 key={minutes}
                 className={preferences.dailyMinutes === minutes ? `${styles.miniBtn} ${styles.miniPrimary}` : styles.miniBtn}
-                disabled={busy === 'journey-preference'}
+                disabled={offlineFallback || busy === 'journey-preference'}
                 onClick={() => void onChangeMinutes(minutes)}
               >{minutes} min</button>
             ))}
@@ -121,11 +146,11 @@ export default function PersonalizedJourneyPanel({
                         {item.target.kind === 'RESOURCE' && item.target.publicSlug ? (
                           <Link href={`/learn/resource/${item.target.publicSlug}`} target="_blank" className={`${styles.miniBtn} ${styles.miniPrimary}`}>{t('सीखना शुरू करें', 'Start')}</Link>
                         ) : item.target.kind === 'ASSESSMENT' ? (
-                          <button className={`${styles.miniBtn} ${styles.miniPrimary}`} disabled={busy === `assessment-${item.target.id}`} onClick={() => void onStartAssessment(item.target.id)}>
+                          <button className={`${styles.miniBtn} ${styles.miniPrimary}`} disabled={offlineFallback || busy === `assessment-${item.target.id}`} onClick={() => void onStartAssessment(item.target.id)}>
                             {busy === `assessment-${item.target.id}` ? t('शुरू हो रहा है…', 'Starting…') : t('शुरू करें', 'Start')}
                           </button>
                         ) : null}
-                        <button className={styles.miniBtn} disabled={busy === `journey-skip-${item.id}`} onClick={() => void onSkip(item.id)}>{t('आज छोड़ें', 'Skip today')}</button>
+                        <button className={styles.miniBtn} disabled={offlineFallback || busy === `journey-skip-${item.id}`} onClick={() => void onSkip(item.id)}>{t('आज छोड़ें', 'Skip today')}</button>
                       </>
                     )}
                   </div>
