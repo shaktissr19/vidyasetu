@@ -4,6 +4,10 @@ import type { UUID } from '@vidyasetu/contracts';
 import { z } from 'zod';
 import * as aiService from '../services/ai.service';
 import { diagnosticContextAsTutorHistory, getAIDiagnosticContext } from '../services/aiDiagnosticContext.service';
+import {
+  getAIPersonalizedJourneyContext,
+  personalizedJourneyContextAsTutorHistory,
+} from '../services/aiPersonalizedJourneyContext.service';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { aiLimiter } from '../middleware/rateLimit.middleware';
@@ -62,11 +66,15 @@ router.post('/chat', validate(chatSchema), async (
     const studentId = await studentForUser(user.userId);
     if (!studentId) return R.notFound(res, 'Student profile not found');
 
-    const diagnosticContext = await getAIDiagnosticContext(studentId, req.body.conceptCode || null);
-    const verifiedContext = diagnosticContextAsTutorHistory(diagnosticContext);
-    const history = verifiedContext
-      ? [...(req.body.history || []), { role: 'assistant' as const, content: verifiedContext }]
-      : (req.body.history || []);
+    const [diagnosticContext, journeyContext] = await Promise.all([
+      getAIDiagnosticContext(studentId, req.body.conceptCode || null),
+      getAIPersonalizedJourneyContext(studentId, req.body.conceptCode || null),
+    ]);
+    const verifiedDiagnostic = diagnosticContextAsTutorHistory(diagnosticContext);
+    const verifiedJourney = personalizedJourneyContextAsTutorHistory(journeyContext);
+    const history = [...(req.body.history || [])];
+    if (verifiedDiagnostic) history.push({ role: 'assistant' as const, content: verifiedDiagnostic });
+    if (verifiedJourney) history.push({ role: 'assistant' as const, content: verifiedJourney });
 
     const response = await aiService.chat(
       user.userId,
@@ -75,7 +83,7 @@ router.post('/chat', validate(chatSchema), async (
       history,
       req.body.conceptCode || null,
     );
-    return R.ok(res, { ...response, diagnosticContext });
+    return R.ok(res, { ...response, diagnosticContext, journeyContext });
   } catch (err: unknown) {
     next(err);
   }
