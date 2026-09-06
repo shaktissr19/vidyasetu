@@ -25,6 +25,7 @@ jobs:
 
       - name: Validate Competition 2.0 contracts
         run: |
+          set -euxo pipefail
           test -s database/migrations/040_competition_platform_v2.sql
           grep -q "competition_attempt_concept_results" database/migrations/040_competition_platform_v2.sql
           grep -q "competition_achievements" database/migrations/040_competition_platform_v2.sql
@@ -37,7 +38,7 @@ jobs:
           grep -q "FLAGGED" backend/src/services/academicCompetition.service.ts
           grep -q "getStudentCompetitionResult" backend/src/services/competitionPlatform.service.ts
           grep -q "importLearningQuestions" backend/src/services/competitionPlatform.service.ts
-          grep -q "competition-result" backend/src/routes/competition.routes.ts
+          grep -q "attempts/:attemptId/result" backend/src/routes/competition.routes.ts
           test -s 'frontend/src/app/(student)/exams/[examId]/page.tsx'
           test -s 'frontend/src/app/(student)/exams/results/[attemptId]/page.tsx'
           test -s 'frontend/src/app/competition/[examId]/leaderboard/page.tsx'
