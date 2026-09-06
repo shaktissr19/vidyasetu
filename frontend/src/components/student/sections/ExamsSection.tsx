@@ -2,20 +2,31 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listMyExams, registerExam, startAttempt, submitAttempt } from '@/services/competitionService';
+import {
+  listMyExams,
+  registerExam,
+  startAttempt,
+  submitAttempt,
+  type CompetitionAttempt,
+  type CompetitionExamV2,
+  type CompetitionSubmitResult,
+} from '@/services/competitionService';
 import { apiErrorText } from '@/utils/errors';
-import type { CompetitionExam, ExamAttempt, ExamAttemptQuestion, ExamAttemptResult } from '@/types/api';
+import type { ExamAttemptQuestion } from '@/types/api';
 import type { StudentSectionProps } from '@/types/studentPortal';
 import styles from '../StudentPortal.module.css';
 
-type PortalExam = CompetitionExam & {
+type PortalExam = CompetitionExamV2 & {
   subject_codes?: string[] | null;
   max_marks?: string | number | null;
   marks_per_question?: string | number | null;
   correct_count?: number | null;
+  wrong_count?: number | null;
+  skipped_count?: number | null;
   rank_school?: string | number | null;
   rank_overall?: string | number | null;
   attempt_id?: string | null;
+  registration_id?: string | null;
 };
 
 type PortalQuestionSource = ExamAttemptQuestion & {
@@ -47,7 +58,7 @@ interface PortalAttempt {
   questions: PortalQuestion[];
 }
 
-type PortalAttemptExam = CompetitionExam & {
+type PortalAttemptExam = CompetitionExamV2 & {
   totalQuestions?: number;
   durationMins?: number;
   instructions?: string | null;
@@ -64,7 +75,7 @@ function statusClass(status: string): string {
   return `${styles.status} ${styles.statusRegistration}`;
 }
 
-function normalizeAttempt(payload: ExamAttempt): PortalAttempt {
+function normalizeAttempt(payload: CompetitionAttempt): PortalAttempt {
   const exam = payload.exam as PortalAttemptExam;
   const questions = payload.questions.map(question => {
     const row = question as PortalQuestionSource;
@@ -78,7 +89,7 @@ function normalizeAttempt(payload: ExamAttempt): PortalAttempt {
     };
   });
   return {
-    attemptId: payload.attemptId || payload.id || '',
+    attemptId: payload.attemptId,
     endsAt: payload.endsAt,
     exam: {
       id: exam.id,
@@ -95,7 +106,7 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
   const qc = useQueryClient();
   const [attempt, setAttempt] = useState<PortalAttempt | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<ExamAttemptResult | null>(null);
+  const [result, setResult] = useState<CompetitionSubmitResult | null>(null);
   const [now, setNow] = useState(Date.now());
 
   const examsQuery = useQuery<PortalExam[]>({
@@ -136,13 +147,15 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
       if (!attempt) throw new Error('No active competition attempt');
       return submitAttempt(
         attempt.attemptId,
-        attempt.questions.map(question => ({ questionId: question.id, selectedOption: answers[question.id] || null }))
+        attempt.questions.map(question => ({ questionId: question.id, selectedOption: answers[question.id] || null })),
       );
     },
     onSuccess: async response => {
       const payload = response.data.data;
       setResult(payload);
-      notify(`🎯 Competition submitted · Score ${payload.score ?? 0}/${payload.maxMarks ?? 0}`);
+      notify(payload.released
+        ? `🎯 Competition result · Score ${payload.score ?? 0}/${payload.maxMarks ?? 0}`
+        : '✅ Competition submitted. Official score and rank will appear after results are released.');
       await qc.invalidateQueries({ queryKey: ['my-exams'] });
       await refreshDashboard();
     },
@@ -166,13 +179,14 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
   return (
     <>
       <div className={styles.sectionHeader}>
-        <div><h1 className={styles.title}>🏆 Competitions & Challenges</h1><div className={styles.subtitle}>Register for academic competitions, take live challenges and see scored attempts from the real competition engine.</div></div>
+        <div><h1 className={styles.title}>🏆 Competitions & Challenges</h1><div className={styles.subtitle}>Register for academic competitions, take live challenges and see official results after release.</div></div>
       </div>
 
       {examsQuery.isLoading && <div className={styles.loading}>Loading competitions…</div>}
       {examsQuery.isError && <div className={styles.error}>{apiErrorText(examsQuery.error, 'Competition request failed')}</div>}
       {exams.map(exam => {
         const maxMarks = Number(exam.max_marks || Number(exam.total_questions || 0) * Number(exam.marks_per_question || 0));
+        const resultReleased = exam.status === 'COMPLETED' && exam.total_marks != null;
         return (
           <div className={styles.examCard} key={exam.id}>
             <div className={styles.examTop}>
@@ -189,9 +203,14 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
               <span className={statusClass(exam.status)}>{exam.status.replaceAll('_', ' ')}</span>
             </div>
 
-            {exam.attempt_status === 'SCORED' && (
+            {exam.attempt_status === 'SCORED' && resultReleased && (
               <div className={styles.success} style={{ marginTop: 14, marginBottom: 0 }}>
                 Score <b>{Number(exam.total_marks || 0)}/{maxMarks}</b> · Correct {exam.correct_count || 0} · School rank {exam.rank_school ? `#${exam.rank_school}` : '—'} · Overall rank {exam.rank_overall ? `#${exam.rank_overall}` : '—'}
+              </div>
+            )}
+            {exam.attempt_status === 'SCORED' && !resultReleased && (
+              <div className={styles.success} style={{ marginTop: 14, marginBottom: 0 }}>
+                ✅ Submitted · Official score, rank and learning feedback will appear after result release.
               </div>
             )}
 
@@ -230,7 +249,8 @@ export default function ExamsSection({ notify, refreshDashboard }: StudentSectio
               </div>
             ))}
 
-            {result && <div className={styles.success}>Submitted successfully · <b>{result.score ?? 0}/{result.maxMarks ?? 0}</b> · {result.correctCount || 0} correct · {result.wrongCount || 0} wrong · {result.skippedCount || 0} skipped{result.rankOverall ? ` · Rank #${result.rankOverall}` : ''}</div>}
+            {result && result.released && <div className={styles.success}>Official result · <b>{result.score ?? 0}/{result.maxMarks ?? 0}</b> · {result.correctCount || 0} correct · {result.wrongCount || 0} wrong · {result.skippedCount || 0} skipped{result.rankOverall ? ` · Rank #${result.rankOverall}` : ''}</div>}
+            {result && !result.released && <div className={styles.success}>✅ Submitted safely. Official score, rank and learning feedback will be released after the competition closes.</div>}
             <div className={styles.buttonRow}>
               {result ? <button className={styles.primary} onClick={() => setAttempt(null)}>Done</button> : <button className={styles.primary} disabled={submitMutation.isPending} onClick={() => submitMutation.mutate()}>{submitMutation.isPending ? 'Submitting…' : 'Submit Competition'}</button>}
             </div>

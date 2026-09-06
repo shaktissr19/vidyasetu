@@ -16,6 +16,9 @@ export const pool = new Pool({
   max: envInteger(process.env.DB_POOL_MAX, 10),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  // Disposable certification scripts should be able to terminate as soon as
+  // their queries are idle. Production keeps the normal long-lived pool.
+  allowExitOnIdle: process.env.NODE_ENV === 'test',
 });
 
 pool.on('error', (err: Error) => {
