@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import * as competitionService from '../services/competition.service';
+import * as competitionPlatformService from '../services/competitionPlatform.service';
 import * as studentExamService from '../services/studentExam.service';
 import type { ExamResponseInput, ExamQuestionInput, CreateExamInput } from '../services/competition.service';
 import { query } from '../config/db';
@@ -16,7 +17,8 @@ interface StudentContextRow extends QueryResultRow {
 interface StatusBody { status: string; }
 interface SubmitBody { responses?: ExamResponseInput[]; }
 interface QuestionsBody { questions?: ExamQuestionInput[]; }
-interface ExamStatusRow extends QueryResultRow { id: UUID; title: string; status: string; }
+interface LearningQuestionsBody { questionIds?: UUID[]; }
+interface ExamStatusRow extends QueryResultRow { id: UUID; title: string; status: string; school_id: UUID | null; type: string; }
 
 type CreateExamBody = CreateExamInput & { type?: string; schoolId?: UUID | null; };
 
@@ -33,14 +35,17 @@ function queryInteger(value: unknown, fallback: number): number {
 async function getStudent(req: Request): Promise<StudentContextRow | null> {
   if (!req.user) return null;
   const { rows: [student] } = await query<StudentContextRow>(
-    `SELECT s.id, s.school_id, s.school_link_status,
-            COALESCE(sc.class_name, s.grade_level) AS class_name
-     FROM students s
-     LEFT JOIN school_classes sc ON sc.id = s.class_id
-     WHERE s.user_id = $1 AND s.status = 'ACTIVE'`,
+    `SELECT s.id,s.school_id,s.school_link_status,COALESCE(sc.class_name,s.grade_level) AS class_name
+     FROM students s LEFT JOIN school_classes sc ON sc.id=s.class_id
+     WHERE s.user_id=$1 AND s.status='ACTIVE'`,
     [req.user.userId],
   );
   return student || null;
+}
+
+async function examById(examId: UUID): Promise<ExamStatusRow | null> {
+  const { rows: [exam] } = await query<ExamStatusRow>('SELECT id,title,status,school_id,type FROM exams WHERE id=$1', [examId]);
+  return exam || null;
 }
 
 async function assertExamAdministrationAccess(req: Request, examId: UUID): Promise<boolean> {
@@ -54,16 +59,15 @@ async function assertExamAdministrationAccess(req: Request, examId: UUID): Promi
 
 export async function list(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
+    if (await competitionPlatformService.competitionV2Available()) {
+      return R.ok(res, await competitionPlatformService.listPublicCompetitions());
+    }
     const { rows } = await query(
-      `SELECT id, title, title_hi, description, type, status, class_names, subject_codes,
-              total_questions, duration_mins, marks_per_question, negative_marks,
-              registration_start, registration_end, start_time, end_time,
-              results_at, prize_pool, banner_url
-       FROM exams
-       WHERE status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED')
-         AND type IN ('OLYMPIAD','MOCK','PRACTICE')
-       ORDER BY start_time ASC
-       LIMIT 30`,
+      `SELECT id,title,title_hi,description,type,status,class_names,subject_codes,total_questions,duration_mins,
+              marks_per_question,negative_marks,registration_start,registration_end,start_time,end_time,
+              results_at,prize_pool,banner_url
+       FROM exams WHERE status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED')
+         AND type IN ('OLYMPIAD','MOCK','PRACTICE') ORDER BY start_time ASC LIMIT 30`,
     );
     return R.ok(res, rows);
   } catch (err: unknown) { next(err); }
@@ -73,6 +77,9 @@ export async function listMine(req: Request, res: Response, next: NextFunction):
   try {
     const student = await getStudent(req);
     if (!student) return R.notFound(res, 'Student profile not found');
+    if (await competitionPlatformService.competitionV2Available()) {
+      return R.ok(res, await competitionPlatformService.listStudentCompetitions(student.id, student.class_name));
+    }
     return R.ok(res, await competitionService.listForStudent(
       student.id,
       student.class_name,
@@ -109,8 +116,24 @@ export async function submit(
   } catch (err: unknown) { next(err); }
 }
 
+export async function getAttemptResult(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const student = await getStudent(req);
+    if (!student) return R.notFound(res, 'Student profile not found');
+    if (!(await competitionPlatformService.competitionV2Available())) return R.notFound(res, 'Competition learning feedback is not available');
+    return R.ok(res, await competitionPlatformService.getStudentCompetitionResult(req.params.attemptId, student.id));
+  } catch (err: unknown) { next(err); }
+}
+
 export async function getLeaderboard(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
+    if (await competitionPlatformService.competitionV2Available()) {
+      return R.ok(res, await competitionPlatformService.getPublicLeaderboard(
+        req.params.examId,
+        queryInteger(req.query.page, 1),
+        queryInteger(req.query.limit, 50),
+      ));
+    }
     return R.ok(res, await competitionService.getLeaderboard(
       req.params.examId,
       queryInteger(req.query.page, 1),
@@ -131,7 +154,14 @@ export async function createExam(
       if (!user.schoolId) return R.forbidden(res, 'School context is unavailable');
       body.schoolId = user.schoolId;
       body.type = 'SCHOOL_TEST';
+      return R.created(res, await competitionService.createExam(body, user.userId));
     }
+    if (await competitionPlatformService.competitionV2Available()) {
+      return R.created(res, await competitionPlatformService.createPlatformCompetition(body, user.userId));
+    }
+    body.schoolId = null;
+    body.type = 'OLYMPIAD';
+    body.status = 'DRAFT';
     return R.created(res, await competitionService.createExam(body, user.userId));
   } catch (err: unknown) { next(err); }
 }
@@ -145,7 +175,32 @@ export async function addQuestions(
     if (!(await assertExamAdministrationAccess(req, req.params.examId))) {
       return R.forbidden(res, 'You cannot modify an exam owned by another school');
     }
+    const exam = await examById(req.params.examId);
+    if (!exam) return R.notFound(res, 'Exam not found');
+    if (await competitionPlatformService.competitionV2Available() && !exam.school_id && exam.type === 'OLYMPIAD') {
+      return R.validationError(res, 'Platform competitions must import governed bilingual questions from the Learning Question Bank');
+    }
     return R.ok(res, await competitionService.addQuestions(req.params.examId, req.body.questions || []));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function importLearningQuestions(
+  req: Request<Record<string, string>, unknown, LearningQuestionsBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    if (user.role !== 'SUPER_ADMIN') return R.forbidden(res, 'Only Platform Admin can build platform competitions');
+    return R.ok(res, await competitionPlatformService.importLearningQuestions(req.params.examId, req.body.questionIds || []));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function readiness(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    if (user.role !== 'SUPER_ADMIN') return R.forbidden(res, 'Only Platform Admin can review competition readiness');
+    return R.ok(res, await competitionPlatformService.getCompetitionReadiness(req.params.examId));
   } catch (err: unknown) { next(err); }
 }
 
@@ -158,11 +213,15 @@ export async function updateStatus(
     if (!(await assertExamAdministrationAccess(req, req.params.examId))) {
       return R.forbidden(res, 'You cannot modify an exam owned by another school');
     }
-    const { rows: [exam] } = await query<ExamStatusRow>(
-      'UPDATE exams SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, title, status',
+    const exam = await examById(req.params.examId);
+    if (!exam) return R.notFound(res, 'Exam not found');
+    if (await competitionPlatformService.competitionV2Available() && !exam.school_id && exam.type === 'OLYMPIAD') {
+      return R.ok(res, await competitionPlatformService.updatePlatformCompetitionStatus(req.params.examId, req.body.status));
+    }
+    const { rows: [updated] } = await query<ExamStatusRow>(
+      'UPDATE exams SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,title,status,school_id,type',
       [req.body.status, req.params.examId],
     );
-    if (!exam) return R.notFound(res, 'Exam not found');
-    return R.ok(res, exam);
+    return R.ok(res, updated);
   } catch (err: unknown) { next(err); }
 }
