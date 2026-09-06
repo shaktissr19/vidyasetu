@@ -1,0 +1,157 @@
+name: Competition 2.0 CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  competition-v2:
+    name: Competition integrity, release, ranking and learning-loop certification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 70
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Competition 2.0 contracts
+        run: |
+          test -s database/migrations/040_competition_platform_v2.sql
+          grep -q "competition_attempt_concept_results" database/migrations/040_competition_platform_v2.sql
+          grep -q "competition_achievements" database/migrations/040_competition_platform_v2.sql
+          grep -q "integrity_status" database/migrations/040_competition_platform_v2.sql
+          grep -q "learning_question_id" database/migrations/040_competition_platform_v2.sql
+          grep -q "deadline_at" database/migrations/040_competition_platform_v2.sql
+          test -s backend/src/services/competitionPlatform.service.ts
+          test -s backend/src/services/academicCompetition.service.ts
+          test -s backend/src/scripts/certifyCompetitionV2.ts
+          grep -q "FLAGGED" backend/src/services/academicCompetition.service.ts
+          grep -q "getStudentCompetitionResult" backend/src/services/competitionPlatform.service.ts
+          grep -q "importLearningQuestions" backend/src/services/competitionPlatform.service.ts
+          grep -q "competition-result" backend/src/routes/competition.routes.ts
+          test -s frontend/src/app/(student)/exams/[examId]/page.tsx
+          test -s frontend/src/app/(student)/competition/[examId]/result/page.tsx
+          test -s frontend/src/app/competition/[examId]/leaderboard/page.tsx
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/services/competitionPlatform.service.js
+          test -s dist/services/academicCompetition.service.js
+          test -s dist/scripts/certifyCompetitionV2.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable Student and Learning baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql \
+            020_learning_platform_foundation.sql \
+            021_learning_original_academic_starter.sql \
+            022_learning_practice_personalization.sql \
+            023_global_learning_bulk_importer.sql \
+            024_student_global_grade_sync.sql \
+            026_learning_concepts_mastery.sql \
+            027_student_concept_mastery_runtime.sql \
+            028_grounded_ai_doubt_resolution.sql \
+            036_learning_content_quality_governance.sql \
+            037_diagnostic_assessment_intelligence.sql \
+            038_diagnostic_evidence_role_bridge.sql \
+            039_personalized_adaptive_learning_v2.sql; do
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+
+      - name: Apply Competition 2.0 migration twice to prove idempotence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for pass in 1 2; do
+            echo "Competition migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/040_competition_platform_v2.sql
+          done
+          for table in competition_attempt_concept_results competition_achievements; do
+            test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='exam_attempts' AND column_name='integrity_status');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='exam_questions' AND column_name='learning_question_id');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='exam_registrations' AND column_name='school_id' AND is_nullable='YES');")" = "t"
+
+      - name: Synchronize canonical Class 8 concepts
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/syncLearningConceptRegistry.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+
+      - name: Run Competition 2.0 behavioral certification
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyCompetitionV2.js
+
+      - name: Re-run Learning visibility regression
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyLearningVisibility.js
