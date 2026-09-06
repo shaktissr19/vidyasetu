@@ -191,6 +191,50 @@ export interface AdaptiveLearningPlan {
   actions: AdaptiveLearningAction[];
 }
 
+export type PersonalizedPlanStyle = 'BALANCED' | 'FOCUS';
+export type PersonalizedJourneyItemStatus = 'PENDING' | 'COMPLETED' | 'SKIPPED';
+
+export interface PersonalizedJourneyItem {
+  id: string;
+  position: number;
+  conceptId: string;
+  actionType: AdaptiveLearningActionType;
+  urgency: 'HIGH' | 'FOCUS' | 'NEXT';
+  title: string;
+  reason: string;
+  estimatedMinutes: number;
+  status: PersonalizedJourneyItemStatus;
+  completedAt?: string | null;
+  skippedAt?: string | null;
+  target: {
+    kind: 'RESOURCE' | 'ASSESSMENT';
+    id: string;
+    publicSlug?: string | null;
+    title: string;
+  };
+}
+
+export interface StudentPersonalizedJourney {
+  preferences: { dailyMinutes: 15 | 25 | 40; planStyle: PersonalizedPlanStyle };
+  journey: {
+    id: string;
+    date: string;
+    revision: number;
+    status: 'ACTIVE' | 'COMPLETED' | 'SUPERSEDED';
+    dailyMinutes: 15 | 25 | 40;
+    planStyle: PersonalizedPlanStyle;
+    headline: string;
+    explanation: string;
+    estimatedMinutes: number;
+    completedMinutes: number;
+    remainingMinutes: number;
+    progressPct: number;
+    sourceGeneratedAt?: string | null;
+    completedAt?: string | null;
+    items: PersonalizedJourneyItem[];
+  };
+}
+
 export interface StudentLearningHome {
   learner: { studentId: string; className: number; gradeCode?: string; gradeLabel?: string; schoolName?: string | null; boardCode: string; boardName: string };
   progress: { started: number; completed: number; average_progress: number };
@@ -258,6 +302,12 @@ export const removeOfflineDownload = (contentItemId: string) => api.delete<ApiEn
 export const getStudentLearningHome = () => api.get<ApiEnvelope<StudentLearningHome>>('/student/learning/home');
 export const getStudentAdaptiveLearningPlan = () => api.get<ApiEnvelope<AdaptiveLearningPlan>>('/student/learning/adaptive-plan');
 export const getStudentDiagnosticProfile = () => api.get<ApiEnvelope<StudentDiagnosticProfile>>('/student/learning/diagnostics/profile');
+export const getStudentPersonalizedJourney = () => api.get<ApiEnvelope<StudentPersonalizedJourney>>('/student/learning/journey/today');
+export const getStudentPersonalizedPreferences = () => api.get<ApiEnvelope<StudentPersonalizedJourney['preferences']>>('/student/learning/journey/preferences');
+export const updateStudentPersonalizedPreferences = (dailyMinutes: 15 | 25 | 40, planStyle?: PersonalizedPlanStyle) =>
+  api.patch<ApiEnvelope<{ dailyMinutes: number; planStyle: PersonalizedPlanStyle; journeyWillRefresh: boolean }>>('/student/learning/journey/preferences', { dailyMinutes, planStyle });
+export const skipStudentPersonalizedJourneyItem = (itemId: string) =>
+  api.post<ApiEnvelope<StudentPersonalizedJourney>>(`/student/learning/journey/items/${itemId}/skip`);
 export const updateStudentLearningProgress = (resourceId: string, progressPct: number) =>
   api.patch<ApiEnvelope<{ resource_id: string; progress_pct: number; is_completed: boolean }>>(`/student/learning/resources/${resourceId}/progress`, { progressPct });
 export const bookmarkLearningResource = (resourceId: string) => api.post<ApiEnvelope<{ bookmarked: boolean }>>(`/student/learning/resources/${resourceId}/bookmark`);

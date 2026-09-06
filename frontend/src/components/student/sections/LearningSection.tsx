@@ -8,10 +8,13 @@ import {
   getStudentDiagnosticProfile,
   getStudentLearningAssessment,
   getStudentLearningHome,
+  getStudentPersonalizedJourney,
   removeLearningResourceBookmark,
+  skipStudentPersonalizedJourneyItem,
   startStudentLearningAssessment,
   submitStudentLearningAssessment,
   updateStudentLearningProgress,
+  updateStudentPersonalizedPreferences,
   type LearningAttemptResult,
   type LearningHomeAssessment,
   type StudentLearningAssessmentDetail,
@@ -22,6 +25,7 @@ import type { StudentSectionProps } from '@/types/studentPortal';
 import SubjectsSection from './SubjectsSection';
 import AdaptiveLearningPanel from './AdaptiveLearningPanel';
 import DiagnosticKnowledgeMap from './DiagnosticKnowledgeMap';
+import PersonalizedJourneyPanel from './PersonalizedJourneyPanel';
 import styles from '../StudentPortal.module.css';
 
 export default function LearningSection(props: StudentSectionProps) {
@@ -43,6 +47,11 @@ export default function LearningSection(props: StudentSectionProps) {
     queryFn: () => getStudentDiagnosticProfile().then((response) => response.data.data),
     staleTime: 30_000,
   });
+  const journeyQuery = useQuery({
+    queryKey: ['student-personalized-journey'],
+    queryFn: () => getStudentPersonalizedJourney().then((response) => response.data.data),
+    staleTime: 20_000,
+  });
 
   const home = homeQuery.data;
   const growth = useMemo(
@@ -58,7 +67,31 @@ export default function LearningSection(props: StudentSectionProps) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['student-learning-home'] }),
       queryClient.invalidateQueries({ queryKey: ['student-diagnostic-profile'] }),
+      queryClient.invalidateQueries({ queryKey: ['student-personalized-journey'] }),
     ]);
+  }
+
+  async function updateDailyMinutes(minutes: 15 | 25 | 40): Promise<void> {
+    if (journeyQuery.data?.preferences.dailyMinutes === minutes) return;
+    setBusy('journey-preference');
+    try {
+      await updateStudentPersonalizedPreferences(minutes, journeyQuery.data?.preferences.planStyle || 'BALANCED');
+      await queryClient.invalidateQueries({ queryKey: ['student-personalized-journey'] });
+      props.notify(`Today’s learning journey has been rebuilt for ${minutes} minutes`);
+    } catch {
+      props.notify('Could not update your daily learning time');
+    } finally { setBusy(''); }
+  }
+
+  async function skipJourneyItem(itemId: string): Promise<void> {
+    setBusy(`journey-skip-${itemId}`);
+    try {
+      await skipStudentPersonalizedJourneyItem(itemId);
+      await queryClient.invalidateQueries({ queryKey: ['student-personalized-journey'] });
+      props.notify('Step skipped for today');
+    } catch {
+      props.notify('Could not skip this learning step');
+    } finally { setBusy(''); }
   }
 
   async function toggleBookmark(resourceId: string, bookmarked: boolean): Promise<void> {
@@ -154,6 +187,17 @@ export default function LearningSection(props: StudentSectionProps) {
             </div>
           </div>
 
+          <PersonalizedJourneyPanel
+            data={journeyQuery.data}
+            loading={journeyQuery.isLoading}
+            error={journeyQuery.isError}
+            busy={busy}
+            onRetry={() => { void journeyQuery.refetch(); }}
+            onStartAssessment={(assessmentId) => openAssessment({ id: assessmentId })}
+            onChangeMinutes={updateDailyMinutes}
+            onSkip={skipJourneyItem}
+          />
+
           <AdaptiveLearningPanel
             plan={home.adaptivePlan}
             busy={busy}
@@ -227,7 +271,7 @@ export default function LearningSection(props: StudentSectionProps) {
                 <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'rgba(61,185,138,.1)' }}>
                   <strong style={{ fontSize: 22 }}>Score: {Math.round(result.percentage)}%</strong>
                   <div className={styles.contentMeta}>{result.correct_count} correct · {result.wrong_count} wrong · {result.skipped_count} skipped</div>
-                  <div className={styles.contentMeta} style={{ marginTop: 4 }}>Your concept evidence and next-best actions have been recalculated from this attempt.</div>
+                  <div className={styles.contentMeta} style={{ marginTop: 4 }}>Your concept evidence, knowledge map and today&apos;s journey have been reconciled from this attempt.</div>
                 </div>
               ) : (
                 <button className={styles.primary} style={{ marginTop: 16 }} disabled={busy === 'submit-practice'} onClick={submitPractice}>

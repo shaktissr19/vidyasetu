@@ -5,6 +5,7 @@ import * as studentAdaptiveLearningService from '../services/studentAdaptiveLear
 import * as studentAdaptiveIntelligenceService from '../services/studentAdaptiveIntelligence.service';
 import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
 import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
+import * as studentPersonalizedJourneyService from '../services/studentPersonalizedJourney.service';
 import logger = require('../utils/logger');
 import * as R from '../utils/response';
 
@@ -34,6 +35,41 @@ export async function getAdaptiveLearningPlan(req: Request, res: Response, next:
       ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
       : basePlan;
     return R.ok(res, adaptivePlan);
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getPersonalizedJourney(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentPersonalizedJourneyService.getTodayPersonalizedJourney(user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getPersonalizedPreferences(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentPersonalizedJourneyService.getPersonalizedPreferences(user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function updatePersonalizedPreferences(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentPersonalizedJourneyService.updatePersonalizedPreferences(user.userId, {
+      dailyMinutes: Number(req.body.dailyMinutes),
+      planStyle: req.body.planStyle,
+    }));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function skipPersonalizedJourneyItem(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentPersonalizedJourneyService.skipPersonalizedJourneyItem(user.userId, req.params.itemId));
   } catch (err: unknown) { next(err); }
 }
 
