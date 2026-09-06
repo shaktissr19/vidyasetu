@@ -28,6 +28,8 @@ export interface AdaptiveLearningTarget {
   questionCount?: number | null;
   passingPct?: number | null;
   lastPercentage?: number | null;
+  maxAttempts?: number | null;
+  attemptCount?: number | null;
 }
 
 export interface AdaptiveLearningAction {
@@ -92,6 +94,8 @@ interface AssessmentAssetRow extends QueryResultRow {
   passing_pct: number | string;
   question_count: number;
   last_percentage: number | string | null;
+  max_attempts: number | null;
+  attempt_count: number | string;
 }
 
 interface ConceptCandidateRow extends QueryResultRow {
@@ -217,8 +221,12 @@ async function loadAssets(
     ),
     query<AssessmentAssetRow>(
       `SELECT lac.concept_id,la.id,la.public_slug,la.title,la.summary,la.assessment_type,
-              lac.evidence_role,la.passing_pct::float,
+              lac.evidence_role,la.passing_pct::float,la.max_attempts,
               COUNT(laq.question_id)::int AS question_count,
+              (SELECT COUNT(*)::int
+               FROM student_learning_attempts sla_count
+               WHERE sla_count.student_id=$1 AND sla_count.assessment_id=la.id
+                 AND sla_count.status IN ('IN_PROGRESS','GRADED')) AS attempt_count,
               (SELECT sla.percentage::float
                FROM student_learning_attempts sla
                WHERE sla.student_id=$1 AND sla.assessment_id=la.id AND sla.status='GRADED'
@@ -245,6 +253,7 @@ async function loadAssets(
     resources.set(row.concept_id, list);
   }
   for (const row of assessmentRows.rows) {
+    if (row.max_attempts != null && Number(row.attempt_count || 0) >= Number(row.max_attempts)) continue;
     const list = assessments.get(row.concept_id) || [];
     list.push(row);
     assessments.set(row.concept_id, list);
@@ -276,6 +285,8 @@ function assessmentTarget(row: AssessmentAssetRow): AdaptiveLearningTarget {
     questionCount: Number(row.question_count || 0),
     passingPct: Number(row.passing_pct || 0),
     lastPercentage: row.last_percentage == null ? null : Number(row.last_percentage),
+    maxAttempts: row.max_attempts == null ? null : Number(row.max_attempts),
+    attemptCount: Number(row.attempt_count || 0),
   };
 }
 
