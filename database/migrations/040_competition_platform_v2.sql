@@ -40,8 +40,11 @@ ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS learning_question_id UUID RE
 ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS learning_concept_id UUID REFERENCES learning_concepts(id) ON DELETE SET NULL;
 ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS learning_outcome_code VARCHAR(160);
 ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS misconception_code VARCHAR(160);
+ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS explanation_hi TEXT;
 CREATE INDEX IF NOT EXISTS idx_exam_questions_learning_question ON exam_questions(learning_question_id) WHERE learning_question_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_exam_questions_concept ON exam_questions(learning_concept_id) WHERE learning_concept_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exam_questions_learning_source
+  ON exam_questions(exam_id,learning_question_id) WHERE learning_question_id IS NOT NULL;
 
 -- Platform competitions must work for independent learners too. School rank is
 -- simply unavailable when a learner has no approved School association.
