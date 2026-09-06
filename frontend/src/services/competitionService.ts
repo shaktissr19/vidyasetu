@@ -8,7 +8,7 @@ import type {
 
 type Payload = Record<string, unknown>;
 
-export interface CompetitionExamV2 extends CompetitionExam {
+export interface CompetitionExamV2 extends Omit<CompetitionExam, 'total_marks'> {
   public_slug?: string | null;
   title_hi?: string | null;
   subtitle?: string | null;
