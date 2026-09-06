@@ -41,6 +41,7 @@ import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
 import aiRoutes = require('./routes/ai.routes');
 import groupRoutes = require('./routes/group.routes');
+import learningCommunityRoutes = require('./routes/learningCommunity.routes');
 import publicRoutes = require('./routes/public.routes');
 import publicLearningRoutes = require('./routes/publicLearning.routes');
 import publicDocumentsRoutes = require('./routes/publicDocuments.routes');
@@ -52,24 +53,13 @@ import './jobs/attendanceAlert.job';
 import './jobs/xpRecalc.job';
 
 const app = express();
-
 app.use(helmet());
 app.use(compression());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('combined', {
-  stream: {
-    write: (message: string) => logger.info(message.trim()),
-  },
-}));
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'vidyasetu-api', ts: new Date().toISOString() });
-});
+app.use(morgan('combined', { stream: { write: (message: string) => logger.info(message.trim()) } }));
+app.get('/health', (_req, res) => { res.json({ status: 'ok', service: 'vidyasetu-api', ts: new Date().toISOString() }); });
 
 const API = '/api/v1';
 app.use(`${API}/public/learning`, publicLearningRoutes);
@@ -91,7 +81,6 @@ app.use(`${API}/school/absence`, schoolAbsenceRoutes);
 app.use(`${API}/school/staff`, schoolStaffRoutes);
 app.use(`${API}/school/transport`, schoolTransportRoutes);
 app.use(`${API}/school/documents`, schoolDocumentsRoutes);
-// Must precede the legacy School router so attendance honours approved leave and closed calendar days.
 app.use(`${API}/school`, schoolAttendanceGovernanceRoutes);
 app.use(`${API}/school`, schoolRoutes);
 app.use(`${API}/parent/learning-insights`, parentLearningInsightsRoutes);
@@ -102,7 +91,6 @@ app.use(`${API}/parent/transport`, parentTransportRoutes);
 app.use(`${API}/parent/documents`, parentDocumentsRoutes);
 app.use(`${API}/parent`, parentRoutes);
 app.use(`${API}/admin/grievances`, adminGrievanceRoutes);
-// Specific Learning governance must run before the broader Learning Studio router.
 app.use(`${API}/admin/learning`, adminLearningPrerequisitesRoutes);
 app.use(`${API}/admin/learning`, adminDiagnosticGovernanceRoutes);
 app.use(`${API}/admin/learning`, adminLearningRoutes);
@@ -111,26 +99,22 @@ app.use(`${API}/competition`, competitionRoutes);
 app.use(`${API}/content`, contentRoutes);
 app.use(`${API}/doubts`, doubtRoutes);
 app.use(`${API}/ai`, aiRoutes);
+app.use(`${API}/learning-communities`, learningCommunityRoutes);
 app.use(`${API}/groups`, groupRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-
 async function boot(): Promise<void> {
   try {
     await connectDB();
     await connectRedis();
-    app.listen(PORT, () => {
-      logger.info(`VidyaSetu API running on port ${PORT} [${process.env.NODE_ENV}]`);
-    });
+    app.listen(PORT, () => { logger.info(`VidyaSetu API running on port ${PORT} [${process.env.NODE_ENV}]`); });
   } catch (err: unknown) {
     logger.error('Failed to start server:', err);
     process.exit(1);
   }
 }
-
 void boot();
-
 export = app;
