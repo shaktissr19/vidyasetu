@@ -48,6 +48,7 @@ interface ItemRow extends QueryResultRow {
   target_title: string;
   title: string;
   reason: string;
+  evidence_snapshot: Record<string, unknown>;
   estimated_minutes: number;
   status: PersonalizedItemStatus;
   completed_at: string | Date | null;
@@ -69,7 +70,7 @@ function indiaDate(now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(now);
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || '';
+  const value = (type: 'year' | 'month' | 'day') => parts.find((part) => part.type === type)?.value || '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
@@ -140,9 +141,6 @@ function selectActions(
     if (index >= 0) remaining.splice(index, 1);
   }
 
-  // Never return an empty journey merely because an individual high-value step
-  // is slightly longer than the chosen budget. The current action estimates are
-  // intentionally short, but this keeps the planner safe if content changes.
   if (chosen.length === 0 && source[0]) chosen.push(source[0]);
   return chosen;
 }
@@ -174,7 +172,8 @@ async function latestPlan(studentId: UUID, planDate: string): Promise<PlanRow | 
 async function itemsForPlan(planId: UUID): Promise<ItemRow[]> {
   const { rows } = await query<ItemRow>(
     `SELECT id,position,source_action_id,concept_id,action_type,urgency,target_kind,target_id,
-            target_public_slug,target_title,title,reason,estimated_minutes,status,completed_at,skipped_at,created_at
+            target_public_slug,target_title,title,reason,evidence_snapshot,estimated_minutes,
+            status,completed_at,skipped_at,created_at
      FROM student_daily_learning_plan_items WHERE plan_id=$1 ORDER BY position`,
     [planId],
   );
@@ -261,6 +260,7 @@ function serializePlan(plan: PlanRow, items: ItemRow[]) {
       urgency: item.urgency,
       title: item.title,
       reason: item.reason,
+      evidenceSnapshot: item.evidence_snapshot || {},
       estimatedMinutes: Number(item.estimated_minutes),
       status: item.status,
       completedAt: item.completed_at,
@@ -315,12 +315,12 @@ async function persistNewPlan(
       await client.query(
         `INSERT INTO student_daily_learning_plan_items
            (plan_id,position,source_action_id,concept_id,action_type,urgency,target_kind,target_id,
-            target_public_slug,target_title,title,reason,estimated_minutes)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+            target_public_slug,target_title,title,reason,evidence_snapshot,estimated_minutes)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14)`,
         [
           created.id, index + 1, action.id, action.conceptId, action.actionType, action.urgency,
           action.target.kind, action.target.id, action.target.publicSlug || null, action.target.title,
-          action.title, action.reason, action.estimatedMinutes,
+          action.title, action.reason, JSON.stringify(action.diagnostic || {}), action.estimatedMinutes,
         ],
       );
     }
