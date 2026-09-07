@@ -182,6 +182,15 @@ CREATE TABLE IF NOT EXISTS ptm_bookings (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- If the older standalone PTM migration was ever applied manually before it
+-- was superseded, CREATE TABLE IF NOT EXISTS above intentionally preserves the
+-- existing booking rows. Add the Learning Support 2.0 columns explicitly so
+-- that both a fresh install and a legacy-PTM upgrade converge to one schema.
+ALTER TABLE ptm_bookings
+  ADD COLUMN IF NOT EXISTS intervention_id UUID REFERENCES learning_interventions(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS agreed_action VARCHAR(1600),
+  ADD COLUMN IF NOT EXISTS follow_up_at TIMESTAMPTZ;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ptm_active_slot_booking
   ON ptm_bookings(slot_id) WHERE status='BOOKED';
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ptm_active_student_teacher
