@@ -382,8 +382,8 @@ export async function updateLearningIntervention(
   }
   await transaction(async (client) => {
     await client.query(
-      `UPDATE learning_interventions SET status=$2,outcome_note=$3,
-         resolved_at=CASE WHEN $2='RESOLVED' THEN NOW() ELSE resolved_at END
+      `UPDATE learning_interventions SET status=$2::varchar,outcome_note=$3,
+         resolved_at=CASE WHEN $2::varchar='RESOLVED' THEN NOW() ELSE resolved_at END
        WHERE id=$1`,
       [interventionId,input.status,clean(input.outcomeNote)],
     );
@@ -414,8 +414,8 @@ export async function updateInterventionStudent(
 ) {
   await getInterventionForTeacher(schoolId, actorId, role, interventionId);
   const { rows: [row] } = await query<InterventionStudentRow>(
-    `UPDATE learning_intervention_students SET status=$3,outcome_note=$4,
-       resolved_at=CASE WHEN $3='RESOLVED' THEN NOW() ELSE resolved_at END
+    `UPDATE learning_intervention_students SET status=$3::varchar,outcome_note=$4,
+       resolved_at=CASE WHEN $3::varchar='RESOLVED' THEN NOW() ELSE resolved_at END
      WHERE intervention_id=$1 AND student_id=$2 RETURNING *`,
     [interventionId,studentId,input.status,clean(input.outcomeNote)],
   );
