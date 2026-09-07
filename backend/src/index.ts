@@ -14,9 +14,12 @@ import studentHomeworkRoutes = require('./routes/studentHomework.routes');
 import studentAbsenceRoutes = require('./routes/studentAbsence.routes');
 import studentTransportRoutes = require('./routes/studentTransport.routes');
 import studentDocumentsRoutes = require('./routes/studentDocuments.routes');
+import studentPtmRoutes = require('./routes/studentPtm.routes');
 import schoolRoutes = require('./routes/school.routes');
 import schoolHomeworkRoutes = require('./routes/schoolHomework.routes');
 import schoolLearningInsightsRoutes = require('./routes/schoolLearningInsights.routes');
+import schoolLearningSupportRoutes = require('./routes/schoolLearningSupport.routes');
+import schoolPtmRoutes = require('./routes/schoolPtm.routes');
 import schoolAbsenceRoutes = require('./routes/schoolAbsence.routes');
 import schoolAttendanceGovernanceRoutes = require('./routes/schoolAttendanceGovernance.routes');
 import schoolStaffRoutes = require('./routes/schoolStaff.routes');
@@ -24,6 +27,8 @@ import schoolTransportRoutes = require('./routes/schoolTransport.routes');
 import schoolDocumentsRoutes = require('./routes/schoolDocuments.routes');
 import parentRoutes = require('./routes/parent.routes');
 import parentLearningInsightsRoutes = require('./routes/parentLearningInsights.routes');
+import parentLearningSupportRoutes = require('./routes/parentLearningSupport.routes');
+import parentPtmRoutes = require('./routes/parentPtm.routes');
 import parentAbsenceRoutes = require('./routes/parentAbsence.routes');
 import parentTransportRoutes = require('./routes/parentTransport.routes');
 import parentDocumentsRoutes = require('./routes/parentDocuments.routes');
@@ -36,6 +41,7 @@ import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
 import aiRoutes = require('./routes/ai.routes');
 import groupRoutes = require('./routes/group.routes');
+import learningCommunityRoutes = require('./routes/learningCommunity.routes');
 import publicRoutes = require('./routes/public.routes');
 import publicLearningRoutes = require('./routes/publicLearning.routes');
 import publicDocumentsRoutes = require('./routes/publicDocuments.routes');
@@ -47,24 +53,13 @@ import './jobs/attendanceAlert.job';
 import './jobs/xpRecalc.job';
 
 const app = express();
-
 app.use(helmet());
 app.use(compression());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('combined', {
-  stream: {
-    write: (message: string) => logger.info(message.trim()),
-  },
-}));
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'vidyasetu-api', ts: new Date().toISOString() });
-});
+app.use(morgan('combined', { stream: { write: (message: string) => logger.info(message.trim()) } }));
+app.get('/health', (_req, res) => { res.json({ status: 'ok', service: 'vidyasetu-api', ts: new Date().toISOString() }); });
 
 const API = '/api/v1';
 app.use(`${API}/public/learning`, publicLearningRoutes);
@@ -75,24 +70,27 @@ app.use(`${API}/student/homework`, studentHomeworkRoutes);
 app.use(`${API}/student/absence`, studentAbsenceRoutes);
 app.use(`${API}/student/transport`, studentTransportRoutes);
 app.use(`${API}/student/documents`, studentDocumentsRoutes);
+app.use(`${API}/student/ptm`, studentPtmRoutes);
 app.use(`${API}/student`, studentRoutes);
 app.use(`${API}/school/grievances`, schoolGrievanceRoutes);
 app.use(`${API}/school/homework`, schoolHomeworkRoutes);
 app.use(`${API}/school/learning-insights`, schoolLearningInsightsRoutes);
+app.use(`${API}/school/learning-support`, schoolLearningSupportRoutes);
+app.use(`${API}/school/ptm`, schoolPtmRoutes);
 app.use(`${API}/school/absence`, schoolAbsenceRoutes);
 app.use(`${API}/school/staff`, schoolStaffRoutes);
 app.use(`${API}/school/transport`, schoolTransportRoutes);
 app.use(`${API}/school/documents`, schoolDocumentsRoutes);
-// Must precede the legacy School router so attendance honours approved leave and closed calendar days.
 app.use(`${API}/school`, schoolAttendanceGovernanceRoutes);
 app.use(`${API}/school`, schoolRoutes);
 app.use(`${API}/parent/learning-insights`, parentLearningInsightsRoutes);
+app.use(`${API}/parent/learning-support`, parentLearningSupportRoutes);
+app.use(`${API}/parent/ptm`, parentPtmRoutes);
 app.use(`${API}/parent/absence`, parentAbsenceRoutes);
 app.use(`${API}/parent/transport`, parentTransportRoutes);
 app.use(`${API}/parent/documents`, parentDocumentsRoutes);
 app.use(`${API}/parent`, parentRoutes);
 app.use(`${API}/admin/grievances`, adminGrievanceRoutes);
-// Specific Learning governance must run before the broader Learning Studio router.
 app.use(`${API}/admin/learning`, adminLearningPrerequisitesRoutes);
 app.use(`${API}/admin/learning`, adminDiagnosticGovernanceRoutes);
 app.use(`${API}/admin/learning`, adminLearningRoutes);
@@ -101,26 +99,22 @@ app.use(`${API}/competition`, competitionRoutes);
 app.use(`${API}/content`, contentRoutes);
 app.use(`${API}/doubts`, doubtRoutes);
 app.use(`${API}/ai`, aiRoutes);
+app.use(`${API}/learning-communities`, learningCommunityRoutes);
 app.use(`${API}/groups`, groupRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-
 async function boot(): Promise<void> {
   try {
     await connectDB();
     await connectRedis();
-    app.listen(PORT, () => {
-      logger.info(`VidyaSetu API running on port ${PORT} [${process.env.NODE_ENV}]`);
-    });
+    app.listen(PORT, () => { logger.info(`VidyaSetu API running on port ${PORT} [${process.env.NODE_ENV}]`); });
   } catch (err: unknown) {
     logger.error('Failed to start server:', err);
     process.exit(1);
   }
 }
-
 void boot();
-
 export = app;

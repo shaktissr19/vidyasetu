@@ -1,0 +1,176 @@
+name: Learning Support 2.0 CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  learning-support-v2:
+    name: Parent, Teacher, PTM and Communities learning-support certification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Learning Support 2.0 contracts
+        run: |
+          set -euxo pipefail
+          test -s database/migrations/041_learning_support_v2.sql
+          grep -q "learning_interventions" database/migrations/041_learning_support_v2.sql
+          grep -q "ptm_bookings" database/migrations/041_learning_support_v2.sql
+          grep -q "learning_purpose" database/migrations/041_learning_support_v2.sql
+          test -s backend/src/services/learningSupport.service.ts
+          test -s backend/src/services/learningCommunity.service.ts
+          test -s backend/src/services/ptm.service.ts
+          test -s backend/src/scripts/certifyLearningSupportV2.ts
+          test -s 'frontend/src/app/(parent)/parent/learning-support/page.tsx'
+          test -s 'frontend/src/app/(school)/school/academic-workspace/page.tsx'
+          test -s 'frontend/src/app/(parent)/parent/ptm/page.tsx'
+          test -s 'frontend/src/app/(school)/school/ptm/page.tsx'
+          test -s frontend/src/components/groups/LearningCommunitiesPanel.tsx
+          grep -q "Academic Workspace" 'frontend/src/app/(school)/layout.tsx'
+          grep -q "Learning Support" 'frontend/src/app/(parent)/layout.tsx'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/services/learningSupport.service.js
+          test -s dist/services/learningCommunity.service.js
+          test -s dist/services/ptm.service.js
+          test -s dist/scripts/certifyLearningSupportV2.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable School, Parent, Student and Learning baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql \
+            018_groups_collaboration.sql \
+            020_learning_platform_foundation.sql \
+            021_learning_original_academic_starter.sql \
+            022_learning_practice_personalization.sql \
+            023_global_learning_bulk_importer.sql \
+            024_student_global_grade_sync.sql \
+            026_learning_concepts_mastery.sql \
+            027_student_concept_mastery_runtime.sql \
+            028_grounded_ai_doubt_resolution.sql \
+            029_absence_school_calendar.sql \
+            036_learning_content_quality_governance.sql \
+            037_diagnostic_assessment_intelligence.sql \
+            038_diagnostic_evidence_role_bridge.sql \
+            039_personalized_adaptive_learning_v2.sql \
+            040_competition_platform_v2.sql; do
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+
+      - name: Apply Learning Support 2.0 migration twice
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for pass in 1 2; do
+            echo "Learning Support migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/041_learning_support_v2.sql
+          done
+          for table in learning_interventions learning_intervention_students ptm_sessions ptm_slots ptm_bookings; do
+            test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.$table') IS NOT NULL;")" = "t"
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='collaboration_groups' AND column_name='learning_purpose');")" = "t"
+
+      - name: Synchronize canonical Class 8 concepts
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/syncLearningConceptRegistry.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+
+      - name: Stage governed Force and Pressure learning evidence
+        working-directory: backend
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          PGPASSWORD: postgres
+        run: |
+          node dist/scripts/installPressurePack.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/installForcePack.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/backfillStagedConceptLinks.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          node dist/scripts/backfillStagedConceptLinks.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resource_concepts;")" = "2"
+
+      - name: Run Learning Support 2.0 behavioral certification
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyLearningSupportV2.js
+
+      - name: Re-run Learning Visibility regression
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyLearningVisibility.js
