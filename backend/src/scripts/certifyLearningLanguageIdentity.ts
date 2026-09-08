@@ -19,7 +19,7 @@ async function main(): Promise<void> {
      LIMIT 1`,
   );
   const userId = learner.rows[0]?.id;
-  assert(Boolean(userId), 'Content 3.0 Nursery learner fixture is missing');
+  assert(userId, 'Content 3.0 Nursery learner fixture is missing');
 
   const resource = await query<{ id: string }>(
     `SELECT id
@@ -29,13 +29,13 @@ async function main(): Promise<void> {
      LIMIT 1`,
   );
   const resourceId = resource.rows[0]?.id;
-  assert(Boolean(resourceId), 'Published bilingual Nursery resource fixture is missing');
+  assert(resourceId, 'Published bilingual Nursery resource fixture is missing');
 
   const englishHome = await enrichHomeResourcesBilingual(await getLearningHome(userId));
   const englishResource = englishHome.recommendedResources.find((item) => item.id === resourceId) as
     | (typeof englishHome.recommendedResources[number] & { title_hi?: string | null; summary_hi?: string | null })
     | undefined;
-  assert(Boolean(englishResource), 'Nursery learner cannot discover the bilingual resource');
+  assert(englishResource, 'Nursery learner cannot discover the bilingual resource');
   assert(englishResource.id === resourceId, 'English presentation changed canonical Resource identity');
   assert(englishResource.title === 'Find the circle', 'English presentation title is incorrect');
   assert(englishResource.title_hi === 'वृत्त खोजो', 'Hindi presentation is not attached to the same Resource identity');
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   const hindiResource = hindiHome.recommendedResources.find((item) => item.id === resourceId) as
     | (typeof hindiHome.recommendedResources[number] & { title_hi?: string | null; summary_hi?: string | null; progress_pct?: number })
     | undefined;
-  assert(Boolean(hindiResource), 'Hindi presentation lost the canonical Nursery resource');
+  assert(hindiResource, 'Hindi presentation lost the canonical Nursery resource');
   assert(hindiResource.id === englishResource.id, 'EN→HI presentation created a second Resource identity');
   assert(hindiResource.title_hi === 'वृत्त खोजो', 'Hindi presentation title is unavailable after progress write');
   assert(Number(hindiResource.progress_pct || 0) >= 47, 'EN→HI presentation reset Resource progress');
@@ -80,13 +80,13 @@ async function main(): Promise<void> {
      LIMIT 1`,
   );
   const assessmentId = assessmentFixture.rows[0]?.id;
-  assert(Boolean(assessmentId), 'Published bilingual Nursery assessment fixture is missing');
+  assert(assessmentId, 'Published bilingual Nursery assessment fixture is missing');
 
   const assessments = await listAssessments(userId);
   const bilingualAssessment = assessments.find((item) => item.id === assessmentId) as
     | { id: string; title: string; title_hi?: string | null; summary_hi?: string | null }
     | undefined;
-  assert(Boolean(bilingualAssessment), 'Nursery learner cannot discover the canonical bilingual Assessment');
+  assert(bilingualAssessment, 'Nursery learner cannot discover the canonical bilingual Assessment');
   assert(bilingualAssessment.id === assessmentId, 'Assessment identity changed across language presentation');
   assert(bilingualAssessment.title === 'Nursery shape practice', 'Assessment English title is incorrect');
   assert(bilingualAssessment.title_hi === 'नर्सरी आकार अभ्यास', 'Assessment Hindi title is not attached to the same identity');
