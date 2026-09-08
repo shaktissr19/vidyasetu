@@ -87,6 +87,23 @@ export interface PublicLearningOverview {
   grades: PublicLearningGrade[];
 }
 
+export type PublicLearningResourceType =
+  | 'ARTICLE'
+  | 'VIDEO'
+  | 'AUDIO'
+  | 'PDF'
+  | 'WORKSHEET'
+  | 'QUIZ'
+  | 'QUESTION_PAPER'
+  | 'INTERACTIVE'
+  | 'EXTERNAL_LINK'
+  | 'STORY'
+  | 'ACTIVITY'
+  | 'FLASHCARD'
+  | 'GAME'
+  | 'SIMULATION'
+  | 'PRACTICAL';
+
 export interface PublicLearningResource {
   id: string;
   public_slug: string;
@@ -96,7 +113,7 @@ export interface PublicLearningResource {
   summary_hi?: string | null;
   body_markdown?: string | null;
   body_markdown_hi?: string | null;
-  resource_type: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
+  resource_type: PublicLearningResourceType;
   category: LearningCategory;
   language: string;
   class_min?: number | null;
@@ -142,13 +159,16 @@ export interface PublicLearningAssessment {
   title: string;
   title_hi?: string | null;
   summary?: string | null;
+  summary_hi?: string | null;
   assessment_type: 'PRACTICE' | 'CHAPTER_TEST' | 'UNIT_TEST' | 'MOCK' | 'DAILY';
   class_min?: number | null;
   class_max?: number | null;
+  grade_codes?: string[];
   time_limit_mins?: number | null;
   passing_pct: number;
   is_featured_public?: boolean;
   subject_name?: string | null;
+  subject_name_hi?: string | null;
   subject_code?: string | null;
   question_count: number;
   total_marks: number;
@@ -189,7 +209,7 @@ export const getPublicLearningResource = (slug: string) => api.get<ApiEnvelope<P
 export const getPublicLearningSources = (options: RequestOptions = {}) =>
   api.get<ApiEnvelope<PublicLearningSource[]>>('/public/learning/sources', { signal: options.signal });
 export const getPublicLearningAssessments = (
-  params?: { class?: number; board?: string; type?: string; limit?: number },
+  params?: { class?: number; grade?: string; board?: string; type?: string; limit?: number },
   options: RequestOptions = {},
 ) => api.get<ApiEnvelope<PublicLearningAssessment[]>>('/public/learning/assessments', { params, signal: options.signal });
 export const getPublicLearningAssessment = (slug: string) =>
