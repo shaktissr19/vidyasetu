@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
 import * as studentAssessmentCatalogueV3 from '../services/studentAssessmentCatalogueV3.service';
+import * as studentLearningPresentationV3 from '../services/studentLearningPresentationV3.service';
 import * as studentConceptMasteryService from '../services/studentConceptMastery.service';
 import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
 import * as studentAdaptiveIntelligenceService from '../services/studentAdaptiveIntelligence.service';
@@ -15,7 +16,8 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
       studentLearningHubService.getLearningHome(user.userId),
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
     ]);
-    const home = await studentAssessmentCatalogueV3.replaceHomeAssessments(user.userId, rawHome);
+    const homeWithCanonicalAssessments = await studentAssessmentCatalogueV3.replaceHomeAssessments(user.userId, rawHome);
+    const home = await studentLearningPresentationV3.enrichHomeResourcesBilingual(homeWithCanonicalAssessments);
     const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
     const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
       ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
