@@ -92,8 +92,41 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
+          # run_all_migrations.sql is the legacy application baseline. Content
+          # Platform 3.0 depends on the later Learning/operations migrations,
+          # so certification must reproduce the real pre-042 schema instead of
+          # applying 042 to a database that predates learning_resource_type.
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+
+          baseline_migrations=(
+            020_learning_platform_foundation.sql
+            021_learning_original_academic_starter.sql
+            022_learning_practice_personalization.sql
+            023_global_learning_bulk_importer.sql
+            024_student_global_grade_sync.sql
+            025_learning_public_validation_pack.sql
+            026_learning_concepts_mastery.sql
+            027_student_concept_mastery_runtime.sql
+            028_grounded_ai_doubt_resolution.sql
+            029_absence_school_calendar.sql
+            029_homework_student_notifications.sql
+            030_staff_attendance_leave.sql
+            031_school_transport_safety.sql
+            032_student_records_certificates.sql
+            033_school_library_circulation.sql
+            035_remove_physical_library.sql
+            036_learning_content_quality_governance.sql
+            037_diagnostic_assessment_intelligence.sql
+            038_diagnostic_evidence_role_bridge.sql
+            039_personalized_adaptive_learning_v2.sql
+            040_competition_platform_v2.sql
+            041_learning_support_v2.sql
+          )
+          for migration in "${baseline_migrations[@]}"; do
+            echo "Applying pre-042 baseline: ${migration}"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/${migration}"
+          done
 
       - name: Apply migration 042 twice to prove idempotence
         env:
