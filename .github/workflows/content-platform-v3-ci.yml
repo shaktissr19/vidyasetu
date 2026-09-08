@@ -92,14 +92,19 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          # run_all_migrations.sql is the legacy application baseline. Content
-          # Platform 3.0 depends on the later Learning/operations migrations,
-          # so certification must reproduce the real pre-042 schema instead of
-          # applying 042 to a database that predates learning_resource_type.
+          # run_all_migrations.sql is the original 001-013 application baseline.
+          # Seed before 014 because 014 makes grade_level mandatory for new
+          # Students; this mirrors the historical upgrade path for legacy data.
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
 
           baseline_migrations=(
+            014_student_identity_enrollment.sql
+            015_realistic_demo_identities.sql
+            016_demo_academic_year_alignment.sql
+            017_school_management_core.sql
+            018_groups_collaboration.sql
+            019_parent_grievances.sql
             020_learning_platform_foundation.sql
             021_learning_original_academic_starter.sql
             022_learning_practice_personalization.sql
