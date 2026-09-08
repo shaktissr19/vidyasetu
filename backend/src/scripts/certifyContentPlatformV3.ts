@@ -5,6 +5,10 @@ import * as importer from '../services/contentImportV3.service';
 import { getContentFactorySummary } from '../services/contentFactory.service';
 import { updateGovernedContentTarget } from '../services/contentTargetGovernance.service';
 import { getPublicLearningFilterOptions } from '../services/publicLearningFilterOptions.service';
+import { listPublicLearningResources } from '../services/publicLearning.service';
+import { listPublicAssessments } from '../services/publicLearningPractice.service';
+import { getLearningHome } from '../services/studentLearningHub.service';
+import { listAssessments as listStudentAssessments } from '../services/studentAssessmentCatalogueV3.service';
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -115,6 +119,46 @@ async function main(): Promise<void> {
   const assessmentStatus = await query<{ review_status: string }>(`SELECT review_status::text FROM learning_assessments WHERE id=$1::uuid`, [assessment.id]);
   assert(assessmentStatus.rows[0]?.review_status === 'DRAFT', 'Content Factory assessments must start in DRAFT');
 
+  const nurseryQuestion = await authoring.createQuestion({
+    publicCode: `VSC3-NURSERY-${Date.now()}`, prompt: 'Which one is a circle?', promptHi: 'इनमें से वृत्त कौन-सा है?',
+    questionType: 'MCQ_SINGLE', difficulty: 'EASY', explanation: 'The round shape is a circle.', explanationHi: 'गोल आकार वृत्त है।',
+    correctAnswer: { option: 'A' }, gradeCodes: ['NURSERY'], sourceCode: 'VIDYASETU_ORIGINAL', licence: 'VIDYASETU_ORIGINAL',
+    visibility: 'PUBLIC', boardCodes: ['COMMON'], skillCode: 'BASIC_REASONING',
+    options: [{ key: 'A', text: 'Round shape', textHi: 'गोल आकार' }, { key: 'B', text: 'Square shape', textHi: 'चौकोर आकार' }],
+  }, ADMIN_ID);
+  const nurseryAssessment = await authoring.createAssessment({
+    title: 'Nursery shape practice', titleHi: 'नर्सरी आकार अभ्यास', summary: 'A short bilingual shape check.', summaryHi: 'आकारों की छोटी द्विभाषी जाँच।',
+    assessmentType: 'PRACTICE', visibility: 'PUBLIC', gradeCodes: ['NURSERY'], boardCodes: ['COMMON'], questionIds: [nurseryQuestion.id], conceptIds: [],
+  }, ADMIN_ID);
+  await query(`UPDATE learning_questions SET review_status='PUBLISHED',published_at=NOW() WHERE id=$1::uuid`, [nurseryQuestion.id]);
+  await query(`UPDATE learning_resources SET visibility='PUBLIC',review_status='PUBLISHED',published_at=NOW() WHERE id=$1::uuid`, [nursery.id]);
+  await query(`UPDATE learning_assessments SET review_status='PUBLISHED',published_at=NOW() WHERE id=$1::uuid`, [nurseryAssessment.id]);
+
+  const publicNurseryResources = await listPublicLearningResources({ gradeCode: 'NURSERY', board: 'COMMON', limit: 100 });
+  assert(publicNurseryResources.some((item: { id: string }) => item.id === nursery.id), 'Public Learn did not discover the canonical Nursery resource');
+  const publicNurseryAssessments = await listPublicAssessments({ gradeCode: 'NURSERY', board: 'COMMON', limit: 100 });
+  assert(publicNurseryAssessments.some((item: { id: string }) => item.id === nurseryAssessment.id), 'Public Learn did not discover the canonical Nursery assessment');
+
+  const learnerKey = String(Date.now()).slice(-8);
+  const nurseryUser = await query<{ id: string }>(
+    `INSERT INTO users(mobile,name,role,status,language,username)
+     VALUES($1,'Content V3 Nursery Learner','STUDENT','ACTIVE','en',$2)
+     RETURNING id`,
+    [`98${learnerKey}`, `content.v3.nursery.${learnerKey}`],
+  );
+  const nurseryUserId = nurseryUser.rows[0]?.id;
+  assert(Boolean(nurseryUserId), 'Nursery learner certification fixture was not created');
+  await query(
+    `INSERT INTO students(user_id,school_id,class_id,grade_level,grade_code,status)
+     VALUES($1::uuid,NULL,NULL,'Nursery','NURSERY','ACTIVE')`,
+    [nurseryUserId],
+  );
+  const nurseryHome = await getLearningHome(nurseryUserId);
+  assert(nurseryHome.learner.gradeCode === 'NURSERY', 'Student Learn did not preserve the learner canonical Nursery grade');
+  assert(nurseryHome.recommendedResources.some((item: { id: string }) => item.id === nursery.id), 'Student Learn did not discover the learner Nursery resource');
+  const nurseryStudentAssessments = await listStudentAssessments(nurseryUserId);
+  assert(nurseryStudentAssessments.some((item: { id: string }) => item.id === nurseryAssessment.id), 'Student Learn did not discover the learner Nursery assessment');
+
   const importKey = `VS-C3-CERT-${Date.now()}`;
   const batch = await importer.stageImport({
     fileName: 'content-v3-cert.json', format: 'JSON', content: JSON.stringify({ rows: [{
@@ -143,6 +187,7 @@ async function main(): Promise<void> {
   console.log('Canonical grades: 16; English + Hindi only; Nursery-Class 12 production denominator active.');
   console.log('DRAFT-first Resource, Question, Assessment and bilingual bulk importer certified.');
   console.log('Canonical Resource/Question/Assessment grade mappings certified.');
+  console.log('Canonical Nursery discovery certified across Public Learn and Student Learn.');
 }
 
 main().then(() => process.exit(0)).catch((error) => {
