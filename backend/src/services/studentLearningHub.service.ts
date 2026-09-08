@@ -126,9 +126,9 @@ export async function getLearningHome(userId: UUID) {
 
   const [resources, assessments, bookmarks, recentAttempts, progress] = await Promise.all([
     query(
-      `SELECT lr.id, lr.public_slug, lr.title, lr.summary, lr.resource_type, lr.category,
-              lr.class_min, lr.class_max, lr.is_featured_public,
-              lcs.name AS source_name, sub.name AS subject_name,
+      `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary, lr.summary_hi,
+              lr.resource_type, lr.category, lr.class_min, lr.class_max, lr.is_featured_public,
+              lcs.name AS source_name, sub.name AS subject_name, sub.name_hi AS subject_name_hi,
               COALESCE(slrp.progress_pct,0)::float AS progress_pct,
               COALESCE(slrp.is_completed,FALSE) AS is_completed,
               EXISTS (SELECT 1 FROM student_learning_bookmarks b WHERE b.student_id=$1 AND b.resource_id=lr.id) AS bookmarked
@@ -144,8 +144,9 @@ export async function getLearningHome(userId: UUID) {
       [student.student_id, board, gradeCode, grade],
     ),
     query(
-      `SELECT la.id, la.public_slug, la.title, la.summary, la.assessment_type,
-              la.time_limit_mins, la.passing_pct, la.max_attempts, sub.name AS subject_name,
+      `SELECT la.id, la.public_slug, la.title, la.title_hi, la.summary, la.summary_hi,
+              la.assessment_type, la.time_limit_mins, la.passing_pct, la.max_attempts,
+              sub.name AS subject_name, sub.name_hi AS subject_name_hi,
               COUNT(laq.question_id)::int AS question_count,
               COALESCE(SUM(COALESCE(laq.marks_override,lq.marks)),0)::float AS total_marks,
               (SELECT sla.percentage::float FROM student_learning_attempts sla
@@ -164,7 +165,7 @@ export async function getLearningHome(userId: UUID) {
       [student.student_id, board, grade],
     ),
     query(
-      `SELECT lr.id, lr.public_slug, lr.title, lr.category, b.created_at
+      `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.category, b.created_at
        FROM student_learning_bookmarks b
        JOIN learning_resources lr ON lr.id=b.resource_id
        WHERE b.student_id=$1
@@ -172,7 +173,7 @@ export async function getLearningHome(userId: UUID) {
       [student.student_id],
     ),
     query(
-      `SELECT sla.id, sla.assessment_id, la.title, sla.status, sla.percentage::float,
+      `SELECT sla.id, sla.assessment_id, la.title, la.title_hi, sla.status, sla.percentage::float,
               sla.correct_count, sla.wrong_count, sla.skipped_count, sla.submitted_at, sla.started_at
        FROM student_learning_attempts sla
        JOIN learning_assessments la ON la.id=sla.assessment_id
@@ -257,154 +258,4 @@ export async function removeBookmark(userId: UUID, resourceId: UUID) {
   const student = await getStudentContext(userId);
   await query(`DELETE FROM student_learning_bookmarks WHERE student_id=$1 AND resource_id=$2`, [student.student_id, resourceId]);
   return { bookmarked: false };
-}
-
-export async function listAssessments(userId: UUID) {
-  const home = await getLearningHome(userId);
-  return home.assessments;
-}
-
-async function assessmentForStudent(userId: UUID, assessmentId: UUID) {
-  const student = await getStudentContext(userId);
-  const gradeCode = canonicalGradeCode(student);
-  const grade = gradeNumber(gradeCode);
-  if (grade === null) throw appError('Formal assessments are not available for early-years learners', 404);
-  const board = student.board_code || 'COMMON';
-  const { rows: [assessment] } = await query(
-    `SELECT la.id, la.public_slug, la.title, la.summary, la.assessment_type,
-            la.time_limit_mins, la.passing_pct, la.max_attempts, la.shuffle_questions
-     FROM learning_assessments la
-     WHERE la.id=$1 AND la.review_status='PUBLISHED'
-       AND la.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
-       AND ${assessmentScopeSql(2, 3)}`,
-    [assessmentId, board, grade],
-  );
-  if (!assessment) throw appError('Assessment not found for this learner', 404);
-  return { student, assessment };
-}
-
-export async function getAssessment(userId: UUID, assessmentId: UUID) {
-  const { assessment } = await assessmentForStudent(userId, assessmentId);
-  const { rows } = await query<AssessmentQuestionRow>(
-    `SELECT lq.id, lq.public_code, lq.prompt, lq.prompt_hi, lq.question_type,
-            lq.difficulty, NULL::text AS explanation, NULL::jsonb AS correct_answer,
-            lq.marks, laq.marks_override,
-            COALESCE(jsonb_agg(jsonb_build_object('key',lqo.option_key,'text',lqo.option_text,'textHi',lqo.option_text_hi)
-              ORDER BY lqo.sort_order) FILTER (WHERE lqo.id IS NOT NULL),'[]'::jsonb) AS options
-     FROM learning_assessment_questions laq
-     JOIN learning_questions lq ON lq.id=laq.question_id
-     LEFT JOIN learning_question_options lqo ON lqo.question_id=lq.id
-     WHERE laq.assessment_id=$1 AND lq.review_status='PUBLISHED'
-     GROUP BY lq.id, laq.marks_override, laq.sort_order
-     ORDER BY laq.sort_order, lq.public_code`,
-    [assessmentId],
-  );
-  return { ...assessment, questions: rows };
-}
-
-export async function startAssessment(userId: UUID, assessmentId: UUID) {
-  const { student, assessment } = await assessmentForStudent(userId, assessmentId);
-  if (assessment.max_attempts) {
-    const { rows: [count] } = await query<{ count: string } & QueryResultRow>(
-      `SELECT COUNT(*)::text AS count FROM student_learning_attempts
-       WHERE student_id=$1 AND assessment_id=$2 AND status IN ('SUBMITTED','GRADED')`,
-      [student.student_id, assessmentId],
-    );
-    if (Number(count?.count || 0) >= Number(assessment.max_attempts)) throw appError('Maximum attempts reached', 409);
-  }
-  const { rows: [attempt] } = await query(
-    `INSERT INTO student_learning_attempts(student_id,assessment_id) VALUES($1,$2)
-     RETURNING id, assessment_id, status, started_at`,
-    [student.student_id, assessmentId],
-  );
-  return attempt;
-}
-
-function sameAnswer(expected: unknown, actual: unknown): boolean {
-  const normalize = (value: unknown) => JSON.stringify(value, Object.keys((value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {})).sort());
-  if (Array.isArray(expected) && Array.isArray(actual)) {
-    return JSON.stringify([...expected].sort()) === JSON.stringify([...actual].sort());
-  }
-  return normalize(expected) === normalize(actual);
-}
-
-export async function submitAssessment(
-  userId: UUID,
-  attemptId: UUID,
-  answers: Array<{ questionId: UUID; answer: unknown }>,
-  timeSpentSecs?: number | null,
-) {
-  const student = await getStudentContext(userId);
-
-  return transaction(async (client) => {
-    const { rows: [attempt] } = await client.query<{ assessment_id: UUID; status: string }>(
-      `SELECT assessment_id,status FROM student_learning_attempts
-       WHERE id=$1 AND student_id=$2 FOR UPDATE`,
-      [attemptId, student.student_id],
-    );
-    if (!attempt) throw appError('Learning attempt not found', 404);
-    if (attempt.status !== 'IN_PROGRESS') throw appError('Learning attempt has already been submitted', 409);
-
-    const { rows: questions } = await client.query<AssessmentQuestionRow>(
-      `SELECT lq.id, lq.public_code, lq.prompt, lq.prompt_hi, lq.question_type,
-              lq.difficulty, lq.explanation, lq.correct_answer, lq.marks, laq.marks_override,
-              '[]'::jsonb AS options
-       FROM learning_assessment_questions laq
-       JOIN learning_questions lq ON lq.id=laq.question_id
-       WHERE laq.assessment_id=$1 AND lq.review_status='PUBLISHED'
-       ORDER BY laq.sort_order`,
-      [attempt.assessment_id],
-    );
-    if (!questions.length) throw appError('Assessment has no published questions', 409);
-
-    const submitted = new Map(answers.map((item) => [item.questionId, item.answer]));
-    let score = 0;
-    let maxScore = 0;
-    let correct = 0;
-    let wrong = 0;
-    let skipped = 0;
-    const feedback: Array<Record<string, unknown>> = [];
-
-    for (const question of questions) {
-      const marks = Number(question.marks_override ?? question.marks ?? 1);
-      maxScore += marks;
-      const answer = submitted.get(question.id);
-      const hasAnswer = answer !== undefined && answer !== null && JSON.stringify(answer) !== '{}' && JSON.stringify(answer) !== '[]';
-      const isCorrect = hasAnswer && sameAnswer(question.correct_answer, answer);
-      const awarded = isCorrect ? marks : 0;
-      score += awarded;
-      if (!hasAnswer) skipped += 1;
-      else if (isCorrect) correct += 1;
-      else wrong += 1;
-
-      await client.query(
-        `INSERT INTO student_learning_answers(attempt_id,question_id,answer,is_correct,marks_awarded)
-         VALUES($1,$2,$3::jsonb,$4,$5)
-         ON CONFLICT (attempt_id,question_id) DO UPDATE SET
-           answer=EXCLUDED.answer,is_correct=EXCLUDED.is_correct,marks_awarded=EXCLUDED.marks_awarded,answered_at=NOW()`,
-        [attemptId, question.id, answer === undefined ? null : JSON.stringify(answer), hasAnswer ? isCorrect : null, awarded],
-      );
-      feedback.push({
-        questionId: question.id,
-        correct: hasAnswer ? isCorrect : null,
-        correctAnswer: question.correct_answer,
-        explanation: question.explanation,
-        marksAwarded: awarded,
-        maxMarks: marks,
-      });
-    }
-
-    const percentage = maxScore > 0 ? Number(((score / maxScore) * 100).toFixed(2)) : 0;
-    const { rows: [result] } = await client.query(
-      `UPDATE student_learning_attempts SET
-         status='GRADED',submitted_at=NOW(),score=$2,max_score=$3,percentage=$4,
-         correct_count=$5,wrong_count=$6,skipped_count=$7,time_spent_secs=$8
-       WHERE id=$1
-       RETURNING id,assessment_id,status,score::float,max_score::float,percentage::float,
-                 correct_count,wrong_count,skipped_count,started_at,submitted_at,time_spent_secs`,
-      [attemptId, score, maxScore, percentage, correct, wrong, skipped, timeSpentSecs || null],
-    );
-
-    return { ...result, feedback };
-  });
 }
