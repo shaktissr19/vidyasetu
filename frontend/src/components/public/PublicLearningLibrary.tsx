@@ -211,11 +211,10 @@ export default function PublicLearningLibrary() {
     placeholderData: (previousData) => previousData,
   });
 
-  const assessmentClass = selectedGradeMeta?.classNumber || null;
   const assessmentsQuery = useQuery<PublicLearningAssessment[]>({
-    queryKey: ['public-learning-assessments', assessmentClass, selectedBoard],
-    enabled: filtersReady && Boolean(assessmentClass),
-    queryFn: ({ signal }) => getPublicLearningAssessments({ class: assessmentClass || undefined, board: selectedBoard === 'ALL' ? undefined : selectedBoard, limit: 6 }, { signal }).then((response) => response.data.data || []),
+    queryKey: ['public-learning-assessments', selectedGrade || 'NONE', selectedBoard],
+    enabled: filtersReady && Boolean(selectedGrade),
+    queryFn: ({ signal }) => getPublicLearningAssessments({ grade: selectedGrade || undefined, board: selectedBoard === 'ALL' ? undefined : selectedBoard, limit: 6 }, { signal }).then((response) => response.data.data || []),
     staleTime: 30 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
@@ -247,7 +246,7 @@ export default function PublicLearningLibrary() {
         title="Learning that fits into real life."
         description="Explore lessons, practice, reading and skills that help learners keep moving forward."
         theme="blue"
-        actions={[{ label: 'Explore learning', href: '#browse' }, { label: 'Practice by class', href: '#practice', variant: 'secondary' }]}
+        actions={[{ label: 'Explore learning', href: '#browse' }, { label: 'Practice by grade', href: '#practice', variant: 'secondary' }]}
       />
 
       <section className={styles.browseSection} id="browse"><div className={styles.shell}>
@@ -282,12 +281,12 @@ export default function PublicLearningLibrary() {
       </div></section>
 
       <section className={styles.practiceSection} id="practice"><div className={styles.shell}>
-        <div className={styles.sectionHeading}><div className={styles.eyebrow}>PRACTISE AND CHECK UNDERSTANDING</div><h2>{assessmentClass ? `Practice for Class ${assessmentClass}` : 'Practice when the learner is ready'}</h2><p>Short practice sets and question papers help students check what they understand before moving ahead.</p></div>
-        {assessmentClass ? assessmentsQuery.isError ? (
+        <div className={styles.sectionHeading}><div className={styles.eyebrow}>PRACTISE AND CHECK UNDERSTANDING</div><h2>{selectedGradeMeta ? `Practice for ${selectedGradeMeta.shortName}` : 'Practice when the learner is ready'}</h2><p>Short practice sets and question papers help students check what they understand before moving ahead.</p></div>
+        {selectedGrade ? assessmentsQuery.isError ? (
           <div className={styles.errorState}><strong>Practice could not be loaded.</strong><button type="button" onClick={() => assessmentsQuery.refetch()}><RefreshCw size={16} /> Try again</button></div>
         ) : assessments.length ? (
           <div className={styles.practiceGrid}>{assessments.slice(0,6).map((assessment) => <Link key={assessment.id} href={`/learn/practice/${assessment.public_slug}`} className={styles.practiceCard}><FileQuestion size={26} /><span>{assessment.assessment_type.replaceAll('_',' ')}</span><h3>{assessment.title}</h3><p>{assessment.summary || 'A focused practice set for this learning level.'}</p><div>{assessment.question_count} questions {assessment.time_limit_mins ? `· ${assessment.time_limit_mins} min` : ''}</div><strong>Start practice <ArrowRight size={16} /></strong></Link>)}</div>
-        ) : <div className={styles.practicePrompt}>More practice for this class can be added through the Learning Studio as the catalogue grows.</div> : <div className={styles.practicePrompt}><GraduationCap size={24} /> Choose a school class above to see practice sets for that level.</div>}
+        ) : <div className={styles.practicePrompt}>More practice for this grade can be added through the Learning Studio as the catalogue grows.</div> : <div className={styles.practicePrompt}><GraduationCap size={24} /> Choose a grade above to see practice sets for that learning level.</div>}
       </div></section>
 
       <section className={styles.developmentSection}><div className={styles.shell}>
@@ -295,7 +294,7 @@ export default function PublicLearningLibrary() {
         <div className={styles.pillarGrid}>{DEVELOPMENT_PILLARS.map((pillar) => { const Icon = pillar.icon; return <button key={pillar.category} type="button" className={`${styles.pillarCard} ${pillar.tone}`} onClick={() => chooseCategory(pillar.category)}><div className={styles.pillarIcon}><Icon size={28} strokeWidth={1.75} /></div><span>{pillar.eyebrow}</span><h3>{pillar.title}</h3><p>{pillar.copy}</p><strong>Explore this area <ArrowRight size={16} /></strong></button>; })}</div>
       </div></section>
 
-      <section className={styles.finalCta}><div className={styles.shell}><div className={styles.ctaInner}><div><span>LEARNING CONTINUES AFTER SIGN-IN</span><h2>Save progress. Keep practising. Return where you left off.</h2><p>Student accounts add class-aware recommendations, bookmarks, progress, assessment history and school-connected learning.</p></div><div className={styles.ctaActions}><Link className={styles.primaryAction} href="/login?role=student">Student login</Link><Link className={styles.secondaryLight} href="/?auth=register">Create account</Link></div></div></div></section>
+      <section className={styles.finalCta}><div className={styles.shell}><div className={styles.ctaInner}><div><span>LEARNING CONTINUES AFTER SIGN-IN</span><h2>Save progress. Keep practising. Return where you left off.</h2><p>Student accounts add grade-aware recommendations, bookmarks, progress, assessment history and school-connected learning.</p></div><div className={styles.ctaActions}><Link className={styles.primaryAction} href="/login?role=student">Student login</Link><Link className={styles.secondaryLight} href="/?auth=register">Create account</Link></div></div></div></section>
     </div>
   );
 }
