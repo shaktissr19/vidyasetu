@@ -10,6 +10,7 @@ const MENU = [
   { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
   { href: '/admin/schools', icon: '🏫', label: 'Schools' },
   { href: '/admin/users', icon: '👥', label: 'Users' },
+  { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory' },
   { href: '/admin/learning', icon: '📚', label: 'Learning Studio', exact: true },
   { href: '/admin/learning/coverage', icon: '🎯', label: 'Content Coverage' },
   { href: '/admin/learning/imports', icon: '📥', label: 'Bulk Learning Import' },
