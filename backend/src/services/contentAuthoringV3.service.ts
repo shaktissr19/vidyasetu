@@ -104,6 +104,7 @@ export async function createQuestion(input: CreateV3QuestionInput, createdBy: UU
 export async function createAssessment(input: CreateV3AssessmentInput, createdBy: UUID) {
   if (!input.title?.trim() || !input.titleHi?.trim()) throw appError('English and Hindi assessment titles are required');
   if (!input.summary?.trim() || !input.summaryHi?.trim()) throw appError('English and Hindi assessment summaries are required');
+  const summaryHi = input.summaryHi.trim();
   const grades = await resolveGrades(input.gradeCodes);
   const range = numericRange(grades);
   return transaction(async (client) => {
@@ -113,7 +114,7 @@ export async function createAssessment(input: CreateV3AssessmentInput, createdBy
       classMin: range.classMin,
       classMax: range.classMax,
     }, createdBy);
-    await client.query(`UPDATE learning_assessments SET summary_hi=$2 WHERE id=$1::uuid`, [created.id, input.summaryHi.trim()]);
+    await client.query(`UPDATE learning_assessments SET summary_hi=$2 WHERE id=$1::uuid`, [created.id, summaryHi]);
     for (const grade of grades) {
       await client.query(
         `INSERT INTO learning_assessment_grades(assessment_id,grade_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`,
