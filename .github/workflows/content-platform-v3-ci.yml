@@ -32,7 +32,9 @@ jobs:
           test -s backend/src/services/contentAuthoringV3.service.ts
           test -s backend/src/services/contentImportV3.service.ts
           test -s backend/src/services/contentTargetGovernance.service.ts
+          test -s backend/src/services/studentLearningPresentationV3.service.ts
           test -s backend/src/scripts/certifyContentPlatformV3.ts
+          test -s backend/src/scripts/certifyLearningLanguageIdentity.ts
           test -s 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
           test -s 'frontend/src/app/(admin)/admin/learning/coverage/page.tsx'
           grep -q "PRE_NURSERY" database/migrations/042_content_platform_v3.sql
@@ -48,6 +50,7 @@ jobs:
           grep -q "gradeCode: optionalText(req.query.grade)" backend/src/controllers/publicLearning.controller.ts
           grep -q "learning_assessment_grades" backend/src/services/publicLearningPractice.service.ts
           grep -q "studentContentV3" backend/src/routes/student.routes.ts
+          grep -q "vs_learning_content_language" frontend/src/components/student/sections/LearningSection.tsx
 
       - name: Build shared contracts
         working-directory: shared/contracts
@@ -62,9 +65,11 @@ jobs:
           npm run typecheck
           npm run build
           test -s dist/scripts/certifyContentPlatformV3.js
+          test -s dist/scripts/certifyLearningLanguageIdentity.js
           test -s dist/services/contentFactory.service.js
           test -s dist/services/contentAuthoringV3.service.js
           test -s dist/services/contentImportV3.service.js
+          test -s dist/services/studentLearningPresentationV3.service.js
 
       - name: Typecheck and build frontend
         working-directory: frontend
@@ -168,3 +173,15 @@ jobs:
           DB_PASSWORD: postgres
           REDIS_URL: redis://127.0.0.1:6379
         run: node dist/scripts/certifyContentPlatformV3.js
+
+      - name: Certify EN-HI identity and progress persistence
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+        run: node dist/scripts/certifyLearningLanguageIdentity.js
