@@ -1,10 +1,12 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import * as ctrl from '../controllers/contentFactory.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
 const router = Router();
+const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 router.use(authenticate);
 router.use(authorize('SUPER_ADMIN'));
 
@@ -76,11 +78,7 @@ const questionSchema = z.object({
   attributionText: z.string().trim().max(3000).nullable().optional(),
   visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']).optional(),
   boardCodes,
-  options: z.array(z.object({
-    key: z.string().trim().min(1).max(10),
-    text: z.string().trim().min(1).max(2000),
-    textHi: z.string().trim().min(1).max(2000),
-  })).max(12).optional(),
+  options: z.array(z.object({ key: z.string().trim().min(1).max(10), text: z.string().trim().min(1).max(2000), textHi: z.string().trim().min(1).max(2000) })).max(12).optional(),
   conceptIds,
   cognitiveSkill: z.enum(['REMEMBER','UNDERSTAND','APPLY','ANALYSE','EVALUATE','CREATE']).optional(),
   skillCode: z.string().trim().max(120).nullable().optional(),
@@ -119,5 +117,14 @@ router.get('/factory/questions', ctrl.questions);
 router.post('/factory/questions', validate(questionSchema), ctrl.createQuestion);
 router.get('/factory/assessments', ctrl.assessments);
 router.post('/factory/assessments', validate(assessmentSchema), ctrl.createAssessment);
+
+// These exact routes intentionally shadow the older importer because this
+// router is mounted before adminLearning.routes. Content 3.0 is always DRAFT-first.
+router.get('/imports/options', ctrl.importOptions);
+router.get('/imports/template', ctrl.importTemplate);
+router.get('/imports', ctrl.importBatches);
+router.get('/imports/:batchId', ctrl.importBatch);
+router.post('/imports/stage', importUpload.single('file'), ctrl.stageImport);
+router.post('/imports/:batchId/commit', ctrl.commitImport);
 
 export = router;
