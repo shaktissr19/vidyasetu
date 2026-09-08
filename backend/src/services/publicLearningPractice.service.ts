@@ -14,10 +14,24 @@ export async function listPublicAssessments(filters: PublicAssessmentFilters = {
   const conditions = ["la.visibility='PUBLIC'", "la.review_status='PUBLISHED'"];
   if (filters.gradeCode?.trim()) {
     values.push(filters.gradeCode.trim().toUpperCase());
-    conditions.push(`EXISTS(
-      SELECT 1 FROM learning_assessment_grades lagf
-      JOIN education_grade_levels eglf ON eglf.id=lagf.grade_id
-      WHERE lagf.assessment_id=la.id AND eglf.code=$${values.length}
+    const p = values.length;
+    conditions.push(`(
+      EXISTS(
+        SELECT 1 FROM learning_assessment_grades lagf
+        JOIN education_grade_levels eglf ON eglf.id=lagf.grade_id
+        WHERE lagf.assessment_id=la.id AND eglf.code=$${p}
+      )
+      OR (
+        NOT EXISTS(SELECT 1 FROM learning_assessment_grades lag0 WHERE lag0.assessment_id=la.id)
+        AND EXISTS(
+          SELECT 1 FROM education_grade_levels eglc
+          WHERE eglc.code=$${p}
+            AND eglc.is_active=TRUE
+            AND eglc.class_number IS NOT NULL
+            AND (la.class_min IS NULL OR la.class_min <= eglc.class_number)
+            AND (la.class_max IS NULL OR la.class_max >= eglc.class_number)
+        )
+      )
     )`);
   } else if (filters.className) {
     values.push(filters.className);
