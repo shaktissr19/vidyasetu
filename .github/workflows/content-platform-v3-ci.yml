@@ -1,0 +1,132 @@
+name: Content Platform 3.0 CI
+
+on:
+  push:
+    branches: [feature/content-platform-v3]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  content-platform-v3:
+    name: Nursery-Class 12 bilingual Content Platform certification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 65
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Content 3.0 contracts
+        run: |
+          test -s database/migrations/042_content_platform_v3.sql
+          test -s backend/src/services/contentFactory.service.ts
+          test -s backend/src/services/contentAuthoringV3.service.ts
+          test -s backend/src/services/contentImportV3.service.ts
+          test -s backend/src/services/contentTargetGovernance.service.ts
+          test -s backend/src/scripts/certifyContentPlatformV3.ts
+          test -s 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          test -s 'frontend/src/app/(admin)/admin/learning/coverage/page.tsx'
+          grep -q "PRE_NURSERY" database/migrations/042_content_platform_v3.sql
+          grep -q "learning_assessment_grades" database/migrations/042_content_platform_v3.sql
+          grep -q "learning_content_targets" database/migrations/042_content_platform_v3.sql
+          grep -q "STORY" database/migrations/042_content_platform_v3.sql
+          grep -q "QA_APPROVED" database/migrations/042_content_platform_v3.sql
+          grep -q "Content Factory" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "Pre-Nursery" 'frontend/src/app/(admin)/admin/learning/coverage/page.tsx'
+          grep -q "Learning Review Studio" 'frontend/src/app/(admin)/admin/learning/page.tsx'
+          ! grep -q "Author bilingual resource" 'frontend/src/app/(admin)/admin/learning/page.tsx'
+          grep -q "contentFactoryRoutes" backend/src/index.ts
+          grep -q "gradeCode: optionalText(req.query.grade)" backend/src/controllers/publicLearning.controller.ts
+          grep -q "learning_assessment_grades" backend/src/services/publicLearningPractice.service.ts
+          grep -q "studentContentV3" backend/src/routes/student.routes.ts
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Typecheck and build backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/scripts/certifyContentPlatformV3.js
+          test -s dist/services/contentFactory.service.js
+          test -s dist/services/contentAuthoringV3.service.js
+          test -s dist/services/contentImportV3.service.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+
+      - name: Apply migration 042 twice to prove idempotence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for pass in 1 2; do
+            echo "Content Platform 3.0 migration pass $pass"
+            psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/042_content_platform_v3.sql
+          done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM education_grade_levels WHERE is_active=TRUE AND NULLIF(BTRIM(name_hi),'') IS NOT NULL;")" -eq 16
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(DISTINCT grade_id) FROM learning_content_targets;")" -eq 16
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.learning_assessment_grades') IS NOT NULL;")" = "t"
+
+      - name: Synchronize canonical concept registry
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: |
+          node dist/scripts/syncLearningConceptRegistry.js --commit --admin-user-id 00000000-0000-0000-0000-000000000001
+
+      - name: Run Content Platform 3.0 behavioral certification
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+        run: node dist/scripts/certifyContentPlatformV3.js
