@@ -4,6 +4,15 @@ import { getLearningHome, updateResourceProgress } from '../services/studentLear
 import { enrichHomeResourcesBilingual } from '../services/studentLearningPresentationV3.service';
 import { getAssessment, listAssessments } from '../services/studentAssessmentCatalogueV3.service';
 
+type CertifiedResource = {
+  id: string;
+  title: string;
+  title_hi?: string | null;
+  summary?: string | null;
+  summary_hi?: string | null;
+  progress_pct?: number;
+};
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -32,9 +41,7 @@ async function main(): Promise<void> {
   assert(resourceId, 'Published bilingual Nursery resource fixture is missing');
 
   const englishHome = await enrichHomeResourcesBilingual(await getLearningHome(userId));
-  const englishResource = englishHome.recommendedResources.find((item) => item.id === resourceId) as
-    | (typeof englishHome.recommendedResources[number] & { title_hi?: string | null; summary_hi?: string | null })
-    | undefined;
+  const englishResource = englishHome.recommendedResources.find((item) => item.id === resourceId) as CertifiedResource | undefined;
   assert(englishResource, 'Nursery learner cannot discover the bilingual resource');
   assert(englishResource.id === resourceId, 'English presentation changed canonical Resource identity');
   assert(englishResource.title === 'Find the circle', 'English presentation title is incorrect');
@@ -46,9 +53,7 @@ async function main(): Promise<void> {
   // canonical object and select its Hindi fields without changing the id used
   // by progress or mastery evidence.
   const hindiHome = await enrichHomeResourcesBilingual(await getLearningHome(userId));
-  const hindiResource = hindiHome.recommendedResources.find((item) => item.id === resourceId) as
-    | (typeof hindiHome.recommendedResources[number] & { title_hi?: string | null; summary_hi?: string | null; progress_pct?: number })
-    | undefined;
+  const hindiResource = hindiHome.recommendedResources.find((item) => item.id === resourceId) as CertifiedResource | undefined;
   assert(hindiResource, 'Hindi presentation lost the canonical Nursery resource');
   assert(hindiResource.id === englishResource.id, 'EN→HI presentation created a second Resource identity');
   assert(hindiResource.title_hi === 'वृत्त खोजो', 'Hindi presentation title is unavailable after progress write');
