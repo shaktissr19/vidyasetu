@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import * as ctrl from '../controllers/adminLearning.controller';
+import * as v3Ctrl from '../controllers/contentFactory.controller';
 import * as qualityCtrl from '../controllers/learningQualityAdmin.controller';
 import * as mediaCtrl from '../controllers/adminLearningMedia.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
@@ -16,6 +17,8 @@ const importUpload = multer({
 router.use(authenticate);
 router.use(authorize('SUPER_ADMIN'));
 
+const canonicalGradeCodes = z.array(z.string().trim().min(2).max(24)).min(1).max(16);
+
 const conceptMappingSchema = z.object({
   conceptId: z.string().uuid(),
   journeyStage: z.enum(['SEE','UNDERSTAND','DO','PRACTISE','APPLY','REVISE']),
@@ -25,14 +28,15 @@ const conceptMappingSchema = z.object({
 
 const resourceSchema = z.object({
   title: z.string().trim().min(3).max(300),
-  titleHi: z.string().trim().max(300).nullable().optional(),
-  summary: z.string().trim().max(1200).nullable().optional(),
-  summaryHi: z.string().trim().max(1200).nullable().optional(),
-  bodyMarkdown: z.string().max(30000).nullable().optional(),
-  bodyMarkdownHi: z.string().max(30000).nullable().optional(),
-  resourceType: z.enum(['ARTICLE','VIDEO','AUDIO','PDF','WORKSHEET','QUIZ','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK']),
+  titleHi: z.string().trim().min(2).max(300),
+  summary: z.string().trim().min(3).max(3000),
+  summaryHi: z.string().trim().min(3).max(3000),
+  bodyMarkdown: z.string().max(50000).nullable().optional(),
+  bodyMarkdownHi: z.string().max(50000).nullable().optional(),
+  resourceType: z.enum(['ARTICLE','VIDEO','AUDIO','PDF','WORKSHEET','QUIZ','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK','STORY','ACTIVITY','FLASHCARD','GAME','SIMULATION','PRACTICAL']),
   category: z.enum(['ACADEMIC','MOTIVATION','STUDY_SKILLS','WORK_ETHIC','SOCIAL_RESPONSIBILITY','LIFE_SKILLS','WELLBEING','CAREER_AWARENESS','DIGITAL_CITIZENSHIP']),
   visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']),
+  gradeCodes: canonicalGradeCodes,
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   language: z.string().trim().min(2).max(5).optional(),
   classMin: z.number().int().min(1).max(12).nullable().optional(),
@@ -42,7 +46,7 @@ const resourceSchema = z.object({
   sourceItemId: z.string().trim().max(180).nullable().optional(),
   licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']),
   licenceUrl: z.string().url().nullable().optional(),
-  attributionText: z.string().trim().max(2000).nullable().optional(),
+  attributionText: z.string().trim().max(3000).nullable().optional(),
   externalUrl: z.string().url().nullable().optional(),
   fileKey: z.string().trim().max(1000).nullable().optional(),
   thumbnailUrl: z.string().trim().max(1000).nullable().optional(),
@@ -51,7 +55,12 @@ const resourceSchema = z.object({
   isFeaturedPublic: z.boolean().optional(),
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   publicSlug: z.string().trim().min(3).max(180).regex(/^[a-z0-9-]+$/).nullable().optional(),
-  conceptMappings: z.array(conceptMappingSchema).max(12).optional(),
+  conceptMappings: z.array(conceptMappingSchema).max(20).optional(),
+  mediaReadiness: z.enum(['NOT_STARTED','SCRIPT_READY','MEDIA_READY','QA_APPROVED']).optional(),
+  transcript: z.string().max(50000).nullable().optional(),
+  transcriptHi: z.string().max(50000).nullable().optional(),
+  thumbnailAlt: z.string().max(1000).nullable().optional(),
+  thumbnailAltHi: z.string().max(1000).nullable().optional(),
 });
 
 const statusSchema = z.object({
@@ -62,25 +71,26 @@ const statusSchema = z.object({
 const questionSchema = z.object({
   publicCode: z.string().trim().min(3).max(50).optional(),
   prompt: z.string().trim().min(3).max(5000),
-  promptHi: z.string().trim().max(5000).nullable().optional(),
+  promptHi: z.string().trim().min(3).max(5000),
   questionType: z.enum(['MCQ_SINGLE','MCQ_MULTIPLE','TRUE_FALSE','SHORT_ANSWER','NUMERIC']),
   difficulty: z.enum(['FOUNDATION','EASY','MEDIUM','HARD','CHALLENGE']),
-  explanation: z.string().trim().max(5000).nullable().optional(),
-  explanationHi: z.string().trim().max(5000).nullable().optional(),
+  explanation: z.string().trim().min(3).max(5000),
+  explanationHi: z.string().trim().min(3).max(5000),
   correctAnswer: z.unknown(),
   marks: z.number().positive().max(100).optional(),
   negativeMarks: z.number().min(0).max(100).optional(),
+  gradeCodes: canonicalGradeCodes,
   classMin: z.number().int().min(1).max(12).nullable().optional(),
   classMax: z.number().int().min(1).max(12).nullable().optional(),
   subjectId: z.string().uuid().nullable().optional(),
   sourceCode: z.string().trim().min(2).max(40).optional(),
   sourceUrl: z.string().url().nullable().optional(),
   licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']).optional(),
-  attributionText: z.string().trim().max(2000).nullable().optional(),
+  attributionText: z.string().trim().max(3000).nullable().optional(),
   visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']).optional(),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
-  options: z.array(z.object({ key: z.string().trim().min(1).max(10), text: z.string().trim().min(1).max(2000), textHi: z.string().trim().max(2000).nullable().optional() })).max(12).optional(),
+  options: z.array(z.object({ key: z.string().trim().min(1).max(10), text: z.string().trim().min(1).max(2000), textHi: z.string().trim().min(1).max(2000) })).max(12).optional(),
   conceptIds: z.array(z.string().uuid()).max(12).optional(),
   cognitiveSkill: z.enum(['REMEMBER','UNDERSTAND','APPLY','ANALYSE','EVALUATE','CREATE']).optional(),
   skillCode: z.string().trim().max(120).nullable().optional(),
@@ -93,11 +103,13 @@ const questionSchema = z.object({
 const assessmentSchema = z.object({
   publicSlug: z.string().trim().min(3).max(180).regex(/^[a-z0-9-]+$/).nullable().optional(),
   title: z.string().trim().min(3).max(300),
-  titleHi: z.string().trim().max(300).nullable().optional(),
-  summary: z.string().trim().max(2000).nullable().optional(),
+  titleHi: z.string().trim().min(2).max(300),
+  summary: z.string().trim().min(3).max(3000),
+  summaryHi: z.string().trim().min(3).max(3000),
   assessmentType: z.enum(['DIAGNOSTIC','PRACTICE','CHAPTER_TEST','UNIT_TEST','MOCK','DAILY']),
   visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
+  gradeCodes: canonicalGradeCodes,
   classMin: z.number().int().min(1).max(12).nullable().optional(),
   classMax: z.number().int().min(1).max(12).nullable().optional(),
   subjectId: z.string().uuid().nullable().optional(),
@@ -158,21 +170,26 @@ router.get('/resources', ctrl.resources);
 router.get('/review-packs', ctrl.reviewPacks);
 router.get('/review/pressure-v1', ctrl.pressureReview);
 router.get('/review/:packKey', ctrl.contentPackReview);
-router.post('/resources', validate(resourceSchema), ctrl.createResource);
+router.post('/resources', validate(resourceSchema), v3Ctrl.createResource);
 router.patch('/resources/:resourceId/status', validate(statusSchema), ctrl.updateStatus);
 
-router.get('/questions', ctrl.questions);
-router.post('/questions', validate(questionSchema), ctrl.createQuestion);
+// Legacy Question Bank endpoints now use the same Content Platform 3.0 authoring
+// service as Content Factory so canonical grades and bilingual DRAFT-first rules
+// cannot be bypassed by older Admin clients.
+router.get('/questions', v3Ctrl.questions);
+router.post('/questions', validate(questionSchema), v3Ctrl.createQuestion);
 router.patch('/questions/:questionId/status', validate(statusSchema), ctrl.updateQuestionStatus);
-router.get('/assessments', ctrl.assessments);
-router.post('/assessments', validate(assessmentSchema), ctrl.createAssessment);
+router.get('/assessments', v3Ctrl.assessments);
+router.post('/assessments', validate(assessmentSchema), v3Ctrl.createAssessment);
 router.patch('/assessments/:assessmentId/status', validate(statusSchema), ctrl.updateAssessmentStatus);
 router.get('/intake', ctrl.intake);
 router.post('/intake', validate(intakeSchema), ctrl.createIntake);
 router.patch('/intake/:intakeId/status', validate(intakeStatusSchema), ctrl.updateIntakeStatus);
 
 // Global Learning Bulk Importer — Platform Admin only.
-// Uploads are staged and validated first; no Learning content is created until commit.
+// ContentFactory.routes is mounted first and shadows these paths with V3 importer
+// governance. These routes remain for backward compatibility if the mount order
+// ever changes, but they still stage/validate before commit.
 router.get('/imports/options', ctrl.importOptions);
 router.get('/imports/template', ctrl.importTemplate);
 router.get('/imports', ctrl.importBatches);
