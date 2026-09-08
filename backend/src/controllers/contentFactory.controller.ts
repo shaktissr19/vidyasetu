@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { UUID } from '@vidyasetu/contracts';
 import * as service from '../services/contentFactory.service';
+import * as targetGovernance from '../services/contentTargetGovernance.service';
 import * as authoring from '../services/contentAuthoringV3.service';
 import * as importService from '../services/contentImportV3.service';
 import * as resourceService from '../services/adminLearning.service';
@@ -15,7 +16,7 @@ export async function grade(req: Request, res: Response, next: NextFunction): Pr
 }
 
 export async function updateTarget(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await service.updateContentTarget(req.params.targetId as UUID, req.body)); } catch (error: unknown) { next(error); }
+  try { return R.ok(res, await targetGovernance.updateGovernedContentTarget(req.params.targetId as UUID, req.body)); } catch (error: unknown) { next(error); }
 }
 
 export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
