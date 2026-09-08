@@ -135,9 +135,9 @@ async function main(): Promise<void> {
   await query(`UPDATE learning_assessments SET review_status='PUBLISHED',published_at=NOW() WHERE id=$1::uuid`, [nurseryAssessment.id]);
 
   const publicNurseryResources = await listPublicLearningResources({ gradeCode: 'NURSERY', board: 'COMMON', limit: 100 });
-  assert(publicNurseryResources.some((item: { id: string }) => item.id === nursery.id), 'Public Learn did not discover the canonical Nursery resource');
+  assert(publicNurseryResources.some((item) => item.id === nursery.id), 'Public Learn did not discover the canonical Nursery resource');
   const publicNurseryAssessments = await listPublicAssessments({ gradeCode: 'NURSERY', board: 'COMMON', limit: 100 });
-  assert(publicNurseryAssessments.some((item: { id: string }) => item.id === nurseryAssessment.id), 'Public Learn did not discover the canonical Nursery assessment');
+  assert(publicNurseryAssessments.some((item) => item.id === nurseryAssessment.id), 'Public Learn did not discover the canonical Nursery assessment');
 
   const learnerKey = String(Date.now()).slice(-8);
   const nurseryUser = await query<{ id: string }>(
@@ -155,9 +155,9 @@ async function main(): Promise<void> {
   );
   const nurseryHome = await getLearningHome(nurseryUserId);
   assert(nurseryHome.learner.gradeCode === 'NURSERY', 'Student Learn did not preserve the learner canonical Nursery grade');
-  assert(nurseryHome.recommendedResources.some((item: { id: string }) => item.id === nursery.id), 'Student Learn did not discover the learner Nursery resource');
+  assert(nurseryHome.recommendedResources.some((item) => item.id === nursery.id), 'Student Learn did not discover the learner Nursery resource');
   const nurseryStudentAssessments = await listStudentAssessments(nurseryUserId);
-  assert(nurseryStudentAssessments.some((item: { id: string }) => item.id === nurseryAssessment.id), 'Student Learn did not discover the learner Nursery assessment');
+  assert(nurseryStudentAssessments.some((item) => item.id === nurseryAssessment.id), 'Student Learn did not discover the learner Nursery assessment');
 
   const importKey = `VS-C3-CERT-${Date.now()}`;
   const batch = await importer.stageImport({
