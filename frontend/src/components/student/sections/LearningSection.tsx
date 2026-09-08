@@ -28,6 +28,15 @@ import DiagnosticKnowledgeMap from './DiagnosticKnowledgeMap';
 import PersonalizedJourneyPanel from './PersonalizedJourneyPanel';
 import styles from '../StudentPortal.module.css';
 
+function learningLevelLabel(value: string | number | null | undefined): string {
+  if (value == null || String(value).trim() === '') return '—';
+  const text = String(value).trim();
+  if (/^class\s+/i.test(text)) return text;
+  if (/^\d{1,2}$/.test(text)) return `Class ${text}`;
+  if (text.toUpperCase() === 'PRE_NURSERY') return 'Pre-Nursery';
+  return text.replaceAll('_', ' ');
+}
+
 export default function LearningSection(props: StudentSectionProps) {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
@@ -54,6 +63,10 @@ export default function LearningSection(props: StudentSectionProps) {
   });
 
   const home = homeQuery.data;
+  const learnerLevel = home?.learner.gradeLabel
+    || learningLevelLabel(home?.learner.className)
+    || learningLevelLabel(props.student?.classLabel || props.student?.gradeLevel);
+  const fallbackLevel = learningLevelLabel(props.student?.classLabel || props.student?.gradeLevel);
   const growth = useMemo(
     () => (home?.recommendedResources || []).filter((item) => item.category !== 'ACADEMIC').slice(0, 4),
     [home],
@@ -162,13 +175,13 @@ export default function LearningSection(props: StudentSectionProps) {
         <div>
           <h1 className={styles.title}>📚 Learning Home</h1>
           <div className={styles.subtitle}>
-            {home ? `Class ${home.learner.className} · ${home.learner.boardName}` : `Class ${props.student?.classLabel || props.student?.gradeLevel || '—'} · personalised learning, practice and growth`}
+            {home ? `${learnerLevel} · ${home.learner.boardName}` : `${fallbackLevel} · personalised learning, practice and growth`}
           </div>
         </div>
         <Link href="/learn" target="_blank" className={styles.secondary}>Explore public Learning Library ↗</Link>
       </div>
 
-      {homeQuery.isLoading ? <div className={styles.loading}>Building your class and board learning path…</div> : homeQuery.isError ? (
+      {homeQuery.isLoading ? <div className={styles.loading}>Building your grade and board learning path…</div> : homeQuery.isError ? (
         <div className={styles.card} style={{ marginBottom: 18 }}>
           <div className={styles.error}>Your personalised Learning Home could not be loaded.</div>
           <button className={styles.primary} onClick={() => homeQuery.refetch()}>Retry</button>
@@ -178,7 +191,7 @@ export default function LearningSection(props: StudentSectionProps) {
           <div className={styles.card} style={{ marginBottom: 18, background: 'linear-gradient(135deg, rgba(28,112,255,.08), rgba(61,185,138,.08))' }}>
             <div className={styles.cardTitle}>🎯 Your learning path</div>
             <p style={{ color: 'var(--muted)', marginTop: 4 }}>
-              VidyaSetu is using your Class {home.learner.className}{home.learner.schoolName ? `, ${home.learner.schoolName}` : ''} and {home.learner.boardName} context. Common cross-board resources remain available alongside board-specific material.
+              VidyaSetu is using your {learnerLevel}{home.learner.schoolName ? `, ${home.learner.schoolName}` : ''} and {home.learner.boardName} context. Common cross-board resources remain available alongside board-specific material.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10, marginTop: 14 }}>
               <div className={styles.contentItem}><strong style={{ fontSize: 24 }}>{home.progress.started}</strong><div className={styles.contentMeta}>Resources started</div></div>
@@ -214,7 +227,7 @@ export default function LearningSection(props: StudentSectionProps) {
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>📝 Practice, diagnostic & self-assessment</div>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>Practice builds skill; short diagnostics improve VidyaSetu&apos;s confidence about what you understand; mastery checks prove learning. None of these are competitions.</p>
-            {home.assessments.length === 0 ? <div className={styles.empty}>Practice and diagnostic sets for your class and board are being added.</div> : (
+            {home.assessments.length === 0 ? <div className={styles.empty}>Practice and diagnostic sets for your learning level and board are being added.</div> : (
               <div className={styles.contentGrid}>
                 {home.assessments.slice(0, 6).map((assessment: LearningHomeAssessment) => (
                   <div className={styles.contentItem} key={assessment.id}>
@@ -283,7 +296,7 @@ export default function LearningSection(props: StudentSectionProps) {
 
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>📘 Recommended academic resources</div>
-            {academic.length === 0 ? <div className={styles.empty}>Academic resources for your class are being expanded.</div> : (
+            {academic.length === 0 ? <div className={styles.empty}>Academic resources for your learning level are being expanded.</div> : (
               <div className={styles.contentGrid}>
                 {academic.map((item) => (
                   <div className={styles.contentItem} key={item.id}>
@@ -305,7 +318,7 @@ export default function LearningSection(props: StudentSectionProps) {
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>🌱 Beyond the syllabus</div>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>Motivation, study skills, work ethic, social responsibility, digital citizenship, well-being and career awareness are part of learning too.</p>
-            {growth.length === 0 ? <div className={styles.empty}>Growth resources for your class are being added.</div> : (
+            {growth.length === 0 ? <div className={styles.empty}>Growth resources for your learning level are being added.</div> : (
               <div className={styles.contentGrid}>
                 {growth.map((item) => (
                   <div className={styles.contentItem} key={item.id}>
