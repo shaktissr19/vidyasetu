@@ -14,6 +14,17 @@ interface GradeRow extends QueryResultRow {
   sort_order: number;
 }
 
+interface FactorySummaryRow extends GradeRow {
+  target_count: number;
+  core_target_count: number;
+  target_ready_count: number;
+  concept_count: number;
+  bilingual_concept_count: number;
+  published_resource_count: number;
+  published_question_count: number;
+  published_assessment_count: number;
+}
+
 interface TargetRow extends QueryResultRow {
   id: UUID;
   grade_id: UUID;
@@ -71,7 +82,7 @@ async function gradeByCode(code: string): Promise<GradeRow> {
 }
 
 export async function getContentFactorySummary() {
-  const { rows } = await query(
+  const { rows } = await query<FactorySummaryRow>(
     `SELECT egl.id,egl.code,egl.name,egl.name_hi,egl.short_name,egl.stage,egl.class_number,egl.sort_order,
             COUNT(DISTINCT lct.id)::int AS target_count,
             COUNT(DISTINCT lct.id) FILTER(WHERE lct.priority='CORE')::int AS core_target_count,
@@ -99,7 +110,7 @@ export async function getContentFactorySummary() {
      ORDER BY egl.sort_order`,
   );
 
-  const totals = rows.reduce((acc: Record<string, number>, row: any) => {
+  const totals = rows.reduce((acc: Record<string, number>, row) => {
     acc.targets += Number(row.target_count || 0);
     acc.concepts += Number(row.concept_count || 0);
     acc.bilingualConcepts += Number(row.bilingual_concept_count || 0);
