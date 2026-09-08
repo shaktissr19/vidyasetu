@@ -76,8 +76,6 @@ export async function listAssessments(userId: UUID) {
   const student = await studentContext(userId);
   const gradeCode = canonicalGradeCode(student);
   const grade = gradeNumber(gradeCode);
-  // Early years use stories, activities, games and quizzes rather than the formal assessment runner.
-  if (grade === null) return [];
   const board = student.board_code || 'COMMON';
   const { rows } = await query(
     `SELECT la.id,la.public_slug,la.title,la.title_hi,la.summary,la.summary_hi,la.assessment_type,
@@ -109,7 +107,6 @@ async function assessmentForStudent(userId: UUID, assessmentId: UUID) {
   const student = await studentContext(userId);
   const gradeCode = canonicalGradeCode(student);
   const grade = gradeNumber(gradeCode);
-  if (grade === null) throw appError('Formal assessments are not available for early-years learners',404);
   const board = student.board_code || 'COMMON';
   const { rows: [assessment] } = await query(
     `SELECT la.id,la.public_slug,la.title,la.title_hi,la.summary,la.summary_hi,la.assessment_type,
