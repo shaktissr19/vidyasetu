@@ -9,7 +9,6 @@ import {
   getTrackedSessionExpiryReason,
   hasTrackedSession,
   sessionReasonMessage,
-  startTrackedSession,
   touchSessionActivity,
   touchSessionPresence,
   type SessionExpiryReason,
@@ -57,7 +56,12 @@ export default function SessionGuard() {
   useEffect(() => {
     if (!isLoggedIn || !accessToken || !refreshToken) return undefined;
 
-    if (!hasTrackedSession()) startTrackedSession();
+    // Sessions persisted by an older build have no activity/presence record.
+    // They must not silently become trusted when this security policy is deployed.
+    if (!hasTrackedSession()) {
+      void endSession('away');
+      return undefined;
+    }
 
     const initialReason = getTrackedSessionExpiryReason();
     if (initialReason) {
