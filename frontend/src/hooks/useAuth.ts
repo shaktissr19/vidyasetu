@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
-import { getTrackedSessionExpiryReason } from '@/lib/sessionPolicy';
+import { getTrackedSessionExpiryReason, hasTrackedSession } from '@/lib/sessionPolicy';
 
 const ROLE_DASHBOARDS: Record<UserRole, string> = {
   STUDENT: '/student',
@@ -14,12 +14,18 @@ const ROLE_DASHBOARDS: Record<UserRole, string> = {
   SUPER_ADMIN: '/admin/analytics',
 };
 
+function trackedSessionProblem(isLoggedIn: boolean): 'away' | 'idle' | null {
+  if (!isLoggedIn) return null;
+  if (!hasTrackedSession()) return 'away';
+  return getTrackedSessionExpiryReason();
+}
+
 export function useRequireAuth(allowedRoles: readonly UserRole[] = []) {
   const { isLoggedIn, user, logout } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
-    const expiredReason = getTrackedSessionExpiryReason();
+    const expiredReason = trackedSessionProblem(isLoggedIn);
     if (expiredReason) {
       logout();
       router.replace(`/login?reason=${expiredReason}`);
@@ -43,7 +49,7 @@ export function useRedirectIfLoggedIn() {
   const router = useRouter();
 
   useEffect(() => {
-    const expiredReason = getTrackedSessionExpiryReason();
+    const expiredReason = trackedSessionProblem(isLoggedIn);
     if (expiredReason) {
       logout();
       return;
