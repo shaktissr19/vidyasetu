@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { RefreshTokenResponse } from '@vidyasetu/contracts';
-import { getTrackedSessionExpiryReason, purgePersistedAuthSession, sessionReasonMessage } from '@/lib/sessionPolicy';
+import { getTrackedSessionExpiryReason, hasTrackedSession, purgePersistedAuthSession, sessionReasonMessage } from '@/lib/sessionPolicy';
 
 const BASE_URL = typeof window !== 'undefined'
   ? '/api/v1'
@@ -14,8 +14,13 @@ interface RefreshEnvelope {
   data: RefreshTokenResponse;
 }
 
-function redirectExpiredSession(): never {
-  const reason = getTrackedSessionExpiryReason() || 'idle';
+function currentSessionProblem(): 'idle' | 'away' | null {
+  if (!hasTrackedSession()) return 'away';
+  return getTrackedSessionExpiryReason();
+}
+
+function redirectExpiredSession(reasonOverride?: 'idle' | 'away'): never {
+  const reason = reasonOverride || currentSessionProblem() || 'idle';
   const message = sessionReasonMessage(reason);
   window.sessionStorage.setItem('vs_session_expired_message', message);
   purgePersistedAuthSession();
@@ -33,8 +38,11 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('vs_access_token');
-    if (token && getTrackedSessionExpiryReason()) redirectExpiredSession();
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      const sessionProblem = currentSessionProblem();
+      if (sessionProblem) redirectExpiredSession(sessionProblem);
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 }, (error: unknown) => Promise.reject(error));
@@ -50,7 +58,10 @@ api.interceptors.response.use(
     if (axiosError.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       try {
-        if (typeof window !== 'undefined' && getTrackedSessionExpiryReason()) redirectExpiredSession();
+        if (typeof window !== 'undefined') {
+          const sessionProblem = currentSessionProblem();
+          if (sessionProblem) redirectExpiredSession(sessionProblem);
+        }
 
         const refreshToken = typeof window !== 'undefined'
           ? localStorage.getItem('vs_refresh_token')
