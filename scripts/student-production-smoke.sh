@@ -18,7 +18,14 @@ fi
 log "Public Student registration contract"
 OPTIONS="$(curl -fsS "$API_BASE/auth/student-registration-options")" || fail "Student registration API is not reachable"
 [[ "$(jq -r '.data.schools | length' <<< "$OPTIONS")" -ge 1 ]] || fail "No active School registration options"
-[[ "$(jq -r '.data.gradeLevels | length' <<< "$OPTIONS")" -eq 12 ]] || fail "Student grade options are incomplete"
+
+EXPECTED_GRADES='["PN","NURSERY","LKG","UKG","1","2","3","4","5","6","7","8","9","10","11","12"]'
+ACTUAL_GRADES="$(jq -c '.data.gradeLevels // []' <<< "$OPTIONS")"
+[[ "$ACTUAL_GRADES" == "$EXPECTED_GRADES" ]] || {
+  printf 'Expected Student grade options: %s\n' "$EXPECTED_GRADES" >&2
+  printf 'Actual Student grade options:   %s\n' "$ACTUAL_GRADES" >&2
+  fail "Student grade options do not match the canonical PN/Nursery/LKG/UKG/Class 1-12 contract"
+}
 
 log "Production Next.js routes"
 for path in \
