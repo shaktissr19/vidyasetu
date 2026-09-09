@@ -4,6 +4,7 @@ import type { LanguageCode, UserRole, UUID } from '@vidyasetu/contracts';
 import * as authService from '../services/auth.service';
 import * as sessionService from '../services/session.service';
 import { query } from '../config/db';
+import { SCHOOL_GRADE_VALUES, schoolGradeSortOrder } from '../constants/schoolGrades';
 import * as R from '../utils/response';
 
 type BodyRequest<TBody> = Request<Record<string, string>, unknown, TBody>;
@@ -225,15 +226,22 @@ export async function getStudentRegistrationOptions(
                 '[]'::json
               ) AS classes
        FROM schools s
-       LEFT JOIN school_classes sc ON sc.school_id = s.id
+       LEFT JOIN school_classes sc ON sc.school_id = s.id AND sc.is_active=TRUE
        WHERE s.status = 'ACTIVE'
        GROUP BY s.id
        ORDER BY s.name`,
       [],
     );
+
+    for (const school of schools) {
+      school.classes.sort((a, b) =>
+        schoolGradeSortOrder(a.className) - schoolGradeSortOrder(b.className)
+        || a.section.localeCompare(b.section));
+    }
+
     return R.ok(res, {
       schools,
-      gradeLevels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      gradeLevels: [...SCHOOL_GRADE_VALUES],
     });
   } catch (err: unknown) {
     next(err);
