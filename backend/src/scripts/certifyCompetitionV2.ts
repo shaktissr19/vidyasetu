@@ -74,7 +74,7 @@ async function seedGovernedQuestions(concept: ConceptRow, source: SourceRow): Pr
           marks,negative_marks,class_min,class_max,subject_id,source_id,licence,visibility,review_status,
           cognitive_skill,learning_outcome_code,misconception_code,published_at)
        VALUES($1,$2,$3,'MCQ_SINGLE',$4,$5,$6,'{"option":"A"}'::jsonb,1,0,8,8,$7,$8,
-              'VIDYASETU_ORIGINAL','REGISTERED','PUBLISHED','APPLY',$9,$10,NOW())
+              'VIDYASETU_ORIGINAL','REGISTERED','DRAFT','APPLY',$9,$10,NULL)
        RETURNING id,correct_answer->>'option' AS correct_option`,
       [
         code,
@@ -108,6 +108,18 @@ async function seedGovernedQuestions(concept: ConceptRow, source: SourceRow): Pr
       `INSERT INTO learning_question_concepts(question_id,concept_id,is_primary,sort_order)
        VALUES($1,$2,TRUE,1)`,
       [question.id,concept.id],
+    );
+    await query(
+      `INSERT INTO learning_question_grades(question_id,grade_id)
+       SELECT $1,id FROM education_grade_levels WHERE code='CLASS_8' AND is_active=TRUE
+       ON CONFLICT DO NOTHING`,
+      [question.id],
+    );
+    await query(
+      `UPDATE learning_questions
+       SET review_status='PUBLISHED',published_at=NOW()
+       WHERE id=$1`,
+      [question.id],
     );
     rows.push(question);
   }
