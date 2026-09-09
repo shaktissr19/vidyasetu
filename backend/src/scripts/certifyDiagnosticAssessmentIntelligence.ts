@@ -205,16 +205,22 @@ async function main(): Promise<void> {
   await query(`DELETE FROM learning_assessments WHERE public_slug=$1`, [DIAGNOSTIC_SLUG]);
   const { rows: [assessment] } = await query<IdRow>(
     `INSERT INTO learning_assessments
-       (public_slug,title,title_hi,summary,assessment_type,visibility,review_status,class_min,class_max,
+       (public_slug,title,title_hi,summary,summary_hi,assessment_type,visibility,review_status,class_min,class_max,
         subject_id,time_limit_mins,passing_pct,max_attempts,shuffle_questions,is_featured_public,
         created_by,reviewed_by,published_at)
      VALUES($1,'CI Force diagnostic','सीआई बल त्वरित जाँच','Disposable Diagnostic 2.0 certification fixture.',
-            'DIAGNOSTIC','REGISTERED','PUBLISHED',8,8,$2,10,60,NULL,TRUE,FALSE,$3,$3,NOW())
+            'डायग्नोस्टिक 2.0 प्रमाणन के लिए अस्थायी बल आकलन।',
+            'DIAGNOSTIC','REGISTERED','DRAFT',8,8,$2,10,60,NULL,TRUE,FALSE,$3,NULL,NULL)
      RETURNING id`,
     [DIAGNOSTIC_SLUG, force.subject_id, ADMIN_ID],
   );
   assert(assessment, 'Could not create diagnostic fixture');
 
+  await query(
+    `INSERT INTO learning_assessment_grades(assessment_id,grade_id)
+     VALUES($1,$2) ON CONFLICT DO NOTHING`,
+    [assessment.id, force.grade_id],
+  );
   await query(
     `INSERT INTO learning_assessment_boards(assessment_id,board_id)
      SELECT $1,id FROM education_boards WHERE code='COMMON' ON CONFLICT DO NOTHING`,
@@ -238,6 +244,13 @@ async function main(): Promise<void> {
       [assessment.id, questions[index].id, index + 1],
     );
   }
+
+  await query(
+    `UPDATE learning_assessments
+     SET review_status='PUBLISHED',reviewed_by=$2,published_at=NOW()
+     WHERE id=$1`,
+    [assessment.id, ADMIN_ID],
+  );
 
   const governance = await getDiagnosticGovernanceReadiness(assessment.id);
   assert(governance.ready, `Governed diagnostic fixture is unexpectedly blocked: ${governance.blockers.join(' ')}`);
