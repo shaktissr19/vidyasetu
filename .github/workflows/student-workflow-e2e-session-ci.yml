@@ -1,0 +1,131 @@
+name: Student Workflow E2E + Session Security CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  student-workflow:
+    name: Student journey, UI, API, persistence and session security
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Student and session contracts
+        run: |
+          set -euxo pipefail
+          bash -n scripts/student-e2e-smoke.sh
+          bash -n scripts/session-security-e2e-smoke.sh
+          bash -n scripts/student-workflow-e2e-certify.sh
+          test -s frontend/src/components/student/StudentPortal.tsx
+          test -s frontend/src/components/layout/SessionGuard.tsx
+          test -s frontend/src/lib/sessionPolicy.ts
+          test -s frontend/src/components/auth/SessionExpiryNotice.tsx
+          grep -q "SESSION_IDLE_TIMEOUT_MS = 10 \* 60 \* 1000" frontend/src/lib/sessionPolicy.ts
+          grep -q "SESSION_RETURN_GRACE_MS = 5 \* 60 \* 1000" frontend/src/lib/sessionPolicy.ts
+          grep -q "SessionGuard" frontend/src/components/layout/Providers.tsx
+          grep -q "purgePersistedAuthSession" frontend/src/services/api.ts
+          grep -q "router.post('/logout', validate(logoutSchema), ctrl.logout)" backend/src/routes/auth.routes.ts
+          grep -q "JWT_ACCESS_EXPIRY=10m" backend/.env.example
+          for section in dashboard subjects homework ai doubts exams groups attendance leave transport documents school report notifications offline profile; do
+            grep -q "'$section'" frontend/src/app/student/page.tsx
+          done
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+
+      - name: Typecheck, certify session timing and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          set -euxo pipefail
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          rm -rf /tmp/vidyasetu-session-policy
+          npx tsc src/lib/sessionPolicy.ts --target ES2020 --module commonjs --moduleResolution node --lib ES2020,DOM --skipLibCheck --outDir /tmp/vidyasetu-session-policy
+          node <<'NODE'
+          const p = require('/tmp/vidyasetu-session-policy/sessionPolicy.js');
+          const now = 2_000_000_000;
+          const check = (v, m) => { if (!v) throw new Error(m); };
+          check(p.SESSION_IDLE_TIMEOUT_MS === 600000, 'idle timeout');
+          check(p.SESSION_RETURN_GRACE_MS === 300000, 'return grace');
+          check(p.evaluateSessionExpiry({lastActivityAt:now-599999,lastPresenceAt:now-1000},now) === null, 'early idle expiry');
+          check(p.evaluateSessionExpiry({lastActivityAt:now-600001,lastPresenceAt:now-1000},now) === 'idle', 'idle not enforced');
+          check(p.evaluateSessionExpiry({lastActivityAt:now-1000,lastPresenceAt:now-299999},now) === null, 'early away expiry');
+          check(p.evaluateSessionExpiry({lastActivityAt:now-1000,lastPresenceAt:now-300001},now) === 'away', 'away not enforced');
+          check(p.evaluateSessionExpiry({lastActivityAt:now-900000,lastPresenceAt:now-900000},now) === 'away', 'away precedence');
+          console.log('CLIENT SESSION POLICY CERTIFIED');
+          NODE
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Run complete Student behavioral certification
+        env:
+          PGPASSWORD: postgres
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/student-workflow-e2e-certify.sh
+
+      - name: Start production frontend and verify Student routes
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vidyasetu-student-web.log 2>&1 &
+          for i in {1..30}; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/student || true)"
+            if [[ "$code" =~ ^(200|301|302|307|308)$ ]]; then break; fi
+            sleep 1
+            [[ "$i" -lt 30 ]] || { cat /tmp/vidyasetu-student-web.log; exit 1; }
+          done
+          for path in /login /register /student '/student?section=homework' '/student?section=attendance' '/student?section=report' '/student?section=notifications' '/student?section=offline'; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$path")"
+            echo "$path -> $code"
+            [[ "$code" =~ ^(200|301|302|307|308)$ ]] || exit 1
+          done
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          cat /tmp/vidyasetu-student-workflow-api.log || true
+          cat /tmp/vidyasetu-student-web.log || true

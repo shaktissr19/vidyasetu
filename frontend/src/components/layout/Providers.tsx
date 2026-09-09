@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import PwaRuntime from './PwaRuntime';
+import SessionGuard from './SessionGuard';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ export default function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SessionGuard />
       <PwaRuntime />
       {children}
       <Toaster

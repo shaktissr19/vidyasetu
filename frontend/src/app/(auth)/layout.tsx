@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
+import SessionExpiryNotice from '@/components/auth/SessionExpiryNotice';
 
 function AuthLoading() {
   return (
@@ -14,6 +15,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <GlobalTopbar />
+      <SessionExpiryNotice />
       <Suspense fallback={<AuthLoading />}>{children}</Suspense>
     </>
   );

@@ -4,7 +4,7 @@ import type { AuthTokenClaims } from '@vidyasetu/contracts';
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me';
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_me';
-const ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '15m';
+const ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '10m';
 export const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '30d';
 
 type SignableClaims = Omit<AuthTokenClaims, 'iat' | 'exp'>;
