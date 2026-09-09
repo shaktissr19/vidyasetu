@@ -28,8 +28,12 @@ jobs:
           bash -n scripts/deploy-main-native.sh
           bash -n scripts/student-e2e-smoke.sh
           bash -n scripts/student-production-smoke.sh
-          grep -q '014_student_identity_enrollment.sql' scripts/deploy-main-native.sh
+          grep -q 'No production migration or seed SQL will be executed by this release script.' scripts/deploy-main-native.sh
           grep -q 'student-production-smoke.sh' scripts/deploy-main-native.sh
+          if grep -Eq 'psql .* -f database/(migrations|seeds)|run_all_migrations.sql' scripts/deploy-main-native.sh; then
+            echo 'Production release script must not apply migrations or seeds.'
+            exit 1
+          fi
           if grep -Eq 'docker compose down.*-v|docker-compose down.*-v' scripts/deploy-main-native.sh; then
             echo 'Destructive Docker volume deletion is forbidden in deployment scripts.'
             exit 1
