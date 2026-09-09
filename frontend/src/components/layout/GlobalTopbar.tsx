@@ -34,6 +34,11 @@ function accountPath(role?: UserRole): string {
   return '/';
 }
 
+function notificationPath(role?: UserRole): string {
+  if (role === 'STUDENT') return '/student?section=notifications';
+  return '/notification-center';
+}
+
 export default function GlobalTopbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -93,7 +98,7 @@ export default function GlobalTopbar() {
         {isLoggedIn ? (
           <>
             <button
-              onClick={() => router.push('/notification-center')}
+              onClick={() => router.push(notificationPath(user?.role))}
               title={unreadCount ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'Notifications'}
               aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
               style={{
