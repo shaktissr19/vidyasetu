@@ -31,6 +31,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n scripts/build-production-native.sh
+          bash -n scripts/apply-production-content-platform-v3.sh
           bash -n scripts/deploy-main-native.sh
           bash -n scripts/switch-pm2-release.sh
           bash -n scripts/student-production-smoke.sh
@@ -38,8 +39,14 @@ jobs:
           bash -n scripts/parent-admin-production-smoke.sh
           node -e "const c=require('./ecosystem.config.cjs'); if(!c.apps?.some(a=>a.name==='vs-api'&&a.script==='dist/index.js')) process.exit(1)"
           grep -q 'switch-pm2-release.sh' scripts/deploy-main-native.sh
+          grep -q 'apply-production-content-platform-v3.sh first' scripts/deploy-main-native.sh
+          grep -q '042_content_platform_v3.sql' scripts/apply-production-content-platform-v3.sh
           if grep -Eq 'docker compose|docker-compose|src/index\.js|rm -f package-lock\.json|run_all_migrations|dev_seed|startOrReload' scripts/deploy-main-native.sh; then
             echo 'Deploy script contains a forbidden stale/destructive release command.'
+            exit 1
+          fi
+          if grep -Eq 'docker compose|docker-compose|run_all_migrations|dev_seed|pm2 restart|nginx -s reload' scripts/apply-production-content-platform-v3.sh; then
+            echo 'Content V3 production migration script contains a forbidden broad/destructive command.'
             exit 1
           fi
 
