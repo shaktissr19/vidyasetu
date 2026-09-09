@@ -1,0 +1,79 @@
+name: Student Production Smoke Contract CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  student-production-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate smoke script syntax
+        run: |
+          bash -n scripts/student-production-smoke.sh
+          grep -q '"PN","NURSERY","LKG","UKG"' scripts/student-production-smoke.sh
+          grep -q '"10","11","12"' scripts/student-production-smoke.sh
+
+      - name: Start canonical mock API and web server
+        run: |
+          cat >/tmp/vidyasetu_smoke_server.py <<'PY'
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+          import json
+
+          GRADES = ["PN","NURSERY","LKG","UKG","1","2","3","4","5","6","7","8","9","10","11","12"]
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == "/api/v1/auth/student-registration-options":
+                      body = json.dumps({
+                          "success": True,
+                          "data": {
+                              "schools": [{"id": "00000000-0000-0000-0000-000000000001", "name": "CI School", "classes": []}],
+                              "gradeLevels": GRADES,
+                          },
+                      }).encode()
+                      self.send_response(200)
+                      self.send_header("Content-Type", "application/json")
+                      self.send_header("Content-Length", str(len(body)))
+                      self.end_headers()
+                      self.wfile.write(body)
+                      return
+                  if self.path == "/health":
+                      body = b'{"status":"ok"}'
+                      self.send_response(200)
+                      self.send_header("Content-Type", "application/json")
+                      self.send_header("Content-Length", str(len(body)))
+                      self.end_headers()
+                      self.wfile.write(body)
+                      return
+                  self.send_response(200)
+                  self.end_headers()
+
+              def log_message(self, format, *args):
+                  pass
+
+          HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
+          PY
+          nohup python3 /tmp/vidyasetu_smoke_server.py >/tmp/vidyasetu-smoke-server.log 2>&1 &
+          for i in {1..20}; do
+            curl -fsS http://127.0.0.1:18080/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vidyasetu-smoke-server.log
+          exit 1
+
+      - name: Execute production smoke against canonical contract
+        env:
+          API_BASE: http://127.0.0.1:18080/api/v1
+          WEB_BASE: http://127.0.0.1:18080
+          HEALTH_URL: http://127.0.0.1:18080/health
+        run: bash scripts/student-production-smoke.sh
