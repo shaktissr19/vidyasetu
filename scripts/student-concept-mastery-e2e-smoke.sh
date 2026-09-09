@@ -55,6 +55,9 @@ ON CONFLICT (question_id,concept_id) DO NOTHING;
 
 DELETE FROM learning_assessments WHERE public_slug IN (:'practice_slug',:'mastery_slug');
 
+-- Content Platform 3.0 enforces canonical grades before an assessment may be
+-- PUBLISHED. Build these disposable fixtures as DRAFTs, attach the source
+-- assessment's canonical grades and other governed mappings, then publish.
 WITH source AS (
   SELECT * FROM learning_assessments WHERE id=:'source_assessment_id'::uuid
 )
@@ -64,8 +67,8 @@ INSERT INTO learning_assessments
    is_featured_public,created_by,reviewed_by,published_at)
 SELECT :'practice_slug','CI Concept Runtime Practice','सीआई कॉन्सेप्ट रनटाइम अभ्यास',
        'Disposable formative concept evidence','डिस्पोज़ेबल फॉर्मेटिव कॉन्सेप्ट एविडेंस',
-       assessment_type,'REGISTERED','PUBLISHED',8,8,subject_id,5,60,NULL,FALSE,FALSE,
-       created_by,reviewed_by,NOW()
+       assessment_type,'REGISTERED','DRAFT',8,8,subject_id,5,60,NULL,FALSE,FALSE,
+       created_by,reviewed_by,NULL
 FROM source;
 
 WITH source AS (
@@ -77,9 +80,17 @@ INSERT INTO learning_assessments
    is_featured_public,created_by,reviewed_by,published_at)
 SELECT :'mastery_slug','CI Concept Runtime Mastery','सीआई कॉन्सेप्ट रनटाइम महारत',
        'Disposable mastery concept evidence','डिस्पोज़ेबल महारत कॉन्सेप्ट एविडेंस',
-       assessment_type,'REGISTERED','PUBLISHED',8,8,subject_id,5,70,3,FALSE,FALSE,
-       created_by,reviewed_by,NOW()
+       assessment_type,'REGISTERED','DRAFT',8,8,subject_id,5,70,3,FALSE,FALSE,
+       created_by,reviewed_by,NULL
 FROM source;
+
+INSERT INTO learning_assessment_grades(assessment_id,grade_id)
+SELECT target.id,lag.grade_id
+FROM learning_assessments target
+CROSS JOIN learning_assessment_grades lag
+WHERE target.public_slug IN (:'practice_slug',:'mastery_slug')
+  AND lag.assessment_id=:'source_assessment_id'::uuid
+ON CONFLICT DO NOTHING;
 
 INSERT INTO learning_assessment_boards(assessment_id,board_id)
 SELECT target.id,lab.board_id
@@ -103,6 +114,10 @@ SELECT id,:'concept_id'::uuid,TRUE,0,
 FROM learning_assessments
 WHERE public_slug IN (:'practice_slug',:'mastery_slug')
 ON CONFLICT (assessment_id,concept_id) DO UPDATE SET evidence_role=EXCLUDED.evidence_role;
+
+UPDATE learning_assessments
+SET review_status='PUBLISHED',published_at=NOW()
+WHERE public_slug IN (:'practice_slug',:'mastery_slug');
 SQL
 
 PRACTICE_ID="$(psqlq "SELECT id FROM learning_assessments WHERE public_slug='$PRACTICE_SLUG';")"
@@ -110,6 +125,7 @@ MASTERY_ID="$(psqlq "SELECT id FROM learning_assessments WHERE public_slug='$MAS
 [[ -n "$PRACTICE_ID" && -n "$MASTERY_ID" ]] || fail "Concept assessments were not created"
 [[ "$(psqlq "SELECT evidence_role FROM learning_assessment_concepts WHERE assessment_id='$PRACTICE_ID' AND concept_id='$CONCEPT_ID';")" == "PRACTICE" ]] || fail "Practice evidence role incorrect"
 [[ "$(psqlq "SELECT evidence_role FROM learning_assessment_concepts WHERE assessment_id='$MASTERY_ID' AND concept_id='$CONCEPT_ID';")" == "MASTERY" ]] || fail "Mastery evidence role incorrect"
+[[ "$(psqlq "SELECT COUNT(*) FROM learning_assessment_grades WHERE assessment_id IN ('$PRACTICE_ID'::uuid,'$MASTERY_ID'::uuid);")" -ge 2 ]] || fail "Concept assessment canonical grade mappings missing"
 
 log "Authenticate learner"
 STUDENT_TOKEN="$(login "$STUDENT_MOBILE" STUDENT)"
