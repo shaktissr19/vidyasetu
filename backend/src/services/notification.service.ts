@@ -23,6 +23,8 @@ interface NotificationInsertInput {
   body: string;
   refId?: string | null;
   refType?: string | null;
+  dedupeKey?: string | null;
+  actionPath?: string | null;
 }
 
 interface NotificationInsertRow extends QueryResultRow {
@@ -249,13 +251,27 @@ export async function saveNotification({
   body,
   refId,
   refType,
+  dedupeKey,
+  actionPath,
 }: NotificationInsertInput): Promise<NotificationInsertRow | undefined> {
   const { rows: [row] } = await query<NotificationInsertRow>(
     `INSERT INTO notifications
-       (user_id, school_id, type, channel, title, body, reference_id, reference_type)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       (user_id, school_id, type, channel, title, body, reference_id, reference_type, dedupe_key, action_path)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     ON CONFLICT DO NOTHING
      RETURNING id, sent_at`,
-    [userId, schoolId, type, channel, title, body, refId || null, refType || null],
+    [
+      userId,
+      schoolId,
+      type,
+      channel,
+      title,
+      body,
+      refId || null,
+      refType || null,
+      dedupeKey || null,
+      actionPath || null,
+    ],
   );
   return row;
 }
