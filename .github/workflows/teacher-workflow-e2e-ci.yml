@@ -1,0 +1,144 @@
+name: Teacher Workflow E2E CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  teacher-workflow:
+    name: Teacher authorization, persistence and UI certification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 80
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Teacher workflow contracts
+        run: |
+          set -euxo pipefail
+          test -s backend/src/services/teacherSchool.service.ts
+          test -s backend/src/controllers/teacherSchool.controller.ts
+          test -s backend/src/scripts/certifyTeacherWorkflowE2E.ts
+          grep -q "teacherAware(teacherCtrl.getOverview" backend/src/routes/school.routes.ts
+          grep -q "teacherAware(teacherCtrl.getStudents" backend/src/routes/school.routes.ts
+          grep -q "teacherAware(teacherCtrl.getAttendanceRoster" backend/src/routes/school.routes.ts
+          grep -q "teacherAware(teacherCtrl.markAttendance" backend/src/routes/school.routes.ts
+          grep -q "teacherAware(teacherCtrl.getTimetable" backend/src/routes/school.routes.ts
+          grep -q "teacherAware(teacherCtrl.getResults" backend/src/routes/school.routes.ts
+          grep -q "router.get('/teachers', adminOnly" backend/src/routes/school.routes.ts
+          grep -q "router.get('/fees', adminOnly" backend/src/routes/school.routes.ts
+          grep -q "router.get('/exams', adminOnly" backend/src/routes/school.routes.ts
+          grep -q "Teachers can access only their assigned classes" backend/src/services/teacherSchool.service.ts
+          grep -q "Teachers can access only their assigned class and subject" backend/src/services/teacherSchool.service.ts
+          grep -q "NULL::text AS username,NULL::text AS email,'—'::text AS mobile" backend/src/services/teacherSchool.service.ts
+          grep -q "TEACHER_MENU" 'frontend/src/app/(school)/layout.tsx'
+          grep -q "Teacher Action Queue" 'frontend/src/app/(school)/school/overview/page.tsx'
+          grep -q "Academic Workspace" 'frontend/src/app/(school)/school/overview/page.tsx'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/services/teacherSchool.service.js
+          test -s dist/controllers/teacherSchool.controller.js
+          test -s dist/scripts/certifyTeacherWorkflowE2E.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable Teacher workflow baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euxo pipefail
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql \
+            018_groups_collaboration.sql \
+            019_parent_grievances.sql \
+            020_learning_platform_foundation.sql \
+            021_learning_original_academic_starter.sql \
+            022_learning_practice_personalization.sql \
+            023_global_learning_bulk_importer.sql \
+            024_student_global_grade_sync.sql \
+            026_learning_concepts_mastery.sql \
+            027_student_concept_mastery_runtime.sql \
+            028_grounded_ai_doubt_resolution.sql \
+            029_absence_school_calendar.sql \
+            029_homework_student_notifications.sql \
+            030_staff_attendance_leave.sql \
+            031_school_transport_safety.sql \
+            032_student_records_certificates.sql \
+            033_school_library_circulation.sql \
+            035_remove_physical_library.sql \
+            036_learning_content_quality_governance.sql \
+            037_diagnostic_assessment_intelligence.sql \
+            038_diagnostic_evidence_role_bridge.sql \
+            039_personalized_adaptive_learning_v2.sql \
+            040_competition_platform_v2.sql \
+            041_learning_support_v2.sql \
+            043_school_module_finalization.sql; do
+              echo "Applying $migration"
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+          # dev_seed predates first-class TEACHER identities/assignments and intentionally remains unchanged.
+          # Reconcile only this disposable certification database so the test exercises the real Teacher boundary.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "UPDATE users u SET role='TEACHER' FROM teachers t WHERE t.user_id=u.id AND t.status IN ('ACTIVE','ON_LEAVE');"
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "INSERT INTO teacher_assignments(teacher_id,school_id,class_id,subject_code,academic_year,is_class_teacher) SELECT '40000000-0000-0000-0000-000000000001'::uuid,'10000000-0000-0000-0000-000000000001'::uuid,'20000000-0000-0000-0000-000000000001'::uuid,'MATH',s.academic_year,TRUE FROM schools s WHERE s.id='10000000-0000-0000-0000-000000000001'::uuid ON CONFLICT(teacher_id,class_id,subject_code,academic_year) DO NOTHING;"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*)>0 FROM teachers t JOIN users u ON u.id=t.user_id JOIN teacher_assignments ta ON ta.teacher_id=t.id WHERE u.role='TEACHER' AND t.status IN ('ACTIVE','ON_LEAVE');")" = "t"
+
+      - name: Run Teacher workflow behavioral certification
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: node dist/scripts/certifyTeacherWorkflowE2E.js
