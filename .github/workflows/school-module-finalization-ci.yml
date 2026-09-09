@@ -36,12 +36,13 @@ jobs:
           test -s backend/src/scripts/certifySchoolModuleFinalization.ts
           test -s frontend/src/lib/schoolGrades.ts
           test -s frontend/src/services/notificationService.ts
-          test -s frontend/src/app/notifications/page.tsx
+          test -s frontend/src/app/notification-center/page.tsx
           grep -q "PN" backend/src/constants/schoolGrades.ts
           grep -q "NURSERY" backend/src/constants/schoolGrades.ts
           grep -q "UKG" backend/src/constants/schoolGrades.ts
           grep -q "notifications" backend/src/index.ts
           grep -q "notification-unread-count" frontend/src/components/layout/GlobalTopbar.tsx
+          grep -q "notification-center" frontend/src/components/layout/GlobalTopbar.tsx
           grep -q "SCHOOL_GRADES" 'frontend/src/app/(school)/school/classes/page.tsx'
           grep -q "schoolGradeLabel" 'frontend/src/app/(school)/school/exams/page.tsx'
           grep -q "schoolGradeLabel" 'frontend/src/app/(school)/school/announcements/page.tsx'
