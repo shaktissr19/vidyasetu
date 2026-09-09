@@ -144,8 +144,17 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/027_student_concept_mastery_runtime.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/028_grounded_ai_doubt_resolution.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/036_learning_content_quality_governance.sql
+          done
+
+      - name: Apply Content Platform 3.0 migration twice after legacy idempotence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for pass in 1 2; do
+            echo "Content Platform migration pass $pass"
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/042_content_platform_v3.sql
           done
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='education_grade_levels' AND column_name='name_hi');")" = "t"
 
       - name: Synchronize canonical Class 8 concept registry in disposable database
         working-directory: backend
