@@ -52,7 +52,7 @@ export async function getTeacherContext(
     `SELECT t.id,t.user_id,t.employee_id,t.designation,u.name
      FROM teachers t
      JOIN users u ON u.id=t.user_id
-     WHERE t.school_id=$1 AND t.user_id=$2 AND t.status='ACTIVE'${teacherIdClause}
+     WHERE t.school_id=$1 AND t.user_id=$2 AND t.status IN ('ACTIVE','ON_LEAVE')${teacherIdClause}
      LIMIT 1`,
     params,
   );
@@ -174,7 +174,8 @@ export async function getTeacherOverview(schoolId: UUID, userId: UUID, teacherId
       `SELECT sc.id,sc.class_name,sc.section,
               COUNT(st.id) FILTER(WHERE st.status='ACTIVE' AND st.school_link_status='APPROVED')::int AS total,
               COUNT(a.id) FILTER(WHERE a.status IN ('PRESENT','LATE','HALF_DAY'))::int AS present,
-              COUNT(a.id) FILTER(WHERE a.status='ABSENT')::int AS absent
+              COUNT(a.id) FILTER(WHERE a.status='ABSENT')::int AS absent,
+              COUNT(a.id) FILTER(WHERE a.status='EXCUSED')::int AS excused
        FROM school_classes sc
        LEFT JOIN students st ON st.class_id=sc.id
        LEFT JOIN attendance a ON a.student_id=st.id AND a.date=CURRENT_DATE
@@ -210,7 +211,7 @@ export async function getTeacherOverview(schoolId: UUID, userId: UUID, teacherId
        JOIN school_classes sc ON sc.id=tp.class_id
        LEFT JOIN subjects sub ON sub.code=tp.subject_code
        WHERE tp.school_id=$1 AND tp.teacher_id=$2
-         AND tp.day=CASE EXTRACT(ISODOW FROM CURRENT_DATE)::int
+         AND tp.day::text=CASE EXTRACT(ISODOW FROM CURRENT_DATE)::int
            WHEN 1 THEN 'MON' WHEN 2 THEN 'TUE' WHEN 3 THEN 'WED'
            WHEN 4 THEN 'THU' WHEN 5 THEN 'FRI' WHEN 6 THEN 'SAT' ELSE 'SUN' END
        ORDER BY tp.period_number`,
@@ -392,6 +393,7 @@ export async function getAttendanceSummary(schoolId: UUID, userId: UUID, date: s
             COUNT(st.id) FILTER(WHERE st.status='ACTIVE' AND st.school_link_status='APPROVED')::int AS total_students,
             COUNT(a.id) FILTER(WHERE a.status='PRESENT')::int AS present,
             COUNT(a.id) FILTER(WHERE a.status='ABSENT')::int AS absent,
+            COUNT(a.id) FILTER(WHERE a.status='EXCUSED')::int AS excused,
             COUNT(a.id) FILTER(WHERE a.status='LATE')::int AS late,
             COUNT(a.id) FILTER(WHERE a.status='HALF_DAY')::int AS half_day,
             COUNT(a.id) FILTER(WHERE a.status='HOLIDAY')::int AS holiday
@@ -430,9 +432,12 @@ export async function getTeacherResults(schoolId: UUID, userId: UUID, teacherId?
      JOIN exam_attempts ea ON ea.exam_id=e.id AND ea.status='SCORED'
      JOIN students st ON st.id=ea.student_id AND st.school_id=$1 AND st.school_link_status='APPROVED'
      JOIN school_classes sc ON sc.id=st.class_id
-     JOIN teacher_assignments ta ON ta.teacher_id=$2 AND ta.school_id=$1 AND ta.class_id=sc.id
-       AND (COALESCE(cardinality(e.subject_codes),0)=0 OR ta.subject_code=ANY(e.subject_codes))
      WHERE e.school_id=$1
+       AND EXISTS (
+         SELECT 1 FROM teacher_assignments ta
+         WHERE ta.teacher_id=$2 AND ta.school_id=$1 AND ta.class_id=sc.id
+           AND (COALESCE(cardinality(e.subject_codes),0)=0 OR ta.subject_code=ANY(e.subject_codes))
+       )
      GROUP BY e.id,sc.id ORDER BY e.start_time DESC,sc.class_name,sc.section`,
     [schoolId, teacher.id],
   )).rows;
