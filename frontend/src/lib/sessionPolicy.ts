@@ -9,6 +9,11 @@ const AUTH_STORAGE_KEY = 'vidyasetu-auth';
 
 export type SessionExpiryReason = 'idle' | 'away';
 
+export interface SessionTimestamps {
+  lastActivityAt: number | null;
+  lastPresenceAt: number | null;
+}
+
 function readTimestamp(key: string): number | null {
   if (typeof window === 'undefined') return null;
   const value = Number(window.localStorage.getItem(key));
@@ -18,6 +23,16 @@ function readTimestamp(key: string): number | null {
 function writeTimestamp(key: string, value: number): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(key, String(value));
+}
+
+export function evaluateSessionExpiry(
+  timestamps: SessionTimestamps,
+  now = Date.now(),
+): SessionExpiryReason | null {
+  const { lastActivityAt, lastPresenceAt } = timestamps;
+  if (lastPresenceAt && now - lastPresenceAt > SESSION_RETURN_GRACE_MS) return 'away';
+  if (lastActivityAt && now - lastActivityAt > SESSION_IDLE_TIMEOUT_MS) return 'idle';
+  return null;
 }
 
 export function startTrackedSession(now = Date.now()): void {
@@ -53,14 +68,10 @@ export function purgePersistedAuthSession(): void {
 
 export function getTrackedSessionExpiryReason(now = Date.now()): SessionExpiryReason | null {
   if (typeof window === 'undefined') return null;
-
-  const lastActivity = readTimestamp(LAST_ACTIVITY_KEY);
-  const lastPresence = readTimestamp(LAST_PRESENCE_KEY);
-
-  if (lastPresence && now - lastPresence > SESSION_RETURN_GRACE_MS) return 'away';
-  if (lastActivity && now - lastActivity > SESSION_IDLE_TIMEOUT_MS) return 'idle';
-
-  return null;
+  return evaluateSessionExpiry({
+    lastActivityAt: readTimestamp(LAST_ACTIVITY_KEY),
+    lastPresenceAt: readTimestamp(LAST_PRESENCE_KEY),
+  }, now);
 }
 
 export function sessionReasonMessage(reason: SessionExpiryReason): string {
