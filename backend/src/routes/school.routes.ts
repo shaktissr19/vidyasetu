@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/school.controller';
+import * as teacherCtrl from '../controllers/teacherSchool.controller';
 import * as enrollmentCtrl from '../controllers/enrollment.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -12,6 +13,10 @@ router.use(authenticate);
 router.use(authorize('SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'));
 
 const adminOnly = authorize('SCHOOL_ADMIN', 'SUPER_ADMIN');
+const teacherAware = (teacherHandler: RequestHandler, adminHandler: RequestHandler): RequestHandler =>
+  (req, res, next) => req.user?.role === 'TEACHER'
+    ? teacherHandler(req, res, next)
+    : adminHandler(req, res, next);
 const passwordSchema = z.string().min(8).max(128).regex(/[A-Za-z]/).regex(/\d/);
 const emailOptional = z.string().email().max(180).optional().or(z.literal(''));
 const mobileOptional = z.string().regex(/^\d{10}$/).optional().or(z.literal(''));
@@ -221,20 +226,20 @@ const announcementSchema = z.object({
   expiresAt: z.string().optional(),
 });
 
-router.get('/profile', ctrl.getProfile);
-router.get('/overview', ctrl.getOverview);
-router.get('/students', ctrl.getStudents);
-router.get('/students/:studentId', ctrl.getStudentDetail);
-router.get('/classes', ctrl.getClasses);
-router.get('/subjects', ctrl.getSubjects);
-router.get('/teachers', ctrl.getTeachers);
-router.get('/attendance/roster', ctrl.getAttendanceRoster);
-router.get('/attendance', ctrl.getAttendanceSummary);
-router.post('/attendance', validate(attendanceSchema), ctrl.markAttendance);
-router.get('/timetable/:classId', ctrl.getTimetable);
-router.get('/results', ctrl.getResults);
-router.get('/results/:examId', ctrl.getResultDetail);
-router.get('/announcements', ctrl.getAnnouncements);
+router.get('/profile', teacherAware(teacherCtrl.getProfile, ctrl.getProfile));
+router.get('/overview', teacherAware(teacherCtrl.getOverview, ctrl.getOverview));
+router.get('/students', teacherAware(teacherCtrl.getStudents, ctrl.getStudents));
+router.get('/students/:studentId', teacherAware(teacherCtrl.getStudentDetail, ctrl.getStudentDetail));
+router.get('/classes', teacherAware(teacherCtrl.getClasses, ctrl.getClasses));
+router.get('/subjects', teacherAware(teacherCtrl.getSubjects, ctrl.getSubjects));
+router.get('/teachers', adminOnly, ctrl.getTeachers);
+router.get('/attendance/roster', teacherAware(teacherCtrl.getAttendanceRoster, ctrl.getAttendanceRoster));
+router.get('/attendance', teacherAware(teacherCtrl.getAttendanceSummary, ctrl.getAttendanceSummary));
+router.post('/attendance', validate(attendanceSchema), teacherAware(teacherCtrl.markAttendance, ctrl.markAttendance));
+router.get('/timetable/:classId', teacherAware(teacherCtrl.getTimetable, ctrl.getTimetable));
+router.get('/results', teacherAware(teacherCtrl.getResults, ctrl.getResults));
+router.get('/results/:examId', teacherAware(teacherCtrl.getResultDetail, ctrl.getResultDetail));
+router.get('/announcements', teacherAware(teacherCtrl.getAnnouncements, ctrl.getAnnouncements));
 
 router.patch('/profile', adminOnly, validate(schoolProfileSchema), ctrl.updateProfile);
 router.post('/students', adminOnly, validate(studentBaseSchema), ctrl.addStudent);
