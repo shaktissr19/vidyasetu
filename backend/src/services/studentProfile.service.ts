@@ -1,6 +1,7 @@
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { LanguageCode, UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
+import { SCHOOL_GRADE_VALUES, schoolGradeSortOrder } from '../constants/schoolGrades';
 
 function badRequest(message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode: 400 });
@@ -149,8 +150,8 @@ export async function getSetupOptions(): Promise<{
             sc.academic_year
      FROM schools sch
      JOIN school_classes sc ON sc.school_id = sch.id
-     WHERE sch.status = 'ACTIVE'
-     ORDER BY sch.name, sc.class_name::int NULLS LAST, sc.class_name, sc.section`,
+     WHERE sch.status = 'ACTIVE' AND sc.is_active=TRUE
+     ORDER BY sch.name, sc.class_name, sc.section`,
   );
 
   const bySchool = new Map<UUID, StudentSetupSchool>();
@@ -175,9 +176,16 @@ export async function getSetupOptions(): Promise<{
     });
   }
 
+  const schools = Array.from(bySchool.values());
+  for (const school of schools) {
+    school.classes.sort((a, b) =>
+      schoolGradeSortOrder(a.className) - schoolGradeSortOrder(b.className)
+      || a.section.localeCompare(b.section));
+  }
+
   return {
-    schools: Array.from(bySchool.values()),
-    gradeLevels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+    schools,
+    gradeLevels: [...SCHOOL_GRADE_VALUES],
   };
 }
 
@@ -272,7 +280,7 @@ export async function completeProfile(
                 sch.status AS school_status
          FROM school_classes sc
          JOIN schools sch ON sch.id = sc.school_id
-         WHERE sc.id = $1 AND sc.school_id = $2`,
+         WHERE sc.id = $1 AND sc.school_id = $2 AND sc.is_active=TRUE`,
         [classId, schoolId],
       );
       classRow = rows[0] || null;
@@ -282,6 +290,12 @@ export async function completeProfile(
 
     const grade = String(gradeLevel || classRow?.class_name || '').trim();
     if (!grade) throw badRequest('Class/grade is required');
+    if (!(SCHOOL_GRADE_VALUES as readonly string[]).includes(grade)) {
+      throw badRequest('Class/grade must be Pre-Nursery, Nursery, LKG, UKG or Class 1-12');
+    }
+    if (classRow && grade !== classRow.class_name) {
+      throw badRequest('Selected grade must match the selected School class');
+    }
 
     await client.query(
       `UPDATE users SET name = $1, language = $2, updated_at = NOW() WHERE id = $3`,
