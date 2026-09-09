@@ -254,6 +254,17 @@ export async function saveNotification({
   dedupeKey,
   actionPath,
 }: NotificationInsertInput): Promise<NotificationInsertRow | undefined> {
+  if (!dedupeKey && !actionPath) {
+    const { rows: [row] } = await query<NotificationInsertRow>(
+      `INSERT INTO notifications
+         (user_id, school_id, type, channel, title, body, reference_id, reference_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id, sent_at`,
+      [userId, schoolId, type, channel, title, body, refId || null, refType || null],
+    );
+    return row;
+  }
+
   const { rows: [row] } = await query<NotificationInsertRow>(
     `INSERT INTO notifications
        (user_id, school_id, type, channel, title, body, reference_id, reference_type, dedupe_key, action_path)
