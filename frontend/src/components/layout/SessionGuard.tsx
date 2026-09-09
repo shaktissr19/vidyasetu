@@ -15,6 +15,7 @@ import {
 } from '@/lib/sessionPolicy';
 
 const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+const MEDIA_ACTIVITY_EVENTS = ['play', 'timeupdate'] as const;
 const ACTIVITY_WRITE_THROTTLE_MS = 15_000;
 
 export default function SessionGuard() {
@@ -22,6 +23,12 @@ export default function SessionGuard() {
   const { isLoggedIn, accessToken, refreshToken, logout } = useAuthStore();
   const endingRef = useRef(false);
   const lastActivityWriteRef = useRef(0);
+
+  const clearLocalSession = useCallback((redirect = true) => {
+    logout();
+    queryClient.clear();
+    if (redirect) window.location.replace('/login');
+  }, [logout, queryClient]);
 
   const endSession = useCallback(async (reason: SessionExpiryReason) => {
     if (endingRef.current) return;
@@ -76,7 +83,16 @@ export default function SessionGuard() {
       touchSessionActivity(now);
     };
 
+    const onMediaActivity = () => {
+      if (document.visibilityState === 'visible') onActivity();
+    };
+
     const checkSession = () => {
+      // A logout in another tab removes the persisted auth/tracking values.
+      if (!hasTrackedSession() || !window.localStorage.getItem('vs_access_token')) {
+        clearLocalSession();
+        return;
+      }
       const reason = getTrackedSessionExpiryReason();
       if (reason) {
         void endSession(reason);
@@ -87,6 +103,10 @@ export default function SessionGuard() {
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        if (!hasTrackedSession() || !window.localStorage.getItem('vs_access_token')) {
+          clearLocalSession();
+          return;
+        }
         const reason = getTrackedSessionExpiryReason();
         if (reason) {
           void endSession(reason);
@@ -99,24 +119,36 @@ export default function SessionGuard() {
     };
 
     const onPageHide = () => touchSessionPresence();
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key) return;
+      if (event.key === 'vs_access_token' || event.key === 'vidyasetu-auth' || event.key.startsWith('vs_session_')) {
+        if (!window.localStorage.getItem('vs_access_token') || !hasTrackedSession()) clearLocalSession();
+      }
+    };
 
     for (const eventName of ACTIVITY_EVENTS) {
       window.addEventListener(eventName, onActivity, { passive: true });
     }
+    for (const eventName of MEDIA_ACTIVITY_EVENTS) {
+      document.addEventListener(eventName, onMediaActivity, true);
+    }
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('storage', onStorage);
 
     const checkInterval = window.setInterval(checkSession, SESSION_PRESENCE_HEARTBEAT_MS);
     const idleDeadlineTimer = window.setTimeout(checkSession, SESSION_IDLE_TIMEOUT_MS + 1_000);
 
     return () => {
       for (const eventName of ACTIVITY_EVENTS) window.removeEventListener(eventName, onActivity);
+      for (const eventName of MEDIA_ACTIVITY_EVENTS) document.removeEventListener(eventName, onMediaActivity, true);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('storage', onStorage);
       window.clearInterval(checkInterval);
       window.clearTimeout(idleDeadlineTimer);
     };
-  }, [accessToken, endSession, isLoggedIn, refreshToken]);
+  }, [accessToken, clearLocalSession, endSession, isLoggedIn, refreshToken]);
 
   return null;
 }
