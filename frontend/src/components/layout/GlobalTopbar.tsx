@@ -93,7 +93,7 @@ export default function GlobalTopbar() {
         {isLoggedIn ? (
           <>
             <button
-              onClick={() => router.push('/notifications')}
+              onClick={() => router.push('/notification-center')}
               title={unreadCount ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'Notifications'}
               aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
               style={{
