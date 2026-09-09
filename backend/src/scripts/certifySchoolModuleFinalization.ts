@@ -84,7 +84,7 @@ async function certifyNotificationInbox(): Promise<void> {
     body: 'Role-neutral notification inbox certification record.',
     refType: 'CERTIFICATION',
     dedupeKey,
-    actionPath: '/notifications',
+    actionPath: '/notification-center',
   });
   assert(inserted?.id, 'First idempotent notification insert must succeed');
 
@@ -95,7 +95,7 @@ async function certifyNotificationInbox(): Promise<void> {
     body: 'This duplicate must be suppressed.',
     refType: 'CERTIFICATION',
     dedupeKey,
-    actionPath: '/notifications',
+    actionPath: '/notification-center',
   });
   assert(!duplicate, 'Duplicate notification with the same recipient-scoped key must be suppressed');
 
