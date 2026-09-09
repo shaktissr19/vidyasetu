@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   assert(student.email === null && student.username === null && student.mobile === '—', 'Teacher Student detail must mask learner account/contact PII');
   assert(Array.isArray(student.parents) && student.parents.length === 0, 'Teacher Student detail must not expose Parent contacts');
 
-  const foreignSection = `TWC${Date.now().toString().slice(-5)}`;
+  const foreignSection = `T${Date.now().toString().slice(-4)}`;
   const { rows: [foreignClass] } = await query<{ id: UUID } & QueryResultRow>(
     `INSERT INTO school_classes(school_id,class_name,section,academic_year,is_active)
      VALUES($1,'12',$2,$3,TRUE) RETURNING id`,
