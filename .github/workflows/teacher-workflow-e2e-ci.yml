@@ -126,6 +126,10 @@ jobs:
               echo "Applying $migration"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
+          # dev_seed predates the first-class TEACHER role and intentionally remains unchanged.
+          # Reconcile only this disposable certification database so the test exercises the
+          # real Teacher authorization boundary rather than legacy SCHOOL_ADMIN identities.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -c "UPDATE users u SET role='TEACHER' FROM teachers t WHERE t.user_id=u.id AND t.status IN ('ACTIVE','ON_LEAVE');"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*)>0 FROM teachers t JOIN users u ON u.id=t.user_id JOIN teacher_assignments ta ON ta.teacher_id=t.id WHERE u.role='TEACHER' AND t.status IN ('ACTIVE','ON_LEAVE');")" = "t"
 
       - name: Run Teacher workflow behavioral certification
