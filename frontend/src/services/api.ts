@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { RefreshTokenResponse } from '@vidyasetu/contracts';
+import { getTrackedSessionExpiryReason, purgePersistedAuthSession, sessionReasonMessage } from '@/lib/sessionPolicy';
 
 const BASE_URL = typeof window !== 'undefined'
   ? '/api/v1'
@@ -13,6 +14,15 @@ interface RefreshEnvelope {
   data: RefreshTokenResponse;
 }
 
+function redirectExpiredSession(): never {
+  const reason = getTrackedSessionExpiryReason() || 'idle';
+  const message = sessionReasonMessage(reason);
+  window.sessionStorage.setItem('vs_session_expired_message', message);
+  purgePersistedAuthSession();
+  window.location.replace(`/login?reason=${reason}`);
+  throw new Error(message);
+}
+
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
@@ -23,6 +33,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('vs_access_token');
+    if (token && getTrackedSessionExpiryReason()) redirectExpiredSession();
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -39,6 +50,8 @@ api.interceptors.response.use(
     if (axiosError.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       try {
+        if (typeof window !== 'undefined' && getTrackedSessionExpiryReason()) redirectExpiredSession();
+
         const refreshToken = typeof window !== 'undefined'
           ? localStorage.getItem('vs_refresh_token')
           : null;
@@ -51,9 +64,8 @@ api.interceptors.response.use(
         return api(original);
       } catch (refreshError: unknown) {
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('vs_access_token');
-          localStorage.removeItem('vs_refresh_token');
-          window.location.href = '/login';
+          purgePersistedAuthSession();
+          window.location.replace('/login');
         }
         return Promise.reject(refreshError);
       }
