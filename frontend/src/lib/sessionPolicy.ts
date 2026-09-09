@@ -5,6 +5,7 @@ export const SESSION_PRESENCE_HEARTBEAT_MS = 30 * 1000;
 const LAST_ACTIVITY_KEY = 'vs_session_last_activity_at';
 const LAST_PRESENCE_KEY = 'vs_session_last_presence_at';
 const STARTED_AT_KEY = 'vs_session_started_at';
+const AUTH_STORAGE_KEY = 'vidyasetu-auth';
 
 export type SessionExpiryReason = 'idle' | 'away';
 
@@ -40,6 +41,14 @@ export function clearTrackedSession(): void {
   window.localStorage.removeItem(STARTED_AT_KEY);
   window.localStorage.removeItem(LAST_ACTIVITY_KEY);
   window.localStorage.removeItem(LAST_PRESENCE_KEY);
+}
+
+export function purgePersistedAuthSession(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem('vs_access_token');
+  window.localStorage.removeItem('vs_refresh_token');
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  clearTrackedSession();
 }
 
 export function getTrackedSessionExpiryReason(now = Date.now()): SessionExpiryReason | null {
