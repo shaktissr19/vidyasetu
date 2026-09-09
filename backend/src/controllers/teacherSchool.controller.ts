@@ -55,7 +55,7 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
         search: queryString(req.query.search),
       },
     );
-    return R.list(res, result.students, result.meta);
+    return R.ok(res, result.students, result.meta);
   } catch (error: unknown) { next(error); }
 }
 
