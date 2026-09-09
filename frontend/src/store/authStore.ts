@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { LanguageCode, UserRole, UUID } from '@vidyasetu/contracts';
+import { clearTrackedSession, startTrackedSession } from '@/lib/sessionPolicy';
 
 export interface AuthUser {
   id?: UUID;
@@ -46,6 +47,7 @@ const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('vs_access_token', accessToken);
           localStorage.setItem('vs_refresh_token', refreshToken);
+          startTrackedSession();
         }
         set({ user, accessToken, refreshToken, isLoggedIn: true });
       },
@@ -57,6 +59,7 @@ const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('vs_access_token');
           localStorage.removeItem('vs_refresh_token');
+          clearTrackedSession();
         }
         set({ user: null, accessToken: null, refreshToken: null, isLoggedIn: false });
       },
