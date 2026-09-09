@@ -118,14 +118,15 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
   try {
     const current = actor(req, res); if (!current) return;
     const body = req.body as { classId: UUID; date: string; records: schoolService.AttendanceInput[] };
-    return R.ok(res, await teacherService.markAttendance(
+    const records = await teacherService.markAttendance(
       current.schoolId,
       current.userId,
       body.classId,
       body.date,
       body.records,
       current.teacherId,
-    ));
+    );
+    return R.ok(res, { marked: records.length, records });
   } catch (error: unknown) { next(error); }
 }
 
