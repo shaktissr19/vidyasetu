@@ -4,6 +4,7 @@ import * as ctrl from '../controllers/school.controller';
 import * as enrollmentCtrl from '../controllers/enrollment.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
+import { isSchoolGradeValue } from '../constants/schoolGrades';
 
 const router = Router();
 
@@ -14,6 +15,9 @@ const adminOnly = authorize('SCHOOL_ADMIN', 'SUPER_ADMIN');
 const passwordSchema = z.string().min(8).max(128).regex(/[A-Za-z]/).regex(/\d/);
 const emailOptional = z.string().email().max(180).optional().or(z.literal(''));
 const mobileOptional = z.string().regex(/^\d{10}$/).optional().or(z.literal(''));
+const schoolGradeSchema = z.string().refine((value) => isSchoolGradeValue(value), {
+  message: 'Grade must be Pre-Nursery, Nursery, LKG, UKG or Class 1-12',
+});
 
 const schoolProfileSchema = z.object({
   name: z.string().min(2).max(200).optional(),
@@ -77,7 +81,7 @@ const enrollmentReviewSchema = z.object({
 });
 
 const classSchema = z.object({
-  className: z.string().regex(/^(?:[1-9]|1[0-2])$/),
+  className: schoolGradeSchema,
   section: z.string().trim().min(1).max(5).optional(),
   academicYear: z.string().regex(/^20\d{2}-\d{2}$/).optional(),
   roomNumber: z.string().max(20).optional(),
@@ -132,7 +136,7 @@ const attendanceSchema = z.object({
 });
 
 const feeStructureSchema = z.object({
-  className: z.string().regex(/^(?:[1-9]|1[0-2])$/),
+  className: schoolGradeSchema,
   academicYear: z.string().regex(/^20\d{2}-\d{2}$/).optional(),
   term: z.number().int().min(1).max(4),
   feeHead: z.string().min(2).max(100),
@@ -187,7 +191,7 @@ const examSchema = z.object({
   title: z.string().min(3).max(300),
   titleHi: z.string().max(300).optional(),
   description: z.string().max(2000).optional(),
-  classNames: z.array(z.string().regex(/^(?:[1-9]|1[0-2])$/)).min(1),
+  classNames: z.array(schoolGradeSchema).min(1),
   subjectCodes: z.array(z.string().max(20)).min(1),
   status: z.enum(['DRAFT', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'LIVE', 'SCORING', 'COMPLETED', 'CANCELLED']).optional(),
   startTime: z.string(),
@@ -211,7 +215,7 @@ const announcementSchema = z.object({
   title: z.string().min(3).max(300),
   body: z.string().min(10),
   audience: z.enum(['ALL', 'STUDENTS', 'PARENTS', 'TEACHERS']).optional(),
-  targetClass: z.string().regex(/^(?:[1-9]|1[0-2])$/).optional(),
+  targetClass: schoolGradeSchema.optional(),
   sendWhatsapp: z.boolean().optional(),
   isPinned: z.boolean().optional(),
   expiresAt: z.string().optional(),

@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClass, getClasses, updateClass, archiveClass, type SchoolClassRow } from '@/services/schoolService';
 import { SectionHeader, TableSkeleton } from '@/components/ui/index';
+import { SCHOOL_GRADES, schoolGradeLabel, schoolGradeSortOrder } from '@/lib/schoolGrades';
 import useLanguageStore from '@/store/languageStore';
 import { apiErrorText } from '@/utils/errors';
 import toast from 'react-hot-toast';
@@ -10,14 +11,14 @@ import toast from 'react-hot-toast';
 const blank = { className: '8', section: 'A', roomNumber: '' };
 
 export default function SchoolClassesPage() {
-  const { t } = useLanguageStore();
+  const { t, lang } = useLanguageStore();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SchoolClassRow | null>(null);
   const [form, setForm] = useState(blank);
 
   const q = useQuery({ queryKey: ['school-classes', true], queryFn: () => getClasses(true).then((r) => r.data.data || []) });
-  const rows = q.data || [];
+  const rows = useMemo(() => [...(q.data || [])].sort((a, b) => schoolGradeSortOrder(a.class_name) - schoolGradeSortOrder(b.class_name) || a.section.localeCompare(b.section)), [q.data]);
   const save = useMutation({
     mutationFn: () => editing ? updateClass(editing.id, form) : createClass(form),
     onSuccess: async () => {
@@ -48,7 +49,7 @@ export default function SchoolClassesPage() {
     {showForm && <div className="card mb-5" style={{ border: '2px solid var(--saffron)' }}>
       <h3 className="font-display font-bold mb-4" style={{ color: 'var(--navy)' }}>{editing ? 'Edit Class / Section' : 'Create Class / Section'}</h3>
       <div className="grid sm:grid-cols-3 gap-3">
-        <div><label className="text-xs font-bold block mb-1">Class</label><select className="input select" value={form.className} onChange={(e) => setForm((f) => ({ ...f, className: e.target.value }))}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1}>{i + 1}</option>)}</select></div>
+        <div><label className="text-xs font-bold block mb-1">Class</label><select className="input select" value={form.className} onChange={(e) => setForm((f) => ({ ...f, className: e.target.value }))}>{SCHOOL_GRADES.map((grade) => <option key={grade.value} value={grade.value}>{lang === 'hi' ? grade.labelHi : grade.label}</option>)}</select></div>
         <div><label className="text-xs font-bold block mb-1">Section</label><input className="input" maxLength={5} value={form.section} onChange={(e) => setForm((f) => ({ ...f, section: e.target.value.toUpperCase() }))} /></div>
         <div><label className="text-xs font-bold block mb-1">Room</label><input className="input" maxLength={20} value={form.roomNumber} onChange={(e) => setForm((f) => ({ ...f, roomNumber: e.target.value }))} placeholder="e.g. B-203" /></div>
       </div>
@@ -58,8 +59,8 @@ export default function SchoolClassesPage() {
     <div className="card">
       {q.isLoading ? <TableSkeleton rows={5} cols={6} /> : <div className="overflow-x-auto"><table className="tbl"><thead><tr><th>Class</th><th>Room</th><th>Academic Year</th><th>Students</th><th>Teachers</th><th>Status</th><th>Action</th></tr></thead><tbody>
         {rows.map((row) => <tr key={row.id} style={{ opacity: row.is_active ? 1 : .55 }}>
-          <td className="font-semibold">Class {row.class_name}-{row.section}</td><td>{row.room_number || '—'}</td><td>{row.academic_year}</td><td>{row.student_count}</td><td>{row.teacher_count}</td><td><span className={`badge ${row.is_active ? 'badge-green' : 'badge-red'}`}>{row.is_active ? 'ACTIVE' : 'ARCHIVED'}</span></td>
-          <td><div className="flex gap-2"><button className="text-xs font-semibold" style={{ color: 'var(--saffron)' }} onClick={() => startEdit(row)}>Edit</button>{row.is_active && <button className="text-xs font-semibold" style={{ color: '#C62828' }} disabled={archive.isPending} onClick={() => { if (confirm(`Archive Class ${row.class_name}-${row.section}?`)) archive.mutate(row.id); }}>Archive</button>}</div></td>
+          <td className="font-semibold">{schoolGradeLabel(row.class_name, lang)}-{row.section}</td><td>{row.room_number || '—'}</td><td>{row.academic_year}</td><td>{row.student_count}</td><td>{row.teacher_count}</td><td><span className={`badge ${row.is_active ? 'badge-green' : 'badge-red'}`}>{row.is_active ? 'ACTIVE' : 'ARCHIVED'}</span></td>
+          <td><div className="flex gap-2"><button className="text-xs font-semibold" style={{ color: 'var(--saffron)' }} onClick={() => startEdit(row)}>Edit</button>{row.is_active && <button className="text-xs font-semibold" style={{ color: '#C62828' }} disabled={archive.isPending} onClick={() => { if (confirm(`Archive ${schoolGradeLabel(row.class_name)}-${row.section}?`)) archive.mutate(row.id); }}>Archive</button>}</div></td>
         </tr>)}
       </tbody></table>{!rows.length && <div className="py-10 text-center" style={{ color: 'var(--slate)' }}>No classes configured.</div>}</div>}
     </div>
