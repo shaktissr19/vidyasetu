@@ -121,14 +121,33 @@ export async function getPublicLearningOverview() {
                   egl.stage::text AS stage,
                   egl.class_number,
                   egl.sort_order,
-                  COUNT(DISTINCT lr.id)::int AS resource_count
+                  (
+                    SELECT COUNT(*)::int
+                    FROM learning_resources lr
+                    WHERE ${PUBLIC_WHERE}
+                      AND (
+                        EXISTS (
+                          SELECT 1
+                          FROM learning_resource_grades lrg
+                          WHERE lrg.resource_id=lr.id AND lrg.grade_id=egl.id
+                        )
+                        OR (
+                          NOT EXISTS (
+                            SELECT 1 FROM learning_resource_grades lrg0 WHERE lrg0.resource_id=lr.id
+                          )
+                          AND (
+                            (lr.class_min IS NULL AND lr.class_max IS NULL)
+                            OR (
+                              egl.class_number IS NOT NULL
+                              AND (lr.class_min IS NULL OR lr.class_min <= egl.class_number)
+                              AND (lr.class_max IS NULL OR lr.class_max >= egl.class_number)
+                            )
+                          )
+                        )
+                      )
+                  ) AS resource_count
            FROM education_grade_levels egl
-           LEFT JOIN learning_resource_grades lrg ON lrg.grade_id=egl.id
-           LEFT JOIN learning_resources lr
-             ON lr.id=lrg.resource_id
-            AND ${PUBLIC_WHERE}
            WHERE egl.is_active=TRUE
-           GROUP BY egl.id
          ) g
        ), '[]'::jsonb) AS grades`,
   );
@@ -160,7 +179,18 @@ export async function listPublicLearningResources(filters: PublicLearningFilters
       )
       OR (
         NOT EXISTS (SELECT 1 FROM learning_resource_grades lrg0 WHERE lrg0.resource_id=lr.id)
-        AND lr.class_min IS NULL AND lr.class_max IS NULL
+        AND (
+          (lr.class_min IS NULL AND lr.class_max IS NULL)
+          OR EXISTS (
+            SELECT 1
+            FROM education_grade_levels eglc
+            WHERE eglc.code=$${p}
+              AND eglc.is_active=TRUE
+              AND eglc.class_number IS NOT NULL
+              AND (lr.class_min IS NULL OR lr.class_min <= eglc.class_number)
+              AND (lr.class_max IS NULL OR lr.class_max >= eglc.class_number)
+          )
+        )
       )
     )`);
   } else if (filters.className) {

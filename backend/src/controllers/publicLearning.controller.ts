@@ -86,6 +86,7 @@ export async function assessments(req: Request, res: Response, next: NextFunctio
     freshLearningResponse(res);
     return R.ok(res, await practiceService.listPublicAssessments({
       className: optionalClass(req.query.class),
+      gradeCode: optionalText(req.query.grade),
       board: optionalText(req.query.board),
       type: optionalText(req.query.type),
       limit: optionalLimit(req.query.limit),

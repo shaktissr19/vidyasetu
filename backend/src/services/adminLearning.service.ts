@@ -21,9 +21,10 @@ export interface SaveLearningResourceInput {
   category: string;
   visibility: string;
   reviewStatus?: string;
-  language?: string;
+  language?: 'en' | 'hi';
   classMin?: number | null;
   classMax?: number | null;
+  gradeCodes?: string[];
   sourceCode: string;
   sourceUrl?: string | null;
   sourceItemId?: string | null;
@@ -39,6 +40,11 @@ export interface SaveLearningResourceInput {
   boardCodes?: string[];
   publicSlug?: string | null;
   conceptMappings?: LearningConceptMappingInput[];
+  mediaReadiness?: 'NOT_STARTED' | 'SCRIPT_READY' | 'MEDIA_READY' | 'QA_APPROVED';
+  transcript?: string | null;
+  transcriptHi?: string | null;
+  thumbnailAlt?: string | null;
+  thumbnailAltHi?: string | null;
 }
 
 interface SourceRow extends QueryResultRow {
@@ -49,18 +55,11 @@ interface SourceRow extends QueryResultRow {
 }
 
 interface ResourceIdRow extends QueryResultRow { id: UUID; }
+interface GradeRow extends QueryResultRow { id: UUID; code: string; class_number: number | null; }
 
 type LearningReviewStatus = 'DRAFT' | 'SUBMITTED' | 'ACADEMIC_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
 
-const REVIEW_STATUSES = new Set<LearningReviewStatus>([
-  'DRAFT',
-  'SUBMITTED',
-  'ACADEMIC_REVIEW',
-  'APPROVED',
-  'PUBLISHED',
-  'ARCHIVED',
-]);
-
+const REVIEW_STATUSES = new Set<LearningReviewStatus>(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']);
 const REVIEW_TRANSITIONS: Record<LearningReviewStatus, ReadonlySet<LearningReviewStatus>> = {
   DRAFT: new Set(['SUBMITTED', 'ARCHIVED']),
   SUBMITTED: new Set(['DRAFT', 'ACADEMIC_REVIEW', 'ARCHIVED']),
@@ -89,21 +88,14 @@ function assertReviewTransition(fromStatus: string, toStatus: LearningReviewStat
 }
 
 function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 160) || `learning-${Date.now()}`;
+  return value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 160) || `learning-${Date.now()}`;
 }
 
 function isNroerUrl(value: string): boolean {
   try {
     const hostname = new URL(value).hostname.toLowerCase().replace(/\.$/, '');
     return hostname === 'nroer.gov.in' || hostname.endsWith('.nroer.gov.in');
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 function assertSourcePolicy(input: SaveLearningResourceInput, source: SourceRow): void {
@@ -114,240 +106,129 @@ function assertSourcePolicy(input: SaveLearningResourceInput, source: SourceRow)
     if (!['CC_BY', 'CC_BY_SA', 'PUBLIC_DOMAIN', 'EXTERNAL_LINK_ONLY'].includes(input.licence)) {
       throw badRequest('NROER resources must use a verified open licence or EXTERNAL_LINK_ONLY.');
     }
-    if (input.fileKey && input.licence === 'EXTERNAL_LINK_ONLY') {
-      throw badRequest('EXTERNAL_LINK_ONLY resources cannot be copied to VidyaSetu storage.');
-    }
+    if (input.fileKey && input.licence === 'EXTERNAL_LINK_ONLY') throw badRequest('EXTERNAL_LINK_ONLY resources cannot be copied to VidyaSetu storage.');
   }
+  if (source.source_kind === 'EXTERNAL_OFFICIAL' && input.fileKey) throw badRequest('Official external-link resources must not be copied into VidyaSetu storage.');
+  if (input.resourceType === 'EXTERNAL_LINK' && !input.externalUrl?.trim() && !input.sourceUrl?.trim()) throw badRequest('External-link resources require an external URL.');
+  if (input.resourceType === 'ARTICLE' && !input.bodyMarkdown?.trim() && !input.bodyMarkdownHi?.trim()) throw badRequest('Article resources require article body content.');
+  if (input.classMin && input.classMax && input.classMin > input.classMax) throw badRequest('classMin cannot be greater than classMax.');
+}
 
-  if (source.source_kind === 'EXTERNAL_OFFICIAL' && input.fileKey) {
-    throw badRequest('Official external-link resources must not be copied into VidyaSetu storage.');
+function canonicalGradeCode(value: string): string {
+  const cleaned = value.trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (['PN','PRENURSERY','PRE_NURSERY'].includes(cleaned)) return 'PRE_NURSERY';
+  if (cleaned === 'NURSERY') return 'NURSERY';
+  if (['LKG','LOWER_KG','LOWER_KINDERGARTEN'].includes(cleaned)) return 'LKG';
+  if (['UKG','UPPER_KG','UPPER_KINDERGARTEN'].includes(cleaned)) return 'UKG';
+  const match = cleaned.match(/^(?:CLASS_)?(\d{1,2})$/);
+  if (match) {
+    const n = Number(match[1]);
+    if (n >= 1 && n <= 12) return `CLASS_${n}`;
   }
+  return cleaned;
+}
 
-  if (input.resourceType === 'EXTERNAL_LINK' && !input.externalUrl?.trim() && !input.sourceUrl?.trim()) {
-    throw badRequest('External-link resources require an external URL.');
-  }
-
-  if (input.resourceType === 'ARTICLE' && !input.bodyMarkdown?.trim() && !input.bodyMarkdownHi?.trim()) {
-    throw badRequest('Article resources require article body content.');
-  }
-
-  if (input.classMin && input.classMax && input.classMin > input.classMax) {
-    throw badRequest('classMin cannot be greater than classMax.');
-  }
+function numericRange(grades: GradeRow[]): { classMin: number | null; classMax: number | null } {
+  if (!grades.length || grades.some((grade) => grade.class_number == null)) return { classMin: null, classMax: null };
+  const values = Array.from(new Set(grades.map((grade) => Number(grade.class_number)))).sort((a,b) => a-b);
+  const contiguous = values.every((value,index) => index === 0 || value === values[index - 1] + 1);
+  return contiguous ? { classMin: values[0], classMax: values[values.length - 1] } : { classMin: null, classMax: null };
 }
 
 export async function getLearningStudioOptions() {
-  const [boards, sources] = await Promise.all([
-    query(
-      `SELECT code, name, short_name, board_type, state
-       FROM education_boards
-       WHERE is_active=TRUE
-       ORDER BY sort_order, name`,
-    ),
-    query(
-      `SELECT code, name, source_kind, homepage_url, default_license,
-              attribution_required, allow_rehosting_default, allow_adaptation_default,
-              requires_item_license_check, notes
-       FROM learning_content_sources
-       WHERE is_active=TRUE
-       ORDER BY CASE code WHEN 'VIDYASETU_ORIGINAL' THEN 1 WHEN 'NROER' THEN 2 ELSE 9 END, name`,
-    ),
+  const [boards, sources, grades] = await Promise.all([
+    query(`SELECT code,name,short_name,board_type,state FROM education_boards WHERE is_active=TRUE ORDER BY sort_order,name`),
+    query(`SELECT code,name,source_kind,homepage_url,default_license,attribution_required,allow_rehosting_default,allow_adaptation_default,requires_item_license_check,notes FROM learning_content_sources WHERE is_active=TRUE ORDER BY CASE code WHEN 'VIDYASETU_ORIGINAL' THEN 1 WHEN 'NROER' THEN 2 ELSE 9 END,name`),
+    query(`SELECT id,code,name,name_hi,short_name,stage,class_number,sort_order FROM education_grade_levels WHERE is_active=TRUE ORDER BY sort_order`),
   ]);
-
-  return { boards: boards.rows, sources: sources.rows };
+  return { boards: boards.rows, sources: sources.rows, grades: grades.rows, contentLanguages: ['en','hi'] };
 }
 
 export async function listLearningConcepts(classNumber?: number | null, subjectCode?: string | null) {
   const values: unknown[] = [];
   const conditions = ['lc.is_active=TRUE'];
-  if (classNumber) {
-    values.push(classNumber);
-    conditions.push(`egl.class_number=$${values.length}`);
-  }
-  if (subjectCode?.trim()) {
-    values.push(subjectCode.trim().toUpperCase());
-    conditions.push(`lc.subject_code=$${values.length}`);
-  }
+  if (classNumber) { values.push(classNumber); conditions.push(`egl.class_number=$${values.length}`); }
+  if (subjectCode?.trim()) { values.push(subjectCode.trim().toUpperCase()); conditions.push(`lc.subject_code=$${values.length}`); }
   const { rows } = await query(
-    `SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.node_type,lc.academic_year,lc.subject_code,
-            lc.chapter_code,lc.chapter_title,lc.registry_status,lc.sequence,
-            lc.learning_outcome,lc.learning_outcome_hi,
-            egl.code AS grade_code,egl.name AS grade_name,egl.class_number,
-            COALESCE(sub.name,lc.subject_code) AS subject_name
-     FROM learning_concepts lc
-     JOIN education_grade_levels egl ON egl.id=lc.grade_id
-     LEFT JOIN subjects sub ON sub.id=lc.subject_id
-     WHERE ${conditions.join(' AND ')}
-     ORDER BY egl.sort_order,lc.subject_code,lc.sequence,lc.code
-     LIMIT 1500`,
-    values,
+    `SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.node_type,lc.academic_year,lc.subject_code,lc.chapter_code,lc.chapter_title,lc.registry_status,lc.sequence,lc.learning_outcome,lc.learning_outcome_hi,egl.code AS grade_code,egl.name AS grade_name,egl.name_hi AS grade_name_hi,egl.class_number,COALESCE(sub.name,lc.subject_code) AS subject_name
+     FROM learning_concepts lc JOIN education_grade_levels egl ON egl.id=lc.grade_id LEFT JOIN subjects sub ON sub.id=lc.subject_id
+     WHERE ${conditions.join(' AND ')} ORDER BY egl.sort_order,lc.subject_code,lc.sequence,lc.code LIMIT 1500`, values,
   );
   return rows;
 }
 
 export async function listLearningResources() {
   const { rows } = await query(
-    `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,lr.summary_hi,
-            lr.resource_type, lr.category, lr.visibility, lr.review_status,
-            lr.language, lr.class_min, lr.class_max, lr.licence,
-            lr.source_url, lr.external_url, lr.attribution_text,
-            lr.is_featured_public, lr.published_at, lr.created_at,
-            lcs.code AS source_code, lcs.name AS source_name,
-            COALESCE(
-              ARRAY_AGG(DISTINCT eb.code) FILTER (WHERE eb.code IS NOT NULL),
-              ARRAY[]::varchar[]
-            ) AS board_codes,
+    `SELECT lr.id,lr.public_slug,lr.title,lr.title_hi,lr.summary,lr.summary_hi,lr.resource_type,lr.category,lr.visibility,lr.review_status,lr.language,lr.class_min,lr.class_max,lr.licence,lr.source_url,lr.external_url,lr.attribution_text,lr.is_featured_public,lr.published_at,lr.created_at,lr.media_readiness,lr.transcript,lr.transcript_hi,lr.thumbnail_alt,lr.thumbnail_alt_hi,lcs.code AS source_code,lcs.name AS source_name,
+            COALESCE(ARRAY_AGG(DISTINCT eb.code) FILTER(WHERE eb.code IS NOT NULL),ARRAY[]::varchar[]) AS board_codes,
+            COALESCE(ARRAY_AGG(DISTINCT egl.code) FILTER(WHERE egl.code IS NOT NULL),ARRAY[]::varchar[]) AS grade_codes,
             COUNT(DISTINCT lrc.concept_id)::int AS concept_count
-     FROM learning_resources lr
-     JOIN learning_content_sources lcs ON lcs.id=lr.source_id
-     LEFT JOIN learning_resource_boards lrb ON lrb.resource_id=lr.id
-     LEFT JOIN education_boards eb ON eb.id=lrb.board_id
+     FROM learning_resources lr JOIN learning_content_sources lcs ON lcs.id=lr.source_id
+     LEFT JOIN learning_resource_boards lrb ON lrb.resource_id=lr.id LEFT JOIN education_boards eb ON eb.id=lrb.board_id
+     LEFT JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id LEFT JOIN education_grade_levels egl ON egl.id=lrg.grade_id
      LEFT JOIN learning_resource_concepts lrc ON lrc.resource_id=lr.id
-     GROUP BY lr.id, lcs.id
-     ORDER BY lr.updated_at DESC
-     LIMIT 250`,
+     GROUP BY lr.id,lcs.id ORDER BY lr.updated_at DESC LIMIT 250`,
   );
   return rows;
 }
 
 export async function createLearningResource(input: SaveLearningResourceInput, createdBy: UUID) {
   const sourceCode = input.sourceCode.toUpperCase();
-  const { rows: [source] } = await query<SourceRow>(
-    `SELECT id, code, source_kind, requires_item_license_check
-     FROM learning_content_sources
-     WHERE code=$1 AND is_active=TRUE`,
-    [sourceCode],
-  );
+  const { rows: [source] } = await query<SourceRow>(`SELECT id,code,source_kind,requires_item_license_check FROM learning_content_sources WHERE code=$1 AND is_active=TRUE`, [sourceCode]);
   if (!source) throw badRequest('Unknown or inactive learning content source.');
   assertSourcePolicy(input, source);
-
-  const boardCodes = (input.boardCodes?.length ? input.boardCodes : ['COMMON'])
-    .map((code) => code.toUpperCase());
+  const boardCodes = (input.boardCodes?.length ? input.boardCodes : ['COMMON']).map((code) => code.toUpperCase());
   const requestedStatus = normalizeReviewStatus(input.reviewStatus || 'DRAFT');
-  if (requestedStatus !== 'DRAFT') {
-    throw badRequest('New learning resources must start in DRAFT and pass the review workflow before publication.');
-  }
+  if (requestedStatus !== 'DRAFT') throw badRequest('New learning resources must start in DRAFT and pass the review workflow before publication.');
   const slug = input.publicSlug?.trim() || slugify(input.title);
   const conceptMappings = input.conceptMappings || [];
+  const requestedGradeCodes = Array.from(new Set((input.gradeCodes || []).map(canonicalGradeCode)));
 
   return transaction(async (client) => {
-    const { rows: boards } = await client.query<{ id: UUID; code: string }>(
-      `SELECT id, code FROM education_boards WHERE code=ANY($1::varchar[]) AND is_active=TRUE`,
-      [boardCodes],
-    );
+    const { rows: boards } = await client.query<{ id: UUID; code: string }>(`SELECT id,code FROM education_boards WHERE code=ANY($1::varchar[]) AND is_active=TRUE`, [boardCodes]);
     if (boards.length !== new Set(boardCodes).size) throw badRequest('One or more selected board codes are invalid.');
-
+    const { rows: grades } = requestedGradeCodes.length
+      ? await client.query<GradeRow>(`SELECT id,code,class_number FROM education_grade_levels WHERE code=ANY($1::varchar[]) AND is_active=TRUE`, [requestedGradeCodes])
+      : { rows: [] as GradeRow[] };
+    if (grades.length !== requestedGradeCodes.length) throw badRequest('One or more selected canonical grade codes are invalid.');
     if (conceptMappings.length) {
-      const uniqueConceptIds = [...new Set(conceptMappings.map((mapping) => mapping.conceptId))];
-      const { rows: concepts } = await client.query<{ id: UUID }>(
-        `SELECT id FROM learning_concepts WHERE id=ANY($1::uuid[]) AND is_active=TRUE`,
-        [uniqueConceptIds],
-      );
-      if (concepts.length !== uniqueConceptIds.length) throw badRequest('One or more selected canonical concepts are invalid.');
+      const ids = [...new Set(conceptMappings.map((mapping) => mapping.conceptId))];
+      const { rows: concepts } = await client.query<{ id: UUID }>(`SELECT id FROM learning_concepts WHERE id=ANY($1::uuid[]) AND is_active=TRUE`, [ids]);
+      if (concepts.length !== ids.length) throw badRequest('One or more selected canonical concepts are invalid.');
     }
-
+    const derivedRange = grades.length ? numericRange(grades) : { classMin: input.classMin || null, classMax: input.classMax || null };
     const { rows: [resource] } = await client.query<ResourceIdRow>(
       `INSERT INTO learning_resources
-         (public_slug, title, title_hi, summary, summary_hi, body_markdown, body_markdown_hi,
-          resource_type, category, visibility, review_status, language, class_min, class_max,
-          source_id, source_url, source_item_id, licence, licence_url, attribution_text,
-          external_url, file_key, thumbnail_url, duration_secs, is_offline_ready,
-          is_featured_public, created_by, reviewed_by, reviewed_at, published_at)
-       VALUES
-         ($1,$2,$3,$4,$5,$6,$7,$8::learning_resource_type,$9::learning_category,
-          $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16,$17,
-          $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::uuid,
-          NULL::uuid,NULL::timestamptz,NULL::timestamptz)
+       (public_slug,title,title_hi,summary,summary_hi,body_markdown,body_markdown_hi,resource_type,category,visibility,review_status,language,class_min,class_max,source_id,source_url,source_item_id,licence,licence_url,attribution_text,external_url,file_key,thumbnail_url,duration_secs,is_offline_ready,is_featured_public,created_by,reviewed_by,reviewed_at,published_at,media_readiness,transcript,transcript_hi,thumbnail_alt,thumbnail_alt_hi)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::learning_resource_type,$9::learning_category,$10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16,$17,$18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::uuid,NULL::uuid,NULL::timestamptz,NULL::timestamptz,$28::learning_media_readiness,$29,$30,$31,$32)
        RETURNING id`,
-      [
-        slug, input.title.trim(), input.titleHi?.trim() || null, input.summary?.trim() || null,
-        input.summaryHi?.trim() || null, input.bodyMarkdown?.trim() || null,
-        input.bodyMarkdownHi?.trim() || null, input.resourceType, input.category,
-        input.visibility, requestedStatus, input.language || 'en', input.classMin || null,
-        input.classMax || null, source.id, input.sourceUrl?.trim() || null,
-        input.sourceItemId?.trim() || null, input.licence, input.licenceUrl?.trim() || null,
-        input.attributionText?.trim() || null, input.externalUrl?.trim() || null,
-        input.fileKey?.trim() || null, input.thumbnailUrl?.trim() || null,
-        input.durationSecs || null, Boolean(input.isOfflineReady), Boolean(input.isFeaturedPublic),
-        createdBy,
-      ],
+      [slug,input.title.trim(),input.titleHi?.trim() || null,input.summary?.trim() || null,input.summaryHi?.trim() || null,input.bodyMarkdown?.trim() || null,input.bodyMarkdownHi?.trim() || null,input.resourceType,input.category,input.visibility,requestedStatus,input.language || 'en',derivedRange.classMin,derivedRange.classMax,source.id,input.sourceUrl?.trim() || null,input.sourceItemId?.trim() || null,input.licence,input.licenceUrl?.trim() || null,input.attributionText?.trim() || null,input.externalUrl?.trim() || null,input.fileKey?.trim() || null,input.thumbnailUrl?.trim() || null,input.durationSecs || null,Boolean(input.isOfflineReady),Boolean(input.isFeaturedPublic),createdBy,input.mediaReadiness || 'NOT_STARTED',input.transcript?.trim() || null,input.transcriptHi?.trim() || null,input.thumbnailAlt?.trim() || null,input.thumbnailAltHi?.trim() || null],
     );
-
-    for (const board of boards) {
-      await client.query(
-        `INSERT INTO learning_resource_boards (resource_id, board_id)
-         VALUES ($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`,
-        [resource.id, board.id],
-      );
-    }
-
+    for (const board of boards) await client.query(`INSERT INTO learning_resource_boards(resource_id,board_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`, [resource.id,board.id]);
+    for (const grade of grades) await client.query(`INSERT INTO learning_resource_grades(resource_id,grade_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`, [resource.id,grade.id]);
     for (const mapping of conceptMappings) {
-      await client.query(
-        `INSERT INTO learning_resource_concepts(resource_id,concept_id,is_primary,sort_order,journey_stage)
-         VALUES($1::uuid,$2::uuid,$3,$4,$5::learning_journey_stage)
-         ON CONFLICT(resource_id,concept_id) DO UPDATE SET
-           is_primary=EXCLUDED.is_primary,sort_order=EXCLUDED.sort_order,journey_stage=EXCLUDED.journey_stage`,
-        [resource.id, mapping.conceptId, mapping.isPrimary !== false, mapping.sortOrder || 0, mapping.journeyStage],
-      );
+      await client.query(`INSERT INTO learning_resource_concepts(resource_id,concept_id,is_primary,sort_order,journey_stage) VALUES($1::uuid,$2::uuid,$3,$4,$5::learning_journey_stage) ON CONFLICT(resource_id,concept_id) DO UPDATE SET is_primary=EXCLUDED.is_primary,sort_order=EXCLUDED.sort_order,journey_stage=EXCLUDED.journey_stage`, [resource.id,mapping.conceptId,mapping.isPrimary !== false,mapping.sortOrder || 0,mapping.journeyStage]);
     }
-
-    await client.query(
-      `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
-       VALUES ($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`,
-      [resource.id, createdBy, requestedStatus, 'Resource created in Learning Studio'],
-    );
-
+    await client.query(`INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note) VALUES($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`, [resource.id,createdBy,requestedStatus,'Resource created in Learning Studio']);
     return resource;
   });
 }
 
-export async function updateLearningResourceStatus(
-  resourceId: UUID,
-  nextStatus: string,
-  reviewerId: UUID,
-  note?: string | null,
-) {
+export async function updateLearningResourceStatus(resourceId: UUID, nextStatus: string, reviewerId: UUID, note?: string | null) {
   const normalizedNextStatus = normalizeReviewStatus(nextStatus);
-
-  const readiness = ['APPROVED', 'PUBLISHED'].includes(normalizedNextStatus)
-    ? await getResourceReadiness(resourceId)
-    : null;
-  if (normalizedNextStatus === 'APPROVED' && readiness && !readiness.readyForApproval) {
-    throw badRequest(`Resource is not ready for approval: ${readiness.blockers.slice(0, 6).join(' ')}`);
-  }
-  if (normalizedNextStatus === 'PUBLISHED' && readiness && !readiness.readyForPublication) {
-    throw badRequest(`Resource is not publish-ready: ${readiness.blockers.slice(0, 6).join(' ')}`);
-  }
-
+  const readiness = ['APPROVED','PUBLISHED'].includes(normalizedNextStatus) ? await getResourceReadiness(resourceId) : null;
+  if (normalizedNextStatus === 'APPROVED' && readiness && !readiness.readyForApproval) throw badRequest(`Resource is not ready for approval: ${readiness.blockers.slice(0, 6).join(' ')}`);
+  if (normalizedNextStatus === 'PUBLISHED' && readiness && !readiness.readyForPublication) throw badRequest(`Resource is not publish-ready: ${readiness.blockers.slice(0, 6).join(' ')}`);
   return transaction(async (client) => {
-    const { rows: [existing] } = await client.query<{ review_status: string; visibility: string; public_slug: string | null }>(
-      `SELECT review_status, visibility, public_slug FROM learning_resources WHERE id=$1::uuid FOR UPDATE`,
-      [resourceId],
-    );
+    const { rows: [existing] } = await client.query<{ review_status: string; visibility: string; public_slug: string | null }>(`SELECT review_status,visibility,public_slug FROM learning_resources WHERE id=$1::uuid FOR UPDATE`, [resourceId]);
     if (!existing) throw Object.assign(new Error('Learning resource not found'), { statusCode: 404 });
-
     assertReviewTransition(existing.review_status, normalizedNextStatus);
-    if (normalizedNextStatus === 'PUBLISHED' && !existing.public_slug) {
-      throw badRequest('Published resources require a public slug.');
-    }
-
+    if (normalizedNextStatus === 'PUBLISHED' && !existing.public_slug) throw badRequest('Published resources require a public slug.');
     const { rows: [updated] } = await client.query(
-      `UPDATE learning_resources
-       SET review_status=$2::learning_review_status,
-           reviewed_by=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN $3::uuid ELSE reviewed_by END,
-           reviewed_at=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE reviewed_at END,
-           published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
-       WHERE id=$1::uuid
-       RETURNING id, public_slug, title, review_status, visibility, published_at`,
-      [resourceId, normalizedNextStatus, reviewerId],
+      `UPDATE learning_resources SET review_status=$2::learning_review_status,reviewed_by=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN $3::uuid ELSE reviewed_by END,reviewed_at=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE reviewed_at END,published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END WHERE id=$1::uuid RETURNING id,public_slug,title,review_status,visibility,published_at`,
+      [resourceId,normalizedNextStatus,reviewerId],
     );
-
-    await client.query(
-      `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
-       VALUES ($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5)`,
-      [resourceId, reviewerId, existing.review_status, normalizedNextStatus, note?.trim() || null],
-    );
-
+    await client.query(`INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note) VALUES($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5)`, [resourceId,reviewerId,existing.review_status,normalizedNextStatus,note?.trim() || null]);
     return updated;
   });
 }

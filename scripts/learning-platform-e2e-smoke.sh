@@ -85,17 +85,21 @@ OPTIONS="$(curl -fsS "$API_BASE/admin/learning/options" -H "Authorization: Beare
 jq -e '.data.sources | any(.code=="VIDYASETU_ORIGINAL")' <<< "$OPTIONS" >/dev/null || fail "VidyaSetu Original source missing"
 jq -e '.data.boards | any(.code=="CBSE") and any(.code=="UPMSP")' <<< "$OPTIONS" >/dev/null || fail "Expected board options missing"
 
-log "Create incomplete original cross-board article as DRAFT"
+log "Create quality-incomplete original cross-board article as DRAFT"
 SLUG="ci-learning-$(date +%s)-$RANDOM"
 CREATE_PAYLOAD="$(jq -n --arg slug "$SLUG" '{
   title:"CI Learning Resource",
+  titleHi:"सीआई लर्निंग संसाधन",
   summary:"Disposable Learning Platform E2E resource",
+  summaryHi:"लर्निंग प्लेटफ़ॉर्म E2E के लिए अस्थायी संसाधन",
   bodyMarkdown:"## Learn\nThis is a disposable CI-created original resource.",
+  bodyMarkdownHi:"## सीखें\nयह CI द्वारा बनाया गया अस्थायी मौलिक संसाधन है।",
   resourceType:"ARTICLE",
   category:"STUDY_SKILLS",
   visibility:"PUBLIC",
   reviewStatus:"DRAFT",
   language:"en",
+  gradeCodes:["CLASS_8","CLASS_9","CLASS_10"],
   classMin:8,
   classMax:10,
   sourceCode:"VIDYASETU_ORIGINAL",
@@ -132,12 +136,15 @@ log "Create governed NROER external reference as DRAFT"
 NROER_SLUG="ci-nroer-$(date +%s)-$RANDOM"
 NROER_PAYLOAD="$(jq -n --arg slug "$NROER_SLUG" '{
   title:"CI NROER Reference",
+  titleHi:"सीआई एनआरओईआर संदर्भ",
   summary:"Disposable governed NROER link",
+  summaryHi:"शासन-नियंत्रित अस्थायी एनआरओईआर लिंक",
   resourceType:"EXTERNAL_LINK",
   category:"ACADEMIC",
   visibility:"PUBLIC",
   reviewStatus:"DRAFT",
   language:"en",
+  gradeCodes:["CLASS_8"],
   classMin:8,
   classMax:8,
   sourceCode:"NROER",

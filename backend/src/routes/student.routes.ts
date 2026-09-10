@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/student.controller';
 import * as learningRuntimeCtrl from '../controllers/studentLearningRuntime.controller';
+import * as contentV3Ctrl from '../controllers/studentContentV3.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -51,7 +52,7 @@ router.get('/attendance/:year/:month', ctrl.getAttendance);
 router.get('/report-card', ctrl.getReportCard);
 router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
 
-router.get('/learning/home', learningRuntimeCtrl.getLearningHome);
+router.get('/learning/home', contentV3Ctrl.getLearningHome);
 router.get('/learning/adaptive-plan', learningRuntimeCtrl.getAdaptiveLearningPlan);
 router.get('/learning/diagnostics/profile', learningRuntimeCtrl.getDiagnosticProfile);
 router.get('/learning/journey/today', learningRuntimeCtrl.getPersonalizedJourney);
@@ -61,9 +62,9 @@ router.post('/learning/journey/items/:itemId/skip', learningRuntimeCtrl.skipPers
 router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), learningRuntimeCtrl.updateLearningResourceProgress);
 router.post('/learning/resources/:resourceId/bookmark', ctrl.addLearningBookmark);
 router.delete('/learning/resources/:resourceId/bookmark', ctrl.removeLearningBookmark);
-router.get('/learning/assessments', ctrl.getLearningAssessments);
-router.get('/learning/assessments/:assessmentId', ctrl.getLearningAssessment);
-router.post('/learning/assessments/:assessmentId/start', ctrl.startLearningAssessment);
+router.get('/learning/assessments', contentV3Ctrl.listAssessments);
+router.get('/learning/assessments/:assessmentId', contentV3Ctrl.getAssessment);
+router.post('/learning/assessments/:assessmentId/start', contentV3Ctrl.startAssessment);
 router.post('/learning/attempts/:attemptId/submit', validate(learningSubmitSchema), learningRuntimeCtrl.submitLearningAssessment);
 
 router.get('/notifications', ctrl.getNotifications);

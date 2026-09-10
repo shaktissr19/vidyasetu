@@ -4,6 +4,18 @@ export async function getPublicLearningFilterOptions() {
   const { rows: [row] } = await query(
     `SELECT
       COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'code',egl.code,
+          'name',egl.name,
+          'nameHi',egl.name_hi,
+          'shortName',egl.short_name,
+          'stage',egl.stage,
+          'classNumber',egl.class_number
+        ) ORDER BY egl.sort_order)
+        FROM education_grade_levels egl
+        WHERE egl.is_active=TRUE
+      ), '[]'::jsonb) AS grades,
+      COALESCE((
         SELECT jsonb_agg(jsonb_build_object('code',s.code,'name',s.name) ORDER BY s.name)
         FROM (
           SELECT DISTINCT subject_source.code,subject_source.name
@@ -52,11 +64,12 @@ export async function getPublicLearningFilterOptions() {
         WHERE lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED' AND lrc.journey_stage IS NOT NULL
       ), '[]'::jsonb) AS journey_stages,
       jsonb_build_array(
-        jsonb_build_object('code','en','name','English'),
-        jsonb_build_object('code','hi','name','हिन्दी')
+        jsonb_build_object('code','en','name','English','nameHi','अंग्रेज़ी'),
+        jsonb_build_object('code','hi','name','Hindi','nameHi','हिंदी')
       ) AS languages`,
   );
   return {
+    grades: Array.isArray(row?.grades) ? row.grades : [],
     subjects: Array.isArray(row?.subjects) ? row.subjects : [],
     concepts: Array.isArray(row?.concepts) ? row.concepts : [],
     resourceTypes: Array.isArray(row?.resource_types) ? row.resource_types : [],

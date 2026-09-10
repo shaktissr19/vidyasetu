@@ -170,6 +170,22 @@ async function applyPack(pack: Awaited<ReturnType<typeof resolvePack>>): Promise
          is_primary=TRUE,sort_order=0,evidence_role='MASTERY'`,
       [pack.mastery.id, pack.concept.id],
     );
+
+    // Content Platform 3.0 publication guards require canonical grade mappings.
+    // The pilot installers predate learning_assessment_grades, so bridge their
+    // DRAFT assessments to the same canonical grade as the governed concept.
+    await client.query(
+      `INSERT INTO learning_assessment_grades (assessment_id,grade_id)
+       SELECT $1::uuid,lc.grade_id FROM learning_concepts lc WHERE lc.id=$2::uuid
+       ON CONFLICT DO NOTHING`,
+      [pack.practice.id, pack.concept.id],
+    );
+    await client.query(
+      `INSERT INTO learning_assessment_grades (assessment_id,grade_id)
+       SELECT $1::uuid,lc.grade_id FROM learning_concepts lc WHERE lc.id=$2::uuid
+       ON CONFLICT DO NOTHING`,
+      [pack.mastery.id, pack.concept.id],
+    );
   });
 }
 
@@ -197,6 +213,7 @@ async function main(): Promise<void> {
 
   console.log(`STAGED CONCEPT LINKS BACKFILLED — ${resolved.length} pack(s)`);
   console.log(`Resources linked: ${resolved.length}; questions linked: ${resolved.length * 12}; assessments linked: ${resolved.length * 2}`);
+  console.log(`Canonical assessment grades linked: ${resolved.length * 2}`);
   console.log('No resource, question or assessment content/review/publication field was modified.');
 }
 

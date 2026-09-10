@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   bookmarkLearningResource,
@@ -28,14 +28,52 @@ import DiagnosticKnowledgeMap from './DiagnosticKnowledgeMap';
 import PersonalizedJourneyPanel from './PersonalizedJourneyPanel';
 import styles from '../StudentPortal.module.css';
 
+type LearningContentLanguage = 'en' | 'hi';
+type BilingualLearningText = {
+  title_hi?: string | null;
+  summary_hi?: string | null;
+};
+
+function learningLevelLabel(value: string | number | null | undefined): string {
+  if (value == null || String(value).trim() === '') return '—';
+  const text = String(value).trim();
+  if (/^class\s+/i.test(text)) return text;
+  if (/^\d{1,2}$/.test(text)) return `Class ${text}`;
+  if (text.toUpperCase() === 'PRE_NURSERY') return 'Pre-Nursery';
+  return text.replaceAll('_', ' ');
+}
+
+function localizedText(english: string | null | undefined, hindi: string | null | undefined, language: LearningContentLanguage): string {
+  if (language === 'hi' && hindi?.trim()) return hindi.trim();
+  return english?.trim() || '';
+}
+
+function itemTitle(item: { title: string } & BilingualLearningText, language: LearningContentLanguage): string {
+  return localizedText(item.title, item.title_hi, language);
+}
+
+function itemSummary(item: { summary?: string | null } & BilingualLearningText, language: LearningContentLanguage): string {
+  return localizedText(item.summary, item.summary_hi, language);
+}
+
 export default function LearningSection(props: StudentSectionProps) {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const [contentLanguage, setContentLanguage] = useState<LearningContentLanguage>('en');
   const [activeAssessment, setActiveAssessment] = useState<StudentLearningAssessmentDetail | null>(null);
   const [attemptId, setAttemptId] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<LearningAttemptResult | null>(null);
   const [busy, setBusy] = useState('');
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('vs_learning_content_language');
+    if (saved === 'en' || saved === 'hi') setContentLanguage(saved);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('vs_learning_content_language', contentLanguage);
+  }, [contentLanguage]);
 
   const homeQuery = useQuery({
     queryKey: ['student-learning-home'],
@@ -54,6 +92,10 @@ export default function LearningSection(props: StudentSectionProps) {
   });
 
   const home = homeQuery.data;
+  const learnerLevel = home?.learner.gradeLabel
+    || learningLevelLabel(home?.learner.className)
+    || learningLevelLabel(props.student?.classLabel || props.student?.gradeLevel);
+  const fallbackLevel = learningLevelLabel(props.student?.classLabel || props.student?.gradeLevel);
   const growth = useMemo(
     () => (home?.recommendedResources || []).filter((item) => item.category !== 'ACADEMIC').slice(0, 4),
     [home],
@@ -162,13 +204,19 @@ export default function LearningSection(props: StudentSectionProps) {
         <div>
           <h1 className={styles.title}>📚 Learning Home</h1>
           <div className={styles.subtitle}>
-            {home ? `Class ${home.learner.className} · ${home.learner.boardName}` : `Class ${props.student?.classLabel || props.student?.gradeLevel || '—'} · personalised learning, practice and growth`}
+            {home ? `${learnerLevel} · ${home.learner.boardName}` : `${fallbackLevel} · personalised learning, practice and growth`}
           </div>
         </div>
-        <Link href="/learn" target="_blank" className={styles.secondary}>Explore public Learning Library ↗</Link>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div role="group" aria-label="Learning content language" style={{ display: 'flex', gap: 4, padding: 3, border: '1px solid var(--border)', borderRadius: 10 }}>
+            <button type="button" className={contentLanguage === 'en' ? styles.primary : styles.secondary} aria-pressed={contentLanguage === 'en'} onClick={() => setContentLanguage('en')}>English</button>
+            <button type="button" className={contentLanguage === 'hi' ? styles.primary : styles.secondary} aria-pressed={contentLanguage === 'hi'} onClick={() => setContentLanguage('hi')}>हिन्दी</button>
+          </div>
+          <Link href={contentLanguage === 'hi' ? '/learn?lang=hi' : '/learn'} target="_blank" className={styles.secondary}>Explore public Learning Library ↗</Link>
+        </div>
       </div>
 
-      {homeQuery.isLoading ? <div className={styles.loading}>Building your class and board learning path…</div> : homeQuery.isError ? (
+      {homeQuery.isLoading ? <div className={styles.loading}>Building your grade and board learning path…</div> : homeQuery.isError ? (
         <div className={styles.card} style={{ marginBottom: 18 }}>
           <div className={styles.error}>Your personalised Learning Home could not be loaded.</div>
           <button className={styles.primary} onClick={() => homeQuery.refetch()}>Retry</button>
@@ -178,7 +226,7 @@ export default function LearningSection(props: StudentSectionProps) {
           <div className={styles.card} style={{ marginBottom: 18, background: 'linear-gradient(135deg, rgba(28,112,255,.08), rgba(61,185,138,.08))' }}>
             <div className={styles.cardTitle}>🎯 Your learning path</div>
             <p style={{ color: 'var(--muted)', marginTop: 4 }}>
-              VidyaSetu is using your Class {home.learner.className}{home.learner.schoolName ? `, ${home.learner.schoolName}` : ''} and {home.learner.boardName} context. Common cross-board resources remain available alongside board-specific material.
+              VidyaSetu is using your {learnerLevel}{home.learner.schoolName ? `, ${home.learner.schoolName}` : ''} and {home.learner.boardName} context. Common cross-board resources remain available alongside board-specific material.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10, marginTop: 14 }}>
               <div className={styles.contentItem}><strong style={{ fontSize: 24 }}>{home.progress.started}</strong><div className={styles.contentMeta}>Resources started</div></div>
@@ -214,12 +262,14 @@ export default function LearningSection(props: StudentSectionProps) {
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>📝 Practice, diagnostic & self-assessment</div>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>Practice builds skill; short diagnostics improve VidyaSetu&apos;s confidence about what you understand; mastery checks prove learning. None of these are competitions.</p>
-            {home.assessments.length === 0 ? <div className={styles.empty}>Practice and diagnostic sets for your class and board are being added.</div> : (
+            {home.assessments.length === 0 ? <div className={styles.empty}>Practice and diagnostic sets for your learning level and board are being added.</div> : (
               <div className={styles.contentGrid}>
-                {home.assessments.slice(0, 6).map((assessment: LearningHomeAssessment) => (
+                {home.assessments.slice(0, 6).map((assessment: LearningHomeAssessment) => {
+                  const bilingualAssessment = assessment as LearningHomeAssessment & BilingualLearningText;
+                  return (
                   <div className={styles.contentItem} key={assessment.id}>
                     <div className={styles.contentTop}><span className={styles.contentType}>{assessment.assessment_type.replaceAll('_', ' ')}</span></div>
-                    <div className={styles.contentTitle}>{assessment.title}</div>
+                    <div className={styles.contentTitle}>{itemTitle(bilingualAssessment, contentLanguage)}</div>
                     <div className={styles.contentMeta}>{assessment.question_count} questions · {assessment.total_marks} marks{assessment.time_limit_mins ? ` · ${assessment.time_limit_mins} min` : ''}</div>
                     {assessment.last_percentage != null && <div className={styles.contentMeta}>Last score: <strong>{Math.round(Number(assessment.last_percentage))}%</strong></div>}
                     <div className={styles.contentActions}>
@@ -228,17 +278,20 @@ export default function LearningSection(props: StudentSectionProps) {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {activeAssessment && (
+          {activeAssessment && (() => {
+            const bilingualAssessment = activeAssessment as StudentLearningAssessmentDetail & BilingualLearningText;
+            return (
             <div className={styles.card} style={{ marginBottom: 18, border: '1px solid rgba(61,185,138,.25)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
                 <div>
-                  <div className={styles.cardTitle}>✅ {activeAssessment.title}</div>
-                  <p style={{ color: 'var(--muted)' }}>{activeAssessment.summary || 'Choose the best answer for each question.'}</p>
+                  <div className={styles.cardTitle}>✅ {itemTitle(bilingualAssessment, contentLanguage)}</div>
+                  <p style={{ color: 'var(--muted)' }}>{itemSummary(bilingualAssessment, contentLanguage) || (contentLanguage === 'hi' ? 'प्रत्येक प्रश्न के लिए सबसे अच्छा उत्तर चुनें।' : 'Choose the best answer for each question.')}</p>
                 </div>
                 <button className={styles.secondary} onClick={() => { setActiveAssessment(null); setResult(null); setAttemptId(''); }}>Close</button>
               </div>
@@ -247,13 +300,13 @@ export default function LearningSection(props: StudentSectionProps) {
                 const feedback = result?.feedback.find((item) => item.questionId === question.id);
                 return (
                   <div key={question.id} className={styles.contentItem} style={{ marginTop: 12 }}>
-                    <strong>{index + 1}. {question.prompt}</strong>
+                    <strong>{index + 1}. {localizedText(question.prompt, question.prompt_hi, contentLanguage)}</strong>
                     <div className={styles.contentMeta}>{question.difficulty} · {Number(question.marks_override ?? question.marks ?? 1)} mark</div>
                     <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                       {question.options.map((option) => (
                         <label key={option.key} style={{ display: 'flex', gap: 9, alignItems: 'center', cursor: result ? 'default' : 'pointer' }}>
                           <input type="radio" name={`q-${question.id}`} disabled={Boolean(result)} checked={answers[question.id] === option.key} onChange={() => setAnswers((current) => ({ ...current, [question.id]: option.key }))} />
-                          <span><strong>{option.key}.</strong> {option.text}</span>
+                          <span><strong>{option.key}.</strong> {localizedText(option.text, option.textHi, contentLanguage)}</span>
                         </label>
                       ))}
                     </div>
@@ -279,25 +332,29 @@ export default function LearningSection(props: StudentSectionProps) {
                 </button>
               )}
             </div>
-          )}
+            );
+          })()}
 
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>📘 Recommended academic resources</div>
-            {academic.length === 0 ? <div className={styles.empty}>Academic resources for your class are being expanded.</div> : (
+            {academic.length === 0 ? <div className={styles.empty}>Academic resources for your learning level are being expanded.</div> : (
               <div className={styles.contentGrid}>
-                {academic.map((item) => (
+                {academic.map((item) => {
+                  const bilingualItem = item as typeof item & BilingualLearningText;
+                  return (
                   <div className={styles.contentItem} key={item.id}>
                     <div className={styles.contentTop}><span className={styles.contentType}>{item.subject_name || item.resource_type}</span></div>
-                    <div className={styles.contentTitle}>{item.title}</div>
-                    <div className={styles.contentMeta}>{item.summary}</div>
+                    <div className={styles.contentTitle}>{itemTitle(bilingualItem, contentLanguage)}</div>
+                    <div className={styles.contentMeta}>{itemSummary(bilingualItem, contentLanguage)}</div>
                     {Number(item.progress_pct) > 0 && <div className={styles.contentMeta}>Progress: {Math.round(Number(item.progress_pct))}%</div>}
                     <div className={styles.contentActions}>
-                      {item.public_slug && <Link href={`/learn/resource/${item.public_slug}`} target="_blank" className={`${styles.miniBtn} ${styles.miniPrimary}`}>Open</Link>}
+                      {item.public_slug && <Link href={`/learn/resource/${item.public_slug}${contentLanguage === 'hi' ? '?lang=hi' : ''}`} target="_blank" className={`${styles.miniBtn} ${styles.miniPrimary}`}>Open</Link>}
                       <button className={styles.miniBtn} disabled={busy === `bookmark-${item.id}`} onClick={() => toggleBookmark(item.id, item.bookmarked)}>{item.bookmarked ? '★ Saved' : '☆ Save'}</button>
                       {!item.is_completed && <button className={styles.miniBtn} disabled={busy === `progress-${item.id}`} onClick={() => markComplete(item.id)}>Mark complete</button>}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -305,19 +362,22 @@ export default function LearningSection(props: StudentSectionProps) {
           <div className={styles.card} style={{ marginBottom: 18 }}>
             <div className={styles.cardTitle}>🌱 Beyond the syllabus</div>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>Motivation, study skills, work ethic, social responsibility, digital citizenship, well-being and career awareness are part of learning too.</p>
-            {growth.length === 0 ? <div className={styles.empty}>Growth resources for your class are being added.</div> : (
+            {growth.length === 0 ? <div className={styles.empty}>Growth resources for your learning level are being added.</div> : (
               <div className={styles.contentGrid}>
-                {growth.map((item) => (
+                {growth.map((item) => {
+                  const bilingualItem = item as typeof item & BilingualLearningText;
+                  return (
                   <div className={styles.contentItem} key={item.id}>
                     <div className={styles.contentTop}><span className={styles.contentType}>{item.category.replaceAll('_', ' ')}</span></div>
-                    <div className={styles.contentTitle}>{item.title}</div>
-                    <div className={styles.contentMeta}>{item.summary}</div>
+                    <div className={styles.contentTitle}>{itemTitle(bilingualItem, contentLanguage)}</div>
+                    <div className={styles.contentMeta}>{itemSummary(bilingualItem, contentLanguage)}</div>
                     <div className={styles.contentActions}>
-                      {item.public_slug && <Link href={`/learn/resource/${item.public_slug}`} target="_blank" className={`${styles.miniBtn} ${styles.miniPrimary}`}>Read</Link>}
+                      {item.public_slug && <Link href={`/learn/resource/${item.public_slug}${contentLanguage === 'hi' ? '?lang=hi' : ''}`} target="_blank" className={`${styles.miniBtn} ${styles.miniPrimary}`}>Read</Link>}
                       <button className={styles.miniBtn} onClick={() => toggleBookmark(item.id, item.bookmarked)}>{item.bookmarked ? '★ Saved' : '☆ Save'}</button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

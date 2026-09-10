@@ -95,6 +95,23 @@ NULL_USERNAMES="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -A
 [[ "$NULL_USERNAMES" == "0" ]] || fail "Users without usernames remain."
 NULL_CODES="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM students WHERE student_code IS NULL OR BTRIM(student_code)='';")"
 [[ "$NULL_CODES" == "0" ]] || fail "Students without Student IDs remain."
+
+# Releases that contain Content Platform 3.0 must only start after its additive
+# production migration has been applied. This deploy script remains read-only
+# with respect to schema; the dedicated backup-first migration script owns 042.
+if [[ -s "$PROJECT_DIR/database/migrations/042_content_platform_v3.sql" ]]; then
+  for table_name in learning_assessment_grades learning_content_targets; do
+    exists="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.$table_name') IS NOT NULL;")"
+    [[ "$exists" == "t" ]] || fail "Content Platform 3.0 schema is not ready: '$table_name' is missing. Run scripts/apply-production-content-platform-v3.sh first. Backup: $SAFETY_DUMP"
+  done
+  NAME_HI_READY="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='education_grade_levels' AND column_name='name_hi');")"
+  [[ "$NAME_HI_READY" == "t" ]] || fail "Content Platform 3.0 schema is not ready: education_grade_levels.name_hi is missing. Run scripts/apply-production-content-platform-v3.sh first. Backup: $SAFETY_DUMP"
+  MEDIA_READY="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='media_readiness');")"
+  [[ "$MEDIA_READY" == "t" ]] || fail "Content Platform 3.0 schema is not ready: learning_resources.media_readiness is missing. Run scripts/apply-production-content-platform-v3.sh first. Backup: $SAFETY_DUMP"
+  V3_GRADE_NAMES="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM education_grade_levels WHERE is_active=TRUE AND NULLIF(BTRIM(name_hi),'') IS NOT NULL;")"
+  [[ "$V3_GRADE_NAMES" == "16" ]] || fail "Content Platform 3.0 schema is incomplete: expected 16 bilingual canonical grades, found $V3_GRADE_NAMES. Run scripts/apply-production-content-platform-v3.sh first. Backup: $SAFETY_DUMP"
+  printf 'Content Platform 3.0 schema preflight: READY\n'
+fi
 printf 'No production migration or seed SQL will be executed by this release script.\n'
 
 log "4/9 Create isolated immutable release worktree"

@@ -73,7 +73,7 @@ RESOURCE_PAYLOAD="$(jq -n --arg title "$RESOURCE_TITLE" --arg cid "$CONCEPT_ID" 
   title:$title,titleHi:"सीआई अवधारणा शिक्षण",summary:"Governed bilingual concept lesson for CI.",summaryHi:"सीआई के लिए नियंत्रित द्विभाषी अवधारणा पाठ।",
   bodyMarkdown:"## See\nObserve a familiar situation.\n\n## Understand\nExplain the concept accurately with an example.",
   bodyMarkdownHi:"## देखें\nएक परिचित स्थिति का अवलोकन करें।\n\n## समझें\nउदाहरण के साथ अवधारणा को सही ढंग से समझें।",
-  resourceType:"ARTICLE",category:"ACADEMIC",visibility:"PUBLIC",reviewStatus:"DRAFT",language:"en",classMin:8,classMax:8,
+  resourceType:"ARTICLE",category:"ACADEMIC",visibility:"PUBLIC",reviewStatus:"DRAFT",language:"en",gradeCodes:["CLASS_8"],classMin:8,classMax:8,
   sourceCode:"VIDYASETU_ORIGINAL",licence:"VIDYASETU_ORIGINAL",isOfflineReady:true,isFeaturedPublic:false,boardCodes:["COMMON"],
   conceptMappings:[{conceptId:$cid,journeyStage:"UNDERSTAND",isPrimary:true,sortOrder:1}]
 }')"
@@ -114,7 +114,7 @@ for i in $(seq 1 10); do
     publicCode:$code,prompt:("CI concept application question " + $n),promptHi:("सीआई अवधारणा अनुप्रयोग प्रश्न " + $n),
     questionType:"MCQ_SINGLE",difficulty:"MEDIUM",cognitiveSkill:"APPLY",skillCode:"CI-APPLY",learningOutcomeCode:"CI-LO-1",
     explanation:"The correct option follows the concept evidence.",explanationHi:"सही विकल्प अवधारणा के प्रमाण के अनुसार है।",correctAnswer:{option:"B"},
-    marks:1,negativeMarks:0,classMin:8,classMax:8,sourceCode:"VIDYASETU_ORIGINAL",licence:"VIDYASETU_ORIGINAL",visibility:"REGISTERED",reviewStatus:"DRAFT",
+    marks:1,negativeMarks:0,gradeCodes:["CLASS_8"],classMin:8,classMax:8,sourceCode:"VIDYASETU_ORIGINAL",licence:"VIDYASETU_ORIGINAL",visibility:"REGISTERED",reviewStatus:"DRAFT",
     boardCodes:["COMMON"],conceptIds:[$cid],options:[
       {key:"A",text:"Distractor A",textHi:"विकल्प ए"},{key:"B",text:"Correct concept application",textHi:"सही अवधारणा अनुप्रयोग"},
       {key:"C",text:"Distractor C",textHi:"विकल्प सी"},{key:"D",text:"Distractor D",textHi:"विकल्प डी"}
@@ -142,8 +142,8 @@ done
 log "Create, quality-review and publish a concept-mapped 10-question PRACTICE assessment"
 ASSESS_SLUG="ci-concept-practice-$STAMP"
 ASSESS_PAYLOAD="$(jq -n --arg slug "$ASSESS_SLUG" --arg cid "$CONCEPT_ID" --argjson qids "$QUESTION_IDS" '{
-  publicSlug:$slug,title:"CI Concept Practice",titleHi:"सीआई अवधारणा अभ्यास",summary:"Ten-question governed concept practice.",assessmentType:"PRACTICE",
-  visibility:"PUBLIC",reviewStatus:"DRAFT",classMin:8,classMax:8,timeLimitMins:10,passingPct:40,shuffleQuestions:true,isFeaturedPublic:false,
+  publicSlug:$slug,title:"CI Concept Practice",titleHi:"सीआई अवधारणा अभ्यास",summary:"Ten-question governed concept practice.",summaryHi:"दस प्रश्नों वाला नियंत्रित अवधारणा अभ्यास।",assessmentType:"PRACTICE",
+  visibility:"PUBLIC",reviewStatus:"DRAFT",gradeCodes:["CLASS_8"],classMin:8,classMax:8,timeLimitMins:10,passingPct:40,shuffleQuestions:true,isFeaturedPublic:false,
   boardCodes:["COMMON"],conceptIds:[$cid],questionIds:$qids
 }')"
 CREATED_ASSESS="$(curl -fsS -X POST "$API_BASE/admin/learning/assessments" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d "$ASSESS_PAYLOAD")"
