@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChildren, getChildTeacher, getMessages, sendMessage } from '@/services/parentService';
+import { getChildTeacher, getMessages, sendMessage } from '@/services/parentService';
 import { SectionHeader } from '@/components/ui/index';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
 import useAuthStore from '@/store/authStore';
@@ -12,45 +14,36 @@ export default function MessagesPage() {
   const { t } = useLanguageStore();
   const { user } = useAuthStore();
   const qc = useQueryClient();
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
+  const { children, selectedChildId, setSelectedChildId } = useParentChildContext();
   const [msgText, setMsgText] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: children = [] } = useQuery({
-    queryKey: ['parent-children'],
-    queryFn: () => getChildren().then((r) => r.data.data),
-  });
-
-  useEffect(() => {
-    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
-  }, [children, selectedChild]);
-
   const { data: teacher } = useQuery({
-    queryKey: ['parent-child-teacher', selectedChild],
+    queryKey: ['parent-child-teacher', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getChildTeacher(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getChildTeacher(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
   });
 
   const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['parent-messages', selectedChild],
+    queryKey: ['parent-messages', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getMessages(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getMessages(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
     refetchInterval: 15000,
   });
 
   const sendMut = useMutation({
     mutationFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return sendMessage(selectedChild, msgText.trim());
+      if (!selectedChildId) throw new Error('No child selected');
+      return sendMessage(selectedChildId, msgText.trim());
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['parent-messages', selectedChild] });
+      qc.invalidateQueries({ queryKey: ['parent-messages', selectedChildId] });
       setMsgText('');
       toast.success(`📩 ${t('संदेश भेज दिया गया', 'Message sent')}`);
     },
@@ -63,19 +56,14 @@ export default function MessagesPage() {
     <div className="animate-fade-up flex flex-col h-[calc(100vh-62px-48px)]">
       <SectionHeader title={`💬 ${t('शिक्षक से संदेश', 'Message Teacher')}`} />
 
-      {children.length > 0 && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {children.map((child) => (
-            <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-              style={{ background: selectedChild === child.id ? 'var(--forest)' : 'white', color: selectedChild === child.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}` }}>
-              {child.name.split(' ')[0]} ({t('कक्षा', 'Class')} {child.class_name})
-            </button>
-          ))}
-        </div>
-      )}
+      <ParentChildSwitcher
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={setSelectedChildId}
+        className="mb-4"
+      />
 
-      {selectedChild && (
+      {selectedChildId && (
         <div className="flex-1 flex flex-col rounded-2xl overflow-hidden" style={{ background: 'white', border: '1.5px solid var(--border)' }}>
           <div className="px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, var(--forest), var(--forest-light))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl" style={{ background: 'rgba(255,255,255,0.2)' }}>👩‍🏫</div>
