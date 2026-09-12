@@ -36,8 +36,11 @@ jobs:
           bash -n scripts/student-production-smoke.sh
           bash -n scripts/school-production-smoke.sh
           bash -n scripts/parent-admin-production-smoke.sh
+          bash -n scripts/cross-role-production-smoke.sh
+          bash scripts/cross-role-platform-contract-smoke.sh
           node -e "const c=require('./ecosystem.config.cjs'); if(!c.apps?.some(a=>a.name==='vs-api'&&a.script==='dist/index.js')) process.exit(1)"
           grep -q 'switch-pm2-release.sh' scripts/deploy-main-native.sh
+          grep -q 'cross-role-production-smoke.sh' scripts/deploy-main-native.sh
           if grep -Eq 'docker compose|docker-compose|src/index\.js|rm -f package-lock\.json|run_all_migrations|dev_seed|startOrReload' scripts/deploy-main-native.sh; then
             echo 'Deploy script contains a forbidden stale/destructive release command.'
             exit 1

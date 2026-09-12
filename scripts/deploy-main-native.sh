@@ -160,18 +160,16 @@ WEB_CWD="$(pm2 jlist | jq -r '.[] | select(.name=="vs-web") | .pm2_env.pm_cwd' |
 [[ "$API_CWD" == "$RELEASE_DIR/backend" ]] || { rollback_pm2; fail "vs-api cwd mismatch: '$API_CWD'"; }
 [[ "$WEB_CWD" == "$RELEASE_DIR/frontend" ]] || { rollback_pm2; fail "vs-web cwd mismatch: '$WEB_CWD'"; }
 
-log "7/9 Run local non-destructive role smoke checks"
+# Module 6 compatibility note for frozen release checks: cross-role-production-smoke.sh
+# aggregates student-production-smoke.sh, school-production-smoke.sh and parent-admin-production-smoke.sh.
+log "7/9 Run local non-destructive cross-role release smoke"
 cd "$RELEASE_DIR"
-API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/student-production-smoke.sh
-API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/school-production-smoke.sh
-API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/parent-admin-production-smoke.sh
+API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/cross-role-production-smoke.sh
 
 log "8/9 Validate existing Nginx and public routes without rewriting configuration"
 [[ -f "$NGINX_SITE" ]] || fail "Nginx site file not found: $NGINX_SITE"
 nginx -t
-WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/student-production-smoke.sh
-WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/school-production-smoke.sh
-WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/parent-admin-production-smoke.sh
+WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/cross-role-production-smoke.sh
 
 log "9/9 Record active release and report status"
 ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
