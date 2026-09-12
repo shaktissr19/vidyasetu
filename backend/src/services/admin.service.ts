@@ -6,9 +6,22 @@ import { getPagination, paginationMeta } from '../utils/paginate';
 export interface AdminPaginationQuery { page?: unknown; limit?: unknown; }
 export interface SchoolFilters { status?: string; state?: string; plan?: string; search?: string; }
 export interface UserFilters { role?: string; status?: string; search?: string; }
+export interface SupportFilters { status?: string; priority?: string; search?: string; }
+export interface AuditFilters { action?: string; entityType?: string; search?: string; }
+export interface SupportTicketUpdate { status: string; resolution?: string | null; }
 interface CountRow extends QueryResultRow { count: string; }
 interface RevenueRow extends QueryResultRow { mrr: string | number; arr?: string | number; active_subscriptions?: string | number; }
 interface MutableRow extends QueryResultRow { id: UUID; [key: string]: unknown; }
+interface UserGovernanceRow extends QueryResultRow { id: UUID; name?: string | null; role: string; status: string; }
+interface ConfigGovernanceRow extends QueryResultRow { key: string; value: string; description?: string | null; }
+interface SupportGovernanceRow extends QueryResultRow {
+  id: UUID;
+  school_id?: UUID | null;
+  status: string;
+  resolution?: string | null;
+  assigned_to?: UUID | null;
+  [key: string]: unknown;
+}
 
 const currentSubscriptionCte = `
   WITH latest_subscription AS (
@@ -19,6 +32,10 @@ const currentSubscriptionCte = `
     ORDER BY school_id, valid_from DESC, created_at DESC
   )
 `;
+
+function httpError(message: string, statusCode: number) {
+  return Object.assign(new Error(message), { statusCode });
+}
 
 export async function getPlatformAnalytics() {
   const [students, schools, revenue, engagement, roleBreakdownResult] = await Promise.all([
@@ -76,11 +93,16 @@ export async function getPlatformAnalytics() {
 
 export async function updateSchoolStatus(schoolId: UUID, status: string, adminId: UUID) {
   const validStatuses = ['ACTIVE', 'SUSPENDED', 'PENDING'];
-  if (!validStatuses.includes(status)) {
-    throw Object.assign(new Error(`Invalid status: ${status}`), { statusCode: 400 });
-  }
+  if (!validStatuses.includes(status)) throw httpError(`Invalid status: ${status}`, 400);
 
   return transaction(async (client) => {
+    const { rows: [current] } = await client.query<MutableRow>(
+      `SELECT * FROM schools WHERE id = $1 FOR UPDATE`,
+      [schoolId],
+    );
+    if (!current) throw httpError('School not found', 404);
+    if (current.status === status) return current;
+
     const { rows: [school] } = await client.query<MutableRow>(
       `UPDATE schools
        SET status = $1, updated_at = NOW()
@@ -88,12 +110,11 @@ export async function updateSchoolStatus(schoolId: UUID, status: string, adminId
        RETURNING *`,
       [status, schoolId],
     );
-    if (!school) throw Object.assign(new Error('School not found'), { statusCode: 404 });
 
     await client.query(
-      `INSERT INTO audit_log (actor_id, school_id, action, entity_type, entity_id, new_value)
-       VALUES ($1, $2, $3, 'school', $2, $4)`,
-      [adminId, schoolId, `SCHOOL_${status}`, JSON.stringify({ status })],
+      `INSERT INTO audit_log (actor_id, actor_role, school_id, action, entity_type, entity_id, old_value, new_value)
+       VALUES ($1, 'SUPER_ADMIN', $2, $3, 'school', $2, $4, $5)`,
+      [adminId, schoolId, `SCHOOL_${status}`, JSON.stringify({ status: current.status }), JSON.stringify({ status })],
     );
     return school;
   });
@@ -109,7 +130,7 @@ export async function listSchools(paginationQuery: AdminPaginationQuery, filters
   if (filters.state) { conditions.push(`s.state = $${i++}`); params.push(filters.state); }
   if (filters.plan) { conditions.push(`s.plan = $${i++}`); params.push(filters.plan); }
   if (filters.search) {
-    conditions.push(`(s.name ILIKE $${i} OR s.udise_code ILIKE $${i})`);
+    conditions.push(`(s.name ILIKE $${i} OR COALESCE(s.udise_code, '') ILIKE $${i})`);
     i += 1;
     params.push(`%${filters.search}%`);
   }
@@ -147,7 +168,7 @@ export async function getSchoolDetail(schoolId: UUID) {
      GROUP BY s.id, u.name, u.mobile, u.email`,
     [schoolId],
   );
-  if (!school) throw Object.assign(new Error('School not found'), { statusCode: 404 });
+  if (!school) throw httpError('School not found', 404);
 
   const { rows: recentActivity } = await query(
     `SELECT action,
@@ -188,22 +209,30 @@ export async function listUsers(paginationQuery: AdminPaginationQuery, filters: 
 
 export async function updateUserStatus(targetUserId: UUID, status: string, adminId: UUID) {
   const validStatuses = ['ACTIVE', 'SUSPENDED', 'PENDING'];
-  if (!validStatuses.includes(status)) {
-    throw Object.assign(new Error(`Invalid status: ${status}`), { statusCode: 400 });
-  }
-  if (targetUserId === adminId && status !== 'ACTIVE') {
-    throw Object.assign(new Error('You cannot suspend your own admin account'), { statusCode: 400 });
-  }
+  if (!validStatuses.includes(status)) throw httpError(`Invalid status: ${status}`, 400);
+
   return transaction(async (client) => {
+    const { rows: [current] } = await client.query<UserGovernanceRow>(
+      `SELECT id, name, role, status FROM users WHERE id = $1 FOR UPDATE`,
+      [targetUserId],
+    );
+    if (!current) throw httpError('User not found', 404);
+    if (current.role === 'SUPER_ADMIN' && status !== 'ACTIVE') {
+      throw httpError('Super Admin accounts cannot be suspended or moved to pending state', 400);
+    }
+    if (targetUserId === adminId && status !== 'ACTIVE') {
+      throw httpError('You cannot suspend your own admin account', 400);
+    }
+    if (current.status === status) return current;
+
     const { rows: [user] } = await client.query<MutableRow>(
       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, name, role, status`,
       [status, targetUserId],
     );
-    if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
     await client.query(
-      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, new_value)
-       VALUES ($1, $2, 'user', $3, $4)`,
-      [adminId, `USER_${status}`, targetUserId, JSON.stringify({ status })],
+      `INSERT INTO audit_log (actor_id, actor_role, action, entity_type, entity_id, old_value, new_value)
+       VALUES ($1, 'SUPER_ADMIN', $2, 'user', $3, $4, $5)`,
+      [adminId, `USER_${status}`, targetUserId, JSON.stringify({ status: current.status }), JSON.stringify({ status })],
     );
     return user;
   });
@@ -297,16 +326,151 @@ export async function getPlatformConfig() {
 }
 
 export async function updatePlatformConfig(key: string, value: unknown, adminId: UUID) {
-  const { rows: [cfg] } = await query<MutableRow>(
-    `UPDATE platform_config SET value = $1, updated_by = $2, updated_at = NOW()
-     WHERE key = $3 RETURNING *`,
-    [value, adminId, key],
-  );
-  if (!cfg) throw Object.assign(new Error(`Config key '${key}' not found`), { statusCode: 404 });
-  await query(
-    `INSERT INTO audit_log (actor_id, action, entity_type, new_value)
-     VALUES ($1, 'CONFIG_UPDATE', 'platform_config', $2)`,
-    [adminId, JSON.stringify({ key, value })],
-  );
-  return cfg;
+  const storedValue = String(value);
+  return transaction(async (client) => {
+    const { rows: [current] } = await client.query<ConfigGovernanceRow>(
+      `SELECT key, value, description FROM platform_config WHERE key = $1 FOR UPDATE`,
+      [key],
+    );
+    if (!current) throw httpError(`Config key '${key}' not found`, 404);
+    if (current.value === storedValue) return current;
+
+    const { rows: [cfg] } = await client.query<ConfigGovernanceRow>(
+      `UPDATE platform_config SET value = $1, updated_by = $2, updated_at = NOW()
+       WHERE key = $3 RETURNING key, value, description`,
+      [storedValue, adminId, key],
+    );
+    await client.query(
+      `INSERT INTO audit_log (actor_id, actor_role, action, entity_type, old_value, new_value)
+       VALUES ($1, 'SUPER_ADMIN', 'CONFIG_UPDATE', 'platform_config', $2, $3)`,
+      [adminId, JSON.stringify({ key, value: current.value }), JSON.stringify({ key, value: storedValue })],
+    );
+    return cfg;
+  });
+}
+
+export async function listSupportTickets(paginationQuery: AdminPaginationQuery, filters: SupportFilters = {}) {
+  const { limit, offset, page } = getPagination(paginationQuery);
+  const conditions = ['1=1'];
+  const params: unknown[] = [];
+  let i = 1;
+
+  if (filters.status) { conditions.push(`st.status = $${i++}`); params.push(filters.status); }
+  if (filters.priority) { conditions.push(`st.priority = $${i++}`); params.push(filters.priority); }
+  if (filters.search) {
+    params.push(`%${filters.search}%`);
+    conditions.push(`(
+      st.subject ILIKE $${i}
+      OR st.description ILIKE $${i}
+      OR COALESCE(raiser.name, '') ILIKE $${i}
+      OR COALESCE(s.name, '') ILIKE $${i}
+    )`);
+    i += 1;
+  }
+
+  const where = conditions.join(' AND ');
+  const from = `
+    FROM support_tickets st
+    JOIN users raiser ON raiser.id = st.raised_by
+    LEFT JOIN users assignee ON assignee.id = st.assigned_to
+    LEFT JOIN schools s ON s.id = st.school_id
+  `;
+  const [{ rows }, { rows: [countRow] }] = await Promise.all([
+    query(`
+      SELECT st.*, raiser.name AS raised_by_name, assignee.name AS assigned_to_name, s.name AS school_name
+      ${from}
+      WHERE ${where}
+      ORDER BY
+        CASE st.priority WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+        st.created_at DESC
+      LIMIT $${i} OFFSET $${i + 1}
+    `, [...params, limit, offset]),
+    query<CountRow>(`SELECT COUNT(*) ${from} WHERE ${where}`, params),
+  ]);
+  return { tickets: rows, meta: paginationMeta(Number.parseInt(countRow?.count || '0', 10), page, limit) };
+}
+
+export async function updateSupportTicket(ticketId: UUID, patch: SupportTicketUpdate, adminId: UUID) {
+  const validStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+  if (!validStatuses.includes(patch.status)) throw httpError(`Invalid ticket status: ${patch.status}`, 400);
+
+  return transaction(async (client) => {
+    const { rows: [current] } = await client.query<SupportGovernanceRow>(
+      `SELECT * FROM support_tickets WHERE id = $1 FOR UPDATE`,
+      [ticketId],
+    );
+    if (!current) throw httpError('Support ticket not found', 404);
+
+    const finalResolution = patch.resolution === undefined ? current.resolution : patch.resolution;
+    if (['RESOLVED', 'CLOSED'].includes(patch.status) && !String(finalResolution || '').trim()) {
+      throw httpError('A resolution note is required before resolving or closing a support ticket', 400);
+    }
+
+    const { rows: [updated] } = await client.query<SupportGovernanceRow>(
+      `UPDATE support_tickets
+       SET status = $1,
+           resolution = $2,
+           assigned_to = CASE WHEN $1 IN ('IN_PROGRESS','RESOLVED','CLOSED') THEN $3 ELSE assigned_to END,
+           closed_at = CASE WHEN $1 IN ('RESOLVED','CLOSED') THEN NOW() ELSE NULL END,
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [patch.status, finalResolution || null, adminId, ticketId],
+    );
+
+    await client.query(
+      `INSERT INTO audit_log (actor_id, actor_role, school_id, action, entity_type, entity_id, old_value, new_value)
+       VALUES ($1, 'SUPER_ADMIN', $2, $3, 'support_ticket', $4, $5, $6)`,
+      [
+        adminId,
+        current.school_id || null,
+        `SUPPORT_${patch.status}`,
+        ticketId,
+        JSON.stringify({ status: current.status, resolution: current.resolution || null, assigned_to: current.assigned_to || null }),
+        JSON.stringify({ status: updated.status, resolution: updated.resolution || null, assigned_to: updated.assigned_to || null }),
+      ],
+    );
+    return updated;
+  });
+}
+
+export async function listAuditLog(paginationQuery: AdminPaginationQuery, filters: AuditFilters = {}) {
+  const { limit, offset, page } = getPagination(paginationQuery);
+  const conditions = ['1=1'];
+  const params: unknown[] = [];
+  let i = 1;
+
+  if (filters.action) { conditions.push(`al.action = $${i++}`); params.push(filters.action); }
+  if (filters.entityType) { conditions.push(`al.entity_type = $${i++}`); params.push(filters.entityType); }
+  if (filters.search) {
+    params.push(`%${filters.search}%`);
+    conditions.push(`(
+      al.action ILIKE $${i}
+      OR COALESCE(al.entity_type, '') ILIKE $${i}
+      OR COALESCE(actor.name, '') ILIKE $${i}
+      OR COALESCE(s.name, '') ILIKE $${i}
+      OR COALESCE(al.entity_id::text, '') ILIKE $${i}
+    )`);
+    i += 1;
+  }
+
+  const where = conditions.join(' AND ');
+  const from = `
+    FROM audit_log al
+    LEFT JOIN users actor ON actor.id = al.actor_id
+    LEFT JOIN schools s ON s.id = al.school_id
+  `;
+  const [{ rows }, { rows: [countRow] }] = await Promise.all([
+    query(`
+      SELECT al.id, al.actor_id, al.actor_role, al.school_id, al.action, al.entity_type, al.entity_id,
+             al.old_value, al.new_value, al.ip_address, al.user_agent, al.created_at,
+             actor.name AS actor_name, actor.mobile AS actor_mobile, s.name AS school_name
+      ${from}
+      WHERE ${where}
+      ORDER BY al.created_at DESC
+      LIMIT $${i} OFFSET $${i + 1}
+    `, [...params, limit, offset]),
+    query<CountRow>(`SELECT COUNT(*) ${from} WHERE ${where}`, params),
+  ]);
+  return { entries: rows, meta: paginationMeta(Number.parseInt(countRow?.count || '0', 10), page, limit) };
 }
