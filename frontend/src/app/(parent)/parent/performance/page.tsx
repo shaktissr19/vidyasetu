@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getChildren, getChildPerformance, type ParentSubjectPerformance } from '@/services/parentService';
+import { getChildPerformance, type ParentSubjectPerformance } from '@/services/parentService';
 import { getParentLearningInsight, type LearningMasteryState } from '@/services/learningVisibilityService';
 import ParentDiagnosticPanel from '@/components/learning/ParentDiagnosticPanel';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { SectionHeader } from '@/components/ui/index';
 import useLanguageStore from '@/store/languageStore';
 import { apiErrorText } from '@/utils/errors';
@@ -30,33 +31,24 @@ function scoreAt(subject: ParentSubjectPerformance, index: number) {
 
 export default function ParentPerformancePage() {
   const { t } = useLanguageStore();
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
-
-  const { data: children = [], isLoading: childrenLoading } = useQuery({
-    queryKey: ['parent-children'],
-    queryFn: () => getChildren().then((r) => r.data.data),
-  });
-
-  useEffect(() => {
-    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
-  }, [children, selectedChild]);
+  const { children, selectedChildId, setSelectedChildId, isLoading: childrenLoading } = useParentChildContext();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['parent-performance', selectedChild],
+    queryKey: ['parent-performance', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getChildPerformance(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getChildPerformance(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
   });
 
   const learningQ = useQuery({
-    queryKey: ['parent-learning-insight', selectedChild],
+    queryKey: ['parent-learning-insight', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getParentLearningInsight(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getParentLearningInsight(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
     staleTime: 20_000,
   });
 
@@ -64,21 +56,12 @@ export default function ParentPerformancePage() {
     <div className="animate-fade-up">
       <SectionHeader title={`📊 ${t('विस्तृत प्रदर्शन', 'Detailed Performance')}`} />
 
-      {children.length > 0 && (
-        <div className="flex gap-2 mb-5 flex-wrap">
-          {children.map((child) => (
-            <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-              style={{
-                background: selectedChild === child.id ? 'var(--forest)' : 'white',
-                color: selectedChild === child.id ? 'white' : 'var(--slate)',
-                border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}`,
-              }}>
-              {child.name.split(' ')[0]} ({t('कक्षा', 'Class')} {child.class_name})
-            </button>
-          ))}
-        </div>
-      )}
+      <ParentChildSwitcher
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={setSelectedChildId}
+        className="mb-5"
+      />
 
       {(childrenLoading || isLoading) ? (
         <div className="card"><div className="skeleton h-56 rounded-xl" /></div>
@@ -127,7 +110,7 @@ export default function ParentPerformancePage() {
         </div>
       )}
 
-      {selectedChild ? <div className="mt-5"><ParentDiagnosticPanel studentId={selectedChild} /></div> : null}
+      {selectedChildId ? <div className="mt-5"><ParentDiagnosticPanel studentId={selectedChildId} /></div> : null}
 
       <div className="mt-5">
         {learningQ.isLoading ? (
