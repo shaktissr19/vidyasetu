@@ -1,0 +1,65 @@
+name: Parent Workflow Completion CI
+
+on:
+  push:
+    branches: [parent-workflow-e2e]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parent-workflow-contract:
+    name: Parent workflow contracts and production builds
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Parent workflow contracts
+        run: |
+          bash -n scripts/parent-workflow-e2e-smoke.sh
+          bash -n scripts/parent-admin-production-smoke.sh
+          grep -q "authorize('PARENT')" backend/src/routes/parentFamily.routes.ts
+          grep -q "children/:studentId/homework" backend/src/routes/parentFamily.routes.ts
+          grep -q "children/:studentId/achievements" backend/src/routes/parentFamily.routes.ts
+          grep -q "getChildHomework" frontend/src/services/parentService.ts
+          grep -q "getChildAchievements" frontend/src/services/parentService.ts
+          test -f 'frontend/src/app/(parent)/parent/homework/page.tsx'
+          test -f 'frontend/src/app/(parent)/parent/achievements/page.tsx'
+          grep -q '/parent/homework' 'frontend/src/app/(parent)/layout.tsx'
+          grep -q '/parent/achievements' 'frontend/src/app/(parent)/layout.tsx'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -f dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -f dist/index.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
