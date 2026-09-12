@@ -24,13 +24,21 @@ check_unauthenticated_api() {
 log "Parent application routes"
 for path in \
   /parent/dashboard \
+  /parent/homework \
+  /parent/learning-support \
   /parent/performance \
+  /parent/achievements \
+  /parent/ptm \
   /parent/attendance \
-  /parent/report-card \
-  /parent/fees \
+  /parent/leave \
+  /parent/transport \
+  /parent/documents \
   /parent/notifications \
+  /parent/fees \
+  /parent/report-card \
   /parent/messages \
-  /parent/grievances; do
+  /parent/grievances \
+  /parent/groups; do
   check_web "$path"
 done
 
@@ -51,6 +59,8 @@ done
 
 log "Parent/Admin authorization boundary"
 check_unauthenticated_api "/parent/children"
+check_unauthenticated_api "/parent/children/00000000-0000-0000-0000-000000000001/homework"
+check_unauthenticated_api "/parent/children/00000000-0000-0000-0000-000000000001/achievements"
 check_unauthenticated_api "/parent/grievances"
 check_unauthenticated_api "/admin/analytics"
 check_unauthenticated_api "/admin/schools"

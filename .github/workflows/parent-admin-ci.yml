@@ -2,7 +2,7 @@ name: Parent and Admin Completion CI
 
 on:
   push:
-    branches: [parent-admin-completion]
+    branches: [parent-admin-completion, parent-workflow-e2e]
   pull_request:
     branches: [typescript-migration, main]
   workflow_dispatch:
@@ -25,8 +25,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Validate Parent Admin smoke script
-        run: bash -n scripts/parent-admin-e2e-smoke.sh
+      - name: Validate Parent Admin and Parent Workflow smoke scripts
+        run: |
+          bash -n scripts/parent-admin-e2e-smoke.sh
+          bash -n scripts/parent-workflow-e2e-smoke.sh
 
       - name: Build shared contracts
         working-directory: shared/contracts
@@ -155,6 +157,11 @@ jobs:
         env:
           API_BASE: http://127.0.0.1:5000/api/v1
         run: bash scripts/parent-admin-e2e-smoke.sh
+
+      - name: Run complete Parent Workflow E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/parent-workflow-e2e-smoke.sh
 
       - name: Validate Parent and Admin database invariants
         env:
