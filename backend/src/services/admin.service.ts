@@ -408,10 +408,10 @@ export async function updateSupportTicket(ticketId: UUID, patch: SupportTicketUp
 
     const { rows: [updated] } = await client.query<SupportGovernanceRow>(
       `UPDATE support_tickets
-       SET status = $1,
+       SET status = $1::ticket_status,
            resolution = $2,
-           assigned_to = CASE WHEN $1 IN ('IN_PROGRESS','RESOLVED','CLOSED') THEN $3 ELSE assigned_to END,
-           closed_at = CASE WHEN $1 IN ('RESOLVED','CLOSED') THEN NOW() ELSE NULL END,
+           assigned_to = CASE WHEN $1::ticket_status IN ('IN_PROGRESS'::ticket_status,'RESOLVED'::ticket_status,'CLOSED'::ticket_status) THEN $3 ELSE assigned_to END,
+           closed_at = CASE WHEN $1::ticket_status IN ('RESOLVED'::ticket_status,'CLOSED'::ticket_status) THEN NOW() ELSE NULL END,
            updated_at = NOW()
        WHERE id = $4
        RETURNING *`,
