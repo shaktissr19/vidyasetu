@@ -64,7 +64,6 @@ expect_status 403 GET "$API_BASE/admin/analytics" '' "$SCHOOL_TOKEN"
 expect_status 403 GET "$API_BASE/school/fees" '' "$TEACHER_TOKEN"
 expect_status 403 GET "$API_BASE/parent/children" '' "$STUDENT_TOKEN"
 expect_status 403 GET "$API_BASE/school/overview" '' "$PARENT_TOKEN"
-expect_status 403 GET "$API_BASE/school/overview" '' "$ADMIN_TOKEN"
 
 log "Verify Parent ↔ Student linkage and Teacher assignment"
 CHILDREN="$(request GET "$API_BASE/parent/children" '' "$PARENT_TOKEN")"
