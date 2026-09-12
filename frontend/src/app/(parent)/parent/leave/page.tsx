@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SectionHeader } from '@/components/ui/index';
-import { getChildren } from '@/services/parentService';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import {
   cancelParentLeave,
   createParentLeave,
@@ -26,42 +27,40 @@ export default function ParentLeavePage() {
   const { t } = useLanguageStore();
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
-  const [studentId, setStudentId] = useState('');
+  const { children, selectedChildId: studentId, selectedChild, setSelectedChildId, isLoading: childrenLoading } = useParentChildContext();
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [reason, setReason] = useState('');
 
-  const childrenQ = useQuery({ queryKey: ['parent-children'], queryFn: async () => (await getChildren()).data.data || [] });
-  const children = childrenQ.data || [];
-  useEffect(() => { if (!studentId && children.length) setStudentId(children[0].id); }, [children, studentId]);
-
-  const leavesQ = useQuery({ queryKey: ['parent-leave', studentId], queryFn: async () => (await getParentLeaves(studentId)).data.data || [], enabled: Boolean(studentId) });
-  const calendarQ = useQuery({ queryKey: ['parent-calendar', studentId], queryFn: async () => (await getParentCalendar(studentId)).data.data || [], enabled: Boolean(studentId) });
+  const leavesQ = useQuery({ queryKey: ['parent-leave', studentId], queryFn: async () => (await getParentLeaves(studentId!)).data.data || [], enabled: Boolean(studentId) });
+  const calendarQ = useQuery({ queryKey: ['parent-calendar', studentId], queryFn: async () => (await getParentCalendar(studentId!)).data.data || [], enabled: Boolean(studentId) });
 
   const createM = useMutation({
-    mutationFn: () => createParentLeave(studentId, { startDate, endDate, reason }),
+    mutationFn: () => {
+      if (!studentId) throw new Error('No child selected');
+      return createParentLeave(studentId, { startDate, endDate, reason });
+    },
     onSuccess: async () => { setReason(''); toast.success(t('छुट्टी का अनुरोध भेज दिया गया।', 'Leave request sent for review.')); await qc.invalidateQueries({ queryKey: ['parent-leave', studentId] }); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not submit leave request')),
   });
   const cancelM = useMutation({
-    mutationFn: (leaveId: string) => cancelParentLeave(studentId, leaveId),
+    mutationFn: (leaveId: string) => {
+      if (!studentId) throw new Error('No child selected');
+      return cancelParentLeave(studentId, leaveId);
+    },
     onSuccess: async () => { toast.success(t('अनुरोध रद्द कर दिया गया।', 'Leave request cancelled.')); await qc.invalidateQueries({ queryKey: ['parent-leave', studentId] }); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not cancel leave request')),
   });
 
-  const selectedChild = children.find((child) => child.id === studentId);
   const leaves = leavesQ.data || [];
   const events = calendarQ.data || [];
 
   return <div className="animate-fade-up">
     <SectionHeader title={`🩺 ${t('छुट्टी और स्कूल कैलेंडर', 'Leave & School Calendar')}`} sub={t('जुड़े हुए बच्चे के लिए छुट्टी का अनुरोध करें और स्कूल की आगामी तिथियाँ देखें', 'Request leave for a linked child and view upcoming School dates')} />
 
-    <div className="card mb-5">
-      <label className="text-xs font-bold block mb-1">{t('बच्चा चुनें', 'Select child')}</label>
-      <select className="input select max-w-md" value={studentId} onChange={(e) => setStudentId(e.target.value)}><option value="">{t('बच्चा चुनें', 'Select child')}</option>{children.map((child) => <option key={child.id} value={child.id}>{child.name} · Class {child.class_name}{child.section ? `-${child.section}` : ''}</option>)}</select>
-    </div>
+    <ParentChildSwitcher children={children} selectedChildId={studentId} onSelect={setSelectedChildId} className="mb-5" />
 
-    {!studentId ? <div className="card text-center py-12" style={{ color: 'var(--slate)' }}>{childrenQ.isLoading ? t('जुड़े हुए बच्चे लोड हो रहे हैं…', 'Loading linked children…') : t('कोई जुड़ा हुआ बच्चा उपलब्ध नहीं है।', 'No linked child is available.')}</div> : <>
+    {!studentId ? <div className="card text-center py-12" style={{ color: 'var(--slate)' }}>{childrenLoading ? t('जुड़े हुए बच्चे लोड हो रहे हैं…', 'Loading linked children…') : t('कोई जुड़ा हुआ बच्चा उपलब्ध नहीं है।', 'No linked child is available.')}</div> : <>
       <div className="grid lg:grid-cols-[1.05fr_.95fr] gap-4 mb-5">
         <div className="card">
           <div className="text-xs font-bold" style={{ color: 'var(--forest)' }}>{selectedChild?.name}</div>
