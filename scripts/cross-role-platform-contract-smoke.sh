@@ -13,6 +13,7 @@ require_file scripts/cross-role-production-smoke.sh
 require_file scripts/student-production-smoke.sh
 require_file scripts/school-production-smoke.sh
 require_file scripts/parent-admin-production-smoke.sh
+require_file scripts/deploy-main-native.sh
 require_file frontend/src/lib/sessionPolicy.ts
 require_file backend/src/routes/auth.routes.ts
 require_file backend/src/routes/parent.routes.ts
@@ -22,6 +23,7 @@ require_file backend/.env.example
 
 bash -n scripts/cross-role-platform-e2e-smoke.sh
 bash -n scripts/cross-role-production-smoke.sh
+bash -n scripts/deploy-main-native.sh
 
 for role in STUDENT PARENT TEACHER SCHOOL_ADMIN SUPER_ADMIN; do
   require_text scripts/cross-role-platform-e2e-smoke.sh "$role"
@@ -53,5 +55,9 @@ require_text scripts/cross-role-production-smoke.sh '/school/homework'
 require_text scripts/cross-role-production-smoke.sh '/school/absence'
 require_text scripts/cross-role-production-smoke.sh '/parent/homework'
 require_text scripts/cross-role-production-smoke.sh '/admin/audit'
+
+require_text scripts/deploy-main-native.sh 'Run local non-destructive cross-role release smoke'
+require_text scripts/deploy-main-native.sh 'bash scripts/cross-role-production-smoke.sh'
+require_text scripts/deploy-main-native.sh 'WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/cross-role-production-smoke.sh'
 
 printf 'Module 6 cross-role contract certification passed.\n'
