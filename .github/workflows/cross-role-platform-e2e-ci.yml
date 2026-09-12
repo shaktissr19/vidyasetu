@@ -1,0 +1,217 @@
+name: Module 6 Cross-Role Platform E2E CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-role-platform:
+    name: Five-role integration, persistence and release certification
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Certify Module 6 contracts
+        run: |
+          set -euxo pipefail
+          bash scripts/cross-role-platform-contract-smoke.sh
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Install disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='vidyasetu_db'" | grep -q 1 || sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable five-role database baseline
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euxo pipefail
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/03_student_seed_reconcile.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/04_student_seed_validate.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/05_student_module_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            015_realistic_demo_identities.sql \
+            016_demo_academic_year_alignment.sql \
+            017_school_management_core.sql \
+            018_groups_collaboration.sql \
+            019_parent_grievances.sql \
+            020_learning_platform_foundation.sql \
+            021_learning_original_academic_starter.sql \
+            022_learning_practice_personalization.sql \
+            023_global_learning_bulk_importer.sql \
+            024_student_global_grade_sync.sql \
+            026_learning_concepts_mastery.sql \
+            027_student_concept_mastery_runtime.sql \
+            028_grounded_ai_doubt_resolution.sql \
+            029_absence_school_calendar.sql \
+            029_homework_student_notifications.sql \
+            030_staff_attendance_leave.sql \
+            031_school_transport_safety.sql \
+            032_student_records_certificates.sql \
+            033_school_library_circulation.sql \
+            035_remove_physical_library.sql \
+            036_learning_content_quality_governance.sql \
+            037_diagnostic_assessment_intelligence.sql \
+            038_diagnostic_evidence_role_bridge.sql \
+            039_personalized_adaptive_learning_v2.sql \
+            040_competition_platform_v2.sql \
+            041_learning_support_v2.sql \
+            043_school_module_finalization.sql; do
+              echo "Applying $migration"
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+
+      - name: Reconcile Teacher identity and shared cross-role fixture
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euxo pipefail
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 <<'SQL'
+          UPDATE users u
+          SET role = 'TEACHER'
+          FROM teachers t
+          WHERE t.user_id = u.id
+            AND t.status IN ('ACTIVE','ON_LEAVE');
+
+          INSERT INTO teacher_assignments (
+            teacher_id, school_id, class_id, subject_code, academic_year, is_class_teacher
+          )
+          SELECT t.id, s.school_id, s.class_id, 'MATH', s.academic_year, TRUE
+          FROM students s
+          JOIN teachers t ON t.school_id = s.school_id AND t.status = 'ACTIVE'
+          WHERE s.id = '30000000-0000-0000-0000-000000000001'
+            AND s.class_id IS NOT NULL
+          ORDER BY t.created_at, t.id
+          LIMIT 1
+          ON CONFLICT (teacher_id, class_id, subject_code, academic_year)
+          DO UPDATE SET is_class_teacher = TRUE;
+          SQL
+
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM parent_student_links WHERE parent_user_id='00000000-0000-0000-0000-000000000040'::uuid AND student_id='30000000-0000-0000-0000-000000000001'::uuid;")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM teacher_assignments ta JOIN teachers t ON t.id=ta.teacher_id JOIN users u ON u.id=t.user_id WHERE ta.class_id='20000000-0000-0000-0000-000000000001'::uuid AND ta.subject_code='MATH' AND ta.is_class_teacher=TRUE AND u.mobile='9200000001' AND u.role='TEACHER';")" -ge 1
+          for role in SUPER_ADMIN SCHOOL_ADMIN TEACHER STUDENT PARENT; do
+            test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE role='$role' AND status='ACTIVE';")" -ge 1
+          done
+
+      - name: Start compiled backend with production session lifetime
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: ci_access_secret_module6_2026
+          JWT_REFRESH_SECRET: ci_refresh_secret_module6_2026
+          JWT_ACCESS_EXPIRY: 10m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-module6-backend.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-module6-backend.log
+          exit 1
+
+      - name: Run five-role shared-data E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/cross-role-platform-e2e-smoke.sh
+
+      - name: Validate cross-role database invariants
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euxo pipefail
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM homework_assignments WHERE title='Module 6 Cross-Role Mathematics' AND status='CLOSED';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM homework_submissions hs JOIN homework_assignments ha ON ha.id=hs.homework_id WHERE ha.title='Module 6 Cross-Role Mathematics' AND hs.student_id='30000000-0000-0000-0000-000000000001'::uuid AND hs.status='REVIEWED' AND hs.marks_awarded=9;")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM student_leave_requests WHERE student_id='30000000-0000-0000-0000-000000000001'::uuid AND reason='Module 6 family appointment' AND status='APPROVED';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM school_calendar_events WHERE title='Module 6 Integration Day' AND event_type='ACTIVITY';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM parent_student_links WHERE parent_user_id='00000000-0000-0000-0000-000000000040'::uuid AND student_id='30000000-0000-0000-0000-000000000001'::uuid;")" = "1"
+
+      - name: Start production frontend
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          nohup npm start > /tmp/vidyasetu-module6-frontend.log 2>&1 &
+          for i in {1..40}; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/ || true)"
+            if [[ "$code" =~ ^(200|301|302|307|308)$ ]]; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vidyasetu-module6-frontend.log
+          exit 1
+
+      - name: Run non-destructive integrated release smoke
+        env:
+          WEB_BASE: http://127.0.0.1:3000
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/cross-role-production-smoke.sh
+
+      - name: Backend logs on failure
+        if: failure()
+        run: cat /tmp/vidyasetu-module6-backend.log || true
