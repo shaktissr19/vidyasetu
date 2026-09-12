@@ -21,6 +21,7 @@ const MENU = [
   { href: '/admin/grievances', icon: '🛡️', label: 'Grievances' },
   { href: '/admin/revenue', icon: '💰', label: 'Revenue' },
   { href: '/admin/support', icon: '🎧', label: 'Support' },
+  { href: '/admin/audit', icon: '🧾', label: 'Audit Trail' },
   { href: '/admin/settings', icon: '⚙️', label: 'Settings' },
 ] as const;
 
