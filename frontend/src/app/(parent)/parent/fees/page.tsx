@@ -1,32 +1,24 @@
 'use client';
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getChildren, getChildFees } from '@/services/parentService';
+import { getChildFees } from '@/services/parentService';
 import { SectionHeader, StatusBadge } from '@/components/ui/index';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
 import toast from 'react-hot-toast';
 
 export default function ParentFeesPage() {
   const { t } = useLanguageStore();
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
-
-  const { data: children = [] } = useQuery({
-    queryKey: ['parent-children'],
-    queryFn: () => getChildren().then((r) => r.data.data),
-  });
-
-  useEffect(() => {
-    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
-  }, [children, selectedChild]);
+  const { children, selectedChildId, setSelectedChildId } = useParentChildContext();
 
   const { data: fees = [], isLoading } = useQuery({
-    queryKey: ['parent-fees', selectedChild],
+    queryKey: ['parent-fees', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getChildFees(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getChildFees(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
   });
 
   const totalDue = fees
@@ -46,17 +38,12 @@ export default function ParentFeesPage() {
         )}
       </SectionHeader>
 
-      {children.length > 1 && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {children.map((child) => (
-            <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-4 py-1.5 rounded-full text-sm font-bold transition-all"
-              style={{ background: selectedChild === child.id ? 'var(--forest)' : 'white', color: selectedChild === child.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}` }}>
-              {child.name.split(' ')[0]}
-            </button>
-          ))}
-        </div>
-      )}
+      <ParentChildSwitcher
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={setSelectedChildId}
+        className="mb-4"
+      />
 
       <div className="grid grid-cols-2 gap-4 mb-5">
         <div className="card" style={{ borderLeft: '4px solid var(--forest)' }}>

@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getChildren, getChildReportCard } from '@/services/parentService';
+import { getChildReportCard } from '@/services/parentService';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { gradeFromScore } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
 
@@ -11,24 +12,15 @@ const SUBJECT_NAMES: Record<string, string> = {
 
 export default function ParentReportCardPage() {
   const { t } = useLanguageStore();
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
-
-  const { data: children = [] } = useQuery({
-    queryKey: ['parent-children'],
-    queryFn: () => getChildren().then((r) => r.data.data),
-  });
-
-  useEffect(() => {
-    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
-  }, [children, selectedChild]);
+  const { children, selectedChildId, setSelectedChildId } = useParentChildContext();
 
   const { data: report, isLoading } = useQuery({
-    queryKey: ['parent-report-card', selectedChild],
+    queryKey: ['parent-report-card', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getChildReportCard(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getChildReportCard(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
   });
 
   const totalObtained = (report?.results || []).reduce((sum, row) => sum + Number(row.marks_obtained || 0), 0);
@@ -46,21 +38,12 @@ export default function ParentReportCardPage() {
         <button className="btn-green" onClick={() => window.print()}>📥 {t('PDF डाउनलोड करें', 'Download PDF')}</button>
       </div>
 
-      {children.length > 0 && (
-        <div className="flex gap-2 mb-5 flex-wrap print:hidden">
-          {children.map((child) => (
-            <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-              style={{
-                background: selectedChild === child.id ? 'var(--forest)' : 'white',
-                color: selectedChild === child.id ? 'white' : 'var(--slate)',
-                border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}`,
-              }}>
-              {child.name.split(' ')[0]} ({t('कक्षा', 'Class')} {child.class_name})
-            </button>
-          ))}
-        </div>
-      )}
+      <ParentChildSwitcher
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={setSelectedChildId}
+        className="mb-5 print:hidden"
+      />
 
       {isLoading ? (
         <div className="card"><div className="skeleton h-80 rounded-xl" /></div>

@@ -1,8 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getChildren, getChildAttendance, type ParentAttendanceRecord } from '@/services/parentService';
+import { getChildAttendance, type ParentAttendanceRecord } from '@/services/parentService';
 import { StatCard } from '@/components/ui/index';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import useLanguageStore from '@/store/languageStore';
 
 const MONTHS_EN = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -12,26 +14,17 @@ const STATUS_LABEL: Record<string, string> = { PRESENT: '✓', ABSENT: '✗', LA
 export default function ParentAttendancePage() {
   const { t } = useLanguageStore();
   const now = new Date();
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
+  const { children, selectedChildId, setSelectedChildId } = useParentChildContext();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
 
-  const { data: children = [] } = useQuery({
-    queryKey: ['parent-children'],
-    queryFn: () => getChildren().then((r) => r.data.data),
-  });
-
-  useEffect(() => {
-    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
-  }, [children, selectedChild]);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['parent-attendance', selectedChild, year, month],
+    queryKey: ['parent-attendance', selectedChildId, year, month],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getChildAttendance(selectedChild, year, month).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getChildAttendance(selectedChildId, year, month).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
   });
 
   const records = data?.records || [];
@@ -61,17 +54,12 @@ export default function ParentAttendancePage() {
         {data?.academicYear && <p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>{t('शैक्षणिक वर्ष', 'Academic year')}: {data.academicYear}</p>}
       </div>
 
-      {children.length > 0 && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {children.map((child) => (
-            <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-              style={{ background: selectedChild === child.id ? 'var(--forest)' : 'white', color: selectedChild === child.id ? 'white' : 'var(--slate)', border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}` }}>
-              {child.name.split(' ')[0]} ({t('कक्षा', 'Class')} {child.class_name})
-            </button>
-          ))}
-        </div>
-      )}
+      <ParentChildSwitcher
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={setSelectedChildId}
+        className="mb-4"
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
         <StatCard label={t('उपस्थित दिन', 'Present Days')} value={summary?.present_days || 0} sub={`${MONTHS_EN[month]} ${year}`} accent="var(--forest)" />
