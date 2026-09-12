@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getChildren, getChildDashboard } from '@/services/parentService';
+import { getChildDashboard } from '@/services/parentService';
 import { StatCard, ProgressBar, CardSkeleton } from '@/components/ui/index';
+import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { formatDate, gradeFromScore, timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
 import useAuthStore from '@/store/authStore';
@@ -17,24 +18,15 @@ const NOTIF_ICONS: Record<string, string> = {
 export default function ParentDashboard() {
   const { t } = useLanguageStore();
   const { user } = useAuthStore();
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
-
-  const { data: children = [], isLoading: childrenLoading } = useQuery({
-    queryKey: ['parent-children'],
-    queryFn: () => getChildren().then((r) => r.data.data),
-  });
-
-  useEffect(() => {
-    if (children.length && !selectedChild) setSelectedChild(children[0]?.id || null);
-  }, [children, selectedChild]);
+  const { children, selectedChildId, setSelectedChildId, isLoading: childrenLoading } = useParentChildContext();
 
   const { data: dash, isLoading: dashLoading } = useQuery({
-    queryKey: ['parent-child-dash', selectedChild],
+    queryKey: ['parent-child-dash', selectedChildId],
     queryFn: async () => {
-      if (!selectedChild) throw new Error('No child selected');
-      return getChildDashboard(selectedChild).then((r) => r.data.data);
+      if (!selectedChildId) throw new Error('No child selected');
+      return getChildDashboard(selectedChildId).then((r) => r.data.data);
     },
-    enabled: !!selectedChild,
+    enabled: !!selectedChildId,
   });
 
   const student = dash?.student;
@@ -63,21 +55,12 @@ export default function ParentDashboard() {
         </button>
       </div>
 
-      {children.length > 0 && (
-        <div className="flex gap-2 mb-5 flex-wrap">
-          {children.map((child) => (
-            <button key={child.id} onClick={() => setSelectedChild(child.id)}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-              style={{
-                background: selectedChild === child.id ? 'var(--forest)' : 'white',
-                color: selectedChild === child.id ? 'white' : 'var(--slate)',
-                border: `1.5px solid ${selectedChild === child.id ? 'var(--forest)' : 'var(--border)'}`,
-              }}>
-              {child.profile_photo ? '👤' : child.name.toLowerCase().includes('priya') ? '👧' : '👦'} {child.name.split(' ')[0]} ({t('कक्षा', 'Class')} {child.class_name})
-            </button>
-          ))}
-        </div>
-      )}
+      <ParentChildSwitcher
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={setSelectedChildId}
+        className="mb-5"
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
