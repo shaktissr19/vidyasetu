@@ -66,6 +66,30 @@ export interface AdminContentAnalytics {
   recentItems: AdminRecentContentItem[];
 }
 
+export interface AdminSupportTicket extends SupportTicket {
+  assigned_to_name?: string | null;
+  updated_at?: string | null;
+  closed_at?: string | null;
+}
+
+export interface AdminAuditLogEntry {
+  id: string;
+  actor_id?: string | null;
+  actor_role?: string | null;
+  actor_name?: string | null;
+  actor_mobile?: string | null;
+  school_id?: string | null;
+  school_name?: string | null;
+  action: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  old_value?: Record<string, unknown> | null;
+  new_value?: Record<string, unknown> | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+}
+
 export const getAnalytics = () => api.get<ApiEnvelope<AdminAnalytics>>('/admin/analytics');
 export const listSchools = (params: AdminQueryParams = {}) => api.get<ApiListResponse<AdminSchool>>('/admin/schools', { params });
 export const getSchool = (id: string) => api.get<ApiEnvelope<AdminSchoolDetail>>(`/admin/schools/${id}`);
@@ -73,10 +97,11 @@ export const updateSchoolStatus = (id: string, status: string) => api.patch<ApiE
 export const listUsers = (params: AdminQueryParams = {}) => api.get<ApiListResponse<AdminUser>>('/admin/users', { params });
 export const exportUsers = (params: AdminQueryParams = {}) => api.get<ApiEnvelope<AdminUser[]>>('/admin/users/export', { params });
 export const updateUserStatus = (id: string, status: string) => api.patch<ApiEnvelope<AdminUser>>(`/admin/users/${id}/status`, { status });
-export const getTickets = (params: AdminQueryParams = {}) => api.get<ApiEnvelope<SupportTicket[]>>('/admin/support', { params });
-export const updateTicket = (id: string, body: Payload) => api.patch<ApiEnvelope<SupportTicket>>(`/admin/support/${id}`, body);
+export const getTickets = (params: AdminQueryParams = {}) => api.get<ApiListResponse<AdminSupportTicket>>('/admin/support', { params });
+export const updateTicket = (id: string, body: Payload) => api.patch<ApiEnvelope<AdminSupportTicket>>(`/admin/support/${id}`, body);
+export const getAuditLog = (params: AdminQueryParams = {}) => api.get<ApiListResponse<AdminAuditLogEntry>>('/admin/audit', { params });
 export const getConfig = () => api.get<ApiEnvelope<PlatformConfigItem[]>>('/admin/config');
-export const updateConfig = (key: string, value: unknown) => api.patch<ApiEnvelope<PlatformConfigItem>>('/admin/config', { key, value });
+export const updateConfig = (key: string, value: unknown) => api.patch<ApiEnvelope<PlatformConfigItem>>(`/admin/config/${encodeURIComponent(key)}`, { value });
 export const getRevenue = (params: AdminQueryParams = {}) => api.get<ApiEnvelope<AdminRevenue>>('/admin/revenue', { params });
 export const getContentAnalytics = () => api.get<ApiEnvelope<AdminContentAnalytics>>('/admin/content');
 export const listCompetitions = () => api.get<ApiEnvelope<CompetitionExamV2[]>>('/admin/competitions');

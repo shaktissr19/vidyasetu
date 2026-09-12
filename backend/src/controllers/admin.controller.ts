@@ -6,7 +6,7 @@ import * as R from '../utils/response';
 interface StatusBody { status: string; }
 interface ConfigBody { key: string; value: unknown; }
 interface ConfigValueBody { value: unknown; }
-interface TicketBody { status?: string; resolution?: string | null; }
+interface TicketBody { status: string; resolution?: string | null; }
 interface CompetitionBody {
   title: string;
   title_hi?: string | null;
@@ -23,7 +23,7 @@ interface CompetitionBody {
 }
 
 function queryString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function authenticated(req: Request, res: Response) {
@@ -136,19 +136,12 @@ export async function updateConfig(
 
 export async function getTickets(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
-    const conditions = ['1=1'];
-    const values: unknown[] = [];
-    const status = queryString(req.query.status);
-    if (status) { conditions.push(`st.status=$${values.length + 1}`); values.push(status); }
-    const { rows } = await query(
-      `SELECT st.*,u.name AS raised_by_name,s.name AS school_name
-       FROM support_tickets st
-       JOIN users u ON u.id=st.raised_by
-       LEFT JOIN schools s ON s.id=st.school_id
-       WHERE ${conditions.join(' AND ')} ORDER BY st.created_at DESC LIMIT 100`,
-      values,
-    );
-    return R.ok(res, rows);
+    const result = await adminService.listSupportTickets(req.query, {
+      status: queryString(req.query.status),
+      priority: queryString(req.query.priority),
+      search: queryString(req.query.search),
+    });
+    return R.ok(res, result.tickets, result.meta);
   } catch (err: unknown) { next(err); }
 }
 
@@ -158,12 +151,19 @@ export async function updateTicket(
   next: NextFunction,
 ): Promise<Response | void> {
   try {
-    const { rows } = await query(
-      `UPDATE support_tickets SET status=$1,resolution=$2,closed_at=CASE WHEN $1='RESOLVED' THEN NOW() ELSE NULL END,updated_at=NOW()
-       WHERE id=$3 RETURNING *`,
-      [req.body.status || 'RESOLVED', req.body.resolution || null, req.params.ticketId],
-    );
-    return R.ok(res, rows[0]);
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await adminService.updateSupportTicket(req.params.ticketId, req.body, user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getAuditLog(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const result = await adminService.listAuditLog(req.query, {
+      action: queryString(req.query.action),
+      entityType: queryString(req.query.entityType),
+      search: queryString(req.query.search),
+    });
+    return R.ok(res, result.entries, result.meta);
   } catch (err: unknown) { next(err); }
 }
 

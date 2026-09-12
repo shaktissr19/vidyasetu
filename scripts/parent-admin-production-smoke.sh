@@ -10,14 +10,14 @@ fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 check_web() {
   local path="$1" code
   code="$(curl -sS -o /dev/null -w '%{http_code}' "$WEB_BASE$path" || true)"
-  printf '%-34s %s\n' "$path" "$code"
+  printf '%-38s %s\n' "$path" "$code"
   [[ "$code" =~ ^(200|301|302|307|308)$ ]] || fail "$WEB_BASE$path returned HTTP $code"
 }
 
 check_unauthenticated_api() {
   local path="$1" code
   code="$(curl -sS -o /dev/null -w '%{http_code}' "$API_BASE$path" || true)"
-  printf '%-44s %s\n' "$path" "$code"
+  printf '%-48s %s\n' "$path" "$code"
   [[ "$code" == "401" || "$code" == "403" ]] || fail "$API_BASE$path must reject unauthenticated access; got HTTP $code"
 }
 
@@ -44,15 +44,23 @@ done
 
 log "Admin application routes"
 for path in \
+  /admin \
   /admin/analytics \
   /admin/schools \
   /admin/users \
+  /admin/learning \
+  /admin/learning/coverage \
+  /admin/learning/imports \
+  /admin/learning/practice \
+  /admin/learning/diagnostics \
+  /admin/learning/intake \
   /admin/competitions \
   /admin/groups \
   /admin/grievances \
   /admin/content \
   /admin/revenue \
   /admin/support \
+  /admin/audit \
   /admin/settings; do
   check_web "$path"
 done
@@ -65,6 +73,9 @@ check_unauthenticated_api "/parent/children/00000000-0000-0000-0000-000000000000
 check_unauthenticated_api "/admin/analytics"
 check_unauthenticated_api "/admin/schools"
 check_unauthenticated_api "/admin/users"
+check_unauthenticated_api "/admin/support"
+check_unauthenticated_api "/admin/audit"
+check_unauthenticated_api "/admin/config"
 check_unauthenticated_api "/admin/grievances"
 
 printf '\nParent/Admin production smoke passed. No production data was modified.\n'
