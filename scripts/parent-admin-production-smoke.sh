@@ -17,20 +17,28 @@ check_web() {
 check_unauthenticated_api() {
   local path="$1" code
   code="$(curl -sS -o /dev/null -w '%{http_code}' "$API_BASE$path" || true)"
-  printf '%-34s %s\n' "$path" "$code"
+  printf '%-44s %s\n' "$path" "$code"
   [[ "$code" == "401" || "$code" == "403" ]] || fail "$API_BASE$path must reject unauthenticated access; got HTTP $code"
 }
 
 log "Parent application routes"
 for path in \
   /parent/dashboard \
+  /parent/homework \
   /parent/performance \
+  /parent/achievements \
+  /parent/learning-support \
+  /parent/ptm \
   /parent/attendance \
+  /parent/leave \
+  /parent/transport \
+  /parent/documents \
   /parent/report-card \
   /parent/fees \
   /parent/notifications \
   /parent/messages \
-  /parent/grievances; do
+  /parent/grievances \
+  /parent/groups; do
   check_web "$path"
 done
 
@@ -52,6 +60,8 @@ done
 log "Parent/Admin authorization boundary"
 check_unauthenticated_api "/parent/children"
 check_unauthenticated_api "/parent/grievances"
+check_unauthenticated_api "/parent/children/00000000-0000-0000-0000-000000000000/homework"
+check_unauthenticated_api "/parent/children/00000000-0000-0000-0000-000000000000/achievements"
 check_unauthenticated_api "/admin/analytics"
 check_unauthenticated_api "/admin/schools"
 check_unauthenticated_api "/admin/users"
