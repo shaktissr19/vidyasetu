@@ -204,6 +204,64 @@ export interface ParentNotification {
   read_at?: string | null;
 }
 
+export type ParentHomeworkStatus = 'PENDING' | 'SUBMITTED' | 'REVIEWED' | 'OVERDUE';
+
+export interface ParentHomeworkItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  instructions?: string | null;
+  attachment_url?: string | null;
+  subject_code: string;
+  subject_name?: string | null;
+  subject_name_hi?: string | null;
+  due_at: string;
+  max_marks?: number | string | null;
+  status: string;
+  published_at?: string | null;
+  submission_id?: string | null;
+  submission_status?: string | null;
+  submitted_at?: string | null;
+  marks_awarded?: number | string | null;
+  feedback?: string | null;
+  reviewed_at?: string | null;
+  learner_status: ParentHomeworkStatus;
+}
+
+export interface ParentHomeworkData {
+  student: { id: string; name: string; className?: string | null };
+  items: ParentHomeworkItem[];
+  summary: { pending: number; submitted: number; reviewed: number; overdue: number };
+}
+
+export interface ParentCompetitionItem {
+  exam_id: string;
+  title: string;
+  title_hi?: string | null;
+  type: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+  results_at?: string | null;
+  prize_pool?: number | string | null;
+  subject_codes?: string[] | null;
+  class_names?: string[] | null;
+  attempt_id?: string | null;
+  attempt_status?: string | null;
+  total_marks?: number | string | null;
+  max_marks?: number | string | null;
+  percentage?: number | string | null;
+  rank_school?: number | string | null;
+  rank_overall?: number | string | null;
+  submitted_at?: string | null;
+}
+
+export interface ParentAchievementsData {
+  student: { id: string; name: string; className?: string | null };
+  competitions: ParentCompetitionItem[];
+  achievements: ParentCompetitionItem[];
+}
+
 export const getChildren = () => api.get<ApiEnvelope<ParentChild[]>>('/parent/children');
 export const getChildDashboard = (id: string) => api.get<ApiEnvelope<ParentDashboardData>>(`/parent/children/${id}/dashboard`);
 export const getChildPerformance = (id: string) => api.get<ApiEnvelope<ParentPerformanceData>>(`/parent/children/${id}/performance`);
@@ -218,6 +276,8 @@ export const getChildReportCard = (id: string, academicYear?: string | null, ter
 };
 export const getChildTeacher = (id: string) => api.get<ApiEnvelope<ParentClassTeacher | null>>(`/parent/children/${id}/teacher`);
 export const getChildFees = (id: string) => api.get<ApiEnvelope<ParentFeeRow[]>>(`/parent/children/${id}/fees`);
+export const getChildHomework = (id: string) => api.get<ApiEnvelope<ParentHomeworkData>>(`/parent/children/${id}/homework`);
+export const getChildAchievements = (id: string) => api.get<ApiEnvelope<ParentAchievementsData>>(`/parent/children/${id}/achievements`);
 export const getMessages = (id: string) => api.get<ApiEnvelope<ParentMessage[]>>(`/parent/children/${id}/messages`);
 export const sendMessage = (id: string, body: string) => api.post<ApiEnvelope<ParentMessage>>(`/parent/children/${id}/messages`, { body });
 export const getNotifications = () => api.get<ApiEnvelope<ParentNotification[]>>('/parent/notifications');
