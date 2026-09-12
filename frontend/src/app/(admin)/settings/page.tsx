@@ -1,9 +1,10 @@
 'use client';
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getConfig, updateConfig } from '@/services/adminService';
 import { SectionHeader } from '@/components/ui/index';
 import type { PlatformConfigItem } from '@/types/api';
+import { apiErrorText } from '@/utils/errors';
 import toast from 'react-hot-toast';
 
 const GROUPS: Record<string, string[]> = {
@@ -14,27 +15,52 @@ const GROUPS: Record<string, string[]> = {
   Sync: ['OFFLINE_SYNC_INTERVAL_MINS'],
 };
 
+function coerceValue(original: string | number, draft: string): string | number | boolean {
+  if (typeof original === 'number') return Number(draft);
+  const normalized = String(original).trim().toLowerCase();
+  if (normalized === 'true' || normalized === 'false') return draft.trim().toLowerCase() === 'true';
+  if (/^-?\d+(?:\.\d+)?$/.test(String(original).trim()) && /^-?\d+(?:\.\d+)?$/.test(draft.trim())) return Number(draft);
+  return draft;
+}
+
+function fieldType(value: string | number) {
+  const text = String(value).trim().toLowerCase();
+  if (text === 'true' || text === 'false') return 'boolean';
+  if (/^-?\d+(?:\.\d+)?$/.test(text)) return 'number';
+  return 'text';
+}
+
 export default function AdminSettingsPage() {
   const qc = useQueryClient();
-  const [editing, setEditing] = useState<Record<string, string | number>>({});
+  const [editing, setEditing] = useState<Record<string, string>>({});
 
-  const { data: config = [], isLoading } = useQuery({
+  const { data: config = [], isLoading, isError, error } = useQuery({
     queryKey: ['platform-config'],
     queryFn: () => getConfig().then((r) => r.data.data),
   });
 
   const mut = useMutation({
-    mutationFn: ({ key, value }: { key: string; value: string | number }) => updateConfig(key, value),
-    onSuccess: (_, { key }) => {
+    mutationFn: ({ key, value }: { key: string; value: string | number | boolean }) => updateConfig(key, value),
+    onSuccess: async (_, { key }) => {
       toast.success(`✅ ${key} updated`);
       setEditing((current) => { const next = { ...current }; delete next[key]; return next; });
-      qc.invalidateQueries({ queryKey: ['platform-config'] });
+      await qc.invalidateQueries({ queryKey: ['platform-config'] });
     },
-    onError: () => toast.error('Update failed'),
+    onError: (err: unknown) => toast.error(apiErrorText(err, 'Settings update failed')),
   });
 
-  const configMap: Record<string, PlatformConfigItem> = {};
-  for (const item of config) configMap[item.key] = item;
+  const configMap = useMemo(() => Object.fromEntries(config.map((item) => [item.key, item])) as Record<string, PlatformConfigItem>, [config]);
+  const groupedKeys = useMemo(() => new Set(Object.values(GROUPS).flat()), []);
+  const otherKeys = useMemo(() => config.map((item) => item.key).filter((key) => !groupedKeys.has(key)), [config, groupedKeys]);
+  const sections = useMemo(() => ({ ...GROUPS, ...(otherKeys.length ? { Other: otherKeys } : {}) }), [otherKeys]);
+
+  const beginEdit = (cfg: PlatformConfigItem) => setEditing((current) => ({ ...current, [cfg.key]: String(cfg.value) }));
+  const cancelEdit = (key: string) => setEditing((current) => { const next = { ...current }; delete next[key]; return next; });
+  const save = (cfg: PlatformConfigItem) => {
+    const draft = editing[cfg.key];
+    if (draft === undefined || !draft.trim()) { toast.error('A configuration value cannot be empty'); return; }
+    mut.mutate({ key: cfg.key, value: coerceValue(cfg.value, draft) });
+  };
 
   if (isLoading) return (
     <div className="animate-fade-up">
@@ -43,59 +69,60 @@ export default function AdminSettingsPage() {
     </div>
   );
 
+  if (isError) return <div className="card-navy" style={{ color: '#EF9A9A' }}>{apiErrorText(error, 'Could not load platform configuration')}</div>;
+
   return (
     <div className="animate-fade-up">
-      <SectionHeader title="⚙️ Platform Settings" sub="Global configuration — changes apply immediately" />
+      <SectionHeader title="⚙️ Platform Settings" sub={`${config.length} governed configuration keys · every change is audit logged`} />
 
-      {Object.entries(GROUPS).map(([group, keys]) => (
-        <div key={group} className="card-navy mb-5">
-          <h3 className="font-display font-bold text-base text-white mb-4">{group}</h3>
-          <div className="space-y-3">
-            {keys.map((key) => {
-              const cfg = configMap[key];
-              if (!cfg) return null;
-              const isEditing = key in editing;
-              return (
-                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'white', fontFamily: 'monospace' }}>{key}</p>
-                    {cfg.description && <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{cfg.description}</p>}
+      <div className="card-navy mb-5" style={{ borderLeft: '4px solid var(--saffron)' }}>
+        <div className="font-bold text-white">Configuration safety</div>
+        <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Changes use the validated per-key Admin API. Unknown keys cannot be created here, and every successful change records the previous and new value in Audit Trail.</p>
+      </div>
+
+      {Object.entries(sections).map(([group, keys]) => {
+        const visible = keys.map((key) => configMap[key]).filter(Boolean);
+        if (!visible.length) return null;
+        return (
+          <div key={group} className="card-navy mb-5">
+            <h3 className="font-display font-bold text-base text-white mb-4">{group}</h3>
+            <div className="space-y-1">
+              {visible.map((cfg) => {
+                const isEditing = cfg.key in editing;
+                const kind = fieldType(cfg.value);
+                return (
+                  <div key={cfg.key} className="flex flex-col md:flex-row md:items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white font-mono break-all">{cfg.key}</p>
+                      {cfg.description && <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{cfg.description}</p>}
+                    </div>
+                    {isEditing ? (
+                      <div className="flex gap-2 items-center flex-wrap md:justify-end">
+                        {kind === 'boolean' ? (
+                          <select value={editing[cfg.key]} onChange={(e) => setEditing((prev) => ({ ...prev, [cfg.key]: e.target.value }))}
+                            className="input select" style={{ width: 110, background: '#111a32', color: 'white' }}>
+                            <option value="true">true</option><option value="false">false</option>
+                          </select>
+                        ) : (
+                          <input type={kind} value={editing[cfg.key]} onChange={(e) => setEditing((prev) => ({ ...prev, [cfg.key]: e.target.value }))}
+                            className="input" style={{ width: kind === 'number' ? 130 : 220, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.45)', color: 'white' }} />
+                        )}
+                        <button className="btn-primary" disabled={mut.isPending} onClick={() => save(cfg)}>Save</button>
+                        <button className="btn-ghost" onClick={() => cancelEdit(cfg.key)}>Cancel</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 md:justify-end">
+                        <code className="text-sm font-extrabold break-all" style={{ color: 'var(--saffron-light)' }}>{String(cfg.value)}</code>
+                        <button className="btn-ghost text-xs" onClick={() => beginEdit(cfg)}>Edit</button>
+                      </div>
+                    )}
                   </div>
-                  {isEditing ? (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <input
-                        type="number"
-                        value={editing[key]}
-                        onChange={(e) => setEditing((prev) => ({ ...prev, [key]: e.target.value }))}
-                        style={{ width: 90, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,107,0,0.5)', background: 'rgba(255,107,0,0.1)', color: 'white', fontSize: '0.875rem', textAlign: 'center' }}
-                      />
-                      <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                        disabled={mut.isPending}
-                        onClick={() => mut.mutate({ key, value: editing[key] })}>
-                        Save
-                      </button>
-                      <button className="btn-ghost" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}
-                        onClick={() => setEditing((current) => { const next = { ...current }; delete next[key]; return next; })}>
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontFamily: 'monospace', fontSize: '1rem', fontWeight: 800, color: 'var(--saffron-light)', minWidth: 48, textAlign: 'right' }}>
-                        {cfg.value}
-                      </span>
-                      <button className="btn-ghost" style={{ padding: '5px 10px', fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}
-                        onClick={() => setEditing((current) => ({ ...current, [key]: cfg.value }))}>
-                        Edit
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
