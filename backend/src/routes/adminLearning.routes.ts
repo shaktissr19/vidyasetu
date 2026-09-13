@@ -16,6 +16,27 @@ const importUpload = multer({
 router.use(authenticate);
 router.use(authorize('SUPER_ADMIN'));
 
+const accessRequirementSchema = z.enum(['PUBLIC','REGISTERED','SUBSCRIBER']);
+const visibilitySchema = z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']);
+
+function validateAccessPolicy(
+  value: { visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY' | 'SCHOOL_ONLY'; accessRequirement?: 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER' },
+  ctx: z.RefinementCtx,
+): void {
+  const requirement = value.accessRequirement || (value.visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED');
+  if (value.visibility === 'PUBLIC' && requirement !== 'PUBLIC') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accessRequirement'], message: 'PUBLIC visibility must use PUBLIC access requirement' });
+  }
+  if (value.visibility !== 'PUBLIC' && requirement === 'PUBLIC') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accessRequirement'], message: 'PUBLIC access requirement is only valid with PUBLIC visibility' });
+  }
+}
+
+const accessPolicySchema = z.object({
+  visibility: visibilitySchema,
+  accessRequirement: accessRequirementSchema,
+}).superRefine(validateAccessPolicy);
+
 const conceptMappingSchema = z.object({
   conceptId: z.string().uuid(),
   journeyStage: z.enum(['SEE','UNDERSTAND','DO','PRACTISE','APPLY','REVISE']),
@@ -32,7 +53,8 @@ const resourceSchema = z.object({
   bodyMarkdownHi: z.string().max(30000).nullable().optional(),
   resourceType: z.enum(['ARTICLE','VIDEO','AUDIO','PDF','WORKSHEET','QUIZ','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK']),
   category: z.enum(['ACADEMIC','MOTIVATION','STUDY_SKILLS','WORK_ETHIC','SOCIAL_RESPONSIBILITY','LIFE_SKILLS','WELLBEING','CAREER_AWARENESS','DIGITAL_CITIZENSHIP']),
-  visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']),
+  visibility: visibilitySchema,
+  accessRequirement: accessRequirementSchema.optional(),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   language: z.string().trim().min(2).max(5).optional(),
   classMin: z.number().int().min(1).max(12).nullable().optional(),
@@ -52,7 +74,7 @@ const resourceSchema = z.object({
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   publicSlug: z.string().trim().min(3).max(180).regex(/^[a-z0-9-]+$/).nullable().optional(),
   conceptMappings: z.array(conceptMappingSchema).max(12).optional(),
-});
+}).superRefine(validateAccessPolicy);
 
 const statusSchema = z.object({
   status: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']),
@@ -77,7 +99,7 @@ const questionSchema = z.object({
   sourceUrl: z.string().url().nullable().optional(),
   licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']).optional(),
   attributionText: z.string().trim().max(2000).nullable().optional(),
-  visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']).optional(),
+  visibility: visibilitySchema.optional(),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   options: z.array(z.object({ key: z.string().trim().min(1).max(10), text: z.string().trim().min(1).max(2000), textHi: z.string().trim().max(2000).nullable().optional() })).max(12).optional(),
@@ -96,7 +118,8 @@ const assessmentSchema = z.object({
   titleHi: z.string().trim().max(300).nullable().optional(),
   summary: z.string().trim().max(2000).nullable().optional(),
   assessmentType: z.enum(['DIAGNOSTIC','PRACTICE','CHAPTER_TEST','UNIT_TEST','MOCK','DAILY']),
-  visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']),
+  visibility: visibilitySchema,
+  accessRequirement: accessRequirementSchema.optional(),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
   classMin: z.number().int().min(1).max(12).nullable().optional(),
   classMax: z.number().int().min(1).max(12).nullable().optional(),
@@ -109,7 +132,7 @@ const assessmentSchema = z.object({
   boardCodes: z.array(z.string().trim().min(2).max(30)).max(25).optional(),
   questionIds: z.array(z.string().uuid()).min(1).max(200),
   conceptIds: z.array(z.string().uuid()).max(30).optional(),
-});
+}).superRefine(validateAccessPolicy);
 
 const conceptMetadataSchema = z.object({
   nameHi: z.string().trim().max(300).nullable().optional(),
@@ -159,6 +182,7 @@ router.get('/review-packs', ctrl.reviewPacks);
 router.get('/review/pressure-v1', ctrl.pressureReview);
 router.get('/review/:packKey', ctrl.contentPackReview);
 router.post('/resources', validate(resourceSchema), ctrl.createResource);
+router.patch('/resources/:resourceId/access', validate(accessPolicySchema), ctrl.updateResourceAccess);
 router.patch('/resources/:resourceId/status', validate(statusSchema), ctrl.updateStatus);
 
 router.get('/questions', ctrl.questions);
@@ -166,6 +190,7 @@ router.post('/questions', validate(questionSchema), ctrl.createQuestion);
 router.patch('/questions/:questionId/status', validate(statusSchema), ctrl.updateQuestionStatus);
 router.get('/assessments', ctrl.assessments);
 router.post('/assessments', validate(assessmentSchema), ctrl.createAssessment);
+router.patch('/assessments/:assessmentId/access', validate(accessPolicySchema), ctrl.updateAssessmentAccess);
 router.patch('/assessments/:assessmentId/status', validate(statusSchema), ctrl.updateAssessmentStatus);
 router.get('/intake', ctrl.intake);
 router.post('/intake', validate(intakeSchema), ctrl.createIntake);
