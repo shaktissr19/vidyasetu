@@ -74,7 +74,7 @@ export default function StudentLearningResourcePage() {
       <EmptyState
         icon="🔒"
         title={t('यह लर्निंग संसाधन उपलब्ध नहीं है', 'This learning resource is unavailable')}
-        subtitle={t('यह आपके ग्रेड, बोर्ड या Learning access में शामिल नहीं हो सकता।', 'It may not be included in your grade, board or Learning access.')}
+        sub={t('यह आपके ग्रेड, बोर्ड या Learning access में शामिल नहीं हो सकता।', 'It may not be included in your grade, board or Learning access.')}
       />
     );
   }
@@ -82,6 +82,7 @@ export default function StudentLearningResourcePage() {
   const title = lang === 'hi' && resource.title_hi ? resource.title_hi : resource.title;
   const summary = lang === 'hi' && resource.summary_hi ? resource.summary_hi : resource.summary;
   const externalUrl = resource.external_url || resource.source_url;
+  const mediaUrl = resource.content_url;
   const progress = Math.round(Number(resource.progress_pct || 0));
 
   return (
@@ -128,8 +129,39 @@ export default function StudentLearningResourcePage() {
       </section>
 
       <section className="card mt-4" style={{ padding: 24 }}>
+        {mediaUrl && resource.resource_type === 'VIDEO' && (
+          <div className="mb-6">
+            <video controls preload="metadata" style={{ width: '100%', borderRadius: 14, background: '#071126' }} src={mediaUrl}>
+              {t('आपका ब्राउज़र वीडियो चला नहीं सकता।', 'Your browser cannot play this video.')}
+            </video>
+          </div>
+        )}
+
+        {mediaUrl && resource.resource_type === 'AUDIO' && (
+          <div className="mb-6 rounded-xl p-4" style={{ background: '#f6f7f9' }}>
+            <audio controls preload="metadata" style={{ width: '100%' }} src={mediaUrl}>
+              {t('आपका ब्राउज़र ऑडियो चला नहीं सकता।', 'Your browser cannot play this audio.')}
+            </audio>
+          </div>
+        )}
+
+        {mediaUrl && ['PDF', 'WORKSHEET', 'QUESTION_PAPER'].includes(resource.resource_type) && (
+          <div className="mb-6">
+            <a className="btn-primary inline-block" href={mediaUrl} target="_blank" rel="noopener noreferrer">
+              {resource.resource_type === 'PDF' ? t('PDF खोलें', 'Open PDF') : t('दस्तावेज़ खोलें', 'Open document')} ↗
+            </a>
+            <p className="text-xs mt-2" style={{ color: 'var(--slate)' }}>
+              {t('लिंक सीमित समय के लिए सुरक्षित रूप से साइन किया गया है।', 'The link is securely signed for a limited time.')}
+            </p>
+          </div>
+        )}
+
         {body ? (
           <div>{renderBody(body)}</div>
+        ) : mediaUrl ? (
+          <p className="text-sm" style={{ color: 'var(--slate)' }}>
+            {t('ऊपर दिया गया मीडिया इस पाठ का मुख्य लर्निंग संसाधन है।', 'The media above is the primary learning resource for this lesson.')}
+          </p>
         ) : externalUrl ? (
           <div>
             <h2 className="font-display font-bold text-xl" style={{ color: 'var(--navy)' }}>{t('मूल संसाधन खोलें', 'Open learning resource')}</h2>
