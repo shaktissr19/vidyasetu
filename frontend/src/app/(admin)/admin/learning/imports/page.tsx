@@ -127,6 +127,9 @@ export default function LearningBulkImporterPage() {
           <div className={styles.note}>
             <strong>Board codes:</strong> use COMMON for cross-board content or one/more configured boards such as CBSE;UPMSP. NROER rows must contain a genuine nroer.gov.in source URL, verified open/link-only licence and attribution.
           </div>
+          <div className={styles.note}>
+            <strong>Learning access:</strong> resource rows accept <code>access_requirement</code> = PUBLIC, REGISTERED or SUBSCRIBER. PUBLIC visibility must use PUBLIC access. REGISTERED/SUBSCRIBER access can use REGISTERED, CLASS_ONLY or SCHOOL_ONLY visibility. If omitted, PUBLIC rows default to PUBLIC and all other resource rows default to REGISTERED.
+          </div>
         </section>
 
         <section className={styles.adminPanel}>
@@ -139,7 +142,7 @@ export default function LearningBulkImporterPage() {
             {stageMutation.isPending ? 'Validating…' : 'Validate & stage file'}
           </button>
           <p style={{ color: 'rgba(255,255,255,.46)', marginTop: 12, lineHeight: 1.6, fontSize: 12 }}>
-            Maximum 5 MB / 1,000 rows per batch. Duplicate import keys, unknown grades/boards/sources, invalid licences and unsafe NROER URLs are rejected before any content is created.
+            Maximum 5 MB / 1,000 rows per batch. Duplicate import keys, unknown grades/boards/sources, invalid licences, invalid access-policy pairs and unsafe NROER URLs are rejected before any content is created.
           </p>
         </section>
       </div>
@@ -189,6 +192,7 @@ export default function LearningBulkImporterPage() {
                   <div className={styles.pillRow}>
                     {Array.isArray(row.normalized_payload.gradeCodes) && (row.normalized_payload.gradeCodes as string[]).slice(0,6).map((grade) => <span className={styles.pill} key={grade}>{grade.replace('CLASS_','Class ')}</span>)}
                     {Array.isArray(row.normalized_payload.boardCodes) && (row.normalized_payload.boardCodes as string[]).slice(0,4).map((board) => <span className={styles.pill} key={board}>{board}</span>)}
+                    {row.record_type === 'RESOURCE' && row.normalized_payload.accessRequirement && <span className={styles.pill}>{String(row.normalized_payload.accessRequirement)} ACCESS</span>}
                   </div>
                 </article>
               ))}
