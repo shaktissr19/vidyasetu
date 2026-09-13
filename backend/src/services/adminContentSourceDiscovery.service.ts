@@ -1,0 +1,376 @@
+import axios from 'axios';
+import type { QueryResultRow } from 'pg';
+import type { UUID } from '@vidyasetu/contracts';
+import { query, transaction } from '../config/db';
+import * as practiceService from './adminLearningPractice.service';
+
+export type DiscoveryProvider = 'LOCAL' | 'DIKSHA';
+
+export interface DiscoverSourcesInput {
+  provider: DiscoveryProvider;
+  query: string;
+  classNumber?: number | null;
+  subject?: string | null;
+  language?: string | null;
+  limit?: number;
+}
+
+interface DiscoveryRunRow extends QueryResultRow {
+  id: UUID;
+  provider: DiscoveryProvider;
+}
+
+interface CandidateRow extends QueryResultRow {
+  id: UUID;
+  run_id: UUID;
+  provider: DiscoveryProvider;
+  source_code: string;
+  source_item_id: string;
+  resource_id: UUID | null;
+  title: string;
+  description: string | null;
+  source_url: string | null;
+  primary_category: string | null;
+  resource_type: string | null;
+  licence_candidate: string | null;
+  licence_raw: string | null;
+  attribution_text: string | null;
+  author_text: string | null;
+  publisher_text: string | null;
+  grade_levels: string[];
+  subjects: string[];
+  languages: string[];
+  can_adapt: boolean;
+  can_use_commercially: boolean;
+  licence_verified: boolean;
+  intake_id: UUID | null;
+}
+
+interface DikshaSearchResponse {
+  responseCode?: string;
+  result?: {
+    count?: number;
+    content?: unknown[];
+  };
+}
+
+interface NormalizedCandidate {
+  provider: DiscoveryProvider;
+  sourceCode: string;
+  sourceItemId: string;
+  resourceId?: UUID | null;
+  title: string;
+  description?: string | null;
+  sourceUrl?: string | null;
+  primaryCategory?: string | null;
+  resourceType?: string | null;
+  licenceCandidate?: string | null;
+  licenceRaw?: string | null;
+  attributionText?: string | null;
+  authorText?: string | null;
+  publisherText?: string | null;
+  gradeLevels: string[];
+  subjects: string[];
+  languages: string[];
+  canAdapt: boolean;
+  canUseCommercially: boolean;
+  licenceVerified: boolean;
+  metadata: Record<string, unknown>;
+}
+
+function appError(message: string, statusCode = 400): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode });
+}
+
+async function assertDiscoverySchema(): Promise<void> {
+  const { rows: [row] } = await query<{ ready: boolean } & QueryResultRow>(
+    `SELECT to_regclass('public.learning_source_discovery_runs') IS NOT NULL
+         AND to_regclass('public.learning_source_discovery_candidates') IS NOT NULL AS ready`,
+  );
+  if (!row?.ready) throw appError('Source Discovery requires database migration 046', 503);
+}
+
+function asString(value: unknown): string | null {
+  if (typeof value === 'string') return value.trim() || null;
+  if (typeof value === 'number') return String(value);
+  return null;
+}
+
+function asStrings(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(asString).filter((item): item is string => Boolean(item));
+  const single = asString(value);
+  return single ? [single] : [];
+}
+
+function firstText(...values: unknown[]): string | null {
+  for (const value of values) {
+    const strings = asStrings(value);
+    if (strings.length) return strings.join(', ');
+  }
+  return null;
+}
+
+function mapLicence(rawValue: unknown): string {
+  const raw = String(asString(rawValue) || '').toUpperCase().replace(/[–—]/g, '-').replace(/_/g, ' ');
+  if (!raw) return 'OTHER';
+  if (raw.includes('PUBLIC DOMAIN') || raw === 'CC0' || raw.includes('CC ZERO')) return 'PUBLIC_DOMAIN';
+  if (raw.includes('CC BY-NC-ND') || raw.includes('CC BY NC ND')) return 'CC_BY_NC_ND';
+  if (raw.includes('CC BY-NC-SA') || raw.includes('CC BY NC SA')) return 'CC_BY_NC_SA';
+  if (raw.includes('CC BY-SA') || raw.includes('CC BY SA')) return 'CC_BY_SA';
+  if (raw.includes('CC BY')) return 'CC_BY';
+  return 'OTHER';
+}
+
+function candidateRights(licence: string): { canAdapt: boolean; commercial: boolean } {
+  return {
+    canAdapt: ['CC_BY','CC_BY_SA','CC_BY_NC_SA','PUBLIC_DOMAIN','VIDYASETU_ORIGINAL'].includes(licence),
+    commercial: ['CC_BY','CC_BY_SA','PUBLIC_DOMAIN','VIDYASETU_ORIGINAL'].includes(licence),
+  };
+}
+
+function safeMetadata(value: Record<string, unknown>): Record<string, unknown> {
+  const fields = [
+    'identifier','name','description','primaryCategory','resourceType','mimeType','gradeLevel','subject','medium','language',
+    'license','licence','creator','author','organisation','publisher','attributions','copyright','channel','publishedOn','framework',
+  ];
+  return Object.fromEntries(fields.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]));
+}
+
+function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
+  if (!rawUnknown || typeof rawUnknown !== 'object' || Array.isArray(rawUnknown)) return null;
+  const raw = rawUnknown as Record<string, unknown>;
+  const identifier = asString(raw.identifier);
+  const title = asString(raw.name);
+  if (!identifier || !title) return null;
+  const licenceRaw = firstText(raw.license, raw.licence);
+  const licence = mapLicence(licenceRaw);
+  const rights = candidateRights(licence);
+  const author = firstText(raw.author, raw.creator);
+  const publisher = firstText(raw.publisher, raw.organisation, raw.channel);
+  const attributions = firstText(raw.attributions, raw.copyright);
+  const attribution = [author, publisher, attributions].filter(Boolean).join(' · ') || null;
+  return {
+    provider: 'DIKSHA',
+    sourceCode: 'DIKSHA',
+    sourceItemId: identifier,
+    resourceId: null,
+    title,
+    description: asString(raw.description),
+    sourceUrl: `https://diksha.gov.in/resources/play/content/${encodeURIComponent(identifier)}`,
+    primaryCategory: asString(raw.primaryCategory),
+    resourceType: firstText(raw.resourceType, raw.contentType, raw.mimeType),
+    licenceCandidate: licence,
+    licenceRaw,
+    attributionText: attribution,
+    authorText: author,
+    publisherText: publisher,
+    gradeLevels: asStrings(raw.gradeLevel),
+    subjects: asStrings(raw.subject),
+    languages: [...new Set([...asStrings(raw.language), ...asStrings(raw.medium)])],
+    canAdapt: rights.canAdapt,
+    canUseCommercially: rights.commercial,
+    // Discovery metadata is advisory. Existing OER intake must verify the item-level licence before grounding.
+    licenceVerified: false,
+    metadata: safeMetadata(raw),
+  };
+}
+
+async function createRun(input: DiscoverSourcesInput, adminId: UUID): Promise<DiscoveryRunRow> {
+  const { rows: [run] } = await query<DiscoveryRunRow>(
+    `INSERT INTO learning_source_discovery_runs(provider,query_text,class_number,subject,language,filters,created_by)
+     VALUES($1::learning_discovery_provider,$2,$3,$4,$5,$6::jsonb,$7::uuid)
+     RETURNING id,provider`,
+    [input.provider,input.query.trim(),input.classNumber || null,input.subject?.trim() || null,input.language?.trim() || null,
+     JSON.stringify({ limit: Math.min(30, Math.max(1, input.limit || 12)) }),adminId],
+  );
+  return run;
+}
+
+async function persistCandidates(runId: UUID, candidates: NormalizedCandidate[]): Promise<CandidateRow[]> {
+  return transaction(async (client) => {
+    for (const item of candidates) {
+      await client.query(
+        `INSERT INTO learning_source_discovery_candidates
+         (run_id,provider,source_code,source_item_id,resource_id,title,description,source_url,primary_category,resource_type,
+          licence_candidate,licence_raw,attribution_text,author_text,publisher_text,grade_levels,subjects,languages,
+          can_adapt,can_use_commercially,licence_verified,metadata)
+         VALUES($1::uuid,$2::learning_discovery_provider,$3,$4,$5::uuid,$6,$7,$8,$9,$10,$11::learning_license_code,$12,$13,$14,$15,
+                $16::text[],$17::text[],$18::text[],$19,$20,$21,$22::jsonb)
+         ON CONFLICT(run_id,provider,source_item_id) DO NOTHING`,
+        [runId,item.provider,item.sourceCode,item.sourceItemId,item.resourceId || null,item.title,item.description || null,item.sourceUrl || null,
+         item.primaryCategory || null,item.resourceType || null,item.licenceCandidate || null,item.licenceRaw || null,item.attributionText || null,
+         item.authorText || null,item.publisherText || null,item.gradeLevels,item.subjects,item.languages,item.canAdapt,item.canUseCommercially,
+         item.licenceVerified,JSON.stringify(item.metadata)],
+      );
+    }
+    await client.query(
+      `UPDATE learning_source_discovery_runs SET status='COMPLETED',result_count=$2,completed_at=NOW() WHERE id=$1`,
+      [runId,candidates.length],
+    );
+    const { rows } = await client.query<CandidateRow>(
+      `SELECT * FROM learning_source_discovery_candidates WHERE run_id=$1 ORDER BY created_at,id`, [runId],
+    );
+    return rows;
+  });
+}
+
+async function discoverLocal(input: DiscoverSourcesInput): Promise<NormalizedCandidate[]> {
+  const search = `%${input.query.trim()}%`;
+  const classNumber = input.classNumber || null;
+  const subject = input.subject?.trim() || null;
+  const limit = Math.min(30, Math.max(1, input.limit || 12));
+  const { rows } = await query<{
+    id: UUID; title: string; summary: string | null; source_url: string | null; external_url: string | null;
+    licence: string; attribution_text: string | null; resource_type: string; class_min: number | null; class_max: number | null;
+    subject_name: string | null; source_code: string;
+  } & QueryResultRow>(
+    `SELECT lr.id,lr.title,lr.summary,lr.source_url,lr.external_url,lr.licence,lr.attribution_text,lr.resource_type,
+            lr.class_min,lr.class_max,s.name AS subject_name,lcs.code AS source_code
+     FROM learning_resources lr
+     JOIN learning_content_sources lcs ON lcs.id=lr.source_id
+     LEFT JOIN subjects s ON s.id=lr.subject_id
+     WHERE lr.review_status IN ('APPROVED','PUBLISHED')
+       AND (lr.title ILIKE $1 OR COALESCE(lr.summary,'') ILIKE $1 OR COALESCE(lr.body_markdown,'') ILIKE $1)
+       AND ($2::smallint IS NULL OR (COALESCE(lr.class_min,$2) <= $2 AND COALESCE(lr.class_max,$2) >= $2))
+       AND ($3::text IS NULL OR s.name ILIKE '%' || $3 || '%')
+     ORDER BY CASE WHEN lr.title ILIKE $1 THEN 0 ELSE 1 END,lr.updated_at DESC
+     LIMIT $4`,
+    [search,classNumber,subject,limit],
+  );
+  return rows.map((row) => {
+    const rights = candidateRights(row.licence);
+    return {
+      provider: 'LOCAL' as const,
+      sourceCode: row.source_code,
+      sourceItemId: String(row.id),
+      resourceId: row.id,
+      title: row.title,
+      description: row.summary,
+      sourceUrl: row.source_url || row.external_url,
+      primaryCategory: 'VidyaSetu governed resource',
+      resourceType: row.resource_type,
+      licenceCandidate: row.licence,
+      licenceRaw: row.licence,
+      attributionText: row.attribution_text,
+      authorText: null,
+      publisherText: 'VidyaSetu governed catalogue',
+      gradeLevels: row.class_min && row.class_max
+        ? (row.class_min === row.class_max ? [`Class ${row.class_min}`] : [`Class ${row.class_min}-${row.class_max}`])
+        : [],
+      subjects: row.subject_name ? [row.subject_name] : [],
+      languages: [],
+      canAdapt: rights.canAdapt,
+      canUseCommercially: rights.commercial,
+      licenceVerified: true,
+      metadata: { resourceId: row.id, reviewStatus: 'APPROVED_OR_PUBLISHED' },
+    };
+  });
+}
+
+function dikshaEnabled(): boolean {
+  return String(process.env.DIKSHA_DISCOVERY_ENABLED || 'true').trim().toLowerCase() !== 'false';
+}
+
+function dikshaEndpoint(): string {
+  return process.env.DIKSHA_DISCOVERY_ENDPOINT || 'https://diksha.gov.in/api/content/v1/search';
+}
+
+async function discoverDiksha(input: DiscoverSourcesInput): Promise<NormalizedCandidate[]> {
+  if (!dikshaEnabled()) throw appError('DIKSHA discovery is disabled by server configuration', 503);
+  const limit = Math.min(30, Math.max(1, input.limit || 12));
+  const filters: Record<string, unknown> = { objectType: ['Content'], status: ['Live'] };
+  if (input.classNumber) filters.gradeLevel = [`Class ${input.classNumber}`, `Grade ${input.classNumber}`];
+  if (input.subject?.trim()) filters.subject = [input.subject.trim()];
+  if (input.language?.trim()) filters.language = [input.language.trim()];
+  const fields = [
+    'identifier','name','description','primaryCategory','resourceType','contentType','mimeType','gradeLevel','subject','medium','language',
+    'license','licence','creator','author','organisation','publisher','attributions','copyright','channel','publishedOn','framework',
+  ];
+  const response = await axios.post<DikshaSearchResponse>(dikshaEndpoint(), {
+    request: { query: input.query.trim(), filters, fields, limit, offset: 0 },
+  }, { headers: { 'Content-Type': 'application/json' }, timeout: 20000 });
+  const content = Array.isArray(response.data?.result?.content) ? response.data.result!.content! : [];
+  return content.map(dikshaCandidate).filter((item): item is NormalizedCandidate => Boolean(item)).slice(0,limit);
+}
+
+export async function discoverSources(input: DiscoverSourcesInput, adminId: UUID) {
+  await assertDiscoverySchema();
+  if (!input.query?.trim() || input.query.trim().length < 2) throw appError('Source discovery query must contain at least 2 characters');
+  const run = await createRun(input,adminId);
+  try {
+    const candidates = input.provider === 'DIKSHA' ? await discoverDiksha(input) : await discoverLocal(input);
+    const persisted = await persistCandidates(run.id,candidates);
+    return { runId: run.id,provider: input.provider,count: persisted.length,candidates: persisted };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    await query(`UPDATE learning_source_discovery_runs SET status='FAILED',error_message=$2,completed_at=NOW() WHERE id=$1`, [run.id,message.slice(0,3000)]);
+    throw appError(input.provider === 'DIKSHA' ? `DIKSHA discovery failed: ${message}` : message, input.provider === 'DIKSHA' ? 502 : 500);
+  }
+}
+
+export async function listDiscoveryRuns() {
+  await assertDiscoverySchema();
+  const { rows } = await query(
+    `SELECT ldr.id,ldr.provider,ldr.query_text,ldr.class_number,ldr.subject,ldr.language,ldr.status,ldr.result_count,
+            ldr.error_message,ldr.created_at,ldr.completed_at,u.name AS created_by_name
+     FROM learning_source_discovery_runs ldr
+     LEFT JOIN users u ON u.id=ldr.created_by
+     ORDER BY ldr.created_at DESC LIMIT 100`,
+  );
+  return rows;
+}
+
+export async function getDiscoveryRun(runId: UUID) {
+  await assertDiscoverySchema();
+  const { rows: [run] } = await query(`SELECT * FROM learning_source_discovery_runs WHERE id=$1`, [runId]);
+  if (!run) throw appError('Source discovery run not found',404);
+  const { rows: candidates } = await query(`SELECT * FROM learning_source_discovery_candidates WHERE run_id=$1 ORDER BY created_at,id`, [runId]);
+  return { ...run,candidates };
+}
+
+export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) {
+  await assertDiscoverySchema();
+  const { rows: [candidate] } = await query<CandidateRow>(`SELECT * FROM learning_source_discovery_candidates WHERE id=$1`, [candidateId]);
+  if (!candidate) throw appError('Source discovery candidate not found',404);
+  if (candidate.resource_id) {
+    const { rows: [updated] } = await query(
+      `UPDATE learning_source_discovery_candidates SET staged_by=$2,staged_at=COALESCE(staged_at,NOW()) WHERE id=$1
+       RETURNING id,resource_id,staged_at`, [candidateId,adminId],
+    );
+    return { kind: 'GOVERNED_RESOURCE' as const,resourceId: candidate.resource_id,candidate: updated };
+  }
+  if (candidate.intake_id) return { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id,alreadyStaged: true };
+  if (!candidate.source_url) throw appError('External discovery candidate has no usable source URL');
+  const intake = await practiceService.createIntake({
+    sourceCode: candidate.source_code,
+    sourceItemId: candidate.source_item_id,
+    title: candidate.title,
+    sourceUrl: candidate.source_url,
+    licenceCandidate: candidate.licence_candidate || 'OTHER',
+    attributionText: candidate.attribution_text,
+    classHint: candidate.grade_levels.join(', ') || null,
+    subjectHint: candidate.subjects.join(', ') || null,
+    boardHint: null,
+  },adminId);
+  await query(
+    `UPDATE learning_source_discovery_candidates SET intake_id=$2,staged_by=$3,staged_at=NOW() WHERE id=$1`,
+    [candidateId,intake.id,adminId],
+  );
+  return {
+    kind: 'OER_INTAKE' as const,
+    intakeId: intake.id,
+    status: intake.status,
+    message: 'Candidate staged for existing OER licence/attribution review. It is not grounding-ready yet.',
+  };
+}
+
+export function sourceDiscoveryCapabilities() {
+  return {
+    providers: [
+      { code: 'LOCAL',label: 'VidyaSetu governed catalogue',enabled: true,requiresReview: false },
+      { code: 'DIKSHA',label: 'DIKSHA / Sunbird public content search',enabled: dikshaEnabled(),requiresReview: true },
+    ],
+    dikshaEndpoint: dikshaEnabled() ? 'configured' : 'disabled',
+    policy: 'External discovery is metadata-only. Admin OER licence/attribution review is mandatory before grounding/adaptation.',
+  };
+}
