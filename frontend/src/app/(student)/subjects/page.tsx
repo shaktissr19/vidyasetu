@@ -1,110 +1,144 @@
 'use client';
-import { useState } from 'react';
+
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { getSubjects, getChapters } from '@/services/contentService';
-import { getDashboard } from '@/services/studentService';
+import {
+  getCanonicalLearningCatalogue,
+  type CanonicalLearningSubject,
+} from '@/services/canonicalLearningService';
 import { ProgressBar, EmptyState, CardSkeleton } from '@/components/ui/index';
-import type { ContentSubject } from '@/types/api';
 import useLanguageStore from '@/store/languageStore';
 
 const SUBJECT_COLORS: Record<string, string> = {
   MATH: '#FF6B00', SCI: '#138808', ENG: '#1565C0',
   HIN: '#7B1FA2', SST: '#E65100', SAN: '#0097A7',
 };
-const SUBJECT_ICONS: Record<string, string> = { MATH:'🔢', SCI:'🔬', ENG:'📖', HIN:'🅗', SST:'🌍', SAN:'🕉️' };
+
+const SUBJECT_ICONS: Record<string, string> = {
+  MATH: '∑', SCI: '⚗', ENG: 'Aa', HIN: 'अ', SST: '◎', SAN: 'सं',
+};
+
+function accessLabel(tier: string, schoolLicensed: boolean, t: (hi: string, en: string) => string): string {
+  if (schoolLicensed) return t('स्कूल लर्निंग लाइसेंस सक्रिय', 'School Learning licence active');
+  if (tier === 'SUBSCRIBER') return t('लर्निंग सब्सक्रिप्शन सक्रिय', 'Learning subscription active');
+  return t('फ्री स्टूडेंट लर्निंग', 'Free student learning');
+}
+
+function SubjectCard({ subject, onOpen }: { subject: CanonicalLearningSubject; onOpen: () => void }) {
+  const color = SUBJECT_COLORS[subject.code] || 'var(--saffron)';
+  const pct = Math.round(Number(subject.progress_pct || 0));
+  const locked = Math.max(0, Number(subject.resource_count || 0) - Number(subject.accessible_resource_count || 0));
+
+  return (
+    <button
+      onClick={onOpen}
+      className="card text-left transition-all hover:shadow-lg hover:-translate-y-1 animate-fade-up"
+      style={{ borderTop: `3px solid ${color}`, minHeight: 190 }}
+    >
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-extrabold text-lg"
+          style={{ background: `${color}16`, color }}
+        >
+          {SUBJECT_ICONS[subject.code] || '◆'}
+        </div>
+        {locked > 0 && (
+          <span className="text-[11px] font-bold rounded-full px-2.5 py-1" style={{ background: '#fff4df', color: '#9a5b00' }}>
+            🔒 {locked} subscriber
+          </span>
+        )}
+      </div>
+
+      <h3 className="font-display font-bold text-base mb-0.5" style={{ color: 'var(--navy)' }}>{subject.name}</h3>
+      {subject.name_hi && <p className="text-xs mb-4 font-devanagari" style={{ color: 'var(--slate)' }}>{subject.name_hi}</p>}
+
+      <ProgressBar
+        pct={pct}
+        color={color}
+        height={6}
+        label={`${subject.accessible_resource_count || 0} learning resources`}
+      />
+      <div className="flex items-center justify-between mt-2 gap-3">
+        <p className="text-xs" style={{ color }}>{pct > 0 ? `${pct}% progress` : 'Ready to start'}</p>
+        <p className="text-xs" style={{ color: 'var(--slate)' }}>{subject.completed_resource_count || 0} completed</p>
+      </div>
+    </button>
+  );
+}
 
 export default function SubjectsPage() {
   const { t } = useLanguageStore();
   const router = useRouter();
-  const [selected, setSelected] = useState<ContentSubject | null>(null);
-
-  const { data: dash } = useQuery({ queryKey: ['student-dashboard'], queryFn: () => getDashboard().then(r => r.data.data) });
-  const className = dash?.student?.className?.split('-')[0] || dash?.student?.class_name?.split('-')[0] || '8';
-
-  const { data: subjects = [], isLoading } = useQuery({
-    queryKey: ['subjects', className],
-    queryFn: () => getSubjects(className).then(r => r.data.data),
-    enabled: !!className,
+  const catalogueQuery = useQuery({
+    queryKey: ['canonical-learning-catalogue'],
+    queryFn: () => getCanonicalLearningCatalogue().then((response) => response.data.data),
+    staleTime: 30_000,
   });
 
-  const selectedId = selected?.id || '';
-  const { data: chapters = [], isLoading: chapLoading } = useQuery({
-    queryKey: ['chapters', selectedId, className],
-    queryFn: () => getChapters(selectedId, className).then(r => r.data.data),
-    enabled: Boolean(selectedId),
-  });
+  if (catalogueQuery.isLoading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {[...Array(6)].map((_, i) => <CardSkeleton key={i} />)}
+      </div>
+    );
+  }
 
-  const subjectProgress = dash?.subjectProgress || [];
-  const progressMap: Record<string, ContentSubject> = Object.fromEntries(subjectProgress.map(s => [s.code, s]));
+  if (catalogueQuery.isError || !catalogueQuery.data) {
+    return (
+      <EmptyState
+        icon="⚠️"
+        title={t('लर्निंग लाइब्रेरी लोड नहीं हुई', 'Learning library could not be loaded')}
+        subtitle={t('कृपया फिर से प्रयास करें।', 'Please try again.')}
+      />
+    );
+  }
 
-  if (isLoading) return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-      {[...Array(6)].map((_, i) => <CardSkeleton key={i} />)}
-    </div>
-  );
+  const { learner, access, subjects } = catalogueQuery.data;
 
   return (
     <div className="animate-fade-up">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <div>
           <h1 className="font-display font-extrabold text-2xl" style={{ color: 'var(--navy)' }}>📚 {t('मेरे विषय', 'My Subjects')}</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--slate)' }}>{t(`कक्षा ${className}`, `Class ${className}`)} · {subjects.length} {t('विषय', 'subjects')}</p>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--slate)' }}>
+            {learner.gradeLabel} · {learner.boardName} · {subjects.length} {t('विषय', 'subjects')}
+          </p>
         </div>
-        {selected && <button onClick={() => setSelected(null)} className="btn-ghost text-sm">← {t('वापस', 'Back')}</button>}
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: access.subscriberAccess ? 'var(--forest-pale)' : 'var(--saffron-pale)', color: access.subscriberAccess ? 'var(--forest)' : 'var(--navy)' }}>
+          <div className="font-bold">{accessLabel(access.tier, access.schoolLicensed, t)}</div>
+          <div className="text-xs mt-0.5 opacity-75">
+            {access.subscriberAccess
+              ? t('सब्सक्राइबर लर्निंग कंटेंट अनलॉक है।', 'Subscriber learning content is unlocked.')
+              : t('फ्री कंटेंट उपलब्ध है; सब्सक्राइबर कंटेंट लॉक दिखेगा।', 'Free content is available; subscriber content will appear locked.')}
+          </div>
+        </div>
       </div>
 
-      {!selected ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 stagger">
-          {subjects.map(sub => {
-            const prog = progressMap[sub.code];
-            const pct = Number(prog?.progress_pct || 0);
-            const color = SUBJECT_COLORS[sub.code] || 'var(--saffron)';
-            return (
-              <button key={sub.id} onClick={() => setSelected(sub)} className="card text-left transition-all hover:shadow-lg hover:-translate-y-1 animate-fade-up" style={{ borderTop: `3px solid ${color}` }}>
-                <div className="text-3xl mb-3">{SUBJECT_ICONS[sub.code] || '📚'}</div>
-                <h3 className="font-display font-bold text-base mb-0.5" style={{ color: 'var(--navy)' }}>{sub.name}</h3>
-                {sub.name_hi && <p className="text-xs mb-3 font-devanagari" style={{ color: 'var(--slate)' }}>{sub.name_hi}</p>}
-                <ProgressBar pct={pct} color={color} height={6} label={`${sub.chapter_count || 0} chapters`} />
-                <p className="text-xs mt-1" style={{ color }}>{pct > 0 ? `${Math.round(pct)}% complete` : 'Not started'}</p>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div>
-          <div className="card mb-5" style={{ borderLeft: `4px solid ${SUBJECT_COLORS[selected.code] || 'var(--saffron)'}` }}>
-            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--navy)' }}>{t(selected.name_hi || '', selected.name)}</h2>
-            <p className="text-sm" style={{ color: 'var(--slate)' }}>{selected.chapter_count || 0} {t('अध्याय', 'chapters')} · {t(`कक्षा ${className}`, `Class ${className}`)}</p>
-          </div>
-
-          {chapLoading ? (
-            <div className="space-y-3">{[...Array(5)].map((_, i) => <CardSkeleton key={i} />)}</div>
-          ) : chapters.length === 0 ? (
-            <EmptyState icon="📭" title={t('अभी कोई अध्याय नहीं', 'No chapters yet')} subtitle={t('सामग्री जल्द आएगी', 'Content coming soon!')} />
-          ) : (
-            <div className="space-y-3 stagger">
-              {chapters.map(ch => (
-                <div
-                  key={ch.id}
-                  className="card flex items-center gap-4 hover:shadow-md transition-all cursor-pointer animate-fade-up"
-                  onClick={() => router.push(`/subjects/${selected.id}?chapter=${ch.id}`)}
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-extrabold text-lg flex-shrink-0" style={{ background: 'var(--saffron-pale)', color: 'var(--saffron)' }}>{ch.chapter_number}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: 'var(--navy)' }}>{t(ch.title_hi || '', ch.title)}</p>
-                    {ch.title_hi && <p className="text-xs font-devanagari" style={{ color: 'var(--slate)' }}>{ch.title_hi}</p>}
-                    <div className="flex items-center gap-3 mt-1">
-                      {Number(ch.video_count || 0) > 0 && <span className="text-xs" style={{ color: 'var(--slate)' }}>🎥 {ch.video_count} {t('वीडियो', 'videos')}</span>}
-                      {Number(ch.quiz_count || 0) > 0 && <span className="text-xs" style={{ color: 'var(--slate)' }}>📝 {ch.quiz_count} {t('क्विज़', 'quizzes')}</span>}
-                      {ch.estimated_mins && <span className="text-xs" style={{ color: 'var(--slate)' }}>⏱ {ch.estimated_mins} {t('मिनट', 'min')}</span>}
-                    </div>
-                  </div>
-                  <span className="text-gray-300 text-lg">›</span>
-                </div>
-              ))}
-            </div>
+      <div className="card mb-5" style={{ padding: 14, borderLeft: '4px solid var(--saffron)' }}>
+        <div className="text-sm font-bold" style={{ color: 'var(--navy)' }}>{t('एक ही लर्निंग सिस्टम', 'One canonical learning system')}</div>
+        <p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>
+          {t(
+            'अब ये विषय Learning Studio में रिव्यू और पब्लिश किए गए उसी कंटेंट, कॉन्सेप्ट और प्रोग्रेस सिस्टम से आते हैं।',
+            'These subjects now come from the same reviewed Learning Studio catalogue, concepts and progress system used across VidyaSetu.',
           )}
+        </p>
+      </div>
+
+      {subjects.length === 0 ? (
+        <EmptyState
+          icon="📭"
+          title={t('अभी कोई पब्लिश्ड विषय नहीं', 'No published subjects yet')}
+          subtitle={t('आपकी कक्षा और बोर्ड के लिए कंटेंट रिव्यू के बाद यहाँ दिखेगा।', 'Reviewed content for your grade and board will appear here.')}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+          {subjects.map((subject) => (
+            <SubjectCard
+              key={subject.id}
+              subject={subject}
+              onOpen={() => router.push(`/subjects/${subject.id}`)}
+            />
+          ))}
         </div>
       )}
     </div>

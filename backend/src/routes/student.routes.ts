@@ -52,6 +52,9 @@ router.get('/report-card', ctrl.getReportCard);
 router.post('/content/:contentItemId/complete', ctrl.markContentComplete);
 
 router.get('/learning/home', learningRuntimeCtrl.getLearningHome);
+router.get('/learning/catalogue', ctrl.getCanonicalLearningCatalogue);
+router.get('/learning/catalogue/subjects/:subjectId', ctrl.getCanonicalSubjectResources);
+router.get('/learning/resources/:resourceId', ctrl.getCanonicalLearningResource);
 router.get('/learning/adaptive-plan', learningRuntimeCtrl.getAdaptiveLearningPlan);
 router.get('/learning/diagnostics/profile', learningRuntimeCtrl.getDiagnosticProfile);
 router.get('/learning/journey/today', learningRuntimeCtrl.getPersonalizedJourney);
