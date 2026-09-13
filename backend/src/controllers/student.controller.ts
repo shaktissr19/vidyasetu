@@ -8,9 +8,15 @@ import * as studentOverviewService from '../services/studentOverview.service';
 import * as studentLearningService from '../services/studentLearning.service';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
 import * as studentCanonicalLearningService from '../services/studentCanonicalLearning.service';
+import {
+  accessibleLearningAssessmentIds,
+  assertLearningAssessmentEntitlement,
+  getLearningAccessContext,
+} from '../services/learningEntitlement.service';
 import * as enrollmentService from '../services/enrollment.service';
 import * as notificationService from '../services/notification.service';
 import { query } from '../config/db';
+import { getDownloadUrl } from '../config/s3';
 import * as R from '../utils/response';
 
 interface IdentityRow extends QueryResultRow {
@@ -142,7 +148,11 @@ export async function getCanonicalLearningResource(req: Request, res: Response, 
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    return R.ok(res, await studentCanonicalLearningService.getCanonicalLearningResource(user.userId, req.params.resourceId));
+    const resource = await studentCanonicalLearningService.getCanonicalLearningResource(user.userId, req.params.resourceId) as Record<string, unknown>;
+    const fileKey = typeof resource.file_key === 'string' && resource.file_key.trim() ? resource.file_key : null;
+    const contentUrl = fileKey ? await getDownloadUrl(fileKey, 1800) : null;
+    const { file_key: _hiddenFileKey, ...safeResource } = resource;
+    return R.ok(res, { ...safeResource, content_url: contentUrl });
   } catch (err: unknown) { next(err); }
 }
 
@@ -174,7 +184,12 @@ export async function getLearningAssessments(req: Request, res: Response, next: 
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    return R.ok(res, await studentLearningHubService.listAssessments(user.userId));
+    const [assessments, access] = await Promise.all([
+      studentLearningHubService.listAssessments(user.userId),
+      getLearningAccessContext(user.userId),
+    ]);
+    const allowed = await accessibleLearningAssessmentIds(assessments.map((assessment) => assessment.id), access);
+    return R.ok(res, assessments.filter((assessment) => allowed.has(String(assessment.id))));
   } catch (err: unknown) { next(err); }
 }
 
@@ -182,6 +197,7 @@ export async function getLearningAssessment(req: Request, res: Response, next: N
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
+    await assertLearningAssessmentEntitlement(user.userId, req.params.assessmentId);
     return R.ok(res, await studentLearningHubService.getAssessment(user.userId, req.params.assessmentId));
   } catch (err: unknown) { next(err); }
 }
@@ -190,6 +206,7 @@ export async function startLearningAssessment(req: Request, res: Response, next:
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
+    await assertLearningAssessmentEntitlement(user.userId, req.params.assessmentId);
     return R.ok(res, await studentLearningHubService.startAssessment(user.userId, req.params.assessmentId));
   } catch (err: unknown) { next(err); }
 }
