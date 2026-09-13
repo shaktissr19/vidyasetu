@@ -7,7 +7,11 @@ import * as studentAdaptiveIntelligenceService from '../services/studentAdaptive
 import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
 import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
 import * as studentPersonalizedJourneyService from '../services/studentPersonalizedJourney.service';
-import { getLearningAccessContext } from '../services/learningEntitlement.service';
+import {
+  accessibleLearningAssessmentIds,
+  accessibleLearningResourceIds,
+  getLearningAccessContext,
+} from '../services/learningEntitlement.service';
 import logger = require('../utils/logger');
 import * as R from '../utils/response';
 
@@ -20,12 +24,54 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
       getLearningAccessContext(user.userId),
     ]);
+
+    const [homeResourceIds, homeAssessmentIds] = await Promise.all([
+      accessibleLearningResourceIds(
+        [...home.recommendedResources.map((item) => item.id), ...home.bookmarks.map((item) => item.id)],
+        access,
+      ),
+      accessibleLearningAssessmentIds(home.assessments.map((item) => item.id), access),
+    ]);
+
+    const entitlementSafeHome = {
+      ...home,
+      recommendedResources: home.recommendedResources.filter((item) => homeResourceIds.has(String(item.id))),
+      assessments: home.assessments.filter((item) => homeAssessmentIds.has(String(item.id))),
+      bookmarks: home.bookmarks.filter((item) => homeResourceIds.has(String(item.id))),
+    };
+
     const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
     const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
       ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
       : basePlan;
+
+    const planResourceIds = adaptivePlan.actions
+      .filter((action) => action.target.kind === 'RESOURCE')
+      .map((action) => action.target.id);
+    const planAssessmentIds = adaptivePlan.actions
+      .filter((action) => action.target.kind === 'ASSESSMENT')
+      .map((action) => action.target.id);
+    const [allowedPlanResources, allowedPlanAssessments] = await Promise.all([
+      accessibleLearningResourceIds(planResourceIds, access),
+      accessibleLearningAssessmentIds(planAssessmentIds, access),
+    ]);
+    const entitlementSafeActions = adaptivePlan.actions.filter((action) => (
+      action.target.kind === 'RESOURCE'
+        ? allowedPlanResources.has(String(action.target.id))
+        : allowedPlanAssessments.has(String(action.target.id))
+    ));
+    const entitlementSafePlan = {
+      ...adaptivePlan,
+      actions: entitlementSafeActions,
+      summary: {
+        ...adaptivePlan.summary,
+        nextActions: entitlementSafeActions.length,
+        estimatedMinutes: entitlementSafeActions.reduce((total, action) => total + Number(action.estimatedMinutes || 0), 0),
+      },
+    };
+
     return R.ok(res, {
-      ...home,
+      ...entitlementSafeHome,
       access: {
         tier: access.tier,
         individualSubscriber: access.individualSubscriber,
@@ -33,7 +79,7 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
         subscriberAccess: access.subscriberAccess,
       },
       conceptMastery,
-      adaptivePlan,
+      adaptivePlan: entitlementSafePlan,
     });
   } catch (err: unknown) { next(err); }
 }
@@ -42,12 +88,32 @@ export async function getAdaptiveLearningPlan(req: Request, res: Response, next:
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
+    const access = await getLearningAccessContext(user.userId);
     const conceptMastery = await studentConceptMasteryService.getStudentConceptMastery(user.userId);
     const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
     const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
       ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
       : basePlan;
-    return R.ok(res, adaptivePlan);
+    const resourceIds = adaptivePlan.actions.filter((action) => action.target.kind === 'RESOURCE').map((action) => action.target.id);
+    const assessmentIds = adaptivePlan.actions.filter((action) => action.target.kind === 'ASSESSMENT').map((action) => action.target.id);
+    const [allowedResources, allowedAssessments] = await Promise.all([
+      accessibleLearningResourceIds(resourceIds, access),
+      accessibleLearningAssessmentIds(assessmentIds, access),
+    ]);
+    const actions = adaptivePlan.actions.filter((action) => (
+      action.target.kind === 'RESOURCE'
+        ? allowedResources.has(String(action.target.id))
+        : allowedAssessments.has(String(action.target.id))
+    ));
+    return R.ok(res, {
+      ...adaptivePlan,
+      actions,
+      summary: {
+        ...adaptivePlan.summary,
+        nextActions: actions.length,
+        estimatedMinutes: actions.reduce((total, action) => total + Number(action.estimatedMinutes || 0), 0),
+      },
+    });
   } catch (err: unknown) { next(err); }
 }
 
