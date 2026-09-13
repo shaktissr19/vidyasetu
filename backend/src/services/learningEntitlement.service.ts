@@ -193,3 +193,23 @@ export async function accessibleLearningAssessmentIds(
       .map((row) => String(row.id)),
   );
 }
+
+export async function assertLearningAssessmentEntitlement(
+  userId: UUID,
+  assessmentId: UUID,
+): Promise<LearningAccessContext> {
+  const access = await getLearningAccessContext(userId);
+  if (!access.schemaReady) return access;
+
+  const { rows: [assessment] } = await query<AccessRow>(
+    `SELECT id, access_requirement
+     FROM learning_assessments
+     WHERE id=$1::uuid`,
+    [assessmentId],
+  );
+  if (!assessment) return access;
+  if (!canAccessLearningRequirement(assessment.access_requirement, access)) {
+    throw appError(learningAccessLockReason(assessment.access_requirement, access) || 'Learning access required', 403);
+  }
+  return access;
+}
