@@ -12,6 +12,11 @@ interface EntitlementRow extends QueryResultRow {
   school_licensed: boolean;
 }
 
+interface AccessRow extends QueryResultRow {
+  id: UUID;
+  access_requirement: LearningAccessRequirement;
+}
+
 export interface LearningAccessContext {
   studentId: UUID;
   schoolId: UUID | null;
@@ -97,4 +102,40 @@ export function learningAccessLockReason(
     return 'Subscriber Learning access required';
   }
   return 'Learning access not available';
+}
+
+export async function accessibleLearningResourceIds(
+  resourceIds: UUID[],
+  access: LearningAccessContext,
+): Promise<Set<string>> {
+  if (!resourceIds.length) return new Set<string>();
+  const { rows } = await query<AccessRow>(
+    `SELECT id, access_requirement
+     FROM learning_resources
+     WHERE id=ANY($1::uuid[])`,
+    [resourceIds],
+  );
+  return new Set(
+    rows
+      .filter((row) => canAccessLearningRequirement(row.access_requirement, access))
+      .map((row) => String(row.id)),
+  );
+}
+
+export async function accessibleLearningAssessmentIds(
+  assessmentIds: UUID[],
+  access: LearningAccessContext,
+): Promise<Set<string>> {
+  if (!assessmentIds.length) return new Set<string>();
+  const { rows } = await query<AccessRow>(
+    `SELECT id, access_requirement
+     FROM learning_assessments
+     WHERE id=ANY($1::uuid[])`,
+    [assessmentIds],
+  );
+  return new Set(
+    rows
+      .filter((row) => canAccessLearningRequirement(row.access_requirement, access))
+      .map((row) => String(row.id)),
+  );
 }
