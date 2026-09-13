@@ -135,7 +135,7 @@ jobs:
           PGPASSWORD: postgres
         run: |
           for pass in 1 2; do
-            echo "Learning migration pass $pass"
+            echo "Learning legacy migration pass $pass"
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/020_learning_platform_foundation.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/021_learning_original_academic_starter.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/022_learning_practice_personalization.sql
@@ -145,6 +145,9 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/027_student_concept_mastery_runtime.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/028_grounded_ai_doubt_resolution.sql
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/036_learning_content_quality_governance.sql
+          done
+          for pass in 1 2; do
+            echo "Learning entitlement migration pass $pass"
             psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/044_learning_entitlements_canonical_runtime.sql
           done
 
