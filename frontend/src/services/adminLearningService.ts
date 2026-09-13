@@ -5,6 +5,8 @@ import type { LearningCategory } from './publicService';
 export type LearningReviewStatus = 'DRAFT' | 'SUBMITTED' | 'ACADEMIC_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
 export type LearningJourneyStage = 'SEE' | 'UNDERSTAND' | 'DO' | 'PRACTISE' | 'APPLY' | 'REVISE';
 export type LearningCognitiveSkill = 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYSE' | 'EVALUATE' | 'CREATE';
+export type LearningAccessRequirement = 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
+export type LearningVisibility = 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY' | 'SCHOOL_ONLY';
 export type QualityEntityType = 'RESOURCE' | 'QUESTION' | 'ASSESSMENT' | 'CONCEPT';
 export type QualityGateStatus = 'PENDING' | 'PASS' | 'FAIL' | 'NOT_APPLICABLE';
 
@@ -29,7 +31,17 @@ export interface LearningStudioSource {
   notes?: string | null;
 }
 
-export interface LearningStudioOptions { boards: LearningStudioBoard[]; sources: LearningStudioSource[]; }
+export interface LearningAccessOption {
+  value: LearningAccessRequirement;
+  label: string;
+  description?: string;
+}
+
+export interface LearningStudioOptions {
+  boards: LearningStudioBoard[];
+  sources: LearningStudioSource[];
+  accessRequirements?: LearningAccessOption[];
+}
 
 export interface LearningStudioConcept {
   id: string;
@@ -63,7 +75,8 @@ export interface UpdateLearningStudioConcept {
 
 export interface LearningStudioResource {
   id: string; public_slug?: string | null; title: string; title_hi?: string | null; summary?: string | null; summary_hi?: string | null;
-  resource_type: string; category: LearningCategory; visibility: string; review_status: LearningReviewStatus; language: string;
+  resource_type: string; category: LearningCategory; visibility: LearningVisibility; access_requirement: LearningAccessRequirement;
+  review_status: LearningReviewStatus; language: string;
   class_min?: number | null; class_max?: number | null; licence: string; source_url?: string | null;
   external_url?: string | null; attribution_text?: string | null; is_featured_public: boolean;
   published_at?: string | null; created_at: string; source_code: string; source_name: string; board_codes: string[];
@@ -74,7 +87,7 @@ export interface SaveLearningStudioResource {
   title: string; titleHi?: string | null; summary?: string | null; summaryHi?: string | null;
   bodyMarkdown?: string | null; bodyMarkdownHi?: string | null;
   resourceType: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
-  category: LearningCategory; visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY' | 'SCHOOL_ONLY';
+  category: LearningCategory; visibility: LearningVisibility; accessRequirement?: LearningAccessRequirement;
   reviewStatus?: LearningReviewStatus;
   language?: string; classMin?: number | null; classMax?: number | null; sourceCode: string;
   sourceUrl?: string | null; sourceItemId?: string | null;
@@ -101,7 +114,7 @@ export interface SaveLearningStudioQuestion {
   explanation?: string | null; explanationHi?: string | null; correctAnswer: unknown; marks?: number; negativeMarks?: number;
   classMin?: number | null; classMax?: number | null; subjectId?: string | null; sourceCode?: string;
   sourceUrl?: string | null; licence?: string; attributionText?: string | null;
-  visibility?: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY' | 'SCHOOL_ONLY'; reviewStatus?: LearningReviewStatus;
+  visibility?: LearningVisibility; reviewStatus?: LearningReviewStatus;
   boardCodes?: string[]; options?: Array<{ key: string; text: string; textHi?: string | null }>;
   conceptIds?: string[]; cognitiveSkill?: LearningCognitiveSkill; skillCode?: string | null; learningOutcomeCode?: string | null;
   misconceptionCode?: string | null; misconceptionText?: string | null; misconceptionTextHi?: string | null;
@@ -109,7 +122,8 @@ export interface SaveLearningStudioQuestion {
 
 export interface LearningStudioAssessment {
   id: string; public_slug?: string | null; title: string; title_hi?: string | null; summary?: string | null; assessment_type: string;
-  visibility: string; review_status: LearningReviewStatus; class_min?: number | null; class_max?: number | null;
+  visibility: LearningVisibility; access_requirement: LearningAccessRequirement; review_status: LearningReviewStatus;
+  class_min?: number | null; class_max?: number | null;
   time_limit_mins?: number | null; passing_pct: number; max_attempts?: number | null; is_featured_public: boolean;
   subject_name?: string | null; question_count: number; published_question_count: number; total_marks: number; board_codes: string[]; concept_ids: string[];
 }
@@ -117,7 +131,7 @@ export interface LearningStudioAssessment {
 export interface SaveLearningStudioAssessment {
   publicSlug?: string | null; title: string; titleHi?: string | null; summary?: string | null;
   assessmentType: 'PRACTICE' | 'CHAPTER_TEST' | 'UNIT_TEST' | 'MOCK' | 'DAILY';
-  visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY' | 'SCHOOL_ONLY'; reviewStatus?: LearningReviewStatus;
+  visibility: LearningVisibility; accessRequirement?: LearningAccessRequirement; reviewStatus?: LearningReviewStatus;
   classMin?: number | null; classMax?: number | null; subjectId?: string | null; timeLimitMins?: number | null;
   passingPct?: number; maxAttempts?: number | null; shuffleQuestions?: boolean; isFeaturedPublic?: boolean;
   boardCodes?: string[]; questionIds: string[]; conceptIds?: string[];
@@ -182,6 +196,7 @@ export interface LearningImportOptions {
   grades: LearningImportGrade[];
   boards: LearningStudioBoard[];
   sources: Array<Pick<LearningStudioSource, 'code' | 'name' | 'source_kind' | 'default_license' | 'requires_item_license_check'>>;
+  accessRequirements?: Array<Pick<LearningAccessOption, 'value' | 'label'>>;
 }
 
 export interface LearningImportRow {
@@ -195,6 +210,11 @@ export interface LearningImportBatch {
   validated_at?: string | null; completed_at?: string | null; created_by_name?: string | null; rows?: LearningImportRow[];
 }
 
+export interface LearningAccessPolicyPayload {
+  visibility: LearningVisibility;
+  accessRequirement: LearningAccessRequirement;
+}
+
 export const getLearningStudioOptions = () => api.get<ApiEnvelope<LearningStudioOptions>>('/admin/learning/options');
 export const getLearningStudioConcepts = (params?: { class?: number; subject?: string }) => api.get<ApiEnvelope<LearningStudioConcept[]>>('/admin/learning/concepts', { params });
 export const updateLearningStudioConcept = (conceptId: string, payload: UpdateLearningStudioConcept) => api.patch<ApiEnvelope<LearningStudioConcept>>(`/admin/learning/concepts/${conceptId}`, payload);
@@ -205,6 +225,7 @@ export const setLearningQualityGate = (entityType: QualityEntityType, entityId: 
 
 export const getLearningStudioResources = () => api.get<ApiEnvelope<LearningStudioResource[]>>('/admin/learning/resources');
 export const createLearningStudioResource = (payload: SaveLearningStudioResource) => api.post<ApiEnvelope<{ id: string }>>('/admin/learning/resources', payload);
+export const updateLearningStudioResourceAccess = (resourceId: string, payload: LearningAccessPolicyPayload) => api.patch<ApiEnvelope<LearningStudioResource>>(`/admin/learning/resources/${resourceId}/access`, payload);
 export const updateLearningStudioStatus = (resourceId: string, status: string, note?: string) => api.patch<ApiEnvelope<LearningStudioResource>>(`/admin/learning/resources/${resourceId}/status`, { status, note });
 
 export const getLearningStudioQuestions = () => api.get<ApiEnvelope<LearningStudioQuestion[]>>('/admin/learning/questions');
@@ -212,6 +233,7 @@ export const createLearningStudioQuestion = (payload: SaveLearningStudioQuestion
 export const updateLearningStudioQuestionStatus = (questionId: string, status: string) => api.patch<ApiEnvelope<LearningStudioQuestion>>(`/admin/learning/questions/${questionId}/status`, { status });
 export const getLearningStudioAssessments = () => api.get<ApiEnvelope<LearningStudioAssessment[]>>('/admin/learning/assessments');
 export const createLearningStudioAssessment = (payload: SaveLearningStudioAssessment) => api.post<ApiEnvelope<{ id: string; public_slug: string }>>('/admin/learning/assessments', payload);
+export const updateLearningStudioAssessmentAccess = (assessmentId: string, payload: LearningAccessPolicyPayload) => api.patch<ApiEnvelope<LearningStudioAssessment>>(`/admin/learning/assessments/${assessmentId}/access`, payload);
 export const updateLearningStudioAssessmentStatus = (assessmentId: string, status: string) => api.patch<ApiEnvelope<LearningStudioAssessment>>(`/admin/learning/assessments/${assessmentId}/status`, { status });
 export const getLearningStudioIntake = () => api.get<ApiEnvelope<LearningStudioIntake[]>>('/admin/learning/intake');
 export const createLearningStudioIntake = (payload: SaveLearningStudioIntake) => api.post<ApiEnvelope<{ id: string; title: string; status: string }>>('/admin/learning/intake', payload);
