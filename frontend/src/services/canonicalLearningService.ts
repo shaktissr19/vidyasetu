@@ -77,7 +77,7 @@ export interface CanonicalLearningResource extends CanonicalLearningResourceSumm
   class_max?: number | null;
   external_url?: string | null;
   source_url?: string | null;
-  file_key?: string | null;
+  content_url?: string | null;
   licence: string;
   licence_url?: string | null;
   attribution_text?: string | null;
