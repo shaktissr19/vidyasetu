@@ -1,11 +1,13 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
+import * as studentCanonicalLearningService from '../services/studentCanonicalLearning.service';
 import * as studentConceptMasteryService from '../services/studentConceptMastery.service';
 import * as studentAdaptiveLearningService from '../services/studentAdaptiveLearning.service';
 import * as studentAdaptiveIntelligenceService from '../services/studentAdaptiveIntelligence.service';
 import * as studentDiagnosticIntelligenceService from '../services/studentDiagnosticIntelligence.service';
 import * as studentDiagnosticRuntimeService from '../services/studentDiagnosticRuntime.service';
 import * as studentPersonalizedJourneyService from '../services/studentPersonalizedJourney.service';
+import { getLearningAccessContext } from '../services/learningEntitlement.service';
 import logger = require('../utils/logger');
 import * as R from '../utils/response';
 
@@ -13,15 +15,26 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    const [home, conceptMastery] = await Promise.all([
+    const [home, conceptMastery, access] = await Promise.all([
       studentLearningHubService.getLearningHome(user.userId),
       studentConceptMasteryService.getStudentConceptMastery(user.userId),
+      getLearningAccessContext(user.userId),
     ]);
     const basePlan = await studentAdaptiveLearningService.getAdaptiveLearningPlan(user.userId, conceptMastery);
     const adaptivePlan = await studentDiagnosticRuntimeService.diagnosticIntelligenceAvailable()
       ? await studentAdaptiveIntelligenceService.enrichAdaptivePlanWithDiagnostics(user.userId, basePlan)
       : basePlan;
-    return R.ok(res, { ...home, conceptMastery, adaptivePlan });
+    return R.ok(res, {
+      ...home,
+      access: {
+        tier: access.tier,
+        individualSubscriber: access.individualSubscriber,
+        schoolLicensed: access.schoolLicensed,
+        subscriberAccess: access.subscriberAccess,
+      },
+      conceptMastery,
+      adaptivePlan,
+    });
   } catch (err: unknown) { next(err); }
 }
 
@@ -95,7 +108,7 @@ export async function updateLearningResourceProgress(req: Request, res: Response
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    const progress = await studentLearningHubService.updateResourceProgress(
+    const progress = await studentCanonicalLearningService.updateCanonicalResourceProgress(
       user.userId,
       req.params.resourceId,
       Number(req.body.progressPct),
