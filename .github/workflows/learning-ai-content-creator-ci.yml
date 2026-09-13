@@ -1,0 +1,156 @@
+name: Learning AI Content Creator CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hybrid-content-creator:
+    name: Admin-only governed AI drafting and human-review boundaries
+    runs-on: ubuntu-22.04
+    timeout-minutes: 70
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate creator contracts
+        run: |
+          set -euxo pipefail
+          bash -n scripts/learning-ai-content-creator-e2e-smoke.sh
+          test -s database/migrations/045_learning_ai_content_creator.sql
+          grep -q "learning_creator_jobs" database/migrations/045_learning_ai_content_creator.sql
+          grep -q "READY_FOR_REVIEW" backend/src/services/adminContentCreator.service.ts
+          grep -q "AI output is NEVER" database/migrations/045_learning_ai_content_creator.sql
+          grep -q "authorize('SUPER_ADMIN')" backend/src/routes/adminContentCreator.routes.ts
+          grep -q "admin/learning/creator" backend/src/index.ts
+          grep -q "AI never publishes" 'frontend/src/app/(admin)/admin/learning/creator/page.tsx'
+          grep -q "AI Content Creator" 'frontend/src/app/(admin)/layout.tsx'
+
+      - name: Build shared contracts
+        working-directory: shared/contracts
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.d.ts
+
+      - name: Typecheck and compile backend
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          test -s dist/index.js
+          test -s dist/services/adminContentCreator.service.js
+          test -s dist/controllers/adminContentCreator.controller.js
+          test -s dist/routes/adminContentCreator.routes.js
+
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run typecheck
+          NODE_ENV=production npm run build
+          test -s .next/BUILD_ID
+
+      - name: Start disposable PostgreSQL and Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-client redis-server jq
+          sudo systemctl start postgresql
+          sudo systemctl start redis-server
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb vidyasetu_db
+          pg_isready -h 127.0.0.1 -U postgres
+          redis-cli ping | grep -q PONG
+
+      - name: Build disposable Learning database through migration 045
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euxo pipefail
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/run_all_migrations.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/seeds/dev_seed.sql
+          for migration in \
+            014_student_identity_enrollment.sql \
+            020_learning_platform_foundation.sql \
+            021_learning_original_academic_starter.sql \
+            022_learning_practice_personalization.sql \
+            023_global_learning_bulk_importer.sql \
+            024_student_global_grade_sync.sql \
+            026_learning_concepts_mastery.sql \
+            027_student_concept_mastery_runtime.sql \
+            028_grounded_ai_doubt_resolution.sql \
+            036_learning_content_quality_governance.sql \
+            044_learning_entitlements_canonical_runtime.sql \
+            045_learning_ai_content_creator.sql; do
+              echo "Applying $migration"
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
+          echo "Re-applying migration 045 to prove idempotence"
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/045_learning_ai_content_creator.sql
+
+      - name: Validate creator database invariants
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euxo pipefail
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.learning_creator_jobs') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.learning_creator_sources') IS NOT NULL;")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT to_regclass('public.learning_creator_outputs') IS NOT NULL;")" = "t"
+
+      - name: Start compiled backend in safe mock AI mode
+        working-directory: backend
+        env:
+          PORT: '5000'
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_ACCESS_SECRET: creator_ci_access_secret_2026
+          JWT_REFRESH_SECRET: creator_ci_refresh_secret_2026
+          JWT_ACCESS_EXPIRY: 10m
+          JWT_REFRESH_EXPIRY: 30d
+          OTP_EXPIRY_MINUTES: '10'
+          OTP_MAX_ATTEMPTS: '3'
+          SMS_PROVIDER: mock
+          WHATSAPP_PROVIDER: mock
+          AI_PROVIDER: mock
+          AWS_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          S3_BUCKET_NAME: vidyasetu-content
+          FRONTEND_URL: http://127.0.0.1:3000
+        run: |
+          nohup npm start > /tmp/vidyasetu-content-creator-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5000/api/v1/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vidyasetu-content-creator-api.log
+          exit 1
+
+      - name: Run hybrid AI Content Creator E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/learning-ai-content-creator-e2e-smoke.sh
