@@ -61,9 +61,14 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', cred
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (message: string) => logger.info(message.trim()) } }));
-app.get('/health', (_req, res) => { res.json({ status: 'ok', service: 'vidyasetu-api', ts: new Date().toISOString() }); });
 
 const API = '/api/v1';
+const healthHandler: express.RequestHandler = (_req, res) => {
+  res.json({ status: 'ok', service: 'vidyasetu-api', ts: new Date().toISOString() });
+};
+app.get('/health', healthHandler);
+app.get(`${API}/health`, healthHandler);
+
 app.use(`${API}/public/learning`, publicLearningRoutes);
 app.use(`${API}/public/documents`, publicDocumentsRoutes);
 app.use(`${API}/public`, publicRoutes);

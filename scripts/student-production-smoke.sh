@@ -4,16 +4,16 @@ set -Eeuo pipefail
 API_BASE="${API_BASE:-http://127.0.0.1:5000/api/v1}"
 WEB_BASE="${WEB_BASE:-http://127.0.0.1:3000}"
 SEED_MOBILE="${SEED_MOBILE:-9300000001}"
-HEALTH_URL="${HEALTH_URL:-${API_BASE%/api/v1}/health}"
+HEALTH_URL="${HEALTH_URL:-${API_BASE%/}/health}"
 ALLOW_MOCK_AUTH_SMOKE="${ALLOW_MOCK_AUTH_SMOKE:-0}"
 
 log() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 
 log "Backend/API availability"
-if ! curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
-  log "Dedicated health URL is not exposed here; validating backend through the Student registration API instead"
-fi
+HEALTH="$(curl -fsS "$HEALTH_URL")" || fail "API health endpoint is not reachable at $HEALTH_URL"
+[[ "$(jq -r '.status // empty' <<< "$HEALTH")" == "ok" ]] || fail "API health endpoint did not return status=ok"
+[[ "$(jq -r '.service // empty' <<< "$HEALTH")" == "vidyasetu-api" ]] || fail "API health endpoint returned an unexpected service identity"
 
 log "Public Student registration contract"
 OPTIONS="$(curl -fsS "$API_BASE/auth/student-registration-options")" || fail "Student registration API is not reachable"
