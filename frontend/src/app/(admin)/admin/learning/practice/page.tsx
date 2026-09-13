@@ -11,10 +11,14 @@ import {
   getLearningStudioAssessments,
   getLearningStudioConcepts,
   getLearningStudioQuestions,
+  updateLearningStudioAssessmentAccess,
   updateLearningStudioAssessmentStatus,
   updateLearningStudioQuestionStatus,
+  type LearningAccessRequirement,
   type LearningCognitiveSkill,
   type LearningReviewStatus,
+  type LearningStudioAssessment,
+  type LearningVisibility,
   type SaveLearningStudioAssessment,
   type SaveLearningStudioQuestion,
 } from '@/services/adminLearningService';
@@ -29,8 +33,15 @@ const REVIEW_TRANSITIONS: Record<LearningReviewStatus, LearningReviewStatus[]> =
   ARCHIVED: ['DRAFT'],
 };
 const COGNITIVE: LearningCognitiveSkill[] = ['REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYSE', 'EVALUATE', 'CREATE'];
+const ACCESS_OPTIONS: Array<{ value: LearningAccessRequirement; label: string }> = [
+  { value: 'PUBLIC', label: 'Public Free' },
+  { value: 'REGISTERED', label: 'Registered Free' },
+  { value: 'SUBSCRIBER', label: 'Subscriber' },
+];
+const VISIBILITIES: LearningVisibility[] = ['PUBLIC', 'REGISTERED', 'CLASS_ONLY', 'SCHOOL_ONLY'];
 const inputStyle = { width: '100%', marginTop: 5, padding: '9px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'white', border: '1px solid rgba(255,255,255,.12)' } as const;
 const labelStyle = { display: 'block', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 800 } as const;
+const miniSelectStyle = { padding: '4px 7px', borderRadius: 6, border: '1px solid rgba(255,255,255,.12)', background: '#172033', color: 'rgba(255,255,255,.78)', fontSize: 10 } as const;
 
 const INITIAL_QUESTION: SaveLearningStudioQuestion = {
   prompt: '', promptHi: '', questionType: 'MCQ_SINGLE', difficulty: 'MEDIUM', cognitiveSkill: 'UNDERSTAND',
@@ -45,12 +56,13 @@ const INITIAL_QUESTION: SaveLearningStudioQuestion = {
 };
 
 const INITIAL_ASSESSMENT: SaveLearningStudioAssessment = {
-  title: '', titleHi: '', summary: '', assessmentType: 'PRACTICE', visibility: 'REGISTERED', reviewStatus: 'DRAFT',
+  title: '', titleHi: '', summary: '', assessmentType: 'PRACTICE', visibility: 'REGISTERED', accessRequirement: 'REGISTERED', reviewStatus: 'DRAFT',
   classMin: 8, classMax: 8, timeLimitMins: 10, passingPct: 40, shuffleQuestions: false,
   isFeaturedPublic: false, boardCodes: ['COMMON'], questionIds: [], conceptIds: [],
 };
 
 function statusLabel(value: string): string { return value.replaceAll('_', ' '); }
+function accessLabel(value: LearningAccessRequirement): string { return ACCESS_OPTIONS.find((option) => option.value === value)?.label || value; }
 
 export default function LearningPracticeStudioPage() {
   const queryClient = useQueryClient();
@@ -114,6 +126,16 @@ export default function LearningPracticeStudioPage() {
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Assessment review transition blocked')),
   });
 
+  const assessmentAccessMutation = useMutation({
+    mutationFn: ({ id, visibility, accessRequirement }: { id: string; visibility: LearningVisibility; accessRequirement: LearningAccessRequirement }) =>
+      updateLearningStudioAssessmentAccess(id, { visibility, accessRequirement }),
+    onSuccess: async (_response, variables) => {
+      toast.success(`Assessment access updated to ${accessLabel(variables.accessRequirement)}`);
+      await queryClient.invalidateQueries({ queryKey: ['learning-studio-assessments'] });
+    },
+    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not update assessment access')),
+  });
+
   function setOption(index: number, field: 'text' | 'textHi', value: string): void {
     setQuestion((current) => ({ ...current, options: (current.options || []).map((option, i) => i === index ? { ...option, [field]: value } : option) }));
   }
@@ -122,13 +144,41 @@ export default function LearningPracticeStudioPage() {
     setAssessment((current) => ({ ...current, questionIds: selectedQuestions.has(id) ? current.questionIds.filter((q) => q !== id) : [...current.questionIds, id] }));
   }
 
+  function changeAssessmentVisibility(visibility: LearningVisibility): void {
+    setAssessment((current) => ({
+      ...current,
+      visibility,
+      accessRequirement: visibility === 'PUBLIC' ? 'PUBLIC' : current.accessRequirement === 'PUBLIC' ? 'REGISTERED' : current.accessRequirement,
+      isFeaturedPublic: visibility === 'PUBLIC' ? current.isFeaturedPublic : false,
+    }));
+  }
+
+  function changeAssessmentAccess(accessRequirement: LearningAccessRequirement): void {
+    setAssessment((current) => ({
+      ...current,
+      accessRequirement,
+      visibility: accessRequirement === 'PUBLIC' ? 'PUBLIC' : current.visibility === 'PUBLIC' ? 'REGISTERED' : current.visibility,
+      isFeaturedPublic: accessRequirement === 'PUBLIC' ? current.isFeaturedPublic : false,
+    }));
+  }
+
+  function updateExistingVisibility(item: LearningStudioAssessment, visibility: LearningVisibility): void {
+    const accessRequirement = visibility === 'PUBLIC' ? 'PUBLIC' : item.access_requirement === 'PUBLIC' ? 'REGISTERED' : item.access_requirement;
+    assessmentAccessMutation.mutate({ id: item.id, visibility, accessRequirement });
+  }
+
+  function updateExistingAccess(item: LearningStudioAssessment, accessRequirement: LearningAccessRequirement): void {
+    const visibility = accessRequirement === 'PUBLIC' ? 'PUBLIC' : item.visibility === 'PUBLIC' ? 'REGISTERED' : item.visibility;
+    assessmentAccessMutation.mutate({ id: item.id, visibility, accessRequirement });
+  }
+
   return (
     <div style={{ padding: 24, color: 'white' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: '#ff9a3c', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>LEARNING PLATFORM · ASSESSMENT INTELLIGENCE</div>
           <h1 style={{ fontSize: 34, margin: '5px 0' }}>Question Bank & Assessment Studio</h1>
-          <p style={{ color: 'rgba(255,255,255,.62)', maxWidth: 950, lineHeight: 1.65 }}>Every question is concept-mapped, bilingual and tagged by cognitive demand. Misconception signals are first-class evidence for diagnostics and remediation.</p>
+          <p style={{ color: 'rgba(255,255,255,.62)', maxWidth: 950, lineHeight: 1.65 }}>Every question is concept-mapped, bilingual and tagged by cognitive demand. Assessments independently carry Public Free, Registered Free or Subscriber Learning access.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}><Link href="/admin/learning" className="btn-secondary">← Learning Studio</Link><Link href="/admin/learning/coverage" className="btn-secondary">Coverage</Link></div>
       </div>
@@ -183,7 +233,10 @@ export default function LearningPracticeStudioPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginTop: 9 }}>
             <label style={labelStyle}>Type<select style={inputStyle} value={assessment.assessmentType} onChange={(e) => setAssessment((a) => ({ ...a, assessmentType: e.target.value as SaveLearningStudioAssessment['assessmentType'] }))}>{['PRACTICE','CHAPTER_TEST','UNIT_TEST','MOCK','DAILY'].map((v) => <option key={v}>{v}</option>)}</select></label>
             <label style={labelStyle}>Class<input style={inputStyle} type="number" min={1} max={12} value={assessment.classMin || 8} onChange={(e) => setAssessment((a) => ({ ...a, classMin: Number(e.target.value), classMax: Number(e.target.value), conceptIds: [] }))} /></label>
+            <label style={labelStyle}>Audience visibility<select style={inputStyle} value={assessment.visibility} onChange={(e) => changeAssessmentVisibility(e.target.value as LearningVisibility)}>{VISIBILITIES.map((v) => <option key={v}>{v}</option>)}</select></label>
+            <label style={labelStyle}>Learning access<select style={inputStyle} value={assessment.accessRequirement} onChange={(e) => changeAssessmentAccess(e.target.value as LearningAccessRequirement)}>{ACCESS_OPTIONS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</select></label>
           </div>
+          <div style={{ marginTop: 7, color: 'rgba(255,255,255,.45)', fontSize: 11 }}>Subscriber requires an active individual Learning subscription or school Learning licence. PUBLIC visibility is always Public Free.</div>
           <label style={{ ...labelStyle, marginTop: 9 }}>Canonical concept<select style={inputStyle} value={assessment.conceptIds?.[0] || ''} onChange={(e) => setAssessment((a) => ({ ...a, conceptIds: e.target.value ? [e.target.value] : [] }))}><option value="">Select concept</option>{(conceptsQuery.data || []).map((concept) => <option key={concept.id} value={concept.id}>{concept.code} — {concept.name}</option>)}</select></label>
           <label style={{ ...labelStyle, marginTop: 9 }}>Summary<textarea style={{ ...inputStyle, minHeight: 65 }} value={assessment.summary || ''} onChange={(e) => setAssessment((a) => ({ ...a, summary: e.target.value }))} /></label>
           <div style={{ marginTop: 11, color: 'rgba(255,255,255,.6)', fontSize: 12 }}>Select questions ({assessment.questionIds.length}). Publication requires the minimum depth for the assessment type and all included questions to be published.</div>
@@ -213,8 +266,20 @@ export default function LearningPracticeStudioPage() {
           <h2 style={{ marginTop: 0 }}>Assessment review queue</h2>
           {(assessmentsQuery.data || []).slice(0, 40).map((a) => (
             <div key={a.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><button type="button" onClick={() => setSelectedQuality({ type: 'ASSESSMENT', id: a.id })} style={{ background: 'transparent', border: 0, color: 'white', padding: 0, textAlign: 'left' }}><strong>{a.title}</strong><div style={{ color: 'rgba(255,255,255,.42)', fontSize: 10 }}>{a.assessment_type} · {a.question_count} questions · {a.published_question_count} published</div></button><span style={{ color: a.review_status === 'PUBLISHED' ? '#47d18c' : '#ffd166', fontSize: 10, fontWeight: 900 }}>{statusLabel(a.review_status)}</span></div>
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>{(REVIEW_TRANSITIONS[a.review_status] || []).map((status) => <button key={status} type="button" onClick={() => assessmentStatusMutation.mutate({ id: a.id, status })} style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.04)', color: 'rgba(255,255,255,.7)', fontSize: 10 }}>{statusLabel(status)}</button>)}<button type="button" onClick={() => setSelectedQuality({ type: 'ASSESSMENT', id: a.id })} style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid rgba(79,195,247,.25)', background: 'rgba(79,195,247,.06)', color: '#b9e5ff', fontSize: 10 }}>Quality</button></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <button type="button" onClick={() => setSelectedQuality({ type: 'ASSESSMENT', id: a.id })} style={{ background: 'transparent', border: 0, color: 'white', padding: 0, textAlign: 'left' }}>
+                  <strong>{a.title}</strong>
+                  <div style={{ color: 'rgba(255,255,255,.42)', fontSize: 10 }}>{a.assessment_type} · {a.question_count} questions · {a.published_question_count} published</div>
+                  <div style={{ color: a.access_requirement === 'SUBSCRIBER' ? '#ffc18b' : '#b9e5ff', fontSize: 10, marginTop: 3, fontWeight: 800 }}>{a.visibility} · {accessLabel(a.access_requirement)}</div>
+                </button>
+                <span style={{ color: a.review_status === 'PUBLISHED' ? '#47d18c' : '#ffd166', fontSize: 10, fontWeight: 900 }}>{statusLabel(a.review_status)}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
+                <select aria-label={`Visibility for ${a.title}`} disabled={assessmentAccessMutation.isPending} value={a.visibility} onChange={(e) => updateExistingVisibility(a, e.target.value as LearningVisibility)} style={miniSelectStyle}>{VISIBILITIES.map((v) => <option key={v}>{v}</option>)}</select>
+                <select aria-label={`Access for ${a.title}`} disabled={assessmentAccessMutation.isPending} value={a.access_requirement} onChange={(e) => updateExistingAccess(a, e.target.value as LearningAccessRequirement)} style={miniSelectStyle}>{ACCESS_OPTIONS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</select>
+                {(REVIEW_TRANSITIONS[a.review_status] || []).map((status) => <button key={status} type="button" onClick={() => assessmentStatusMutation.mutate({ id: a.id, status })} style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.04)', color: 'rgba(255,255,255,.7)', fontSize: 10 }}>{statusLabel(status)}</button>)}
+                <button type="button" onClick={() => setSelectedQuality({ type: 'ASSESSMENT', id: a.id })} style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid rgba(79,195,247,.25)', background: 'rgba(79,195,247,.06)', color: '#b9e5ff', fontSize: 10 }}>Quality</button>
+              </div>
             </div>
           ))}
         </section>

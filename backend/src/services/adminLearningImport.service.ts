@@ -1,6 +1,7 @@
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
+import { resolveLearningAccessPolicy, type LearningAccessRequirement } from './learningAccessPolicy';
 
 export type ImportFormat = 'CSV' | 'JSON';
 type RecordType = 'RESOURCE' | 'QUESTION';
@@ -37,6 +38,7 @@ interface NormalizedRow {
   licence: string;
   attributionText: string | null;
   visibility: string;
+  accessRequirement: LearningAccessRequirement | string;
   reviewStatus: string;
   language: string;
   title: string | null;
@@ -255,6 +257,8 @@ function normalizeRow(rawInput: Record<string, unknown>, rowNumber: number, allG
   const seed = text(raw.import_key || raw.source_item_id || title || prompt || `row-${rowNumber}`);
   const importKey = text(raw.import_key) || `${sourceCode}:${slugify(seed)}:${recordType}`.slice(0, 180);
   const questionType = nullable(raw.question_type) ? upper(raw.question_type) : null;
+  const visibility = upper(raw.visibility || 'REGISTERED');
+  const accessRequirement = upper(raw.access_requirement || raw.accessrequirement || (visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED'));
   return {
     recordType,
     importKey,
@@ -267,7 +271,8 @@ function normalizeRow(rawInput: Record<string, unknown>, rowNumber: number, allG
     sourceItemId: nullable(raw.source_item_id),
     licence: upper(raw.licence || raw.license || (sourceCode === 'VIDYASETU_ORIGINAL' ? 'VIDYASETU_ORIGINAL' : 'OTHER')),
     attributionText: nullable(raw.attribution_text || raw.attribution),
-    visibility: upper(raw.visibility || 'REGISTERED'),
+    visibility,
+    accessRequirement,
     reviewStatus: upper(raw.review_status || raw.status || 'DRAFT'),
     language: text(raw.language || 'en').toLowerCase(),
     title,
@@ -328,6 +333,11 @@ function validateRow(normalized: NormalizedRow, refs: Awaited<ReturnType<typeof 
   if (normalized.sourceCode !== 'VIDYASETU_ORIGINAL' && !normalized.sourceUrl) warnings.push('External source has no source_url');
 
   if (normalized.recordType === 'RESOURCE') {
+    try {
+      resolveLearningAccessPolicy(normalized.visibility, normalized.accessRequirement);
+    } catch (error: unknown) {
+      errors.push(error instanceof Error ? error.message : 'Invalid access_requirement');
+    }
     if (!normalized.title || normalized.title.length < 3) errors.push('RESOURCE title is required');
     if (!normalized.resourceType || !RESOURCE_TYPES.has(normalized.resourceType)) errors.push(`Invalid resource_type: ${normalized.resourceType || '(blank)'}`);
     if (!normalized.category || !CATEGORIES.has(normalized.category)) errors.push(`Invalid category: ${normalized.category || '(blank)'}`);
@@ -348,7 +358,16 @@ export async function getImportOptions() {
   const refs = await loadReferenceData();
   const { rows: sources } = await query(`SELECT code,name,source_kind,default_license,requires_item_license_check FROM learning_content_sources WHERE is_active=TRUE ORDER BY code`);
   const { rows: boards } = await query(`SELECT code,name,short_name,board_type,state FROM education_boards WHERE is_active=TRUE ORDER BY sort_order,name`);
-  return { grades: refs.grades, boards, sources };
+  return {
+    grades: refs.grades,
+    boards,
+    sources,
+    accessRequirements: [
+      { value: 'PUBLIC', label: 'Public Free' },
+      { value: 'REGISTERED', label: 'Registered Free' },
+      { value: 'SUBSCRIBER', label: 'Subscriber' },
+    ],
+  };
 }
 
 export async function stageImport(input: StageImportInput, createdBy: UUID) {
@@ -442,24 +461,25 @@ async function commitResource(client: PoolClient, row: NormalizedRow, batchId: U
   if (!source) throw appError(`Source disappeared before commit: ${row.sourceCode}`);
   const range = deriveClassRange(row.gradeCodes, gradeMap);
   const slug = row.publicSlug || (row.title ? `${slugify(row.title)}-${row.importKey.replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase().slice(-28)}`.slice(0,180) : null);
+  const access = resolveLearningAccessPolicy(row.visibility, row.accessRequirement);
   const { rows: [created] } = await client.query<{ id: UUID }>(
     `INSERT INTO learning_resources
-     (import_key,import_batch_id,public_slug,title,summary,body_markdown,resource_type,category,visibility,review_status,language,
+     (import_key,import_batch_id,public_slug,title,summary,body_markdown,resource_type,category,visibility,access_requirement,review_status,language,
       class_min,class_max,subject_label,topic_label,source_id,source_url,source_item_id,licence,attribution_text,external_url,
       thumbnail_url,duration_secs,is_offline_ready,is_featured_public,created_by,reviewed_by,reviewed_at,published_at)
-     VALUES($1,$2::uuid,$3,$4,$5,$6,$7::learning_resource_type,$8::learning_category,$9::learning_visibility,$10::learning_review_status,$11,
-            $12,$13,$14,$15,$16::uuid,$17,$18,$19::learning_license_code,$20,$21,$22,$23,$24,$25,$26::uuid,
-            CASE WHEN $10::learning_review_status IN ('APPROVED','PUBLISHED') THEN $26::uuid ELSE NULL::uuid END,
-            CASE WHEN $10::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE NULL::timestamptz END,
-            CASE WHEN $10::learning_review_status='PUBLISHED' THEN NOW() ELSE NULL::timestamptz END)
+     VALUES($1,$2::uuid,$3,$4,$5,$6,$7::learning_resource_type,$8::learning_category,$9::learning_visibility,$10::learning_access_requirement,$11::learning_review_status,$12,
+            $13,$14,$15,$16,$17::uuid,$18,$19,$20::learning_license_code,$21,$22,$23,$24,$25,$26,$27::uuid,
+            CASE WHEN $11::learning_review_status IN ('APPROVED','PUBLISHED') THEN $27::uuid ELSE NULL::uuid END,
+            CASE WHEN $11::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE NULL::timestamptz END,
+            CASE WHEN $11::learning_review_status='PUBLISHED' THEN NOW() ELSE NULL::timestamptz END)
      RETURNING id`,
-    [row.importKey,batchId,slug,row.title,row.summary,row.bodyMarkdown,row.resourceType,row.category,row.visibility,row.reviewStatus,row.language,
+    [row.importKey,batchId,slug,row.title,row.summary,row.bodyMarkdown,row.resourceType,row.category,access.visibility,access.accessRequirement,row.reviewStatus,row.language,
      range.classMin,range.classMax,row.subjectLabel,row.topicLabel,source.id,row.sourceUrl,row.sourceItemId,row.licence,row.attributionText,row.externalUrl,
      row.thumbnailUrl,row.durationSecs,row.isOfflineReady,row.isFeaturedPublic,userId],
   );
   await insertGrades(client,'learning_resource_grades','resource_id',created.id,row.gradeCodes);
   await insertBoards(client,'learning_resource_boards','resource_id',created.id,row.boardCodes);
-  await client.query(`INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note) VALUES($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`, [created.id,userId,row.reviewStatus,'Created through Global Learning Bulk Importer']);
+  await client.query(`INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note) VALUES($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`, [created.id,userId,row.reviewStatus,`Created through Global Learning Bulk Importer · access=${access.accessRequirement}`]);
   return created.id;
 }
 
@@ -522,7 +542,7 @@ export async function commitImportBatch(batchId: UUID, userId: UUID) {
 
 const TEMPLATE_COLUMNS = [
   'record_type','import_key','grade_codes','board_codes','subject','topic','title','public_slug','summary','body_markdown','resource_type','category',
-  'language','visibility','review_status','source_code','source_url','source_item_id','licence','attribution_text','external_url','thumbnail_url','duration_secs',
+  'language','visibility','access_requirement','review_status','source_code','source_url','source_item_id','licence','attribution_text','external_url','thumbnail_url','duration_secs',
   'is_offline_ready','is_featured_public','public_code','prompt','question_type','difficulty','correct_answer','options','explanation','marks','negative_marks',
 ];
 
@@ -534,12 +554,12 @@ function csvEscape(value: unknown): string {
 function sampleRows(sample: 'CLASS_5' | 'CLASS_8' | 'EARLY_YEARS' | 'BLANK') {
   if (sample === 'BLANK') return [];
   if (sample === 'EARLY_YEARS') return [
-    { record_type:'RESOURCE',import_key:'VS-PN-COLORS-001',grade_codes:'PRE_NURSERY;NURSERY',board_codes:'COMMON',subject:'Early Learning',topic:'Colours',title:'Let us learn primary colours',summary:'A short VidyaSetu Original early-years colour activity.',body_markdown:'Red, yellow and blue are primary colours. Look around and find one object of each colour.',resource_type:'ARTICLE',category:'ACADEMIC',language:'en',visibility:'PUBLIC',review_status:'PUBLISHED',source_code:'VIDYASETU_ORIGINAL',licence:'VIDYASETU_ORIGINAL' },
+    { record_type:'RESOURCE',import_key:'VS-PN-COLORS-001',grade_codes:'PRE_NURSERY;NURSERY',board_codes:'COMMON',subject:'Early Learning',topic:'Colours',title:'Let us learn primary colours',summary:'A short VidyaSetu Original early-years colour activity.',body_markdown:'Red, yellow and blue are primary colours. Look around and find one object of each colour.',resource_type:'ARTICLE',category:'ACADEMIC',language:'en',visibility:'PUBLIC',access_requirement:'PUBLIC',review_status:'PUBLISHED',source_code:'VIDYASETU_ORIGINAL',licence:'VIDYASETU_ORIGINAL' },
   ];
   const classCode = sample;
   const cls = sample === 'CLASS_5' ? 5 : 8;
   return [
-    { record_type:'RESOURCE',import_key:`VS-C${cls}-SCI-001`,grade_codes:classCode,board_codes:'COMMON',subject:'Science',topic:cls===5?'Plants and Animals':'Force and Pressure',title:`Class ${cls} Science Quick Guide`,summary:`VidyaSetu Original Class ${cls} Science starter lesson.`,body_markdown:`# Class ${cls} Science\n\nThis is a safe starter article for validating the global Learning importer.`,resource_type:'ARTICLE',category:'ACADEMIC',language:'en',visibility:'PUBLIC',review_status:'PUBLISHED',source_code:'VIDYASETU_ORIGINAL',licence:'VIDYASETU_ORIGINAL' },
+    { record_type:'RESOURCE',import_key:`VS-C${cls}-SCI-001`,grade_codes:classCode,board_codes:'COMMON',subject:'Science',topic:cls===5?'Plants and Animals':'Force and Pressure',title:`Class ${cls} Science Quick Guide`,summary:`VidyaSetu Original Class ${cls} Science starter lesson.`,body_markdown:`# Class ${cls} Science\n\nThis is a safe starter article for validating the global Learning importer.`,resource_type:'ARTICLE',category:'ACADEMIC',language:'en',visibility:'PUBLIC',access_requirement:'PUBLIC',review_status:'PUBLISHED',source_code:'VIDYASETU_ORIGINAL',licence:'VIDYASETU_ORIGINAL' },
     { record_type:'QUESTION',import_key:`VS-C${cls}-MATH-Q001`,grade_codes:classCode,board_codes:'COMMON',subject:'Mathematics',topic:cls===5?'Fractions':'Linear Equations',public_code:`VSC${cls}M-Q001`,prompt:cls===5?'Which fraction is equal to one half?':'Solve: 2x + 4 = 14. What is x?',question_type:'MCQ_SINGLE',difficulty:'EASY',correct_answer:'B',options:JSON.stringify(cls===5?[{key:'A',text:'1/3'},{key:'B',text:'2/4'},{key:'C',text:'3/8'},{key:'D',text:'4/10'}]:[{key:'A',text:'4'},{key:'B',text:'5'},{key:'C',text:'7'},{key:'D',text:'9'}]),explanation:cls===5?'2/4 simplifies to 1/2.':'Subtract 4, then divide by 2: x = 5.',visibility:'REGISTERED',review_status:'PUBLISHED',source_code:'VIDYASETU_ORIGINAL',licence:'VIDYASETU_ORIGINAL',marks:1,negative_marks:0 },
   ];
 }

@@ -2,6 +2,7 @@ import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
 import { getResourceReadiness } from './learningQuality.service';
+import { resolveLearningAccessPolicy, type LearningAccessRequirement } from './learningAccessPolicy';
 
 export interface LearningConceptMappingInput {
   conceptId: UUID;
@@ -20,6 +21,7 @@ export interface SaveLearningResourceInput {
   resourceType: string;
   category: string;
   visibility: string;
+  accessRequirement?: LearningAccessRequirement | string;
   reviewStatus?: string;
   language?: string;
   classMin?: number | null;
@@ -154,7 +156,15 @@ export async function getLearningStudioOptions() {
     ),
   ]);
 
-  return { boards: boards.rows, sources: sources.rows };
+  return {
+    boards: boards.rows,
+    sources: sources.rows,
+    accessRequirements: [
+      { value: 'PUBLIC', label: 'Public Free', description: 'Available without sign-in; requires PUBLIC visibility.' },
+      { value: 'REGISTERED', label: 'Registered Free', description: 'Free for signed-in learners within the selected visibility scope.' },
+      { value: 'SUBSCRIBER', label: 'Subscriber', description: 'Requires an individual Learning subscription or school Learning licence.' },
+    ],
+  };
 }
 
 export async function listLearningConcepts(classNumber?: number | null, subjectCode?: string | null) {
@@ -188,7 +198,7 @@ export async function listLearningConcepts(classNumber?: number | null, subjectC
 export async function listLearningResources() {
   const { rows } = await query(
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,lr.summary_hi,
-            lr.resource_type, lr.category, lr.visibility, lr.review_status,
+            lr.resource_type, lr.category, lr.visibility, lr.access_requirement, lr.review_status,
             lr.language, lr.class_min, lr.class_max, lr.licence,
             lr.source_url, lr.external_url, lr.attribution_text,
             lr.is_featured_public, lr.published_at, lr.created_at,
@@ -211,6 +221,7 @@ export async function listLearningResources() {
 }
 
 export async function createLearningResource(input: SaveLearningResourceInput, createdBy: UUID) {
+  const access = resolveLearningAccessPolicy(input.visibility, input.accessRequirement);
   const sourceCode = input.sourceCode.toUpperCase();
   const { rows: [source] } = await query<SourceRow>(
     `SELECT id, code, source_kind, requires_item_license_check
@@ -252,24 +263,24 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
           resource_type, category, visibility, review_status, language, class_min, class_max,
           source_id, source_url, source_item_id, licence, licence_url, attribution_text,
           external_url, file_key, thumbnail_url, duration_secs, is_offline_ready,
-          is_featured_public, created_by, reviewed_by, reviewed_at, published_at)
+          is_featured_public, access_requirement, created_by, reviewed_by, reviewed_at, published_at)
        VALUES
          ($1,$2,$3,$4,$5,$6,$7,$8::learning_resource_type,$9::learning_category,
           $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16,$17,
-          $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::uuid,
+          $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::learning_access_requirement,$28::uuid,
           NULL::uuid,NULL::timestamptz,NULL::timestamptz)
        RETURNING id`,
       [
         slug, input.title.trim(), input.titleHi?.trim() || null, input.summary?.trim() || null,
         input.summaryHi?.trim() || null, input.bodyMarkdown?.trim() || null,
         input.bodyMarkdownHi?.trim() || null, input.resourceType, input.category,
-        input.visibility, requestedStatus, input.language || 'en', input.classMin || null,
+        access.visibility, requestedStatus, input.language || 'en', input.classMin || null,
         input.classMax || null, source.id, input.sourceUrl?.trim() || null,
         input.sourceItemId?.trim() || null, input.licence, input.licenceUrl?.trim() || null,
         input.attributionText?.trim() || null, input.externalUrl?.trim() || null,
         input.fileKey?.trim() || null, input.thumbnailUrl?.trim() || null,
         input.durationSecs || null, Boolean(input.isOfflineReady), Boolean(input.isFeaturedPublic),
-        createdBy,
+        access.accessRequirement, createdBy,
       ],
     );
 
@@ -294,11 +305,31 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
     await client.query(
       `INSERT INTO learning_resource_reviews (resource_id, reviewer_id, from_status, to_status, review_note)
        VALUES ($1::uuid,$2::uuid,NULL,$3::learning_review_status,$4)`,
-      [resource.id, createdBy, requestedStatus, 'Resource created in Learning Studio'],
+      [resource.id, createdBy, requestedStatus, `Resource created in Learning Studio · access=${access.accessRequirement}`],
     );
 
     return resource;
   });
+}
+
+export async function updateLearningResourceAccessPolicy(
+  resourceId: UUID,
+  visibility: string,
+  accessRequirement: string,
+) {
+  const access = resolveLearningAccessPolicy(visibility, accessRequirement);
+  const { rows: [updated] } = await query(
+    `UPDATE learning_resources
+     SET visibility=$2::learning_visibility,
+         access_requirement=$3::learning_access_requirement,
+         is_featured_public=CASE WHEN $2::learning_visibility='PUBLIC' THEN is_featured_public ELSE FALSE END,
+         updated_at=NOW()
+     WHERE id=$1::uuid
+     RETURNING id,public_slug,title,visibility,access_requirement,review_status,is_featured_public,updated_at`,
+    [resourceId, access.visibility, access.accessRequirement],
+  );
+  if (!updated) throw Object.assign(new Error('Learning resource not found'), { statusCode: 404 });
+  return updated;
 }
 
 export async function updateLearningResourceStatus(
@@ -338,7 +369,7 @@ export async function updateLearningResourceStatus(
            reviewed_at=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN NOW() ELSE reviewed_at END,
            published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
        WHERE id=$1::uuid
-       RETURNING id, public_slug, title, review_status, visibility, published_at`,
+       RETURNING id, public_slug, title, review_status, visibility, access_requirement, published_at`,
       [resourceId, normalizedNextStatus, reviewerId],
     );
 

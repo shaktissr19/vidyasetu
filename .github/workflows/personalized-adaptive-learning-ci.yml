@@ -123,6 +123,14 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM pg_indexes WHERE indexname='uq_student_daily_learning_plan_active';")" = "1"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='student_daily_learning_plan_items' AND column_name='evidence_snapshot');")" = "t"
 
+      - name: Apply Learning entitlement runtime schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/044_learning_entitlements_canonical_runtime.sql
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='access_requirement');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_assessments' AND column_name='access_requirement');")" = "t"
+
       - name: Synchronize canonical Class 8 concepts
         working-directory: backend
         env:

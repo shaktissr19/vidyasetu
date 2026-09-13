@@ -27,12 +27,21 @@ jobs:
         run: |
           set -euxo pipefail
           bash -n scripts/learning-canonical-runtime-entitlement-e2e-smoke.sh
+          bash -n scripts/admin-learning-entitlement-authoring-e2e-smoke.sh
           test -s database/migrations/044_learning_entitlements_canonical_runtime.sql
           grep -q "learning_access_requirement" database/migrations/044_learning_entitlements_canonical_runtime.sql
           grep -q "LEARNING_SUBSCRIBER" backend/src/services/learningEntitlement.service.ts
           grep -q "LEARNING_SCHOOL_LICENSE" backend/src/services/learningEntitlement.service.ts
+          grep -q "resolveLearningAccessPolicy" backend/src/services/learningAccessPolicy.ts
+          grep -q "updateLearningResourceAccessPolicy" backend/src/services/adminLearning.service.ts
+          grep -q "updateAssessmentAccessPolicy" backend/src/services/adminLearningPractice.service.ts
+          grep -q "access_requirement" backend/src/services/adminLearningImport.service.ts
           grep -q "getCanonicalLearningCatalogue" backend/src/services/studentCanonicalLearning.service.ts
           grep -q "student/learning/catalogue" frontend/src/services/canonicalLearningService.ts
+          grep -q "updateLearningStudioResourceAccess" frontend/src/services/adminLearningService.ts
+          grep -q "updateLearningStudioAssessmentAccess" frontend/src/services/adminLearningService.ts
+          grep -q "Public Free" 'frontend/src/app/(admin)/admin/learning/page.tsx'
+          grep -q "Subscriber" 'frontend/src/app/(admin)/admin/learning/practice/page.tsx'
           grep -q "canonical-learning-catalogue" 'frontend/src/app/(student)/subjects/page.tsx'
           grep -q "Subscriber" 'frontend/src/app/(student)/subjects/[subjectId]/page.tsx'
           test -s 'frontend/src/app/(student)/subjects/resource/[resourceId]/page.tsx'
@@ -52,6 +61,7 @@ jobs:
           npm run build
           test -s dist/index.js
           test -s dist/services/learningEntitlement.service.js
+          test -s dist/services/learningAccessPolicy.js
           test -s dist/services/studentCanonicalLearning.service.js
 
       - name: Typecheck and build frontend
@@ -155,3 +165,13 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
         run: bash scripts/learning-canonical-runtime-entitlement-e2e-smoke.sh
+
+      - name: Run Admin Learning entitlement authoring E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/admin-learning-entitlement-authoring-e2e-smoke.sh

@@ -10,10 +10,13 @@ import {
   getLearningStudioConcepts,
   getLearningStudioOptions,
   getLearningStudioResources,
+  updateLearningStudioResourceAccess,
   updateLearningStudioStatus,
+  type LearningAccessRequirement,
   type LearningJourneyStage,
   type LearningReviewStatus,
   type LearningStudioResource,
+  type LearningVisibility,
   type SaveLearningStudioResource,
 } from '@/services/adminLearningService';
 import { getLearningMediaUploadUrl } from '@/services/learningMediaService';
@@ -41,6 +44,13 @@ const REVIEW_TRANSITIONS: Record<LearningReviewStatus, LearningReviewStatus[]> =
   ARCHIVED: ['DRAFT'],
 };
 
+const ACCESS_OPTIONS: Array<{ value: LearningAccessRequirement; label: string; detail: string }> = [
+  { value: 'PUBLIC', label: 'Public Free', detail: 'Available without sign-in. Visibility is always PUBLIC.' },
+  { value: 'REGISTERED', label: 'Registered Free', detail: 'Free to signed-in learners within the selected visibility scope.' },
+  { value: 'SUBSCRIBER', label: 'Subscriber', detail: 'Requires an individual Learning subscription or school Learning licence.' },
+];
+
+const VISIBILITIES: LearningVisibility[] = ['PUBLIC', 'REGISTERED', 'CLASS_ONLY', 'SCHOOL_ONLY'];
 const JOURNEY_STAGES: LearningJourneyStage[] = ['SEE', 'UNDERSTAND', 'DO', 'PRACTISE', 'APPLY', 'REVISE'];
 const FILE_TYPES = new Set(['VIDEO', 'AUDIO', 'PDF', 'WORKSHEET', 'QUESTION_PAPER']);
 
@@ -59,6 +69,7 @@ const INITIAL: StudioForm = {
   resourceType: 'ARTICLE',
   category: 'ACADEMIC',
   visibility: 'PUBLIC',
+  accessRequirement: 'PUBLIC',
   reviewStatus: 'DRAFT',
   language: 'en',
   classMin: 8,
@@ -74,8 +85,12 @@ const INITIAL: StudioForm = {
 
 const inputStyle = { width: '100%', marginTop: 5, padding: '10px 11px', borderRadius: 9, background: 'rgba(255,255,255,.05)', color: 'white', border: '1px solid rgba(255,255,255,.12)' } as const;
 const labelStyle = { display: 'block', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 800 } as const;
+const miniSelectStyle = { padding: '5px 7px', borderRadius: 7, border: '1px solid rgba(255,255,255,.13)', background: '#172033', color: 'rgba(255,255,255,.82)', fontSize: 11 } as const;
 
 function statusLabel(status: string): string { return status.replaceAll('_', ' '); }
+function accessLabel(access: LearningAccessRequirement): string {
+  return ACCESS_OPTIONS.find((option) => option.value === access)?.label || access;
+}
 
 export default function AdminLearningStudioPage() {
   const queryClient = useQueryClient();
@@ -92,6 +107,7 @@ export default function AdminLearningStudioPage() {
   });
 
   const selectedSource = useMemo(() => optionsQuery.data?.sources.find((source) => source.code === form.sourceCode), [optionsQuery.data, form.sourceCode]);
+  const selectedAccess = useMemo(() => ACCESS_OPTIONS.find((option) => option.value === form.accessRequirement), [form.accessRequirement]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -123,7 +139,7 @@ export default function AdminLearningStudioPage() {
       return createLearningStudioResource(payload);
     },
     onSuccess: async () => {
-      toast.success('Learning resource created as DRAFT');
+      toast.success('Learning resource created as governed DRAFT');
       setForm(INITIAL);
       setFile(null);
       await Promise.all([
@@ -147,12 +163,46 @@ export default function AdminLearningStudioPage() {
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Review transition blocked')),
   });
 
+  const accessMutation = useMutation({
+    mutationFn: ({ id, visibility, accessRequirement }: { id: string; visibility: LearningVisibility; accessRequirement: LearningAccessRequirement }) =>
+      updateLearningStudioResourceAccess(id, { visibility, accessRequirement }),
+    onSuccess: async (response, variables) => {
+      toast.success(`Access updated to ${accessLabel(variables.accessRequirement)}`);
+      const updated = response.data.data;
+      if (selectedResource?.id === variables.id && updated) setSelectedResource({ ...selectedResource, ...updated });
+      await queryClient.invalidateQueries({ queryKey: ['learning-studio-resources'] });
+    },
+    onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not update Learning access')),
+  });
+
   function toggleBoard(code: string): void {
     setForm((current) => {
       const selected = current.boardCodes || [];
       const next = selected.includes(code) ? selected.filter((item) => item !== code) : [...selected, code];
       return { ...current, boardCodes: next.length ? next : ['COMMON'] };
     });
+  }
+
+  function changeVisibility(visibility: LearningVisibility): void {
+    setForm((current) => ({
+      ...current,
+      visibility,
+      accessRequirement: visibility === 'PUBLIC'
+        ? 'PUBLIC'
+        : current.accessRequirement === 'PUBLIC' ? 'REGISTERED' : current.accessRequirement,
+      isFeaturedPublic: visibility === 'PUBLIC' ? current.isFeaturedPublic : false,
+    }));
+  }
+
+  function changeAccessRequirement(accessRequirement: LearningAccessRequirement): void {
+    setForm((current) => ({
+      ...current,
+      accessRequirement,
+      visibility: accessRequirement === 'PUBLIC'
+        ? 'PUBLIC'
+        : current.visibility === 'PUBLIC' ? 'REGISTERED' : current.visibility,
+      isFeaturedPublic: accessRequirement === 'PUBLIC' ? current.isFeaturedPublic : false,
+    }));
   }
 
   function changeSource(code: string): void {
@@ -163,8 +213,23 @@ export default function AdminLearningStudioPage() {
       licence: (source?.default_license || 'OTHER') as SaveLearningStudioResource['licence'],
       resourceType: code === 'NROER' ? 'EXTERNAL_LINK' : current.resourceType,
       visibility: code === 'NROER' ? 'PUBLIC' : current.visibility,
+      accessRequirement: code === 'NROER' ? 'PUBLIC' : current.accessRequirement,
     }));
     setFile(null);
+  }
+
+  function updateExistingVisibility(resource: LearningStudioResource, visibility: LearningVisibility): void {
+    const accessRequirement = visibility === 'PUBLIC'
+      ? 'PUBLIC'
+      : resource.access_requirement === 'PUBLIC' ? 'REGISTERED' : resource.access_requirement;
+    accessMutation.mutate({ id: resource.id, visibility, accessRequirement });
+  }
+
+  function updateExistingAccess(resource: LearningStudioResource, accessRequirement: LearningAccessRequirement): void {
+    const visibility = accessRequirement === 'PUBLIC'
+      ? 'PUBLIC'
+      : resource.visibility === 'PUBLIC' ? 'REGISTERED' : resource.visibility;
+    accessMutation.mutate({ id: resource.id, visibility, accessRequirement });
   }
 
   const fileRequired = FILE_TYPES.has(form.resourceType) && form.sourceCode === 'VIDYASETU_ORIGINAL';
@@ -186,7 +251,7 @@ export default function AdminLearningStudioPage() {
       </div>
 
       <div style={{ margin: '16px 0', padding: 12, borderRadius: 11, border: '1px solid rgba(71,209,140,.28)', background: 'rgba(71,209,140,.06)', color: '#c8f7dc', fontSize: 12 }}>
-        Governance: DRAFT → SUBMITTED → ACADEMIC REVIEW → APPROVED → PUBLISHED. There is no second Admin publishing path.
+        Governance: DRAFT → SUBMITTED → ACADEMIC REVIEW → APPROVED → PUBLISHED. Commercial access is independent from audience scope: Public Free, Registered Free or Subscriber.
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(430px,.9fr) minmax(520px,1.1fr)', gap: 18, alignItems: 'start' }}>
@@ -200,8 +265,10 @@ export default function AdminLearningStudioPage() {
             <label style={labelStyle}>Category<select style={inputStyle} value={form.category} onChange={(e) => setForm((v) => ({ ...v, category: e.target.value as LearningCategory }))}>{CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
             <label style={labelStyle}>Resource type<select style={inputStyle} value={form.resourceType} onChange={(e) => { setForm((v) => ({ ...v, resourceType: e.target.value as SaveLearningStudioResource['resourceType'] })); setFile(null); }}>{['ARTICLE','VIDEO','AUDIO','PDF','WORKSHEET','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK'].map((type) => <option key={type}>{type}</option>)}</select></label>
             <label style={labelStyle}>Class from<input style={inputStyle} type="number" min={1} max={12} value={form.classMin || ''} onChange={(e) => setForm((v) => ({ ...v, classMin: Number(e.target.value), classMax: Number(e.target.value), selectedConceptId: '' }))} /></label>
-            <label style={labelStyle}>Visibility<select style={inputStyle} value={form.visibility} onChange={(e) => setForm((v) => ({ ...v, visibility: e.target.value as SaveLearningStudioResource['visibility'] }))}>{['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY'].map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label style={labelStyle}>Audience visibility<select style={inputStyle} value={form.visibility} onChange={(e) => changeVisibility(e.target.value as LearningVisibility)}>{VISIBILITIES.map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>Learning access<select style={inputStyle} value={form.accessRequirement} onChange={(e) => changeAccessRequirement(e.target.value as LearningAccessRequirement)}>{ACCESS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           </div>
+          {selectedAccess && <div style={{ marginTop: 7, color: 'rgba(255,255,255,.5)', fontSize: 11 }}>{selectedAccess.detail}</div>}
 
           {form.category === 'ACADEMIC' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1.4fr .6fr', gap: 10, marginTop: 10 }}>
@@ -236,7 +303,7 @@ export default function AdminLearningStudioPage() {
 
           <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
             <label style={{ color: 'rgba(255,255,255,.7)', fontSize: 12 }}><input type="checkbox" checked={Boolean(form.isOfflineReady)} onChange={(e) => setForm((v) => ({ ...v, isOfflineReady: e.target.checked }))} /> Offline-ready</label>
-            <label style={{ color: 'rgba(255,255,255,.7)', fontSize: 12 }}><input type="checkbox" checked={Boolean(form.isFeaturedPublic)} onChange={(e) => setForm((v) => ({ ...v, isFeaturedPublic: e.target.checked }))} /> Featured after publication</label>
+            <label style={{ color: 'rgba(255,255,255,.7)', fontSize: 12 }}><input type="checkbox" disabled={form.visibility !== 'PUBLIC'} checked={Boolean(form.isFeaturedPublic)} onChange={(e) => setForm((v) => ({ ...v, isFeaturedPublic: e.target.checked }))} /> Featured after publication</label>
           </div>
 
           <button className="btn-primary" style={{ marginTop: 14 }} disabled={createMutation.isPending || !form.title.trim() || (form.category === 'ACADEMIC' && !form.selectedConceptId) || (fileRequired && !file)} onClick={() => createMutation.mutate()}>{createMutation.isPending ? 'Saving…' : 'Create governed DRAFT'}</button>
@@ -245,14 +312,20 @@ export default function AdminLearningStudioPage() {
         <section style={{ display: 'grid', gap: 14 }}>
           <div style={{ padding: 16, borderRadius: 14, border: '1px solid rgba(255,255,255,.1)' }}>
             <h2 style={{ marginTop: 0 }}>Resource review queue</h2>
-            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+            <div style={{ maxHeight: 560, overflowY: 'auto' }}>
               {(resourcesQuery.data || []).map((resource) => (
                 <div key={resource.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <button type="button" onClick={() => setSelectedResource(resource)} style={{ background: 'transparent', border: 0, color: 'white', padding: 0, textAlign: 'left', cursor: 'pointer' }}><strong>{resource.title}</strong><div style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginTop: 3 }}>{resource.source_name} · {resource.category.replaceAll('_', ' ')} · concepts {resource.concept_count || 0} · {resource.board_codes.join(', ')}</div></button>
+                    <button type="button" onClick={() => setSelectedResource(resource)} style={{ background: 'transparent', border: 0, color: 'white', padding: 0, textAlign: 'left', cursor: 'pointer' }}>
+                      <strong>{resource.title}</strong>
+                      <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginTop: 3 }}>{resource.source_name} · {resource.category.replaceAll('_', ' ')} · concepts {resource.concept_count || 0} · {resource.board_codes.join(', ')}</div>
+                      <div style={{ color: resource.access_requirement === 'SUBSCRIBER' ? '#ffc18b' : '#b9e5ff', fontSize: 10, marginTop: 4, fontWeight: 800 }}>{resource.visibility} · {accessLabel(resource.access_requirement)}</div>
+                    </button>
                     <span style={{ color: resource.review_status === 'PUBLISHED' ? '#47d18c' : '#ffd166', fontSize: 11, fontWeight: 900 }}>{statusLabel(resource.review_status)}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, alignItems: 'center' }}>
+                    <select aria-label={`Visibility for ${resource.title}`} disabled={accessMutation.isPending} value={resource.visibility} onChange={(e) => updateExistingVisibility(resource, e.target.value as LearningVisibility)} style={miniSelectStyle}>{VISIBILITIES.map((value) => <option key={value}>{value}</option>)}</select>
+                    <select aria-label={`Access for ${resource.title}`} disabled={accessMutation.isPending} value={resource.access_requirement} onChange={(e) => updateExistingAccess(resource, e.target.value as LearningAccessRequirement)} style={miniSelectStyle}>{ACCESS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
                     {(REVIEW_TRANSITIONS[resource.review_status] || []).map((status) => <button key={status} type="button" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: resource.id, status })} style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(255,255,255,.13)', background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.72)', fontSize: 11 }}>{statusLabel(status)}</button>)}
                     <button type="button" onClick={() => setSelectedResource(resource)} style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(79,195,247,.3)', background: 'rgba(79,195,247,.07)', color: '#b9e5ff', fontSize: 11 }}>Quality evidence</button>
                   </div>
