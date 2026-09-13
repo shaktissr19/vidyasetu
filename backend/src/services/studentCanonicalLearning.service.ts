@@ -247,8 +247,16 @@ async function assertResourceForLearner(userId: UUID, resourceId: UUID) {
   const grade = gradeNumber(gradeCode);
   const board = student.board_code || 'COMMON';
 
+  // Existing certified Learning regression environments intentionally stop
+  // before migration 044. Preserve their legacy access contract until the
+  // entitlement schema is explicitly installed; after 044, enforce the new
+  // commercial access requirement at this same boundary.
+  const selectAccess = access.schemaReady
+    ? 'lr.access_requirement::text AS access_requirement'
+    : "'REGISTERED'::text AS access_requirement";
+
   const { rows: [resource] } = await query<ResourceAccessRow>(
-    `SELECT lr.id, lr.access_requirement
+    `SELECT lr.id, ${selectAccess}
      FROM learning_resources lr
      WHERE lr.id=$1::uuid
        AND lr.review_status='PUBLISHED'
