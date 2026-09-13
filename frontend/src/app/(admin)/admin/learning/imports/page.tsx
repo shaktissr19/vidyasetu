@@ -192,7 +192,7 @@ export default function LearningBulkImporterPage() {
                   <div className={styles.pillRow}>
                     {Array.isArray(row.normalized_payload.gradeCodes) && (row.normalized_payload.gradeCodes as string[]).slice(0,6).map((grade) => <span className={styles.pill} key={grade}>{grade.replace('CLASS_','Class ')}</span>)}
                     {Array.isArray(row.normalized_payload.boardCodes) && (row.normalized_payload.boardCodes as string[]).slice(0,4).map((board) => <span className={styles.pill} key={board}>{board}</span>)}
-                    {row.record_type === 'RESOURCE' && row.normalized_payload.accessRequirement && <span className={styles.pill}>{String(row.normalized_payload.accessRequirement)} ACCESS</span>}
+                    {row.record_type === 'RESOURCE' && Boolean(row.normalized_payload.accessRequirement) && <span className={styles.pill}>{String(row.normalized_payload.accessRequirement)} ACCESS</span>}
                   </div>
                 </article>
               ))}
