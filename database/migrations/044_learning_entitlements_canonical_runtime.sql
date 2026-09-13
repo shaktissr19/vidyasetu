@@ -5,7 +5,7 @@
 -- Separates content visibility from commercial entitlement.
 -- PUBLIC/REGISTERED/CLASS_ONLY/SCHOOL_ONLY continue to describe
 -- audience/scope; access_requirement describes whether the learner
--- needs a paid/ licensed Learning entitlement.
+-- needs a paid/licensed Learning entitlement.
 --
 -- Additive/idempotent. No destructive data reset and no seed dependency.
 -- ============================================================
@@ -47,6 +47,30 @@ WHERE access_requirement IS NULL;
 ALTER TABLE learning_assessments
   ALTER COLUMN access_requirement SET DEFAULT 'REGISTERED'::learning_access_requirement,
   ALTER COLUMN access_requirement SET NOT NULL;
+
+DO $$ BEGIN
+  ALTER TABLE learning_resources
+    ADD CONSTRAINT chk_learning_resources_public_access
+    CHECK (visibility <> 'PUBLIC' OR access_requirement = 'PUBLIC');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE learning_resources
+    ADD CONSTRAINT chk_learning_resources_public_requirement_scope
+    CHECK (access_requirement <> 'PUBLIC' OR visibility = 'PUBLIC');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE learning_assessments
+    ADD CONSTRAINT chk_learning_assessments_public_access
+    CHECK (visibility <> 'PUBLIC' OR access_requirement = 'PUBLIC');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE learning_assessments
+    ADD CONSTRAINT chk_learning_assessments_public_requirement_scope
+    CHECK (access_requirement <> 'PUBLIC' OR visibility = 'PUBLIC');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS learning_entitlements (
   id               UUID                        PRIMARY KEY DEFAULT uuid_generate_v4(),
