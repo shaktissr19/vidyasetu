@@ -92,6 +92,21 @@ export async function createResource(
   } catch (error: unknown) { next(error); }
 }
 
+export async function updateResourceAccess(
+  req: Request<{ resourceId: UUID }, unknown, { visibility: string; accessRequirement: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await learningService.updateLearningResourceAccessPolicy(
+      req.params.resourceId,
+      req.body.visibility,
+      req.body.accessRequirement,
+    ));
+  } catch (error: unknown) { next(error); }
+}
+
 export async function updateStatus(
   req: Request<{ resourceId: UUID }, unknown, { status: string; note?: string | null }>,
   res: Response,
@@ -143,6 +158,21 @@ export async function createAssessment(
   try {
     if (!req.user) return R.unauthorized(res);
     return R.created(res, await practiceService.createAssessment(req.body, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function updateAssessmentAccess(
+  req: Request<{ assessmentId: UUID }, unknown, { visibility: string; accessRequirement: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await practiceService.updateAssessmentAccessPolicy(
+      req.params.assessmentId,
+      req.body.visibility,
+      req.body.accessRequirement,
+    ));
   } catch (error: unknown) { next(error); }
 }
 
