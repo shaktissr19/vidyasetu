@@ -2,6 +2,7 @@ import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
 import { getAssessmentReadiness, getQuestionReadiness } from './learningQuality.service';
+import { resolveLearningAccessPolicy, type LearningAccessRequirement } from './learningAccessPolicy';
 
 export interface SaveQuestionInput {
   publicCode?: string;
@@ -41,6 +42,7 @@ export interface SaveAssessmentInput {
   summary?: string | null;
   assessmentType: string;
   visibility: string;
+  accessRequirement?: LearningAccessRequirement | string;
   reviewStatus?: string;
   classMin?: number | null;
   classMax?: number | null;
@@ -256,7 +258,7 @@ export async function updateQuestionStatus(questionId: UUID, nextStatus: string,
 
 export async function listAssessments() {
   const { rows } = await query(
-    `SELECT la.id,la.public_slug,la.title,la.title_hi,la.summary,la.assessment_type,la.visibility,la.review_status,
+    `SELECT la.id,la.public_slug,la.title,la.title_hi,la.summary,la.assessment_type,la.visibility,la.access_requirement,la.review_status,
             la.class_min,la.class_max,la.time_limit_mins,la.passing_pct::float,la.max_attempts,
             la.is_featured_public,sub.name AS subject_name,
             COUNT(DISTINCT laq.question_id)::int AS question_count,
@@ -280,6 +282,7 @@ export async function listAssessments() {
 export async function createAssessment(input: SaveAssessmentInput, createdBy: UUID) {
   if (!input.questionIds.length) throw appError('Assessment requires at least one question');
   if (input.classMin && input.classMax && input.classMin > input.classMax) throw appError('classMin cannot exceed classMax');
+  const access = resolveLearningAccessPolicy(input.visibility, input.accessRequirement);
   const requestedStatus = normalizeReviewStatus(input.reviewStatus || 'DRAFT');
   if (requestedStatus !== 'DRAFT') {
     throw appError('New learning assessments must start in DRAFT and pass the review workflow before publication.');
@@ -302,12 +305,13 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
     const { rows: [assessment] } = await client.query<{ id: UUID; public_slug: string }>(
       `INSERT INTO learning_assessments
        (public_slug,title,title_hi,summary,assessment_type,visibility,review_status,class_min,class_max,subject_id,
-        time_limit_mins,passing_pct,max_attempts,shuffle_questions,is_featured_public,created_by,reviewed_by,published_at)
-       VALUES($1,$2,$3,$4,$5::learning_assessment_type,$6::learning_visibility,'DRAFT'::learning_review_status,$7,$8,$9::uuid,$10,$11,$12,$13,$14,$15::uuid,NULL::uuid,NULL::timestamptz)
+        time_limit_mins,passing_pct,max_attempts,shuffle_questions,is_featured_public,access_requirement,created_by,reviewed_by,published_at)
+       VALUES($1,$2,$3,$4,$5::learning_assessment_type,$6::learning_visibility,'DRAFT'::learning_review_status,$7,$8,$9::uuid,$10,$11,$12,$13,$14,
+              $15::learning_access_requirement,$16::uuid,NULL::uuid,NULL::timestamptz)
        RETURNING id,public_slug`,
-      [slug,input.title.trim(),input.titleHi?.trim() || null,input.summary?.trim() || null,input.assessmentType,input.visibility,
+      [slug,input.title.trim(),input.titleHi?.trim() || null,input.summary?.trim() || null,input.assessmentType,access.visibility,
        input.classMin || null,input.classMax || null,input.subjectId || null,input.timeLimitMins || null,input.passingPct ?? 40,input.maxAttempts || null,
-       Boolean(input.shuffleQuestions),Boolean(input.isFeaturedPublic),createdBy],
+       Boolean(input.shuffleQuestions),Boolean(input.isFeaturedPublic),access.accessRequirement,createdBy],
     );
     for (const board of boards) {
       await client.query(`INSERT INTO learning_assessment_boards(assessment_id,board_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`, [assessment.id, board.id]);
@@ -327,6 +331,26 @@ export async function createAssessment(input: SaveAssessmentInput, createdBy: UU
     }
     return assessment;
   });
+}
+
+export async function updateAssessmentAccessPolicy(
+  assessmentId: UUID,
+  visibility: string,
+  accessRequirement: string,
+) {
+  const access = resolveLearningAccessPolicy(visibility, accessRequirement);
+  const { rows: [updated] } = await query(
+    `UPDATE learning_assessments
+     SET visibility=$2::learning_visibility,
+         access_requirement=$3::learning_access_requirement,
+         is_featured_public=CASE WHEN $2::learning_visibility='PUBLIC' THEN is_featured_public ELSE FALSE END,
+         updated_at=NOW()
+     WHERE id=$1::uuid
+     RETURNING id,public_slug,title,visibility,access_requirement,review_status,is_featured_public,updated_at`,
+    [assessmentId, access.visibility, access.accessRequirement],
+  );
+  if (!updated) throw appError('Learning assessment not found', 404);
+  return updated;
 }
 
 export async function updateAssessmentStatus(assessmentId: UUID, nextStatus: string, reviewerId: UUID) {
@@ -353,7 +377,7 @@ export async function updateAssessmentStatus(assessmentId: UUID, nextStatus: str
            reviewed_by=CASE WHEN $2::learning_review_status IN ('APPROVED','PUBLISHED') THEN $3::uuid ELSE reviewed_by END,
            published_at=CASE WHEN $2::learning_review_status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
        WHERE id=$1::uuid
-       RETURNING id,public_slug,title,review_status,published_at`,
+       RETURNING id,public_slug,title,review_status,visibility,access_requirement,published_at`,
       [assessmentId, normalizedNextStatus, reviewerId],
     );
     return updated;
