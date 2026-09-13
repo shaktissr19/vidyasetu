@@ -7,6 +7,7 @@ import * as studentPortalService from '../services/studentPortal.service';
 import * as studentOverviewService from '../services/studentOverview.service';
 import * as studentLearningService from '../services/studentLearning.service';
 import * as studentLearningHubService from '../services/studentLearningHub.service';
+import * as studentCanonicalLearningService from '../services/studentCanonicalLearning.service';
 import * as enrollmentService from '../services/enrollment.service';
 import * as notificationService from '../services/notification.service';
 import { query } from '../config/db';
@@ -121,11 +122,35 @@ export async function getLearningHome(req: Request, res: Response, next: NextFun
   } catch (err: unknown) { next(err); }
 }
 
+export async function getCanonicalLearningCatalogue(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentCanonicalLearningService.getCanonicalLearningCatalogue(user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getCanonicalSubjectResources(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentCanonicalLearningService.getCanonicalSubjectResources(user.userId, req.params.subjectId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getCanonicalLearningResource(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = req.user;
+    if (!user) return R.unauthorized(res);
+    return R.ok(res, await studentCanonicalLearningService.getCanonicalLearningResource(user.userId, req.params.resourceId));
+  } catch (err: unknown) { next(err); }
+}
+
 export async function updateLearningResourceProgress(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    return R.ok(res, await studentLearningHubService.updateResourceProgress(user.userId, req.params.resourceId, Number(req.body.progressPct)));
+    return R.ok(res, await studentCanonicalLearningService.updateCanonicalResourceProgress(user.userId, req.params.resourceId, Number(req.body.progressPct)));
   } catch (err: unknown) { next(err); }
 }
 
@@ -133,7 +158,7 @@ export async function addLearningBookmark(req: Request, res: Response, next: Nex
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    return R.ok(res, await studentLearningHubService.addBookmark(user.userId, req.params.resourceId));
+    return R.ok(res, await studentCanonicalLearningService.addCanonicalBookmark(user.userId, req.params.resourceId));
   } catch (err: unknown) { next(err); }
 }
 
@@ -141,7 +166,7 @@ export async function removeLearningBookmark(req: Request, res: Response, next: 
   try {
     const user = req.user;
     if (!user) return R.unauthorized(res);
-    return R.ok(res, await studentLearningHubService.removeBookmark(user.userId, req.params.resourceId));
+    return R.ok(res, await studentCanonicalLearningService.removeCanonicalBookmark(user.userId, req.params.resourceId));
   } catch (err: unknown) { next(err); }
 }
 
