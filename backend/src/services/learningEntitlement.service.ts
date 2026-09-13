@@ -17,6 +17,10 @@ interface AccessRow extends QueryResultRow {
   access_requirement: LearningAccessRequirement;
 }
 
+interface SchemaRow extends QueryResultRow {
+  ready: boolean;
+}
+
 export interface LearningAccessContext {
   studentId: UUID;
   schoolId: UUID | null;
@@ -24,10 +28,32 @@ export interface LearningAccessContext {
   individualSubscriber: boolean;
   schoolLicensed: boolean;
   subscriberAccess: boolean;
+  schemaReady: boolean;
 }
+
+let entitlementSchemaReadyCache: boolean | null = null;
 
 function appError(message: string, statusCode: number): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
+}
+
+export async function learningEntitlementSchemaAvailable(): Promise<boolean> {
+  if (entitlementSchemaReadyCache !== null) return entitlementSchemaReadyCache;
+  const { rows: [row] } = await query<SchemaRow>(
+    `SELECT (
+       to_regclass('public.learning_entitlements') IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='learning_resources' AND column_name='access_requirement'
+       )
+       AND EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='learning_assessments' AND column_name='access_requirement'
+       )
+     ) AS ready`,
+  );
+  entitlementSchemaReadyCache = Boolean(row?.ready);
+  return entitlementSchemaReadyCache;
 }
 
 /**
@@ -35,8 +61,33 @@ function appError(message: string, statusCode: number): Error & { statusCode: nu
  * visibility. A REGISTERED resource can be free for every signed-in learner;
  * a SUBSCRIBER resource needs either an active individual subscription or an
  * active school Learning licence.
+ *
+ * Existing certified flows remain backward compatible before migration 044 is
+ * explicitly applied: the learner is treated as REGISTERED and all legacy
+ * published Learning resources continue behaving exactly as before.
  */
 export async function getLearningAccessContext(userId: UUID): Promise<LearningAccessContext> {
+  const schemaReady = await learningEntitlementSchemaAvailable();
+
+  if (!schemaReady) {
+    const { rows: [student] } = await query<{ student_id: UUID; school_id: UUID | null } & QueryResultRow>(
+      `SELECT s.id AS student_id, s.school_id
+       FROM students s
+       WHERE s.user_id=$1::uuid AND s.status='ACTIVE'`,
+      [userId],
+    );
+    if (!student) throw appError('Student profile not found', 404);
+    return {
+      studentId: student.student_id,
+      schoolId: student.school_id,
+      tier: 'REGISTERED',
+      individualSubscriber: false,
+      schoolLicensed: false,
+      subscriberAccess: false,
+      schemaReady: false,
+    };
+  }
+
   const { rows: [row] } = await query<EntitlementRow>(
     `SELECT s.id AS student_id,
             s.school_id,
@@ -80,6 +131,7 @@ export async function getLearningAccessContext(userId: UUID): Promise<LearningAc
     individualSubscriber,
     schoolLicensed,
     subscriberAccess: individualSubscriber || schoolLicensed,
+    schemaReady: true,
   };
 }
 
@@ -109,6 +161,7 @@ export async function accessibleLearningResourceIds(
   access: LearningAccessContext,
 ): Promise<Set<string>> {
   if (!resourceIds.length) return new Set<string>();
+  if (!access.schemaReady) return new Set(resourceIds.map(String));
   const { rows } = await query<AccessRow>(
     `SELECT id, access_requirement
      FROM learning_resources
@@ -127,6 +180,7 @@ export async function accessibleLearningAssessmentIds(
   access: LearningAccessContext,
 ): Promise<Set<string>> {
   if (!assessmentIds.length) return new Set<string>();
+  if (!access.schemaReady) return new Set(assessmentIds.map(String));
   const { rows } = await query<AccessRow>(
     `SELECT id, access_requirement
      FROM learning_assessments
