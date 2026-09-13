@@ -49,6 +49,7 @@ for path in \
   /admin/schools \
   /admin/users \
   /admin/learning \
+  /admin/learning/creator \
   /admin/learning/coverage \
   /admin/learning/imports \
   /admin/learning/practice \
@@ -77,5 +78,6 @@ check_unauthenticated_api "/admin/support"
 check_unauthenticated_api "/admin/audit"
 check_unauthenticated_api "/admin/config"
 check_unauthenticated_api "/admin/grievances"
+check_unauthenticated_api "/admin/learning/creator/options"
 
 printf '\nParent/Admin production smoke passed. No production data was modified.\n'
