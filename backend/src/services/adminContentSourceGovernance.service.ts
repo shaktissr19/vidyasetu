@@ -35,9 +35,13 @@ export async function updateIntakeEvidence(intakeId: UUID, input: UpdateIntakeEv
     [intakeId],
   );
   if (!item) throw appError('OER intake item not found', 404);
-  if (['IMPORTED'].includes(item.status)) throw appError('Imported OER evidence is immutable; create a new intake revision instead');
+  if (item.status === 'IMPORTED') throw appError('Imported OER evidence is immutable; create a new intake revision instead');
   if (item.attribution_required && !attribution) throw appError(`${item.source_code} requires attribution evidence`);
 
+  // Saving a concrete licence through this Admin-only endpoint is the explicit
+  // item-level human verification event. OTHER deliberately clears verification
+  // so the database governance trigger will continue to block approval/import.
+  const verified = licence !== 'OTHER';
   const nextStatus = ['APPROVED','REJECTED'].includes(item.status) ? 'LICENCE_REVIEW' : item.status;
   const { rows: [updated] } = await query(
     `UPDATE learning_source_intake
@@ -47,10 +51,13 @@ export async function updateIntakeEvidence(intakeId: UUID, input: UpdateIntakeEv
          status=$5::learning_intake_status,
          reviewed_by=$6::uuid,
          reviewed_at=NOW(),
+         licence_verified_at=CASE WHEN $7::boolean THEN NOW() ELSE NULL END,
+         licence_verified_by=CASE WHEN $7::boolean THEN $6::uuid ELSE NULL END,
          updated_at=NOW()
      WHERE id=$1::uuid
-     RETURNING id,title,source_url,licence_candidate,attribution_text,status,reviewer_note,reviewed_at`,
-    [intakeId, licence, attribution || null, input.reviewerNote?.trim() || null, nextStatus, adminId],
+     RETURNING id,title,source_url,licence_candidate,attribution_text,status,reviewer_note,reviewed_at,
+               licence_verified_at,licence_verified_by`,
+    [intakeId, licence, attribution || null, input.reviewerNote?.trim() || null, nextStatus, adminId, verified],
   );
   return updated;
 }
