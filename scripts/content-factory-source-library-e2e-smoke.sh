@@ -84,8 +84,8 @@ jq -e --arg id "$INTAKE_ID" '[.data[] | select(.id==$id and .status=="APPROVED" 
 log "Approved source becomes canonical DRAFT Learning resource only by explicit handoff"
 PAYLOAD="$(jq -nc --arg sid "$SUBJECT_ID" '{classNumber:8,boardCode:"COMMON",subjectId:$sid,subjectName:"Science",chapter:"Force and Pressure",topic:"Pressure in daily life",language:"en",visibility:"CLASS_ONLY",accessRequirement:"REGISTERED"}')"
 IMPORTED="$(curl -fsS -X POST "$API_BASE/admin/learning/factory/intake/$INTAKE_ID/add-to-library" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$PAYLOAD")"
-RESOURCE_ID="$(jq -er '.data.resource.id' <<<"$IMPORTED")"
-jq -e '.data.alreadyImported==false and .data.resource.review_status=="DRAFT" and .data.resource.visibility=="CLASS_ONLY" and .data.resource.access_requirement=="REGISTERED"' <<<"$IMPORTED" >/dev/null || fail "Source-to-library response incorrect"
+RESOURCE_ID="$(jq -er '.data.id' <<<"$IMPORTED")"
+jq -e '.data.alreadyImported==false and .data.review_status=="DRAFT" and .data.visibility=="CLASS_ONLY" and .data.access_requirement=="REGISTERED"' <<<"$IMPORTED" >/dev/null || fail "Source-to-library response incorrect"
 
 DB_RESOURCE="$(psqlq "SELECT review_status::text||'|'||visibility::text||'|'||access_requirement::text||'|'||class_min||'|'||class_max||'|'||COALESCE(chapter_label,'')||'|'||COALESCE(topic_label,'') FROM learning_resources WHERE id='$RESOURCE_ID';")"
 [[ "$DB_RESOURCE" == "DRAFT|CLASS_ONLY|REGISTERED|8|8|Force and Pressure|Pressure in daily life" ]] || fail "Canonical Learning resource fields incorrect: $DB_RESOURCE"
@@ -96,7 +96,7 @@ DB_RESOURCE="$(psqlq "SELECT review_status::text||'|'||visibility::text||'|'||ac
 
 log "Handoff is idempotent and cannot duplicate canonical resource"
 SECOND="$(curl -fsS -X POST "$API_BASE/admin/learning/factory/intake/$INTAKE_ID/add-to-library" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$PAYLOAD")"
-jq -e --arg rid "$RESOURCE_ID" '.data.alreadyImported==true and .data.resource.id==$rid' <<<"$SECOND" >/dev/null || fail "Repeated handoff was not idempotent"
+jq -e --arg rid "$RESOURCE_ID" '.data.alreadyImported==true and .data.id==$rid' <<<"$SECOND" >/dev/null || fail "Repeated handoff was not idempotent"
 [[ "$(psqlq "SELECT COUNT(*) FROM learning_resources WHERE id='$RESOURCE_ID';")" == "1" ]] || fail "Duplicate resource created"
 
 log "Queue badges reflect review-to-library progress"
@@ -104,7 +104,6 @@ COUNTS="$(curl -fsS "$API_BASE/admin/learning/factory/queue-counts" "${AUTH[@]}"
 jq -e '.data.contentLibraryPending>=1 and .data.sourceImportedPendingReview>=1' <<<"$COUNTS" >/dev/null || fail "Queue counts did not include imported DRAFT"
 
 log "Access policy validation rejects unsafe Public/Private mismatch"
-# Use a fresh approved item so validation is proved before the idempotent return path.
 SOURCE_URL_2="https://example.com/vidyasetu-ci/$UNIQUE-public-policy"
 STAGED_2="$(curl -fsS -X POST "$API_BASE/admin/learning/factory/external-web-source" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg url "$SOURCE_URL_2" '{title:"CI policy source",sourceUrl:$url,licenceCandidate:"EXTERNAL_LINK_ONLY",attributionText:"Example Education · CI policy",classNumber:8,subject:"Science",boardCode:"COMMON"}')")"
 INTAKE_ID_2="$(jq -er '.data.intakeId' <<<"$STAGED_2")"
