@@ -10,14 +10,14 @@ const MENU = [
   { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
   { href: '/admin/schools', icon: '🏫', label: 'Schools' },
   { href: '/admin/users', icon: '👥', label: 'Users' },
-  { href: '/admin/learning', icon: '📚', label: 'Learning Studio', exact: true },
-  { href: '/admin/learning/creator', icon: '✨', label: 'AI Content Creator', exact: true },
-  { href: '/admin/learning/creator/discovery', icon: '🔎', label: 'Source Discovery' },
-  { href: '/admin/learning/coverage', icon: '🎯', label: 'Content Coverage' },
-  { href: '/admin/learning/imports', icon: '📥', label: 'Bulk Learning Import' },
+  { href: '/admin/learning/creator', icon: '✨', label: 'Create Content', exact: true },
+  { href: '/admin/learning', icon: '📚', label: 'Content Library', exact: true },
+  { href: '/admin/learning/creator/discovery', icon: '🔎', label: 'Source Library' },
+  { href: '/admin/learning/coverage', icon: '🎯', label: 'Coverage' },
   { href: '/admin/learning/practice', icon: '🧠', label: 'Question Bank' },
-  { href: '/admin/learning/diagnostics', icon: '🧭', label: 'Diagnostic Builder' },
-  { href: '/admin/learning/intake', icon: '🌐', label: 'OER Intake' },
+  { href: '/admin/learning/imports', icon: '📥', label: 'Bulk Import' },
+  { href: '/admin/learning/diagnostics', icon: '🧭', label: 'Diagnostics' },
+  { href: '/admin/learning/intake', icon: '🌐', label: 'Source & Licence Review' },
   { href: '/admin/competitions', icon: '🏆', label: 'Competitions' },
   { href: '/admin/groups', icon: '🤝', label: 'Communities' },
   { href: '/admin/grievances', icon: '🛡️', label: 'Grievances' },
@@ -39,15 +39,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (!isLoggedIn) return null;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen admin-shell">
       <GlobalTopbar />
       <div className="dash-layout">
         <DashSidebar
-          accentColor="#4FC3F7"
+          accentColor="#FF6B00"
           profile={{ avatar: '⚙️', name: user?.name || 'Super Admin', subtitle: 'Platform Control', badge: '🔐 Admin' }}
           menuItems={MENU}
         />
-        <main className="dash-main" style={{ background: '#182540' }}>{children}</main>
+        <main className="dash-main admin-main" style={{ background: '#F3F6FB', color: '#14213D' }}>{children}</main>
       </div>
     </div>
   );
