@@ -9,7 +9,11 @@ export type CreatorJobStatus =
   | 'DRAFT' | 'READY_TO_GENERATE' | 'GENERATING' | 'GENERATED' | 'VALIDATION_FAILED'
   | 'READY_FOR_REVIEW' | 'APPROVED' | 'REJECTED' | 'MATERIALISED' | 'FAILED' | 'CANCELLED';
 export type CreatorLearningTarget = 'PUBLIC_LEARNING' | 'PRIVATE_LEARNING';
-export type CreatorDiscoveryProvider = 'LOCAL' | 'DIKSHA';
+export type CreatorDiscoveryProvider =
+  | 'LOCAL' | 'DIKSHA' | 'NROER' | 'CBSE' | 'NCERT_EPATHSHALA'
+  | 'NIOS' | 'SWAYAM' | 'PHET' | 'OER_COMMONS';
+export type CreatorDiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
+export type CreatorConnectorMode = 'LOCAL_CATALOGUE' | 'LIVE_API' | 'REFERENCE_SEARCH';
 
 export interface CreatorProviderStatus {
   name: string;
@@ -22,10 +26,19 @@ export interface CreatorDiscoveryCapability {
   label: string;
   enabled: boolean;
   requiresReview: boolean;
+  connectorMode: CreatorConnectorMode;
+  homepageUrl: string;
+  supportsMediaKinds: CreatorDiscoveryMediaKind[];
+  requiresApiKey: boolean;
+  commercialPolicy: 'ALLOWED' | 'ITEM_LEVEL_REVIEW' | 'NON_COMMERCIAL_ONLY' | 'LINK_ONLY';
+  licencePolicy: string;
+  statusNote?: string | null;
 }
 
 export interface CreatorDiscoveryCapabilities {
   providers: CreatorDiscoveryCapability[];
+  mediaKinds: Array<{ code: CreatorDiscoveryMediaKind; label: string }>;
+  publisherPresets: string[];
   dikshaEndpoint: 'configured' | 'disabled';
   policy: string;
 }
@@ -242,11 +255,16 @@ export interface CreatorLearningSubmissionResult {
 }
 
 export interface CreatorDiscoveryInput {
-  provider: CreatorDiscoveryProvider;
+  provider?: CreatorDiscoveryProvider;
+  providers?: CreatorDiscoveryProvider[];
   query: string;
   classNumber?: number | null;
   subject?: string | null;
   language?: string | null;
+  publisher?: string | null;
+  mediaKinds?: CreatorDiscoveryMediaKind[];
+  maxDurationMinutes?: number | null;
+  onlyCommercialSafe?: boolean;
   limit?: number;
 }
 
@@ -276,6 +294,12 @@ export interface CreatorDiscoveryCandidate {
   intake_id?: string | null;
   staged_at?: string | null;
   created_at: string;
+  media_kind?: CreatorDiscoveryMediaKind | null;
+  duration_seconds?: number | null;
+  thumbnail_url?: string | null;
+  embed_url?: string | null;
+  reference_only: boolean;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreatorDiscoveryRun {
@@ -285,6 +309,7 @@ export interface CreatorDiscoveryRun {
   class_number?: number | null;
   subject?: string | null;
   language?: string | null;
+  filters?: Record<string, unknown>;
   status: string;
   result_count: number;
   error_message?: string | null;
@@ -295,10 +320,14 @@ export interface CreatorDiscoveryRun {
 }
 
 export interface CreatorDiscoverySearchResult {
-  runId: string;
+  runId?: string | null;
+  runIds: string[];
   provider: CreatorDiscoveryProvider;
+  providers: CreatorDiscoveryProvider[];
   count: number;
   candidates: CreatorDiscoveryCandidate[];
+  runs: Array<{ runId: string; provider: CreatorDiscoveryProvider; count: number; status: 'COMPLETED' | 'FAILED'; error?: string }>;
+  partial: boolean;
 }
 
 export interface CreatorDiscoveryStageResult {
@@ -306,8 +335,20 @@ export interface CreatorDiscoveryStageResult {
   resourceId?: string;
   intakeId?: string;
   status?: string;
+  provider?: CreatorDiscoveryProvider;
+  sourceCode?: string;
   alreadyStaged?: boolean;
   message?: string;
+}
+
+export interface CreatorSelectedExternalItemInput {
+  provider: Exclude<CreatorDiscoveryProvider,'LOCAL'>;
+  title: string;
+  sourceUrl: string;
+  licenceCandidate?: string | null;
+  attributionText?: string | null;
+  classHint?: string | null;
+  subjectHint?: string | null;
 }
 
 export const getContentCreatorOptions = () => api.get<ApiEnvelope<CreatorOptions>>('/admin/learning/creator/options');
@@ -324,5 +365,6 @@ export const discoverContentCreatorSources = (payload: CreatorDiscoveryInput) =>
 export const getContentCreatorDiscoveryRuns = () => api.get<ApiEnvelope<CreatorDiscoveryRun[]>>('/admin/learning/creator/discovery/runs');
 export const getContentCreatorDiscoveryRun = (runId: string) => api.get<ApiEnvelope<CreatorDiscoveryRun>>(`/admin/learning/creator/discovery/runs/${runId}`);
 export const stageContentCreatorDiscoveryCandidate = (candidateId: string) => api.post<ApiEnvelope<CreatorDiscoveryStageResult>>(`/admin/learning/creator/discovery/candidates/${candidateId}/stage`);
+export const stageSelectedExternalContentCreatorItem = (payload: CreatorSelectedExternalItemInput) => api.post<ApiEnvelope<CreatorDiscoveryStageResult>>('/admin/learning/creator/discovery/selected-item', payload);
 export const updateContentCreatorIntakeEvidence = (intakeId: string, payload: { licenceCandidate: string; attributionText: string; reviewerNote?: string | null }) =>
   api.patch<ApiEnvelope<{ id: string; status: string }>>(`/admin/learning/creator/discovery/intake/${intakeId}/evidence`, payload);

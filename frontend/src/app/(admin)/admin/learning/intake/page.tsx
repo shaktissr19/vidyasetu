@@ -15,7 +15,18 @@ import { updateContentCreatorIntakeEvidence } from '@/services/contentCreatorSer
 import { apiErrorText } from '@/utils/errors';
 import styles from '@/components/public/publicLearning.module.css';
 
-const LICENCES = ['CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'] as const;
+const LICENCES = ['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'] as const;
+const SOURCE_OPTIONS = [
+  { code: 'NROER', label: 'NROER' },
+  { code: 'DIKSHA', label: 'DIKSHA / PM eVIDYA' },
+  { code: 'CBSE_ACADEMIC', label: 'CBSE Academic' },
+  { code: 'NCERT_EPATHSHALA', label: 'NCERT / ePathshala' },
+  { code: 'NIOS', label: 'NIOS' },
+  { code: 'SWAYAM', label: 'SWAYAM' },
+  { code: 'PHET', label: 'PhET' },
+  { code: 'OER_COMMONS', label: 'OER Commons' },
+  { code: 'EXTERNAL_OFFICIAL', label: 'Other official external source' },
+] as const;
 
 const INITIAL: SaveLearningStudioIntake = {
   sourceCode: 'NROER',
@@ -74,32 +85,39 @@ export default function LearningIntakePage() {
     });
   }
 
+  function defaultLicence(sourceCode: string): string {
+    if (sourceCode === 'NROER') return 'CC_BY_SA';
+    if (sourceCode === 'PHET') return 'CC_BY_NC';
+    if (['CBSE_ACADEMIC','NCERT_EPATHSHALA','NIOS','SWAYAM','EXTERNAL_OFFICIAL'].includes(sourceCode)) return 'EXTERNAL_LINK_ONLY';
+    return 'OTHER';
+  }
+
   return (
     <div className={styles.studio}>
       <div style={{ marginBottom: 22 }}>
         <div style={{ color: '#ff9a3c', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>LEARNING PLATFORM · SOURCE GOVERNANCE</div>
         <h1 style={{ color: 'white', fontSize: 34, margin: '6px 0' }}>🌐 OER Licence & Content Intake</h1>
         <p style={{ color: 'rgba(255,255,255,.58)', maxWidth: 950, lineHeight: 1.7 }}>
-          Discovery is not approval. NROER, DIKSHA and other external candidates must carry verified item-level licence and attribution evidence before they can become approved Creator grounding sources.
+          Discovery is not approval. NROER, DIKSHA, CBSE, NCERT/ePathshala, NIOS, SWAYAM, PhET, OER Commons and other external candidates must carry appropriate item-level licence/attribution evidence before they can become Creator grounding sources.
         </p>
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
           <Link className={styles.tinyButton} href="/admin/learning">← Learning Studio</Link>
           <Link className={styles.tinyButton} href="/admin/learning/creator">AI Content Creator</Link>
-          <Link className={styles.tinyButton} href="/admin/learning/creator/discovery">🔎 Source Discovery</Link>
+          <Link className={styles.tinyButton} href="/admin/learning/creator/discovery">🔎 Source Discovery & Video</Link>
           <Link className={styles.tinyButton} href="/admin/learning/practice">Question Bank →</Link>
         </div>
       </div>
 
       <div className={styles.note} style={{ marginBottom: 14 }}>
-        Governance boundary: a discovered licence is only a candidate. For sources requiring item review, <strong>APPROVED/IMPORTED is blocked at database level</strong> until licence and required attribution evidence are recorded.
+        Governance boundary: a discovered licence is only a candidate. For sources requiring item review, <strong>APPROVED/IMPORTED is blocked at database level</strong> until licence and required attribution evidence are recorded. Non-commercial material is never assumed safe for Subscriber use.
       </div>
 
       <div className={styles.adminGrid}>
         <section className={styles.adminPanel}>
           <h2>Add source candidate manually</h2>
-          <label className={styles.field}>Source<select className={styles.select} value={form.sourceCode} onChange={(e) => setForm((f) => ({ ...f, sourceCode: e.target.value, licenceCandidate: e.target.value === 'DIKSHA' ? 'OTHER' : f.licenceCandidate }))}><option value="NROER">NROER</option><option value="DIKSHA">DIKSHA</option><option value="EXTERNAL_OFFICIAL">Other official external source</option></select></label>
+          <label className={styles.field}>Source<select className={styles.select} value={form.sourceCode} onChange={(e) => { const code = e.target.value; setForm((f) => ({ ...f, sourceCode: code, licenceCandidate: defaultLicence(code) })); }}>{SOURCE_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
           <label className={styles.field}>Resource title<input className={styles.input} value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} /></label>
-          <label className={styles.field}>Original source URL<input className={styles.input} type="url" value={form.sourceUrl} onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))} placeholder={form.sourceCode === 'NROER' ? 'https://nroer.gov.in/…' : form.sourceCode === 'DIKSHA' ? 'https://diksha.gov.in/resources/play/content/…' : 'https://…'} /></label>
+          <label className={styles.field}>Original source URL<input className={styles.input} type="url" value={form.sourceUrl} onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))} placeholder="https://official-source/..." /></label>
           <label className={styles.field}>Licence evidence<select className={styles.select} value={form.licenceCandidate || 'OTHER'} onChange={(e) => setForm((f) => ({ ...f, licenceCandidate: e.target.value }))}>{LICENCES.map((v) => <option key={v}>{v}</option>)}</select></label>
           <label className={styles.field}>Attribution evidence<textarea className={styles.textarea} style={{ minHeight: 100 }} value={form.attributionText || ''} onChange={(e) => setForm((f) => ({ ...f, attributionText: e.target.value }))} placeholder="Creator/author, institution/publisher, item title, visible copyright/licence statement and source." /></label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
@@ -107,7 +125,7 @@ export default function LearningIntakePage() {
             <label className={styles.field}>Board hint<input className={styles.input} value={form.boardHint || ''} onChange={(e) => setForm((f) => ({ ...f, boardHint: e.target.value }))} /></label>
             <label className={styles.field}>Subject hint<input className={styles.input} value={form.subjectHint || ''} onChange={(e) => setForm((f) => ({ ...f, subjectHint: e.target.value }))} /></label>
           </div>
-          <div className={styles.note}>NROER URLs are domain-validated. DIKSHA and other item-level-review sources should normally enter here from <Link href="/admin/learning/creator/discovery">Source Discovery</Link>; licence metadata must still be independently confirmed before approval.</div>
+          <div className={styles.note}>Prefer <Link href="/admin/learning/creator/discovery">Source Discovery & Video</Link> so VidyaSetu can enforce the official source domain. Manual entries still remain in review until their licence and attribution evidence is accepted.</div>
           <button className="btn-primary" disabled={createMutation.isPending || !form.title.trim() || !form.sourceUrl.trim()} onClick={() => createMutation.mutate()}>{createMutation.isPending ? 'Adding…' : 'Add to review queue'}</button>
         </section>
 

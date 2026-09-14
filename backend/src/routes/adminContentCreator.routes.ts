@@ -11,7 +11,9 @@ router.use(authorize('SUPER_ADMIN'));
 
 const visibilitySchema = z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']);
 const accessRequirementSchema = z.enum(['PUBLIC','REGISTERED','SUBSCRIBER']);
-const licenceSchema = z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']);
+const licenceSchema = z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']);
+const discoveryProviderSchema = z.enum(['LOCAL','DIKSHA','NROER','CBSE','NCERT_EPATHSHALA','NIOS','SWAYAM','PHET','OER_COMMONS']);
+const discoveryMediaSchema = z.enum(['ARTICLE','VIDEO','AUDIO','INTERACTIVE','PDF','COURSE','LINK']);
 
 const creatorSourceSchema = z.object({
   sourceRole: z.enum(['GROUNDING','REFERENCE_ONLY']).optional(),
@@ -81,12 +83,31 @@ const reviewSchema = z.object({
 });
 
 const discoverySchema = z.object({
-  provider: z.enum(['LOCAL','DIKSHA']),
+  provider: discoveryProviderSchema.optional(),
+  providers: z.array(discoveryProviderSchema).min(1).max(9).optional(),
   query: z.string().trim().min(2).max(300),
   classNumber: z.number().int().min(1).max(12).nullable().optional(),
   subject: z.string().trim().max(160).nullable().optional(),
   language: z.string().trim().max(80).nullable().optional(),
+  publisher: z.string().trim().max(160).nullable().optional(),
+  mediaKinds: z.array(discoveryMediaSchema).min(1).max(7).optional(),
+  maxDurationMinutes: z.number().int().min(1).max(240).nullable().optional(),
+  onlyCommercialSafe: z.boolean().optional(),
   limit: z.number().int().min(1).max(30).optional(),
+}).superRefine((value, ctx) => {
+  if (!value.provider && !(value.providers?.length)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['providers'], message: 'Select at least one source provider' });
+  }
+});
+
+const externalItemSchema = z.object({
+  provider: discoveryProviderSchema.exclude(['LOCAL']),
+  title: z.string().trim().min(2).max(500),
+  sourceUrl: z.string().url().max(2000),
+  licenceCandidate: licenceSchema.nullable().optional(),
+  attributionText: z.string().trim().max(4000).nullable().optional(),
+  classHint: z.string().trim().max(120).nullable().optional(),
+  subjectHint: z.string().trim().max(160).nullable().optional(),
 });
 
 const intakeEvidenceSchema = z.object({
@@ -108,6 +129,7 @@ router.get('/discovery/runs', ctrl.discoveryRuns);
 router.get('/discovery/runs/:runId', ctrl.discoveryRun);
 router.post('/discovery/search', validate(discoverySchema), ctrl.discoverSources);
 router.post('/discovery/candidates/:candidateId/stage', ctrl.stageDiscoveryCandidate);
+router.post('/discovery/selected-item', validate(externalItemSchema), ctrl.stageExternalSourceItem);
 router.patch('/discovery/intake/:intakeId/evidence', validate(intakeEvidenceSchema), ctrl.updateIntakeEvidence);
 
 export = router;

@@ -13,7 +13,7 @@ function appError(message: string, statusCode = 400): Error & { statusCode: numb
 }
 
 const ALLOWED_LICENCES = new Set([
-  'CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER',
+  'CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER',
 ]);
 
 export async function updateIntakeEvidence(intakeId: UUID, input: UpdateIntakeEvidenceInput, adminId: UUID) {

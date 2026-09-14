@@ -8,8 +8,11 @@ import * as R from '../utils/response';
 
 export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
-    const data = await creatorService.getCreatorOptions();
-    return R.ok(res, { ...data, discovery: discoveryService.sourceDiscoveryCapabilities() });
+    const [data,discovery] = await Promise.all([
+      creatorService.getCreatorOptions(),
+      discoveryService.sourceDiscoveryCapabilities(),
+    ]);
+    return R.ok(res, { ...data, discovery });
   } catch (error: unknown) { next(error); }
 }
 
@@ -120,6 +123,17 @@ export async function stageDiscoveryCandidate(
   try {
     if (!req.user) return R.unauthorized(res);
     return R.created(res, await discoveryService.stageDiscoveryCandidate(req.params.candidateId, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function stageExternalSourceItem(
+  req: Request<Record<string,string>, unknown, discoveryService.StageExternalItemInput>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.created(res, await discoveryService.stageExternalSourceItem(req.body, req.user.userId));
   } catch (error: unknown) { next(error); }
 }
 
