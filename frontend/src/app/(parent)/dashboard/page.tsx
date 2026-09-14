@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getChildDashboard } from '@/services/parentService';
 import { StatCard, ProgressBar, CardSkeleton } from '@/components/ui/index';
 import ParentChildSwitcher from '@/components/parent/ParentChildSwitcher';
+import ParentRelationshipRequests from '@/components/parent/ParentRelationshipRequests';
 import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { formatDate, gradeFromScore, timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
@@ -61,6 +62,8 @@ export default function ParentDashboard() {
         onSelect={setSelectedChildId}
         className="mb-5"
       />
+
+      <ParentRelationshipRequests />
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
