@@ -89,6 +89,12 @@ const discoverySchema = z.object({
   limit: z.number().int().min(1).max(30).optional(),
 });
 
+const intakeEvidenceSchema = z.object({
+  licenceCandidate: licenceSchema,
+  attributionText: z.string().trim().max(4000),
+  reviewerNote: z.string().trim().max(3000).nullable().optional(),
+});
+
 router.get('/options', ctrl.options);
 router.get('/jobs', ctrl.jobs);
 router.get('/jobs/:jobId', ctrl.job);
@@ -96,11 +102,12 @@ router.post('/jobs', validate(creatorJobSchema), ctrl.createJob);
 router.post('/jobs/:jobId/generate', ctrl.generateJob);
 router.post('/jobs/:jobId/review', validate(reviewSchema), ctrl.reviewJob);
 router.post('/jobs/:jobId/materialise', ctrl.materialiseJob);
+router.post('/jobs/:jobId/submit-learning', ctrl.submitJobToLearning);
 
-// Source discovery is metadata-only. External candidates must still pass OER intake licence/attribution review.
 router.get('/discovery/runs', ctrl.discoveryRuns);
 router.get('/discovery/runs/:runId', ctrl.discoveryRun);
 router.post('/discovery/search', validate(discoverySchema), ctrl.discoverSources);
 router.post('/discovery/candidates/:candidateId/stage', ctrl.stageDiscoveryCandidate);
+router.patch('/discovery/intake/:intakeId/evidence', validate(intakeEvidenceSchema), ctrl.updateIntakeEvidence);
 
 export = router;
