@@ -117,7 +117,7 @@ const forgotPasswordSchema = z.object({ identifier: z.string().trim().min(3).max
 const resetPasswordSchema = z.object({ identifier: z.string().trim().min(3).max(180), otp: z.string().length(6), newPassword: passwordSchema });
 
 router.get('/student-registration-options', ctrl.getStudentRegistrationOptions);
-router.post('/register/student', validate(registerStudentSchema), ctrl.registerStudent);
+router.post('/register/student', validate(registerStudentSchema), registrationCtrl.registerStudent);
 router.post('/register', validate(publicRegisterSchema), registrationCtrl.register);
 router.post('/login', validate(loginSchema), ctrl.login);
 router.post('/send-otp', otpLimiter, validate(sendOtpSchema), ctrl.sendOTP);
