@@ -64,7 +64,7 @@ INTAKE_ID="$(jq -er '.data.intakeId' <<<"$DIKSHA_STAGE")"
 jq -e '.data.kind=="OER_INTAKE"' <<<"$DIKSHA_STAGE" >/dev/null || fail "DIKSHA candidate did not enter OER Intake"
 
 log "Database governance blocks DIKSHA approval without verified licence/attribution"
-expect_status 500 "$TMP_DIR/diksha-approval-blocked.json" -X PATCH "$API_BASE/admin/learning/intake/$INTAKE_ID/status" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"status":"APPROVED"}'
+expect_status 400 "$TMP_DIR/diksha-approval-blocked.json" -X PATCH "$API_BASE/admin/learning/intake/$INTAKE_ID/status" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"status":"APPROVED"}'
 [[ "$(psqlq "SELECT status::text FROM learning_source_intake WHERE id='$INTAKE_ID';")" != "APPROVED" ]] || fail "Unverified DIKSHA intake was approved"
 
 log "Admin records verified item-level licence and attribution"
