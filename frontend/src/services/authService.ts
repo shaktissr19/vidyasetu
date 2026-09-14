@@ -74,8 +74,19 @@ export interface StudentRegistrationResult extends AuthSessionPayload {
 
 export type PublicRegistrationRole = 'PARENT' | 'TEACHER' | 'SCHOOL_ADMIN';
 
+export interface PublicRegistrationUser {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  mobile: string;
+  role: UserRole;
+  language: LanguageCode;
+  status?: string;
+}
+
 export interface PublicRegistrationResult {
-  user: SessionUser & { status?: string };
+  user: PublicRegistrationUser | SessionUser;
   approvalStatus: string;
   relationshipStatus: string;
   message: string;
