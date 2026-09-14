@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import DashSidebar from '@/components/layout/DashSidebar';
 import useAuthStore from '@/store/authStore';
+import './admin-theme.css';
 
 const MENU = [
   { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
