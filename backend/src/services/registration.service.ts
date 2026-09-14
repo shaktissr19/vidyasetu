@@ -157,9 +157,10 @@ async function registerParent(data: PublicRegistrationInput) {
         `INSERT INTO parent_link_requests
            (student_id,parent_user_id,parent_name,parent_mobile,parent_email,relation,status,
             initiated_by,requested_by_user_id,parent_confirmed_at,claimed_at)
-         VALUES($1,$2,$3,$4,$5,$6,'PENDING','PARENT',$2,NOW(),NOW())
-         ON CONFLICT (parent_user_id,student_id) WHERE status='PENDING' AND parent_user_id IS NOT NULL
-         DO UPDATE SET relation=EXCLUDED.relation,parent_confirmed_at=NOW(),updated_at=NOW()
+         VALUES($1,$2,$3,$4,$5,$6,'AWAITING_STUDENT','PARENT',$2,NOW(),NOW())
+         ON CONFLICT (parent_user_id,student_id)
+           WHERE status IN ('PENDING','AWAITING_STUDENT','AWAITING_PARENT') AND parent_user_id IS NOT NULL
+         DO UPDATE SET relation=EXCLUDED.relation,parent_confirmed_at=NOW(),status='AWAITING_STUDENT',updated_at=NOW()
          RETURNING id,student_id,status,initiated_by,created_at`,
         [student.id, user.id, user.name, user.mobile, user.email, data.parentRelation || 'PARENT'],
       );
