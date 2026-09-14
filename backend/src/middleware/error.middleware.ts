@@ -42,6 +42,18 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
     return;
   }
 
+  // PostgreSQL RAISE EXCEPTION uses P0001. VidyaSetu uses database triggers
+  // only as final domain-governance boundaries (for example OER licence and
+  // attribution approval), so expose those as validation failures rather than
+  // misleading HTTP 500 server errors.
+  if (appError.code === 'P0001') {
+    res.status(400).json({
+      success: false,
+      error: { code: 'BAD_REQUEST', message: appError.message || 'Database governance validation failed' },
+    });
+    return;
+  }
+
   const status = appError.statusCode || appError.status || 500;
   const isServerError = status >= 500;
   const isServiceUnavailable = status === 503;
