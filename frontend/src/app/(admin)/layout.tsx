@@ -32,7 +32,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-  const learningWorkspace = pathname.startsWith('/admin/learning');
+  const lightLearningWorkspace = pathname === '/admin/learning'
+    || pathname.startsWith('/admin/learning/creator')
+    || pathname.startsWith('/admin/learning/coverage')
+    || pathname.startsWith('/admin/learning/intake');
 
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=admin'); return; }
@@ -50,7 +53,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           profile={{ avatar: '⚙️', name: user?.name || 'Super Admin', subtitle: 'Platform Control', badge: '🔐 Admin' }}
           menuItems={MENU}
         />
-        <main className={`dash-main admin-main${learningWorkspace ? ' admin-learning-workspace' : ''}`} style={{ background: learningWorkspace ? '#F3F6FB' : '#182540', color: learningWorkspace ? '#14213D' : 'white' }}>{children}</main>
+        <main className={`dash-main admin-main${lightLearningWorkspace ? ' admin-learning-workspace' : ''}`} style={{ background: lightLearningWorkspace ? '#F3F6FB' : '#182540', color: lightLearningWorkspace ? '#14213D' : 'white' }}>{children}</main>
       </div>
     </div>
   );
