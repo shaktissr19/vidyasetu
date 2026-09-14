@@ -80,6 +80,21 @@ const reviewSchema = z.object({
   note: z.string().trim().max(3000).nullable().optional(),
 });
 
+const discoverySchema = z.object({
+  provider: z.enum(['LOCAL','DIKSHA']),
+  query: z.string().trim().min(2).max(300),
+  classNumber: z.number().int().min(1).max(12).nullable().optional(),
+  subject: z.string().trim().max(160).nullable().optional(),
+  language: z.string().trim().max(80).nullable().optional(),
+  limit: z.number().int().min(1).max(30).optional(),
+});
+
+const intakeEvidenceSchema = z.object({
+  licenceCandidate: licenceSchema,
+  attributionText: z.string().trim().max(4000),
+  reviewerNote: z.string().trim().max(3000).nullable().optional(),
+});
+
 router.get('/options', ctrl.options);
 router.get('/jobs', ctrl.jobs);
 router.get('/jobs/:jobId', ctrl.job);
@@ -87,5 +102,12 @@ router.post('/jobs', validate(creatorJobSchema), ctrl.createJob);
 router.post('/jobs/:jobId/generate', ctrl.generateJob);
 router.post('/jobs/:jobId/review', validate(reviewSchema), ctrl.reviewJob);
 router.post('/jobs/:jobId/materialise', ctrl.materialiseJob);
+router.post('/jobs/:jobId/submit-learning', ctrl.submitJobToLearning);
+
+router.get('/discovery/runs', ctrl.discoveryRuns);
+router.get('/discovery/runs/:runId', ctrl.discoveryRun);
+router.post('/discovery/search', validate(discoverySchema), ctrl.discoverSources);
+router.post('/discovery/candidates/:candidateId/stage', ctrl.stageDiscoveryCandidate);
+router.patch('/discovery/intake/:intakeId/evidence', validate(intakeEvidenceSchema), ctrl.updateIntakeEvidence);
 
 export = router;

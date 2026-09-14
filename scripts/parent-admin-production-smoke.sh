@@ -10,14 +10,14 @@ fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 check_web() {
   local path="$1" code
   code="$(curl -sS -o /dev/null -w '%{http_code}' "$WEB_BASE$path" || true)"
-  printf '%-38s %s\n' "$path" "$code"
+  printf '%-46s %s\n' "$path" "$code"
   [[ "$code" =~ ^(200|301|302|307|308)$ ]] || fail "$WEB_BASE$path returned HTTP $code"
 }
 
 check_unauthenticated_api() {
   local path="$1" code
   code="$(curl -sS -o /dev/null -w '%{http_code}' "$API_BASE$path" || true)"
-  printf '%-48s %s\n' "$path" "$code"
+  printf '%-56s %s\n' "$path" "$code"
   [[ "$code" == "401" || "$code" == "403" ]] || fail "$API_BASE$path must reject unauthenticated access; got HTTP $code"
 }
 
@@ -50,6 +50,7 @@ for path in \
   /admin/users \
   /admin/learning \
   /admin/learning/creator \
+  /admin/learning/creator/discovery \
   /admin/learning/coverage \
   /admin/learning/imports \
   /admin/learning/practice \
@@ -79,5 +80,6 @@ check_unauthenticated_api "/admin/audit"
 check_unauthenticated_api "/admin/config"
 check_unauthenticated_api "/admin/grievances"
 check_unauthenticated_api "/admin/learning/creator/options"
+check_unauthenticated_api "/admin/learning/creator/discovery/runs"
 
 printf '\nParent/Admin production smoke passed. No production data was modified.\n'
