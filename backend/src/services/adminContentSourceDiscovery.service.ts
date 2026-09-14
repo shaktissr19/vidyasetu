@@ -500,7 +500,11 @@ async function discoverByProvider(input: DiscoverSourcesInput, provider: Discove
 }
 
 function requestedProviders(input: DiscoverSourcesInput): DiscoveryProvider[] {
-  const raw = input.providers?.length ? input.providers : input.provider ? [input.provider] : ['LOCAL','DIKSHA'];
+  const raw: DiscoveryProvider[] = input.providers?.length
+    ? input.providers
+    : input.provider
+      ? [input.provider]
+      : ['LOCAL','DIKSHA'];
   const unique = [...new Set(raw)].filter((item): item is DiscoveryProvider => PROVIDERS.includes(item));
   if (!unique.length) throw appError('Select at least one source provider');
   if (unique.length > PROVIDERS.length) throw appError('Too many source providers selected');
@@ -621,7 +625,6 @@ function assertOfficialSourceUrl(connector: ConnectorRow, rawUrl: string): strin
 
 export async function stageExternalSourceItem(input: StageExternalItemInput, adminId: UUID) {
   await assertDiscoverySchema();
-  if (input.provider === 'LOCAL') throw appError('LOCAL resources should be staged directly from governed discovery results');
   const connector = await getConnector(input.provider);
   if (!connector.source_code) throw appError(`${connector.label} has no governed Learning source registry record`,503);
   const sourceUrl = assertOfficialSourceUrl(connector,input.sourceUrl);
@@ -666,16 +669,16 @@ export async function sourceDiscoveryCapabilities() {
       statusNote: item.provider === 'DIKSHA' && !dikshaEnabled() ? 'Disabled by server configuration' : item.status_note,
     })),
     mediaKinds: [
-      { code: 'ARTICLE',label: 'Learn / Article' },
-      { code: 'VIDEO',label: 'Watch / Video' },
-      { code: 'AUDIO',label: 'Listen / Audio' },
-      { code: 'INTERACTIVE',label: 'Explore / Interactive' },
-      { code: 'PDF',label: 'PDF / Worksheet' },
-      { code: 'COURSE',label: 'Course' },
-      { code: 'LINK',label: 'External Link' },
+      { code: 'ARTICLE' as const,label: 'Learn / Article' },
+      { code: 'VIDEO' as const,label: 'Watch / Video' },
+      { code: 'AUDIO' as const,label: 'Listen / Audio' },
+      { code: 'INTERACTIVE' as const,label: 'Explore / Interactive' },
+      { code: 'PDF' as const,label: 'PDF / Worksheet' },
+      { code: 'COURSE' as const,label: 'Course' },
+      { code: 'LINK' as const,label: 'External Link' },
     ],
     publisherPresets: ['NCERT','CBSE','NIOS','PM eVIDYA'],
-    dikshaEndpoint: dikshaEnabled() ? 'configured' : 'disabled',
+    dikshaEndpoint: dikshaEnabled() ? 'configured' as const : 'disabled' as const,
     policy: 'VidyaSetu searches live structured sources where a stable connector exists and exposes official reference-search sources otherwise. External items must pass licence/attribution review before grounding/adaptation; reference-only entries are never treated as reusable content.',
   };
 }
