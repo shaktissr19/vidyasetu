@@ -33,20 +33,18 @@ export default function LearningQualityPanel({ entityType, entityId }: { entityT
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not save quality gate')),
   });
 
-  if (readinessQuery.isLoading) return <div style={{ padding: 14, color: 'rgba(255,255,255,.6)' }}>Loading readiness…</div>;
-  if (readinessQuery.isError || !readinessQuery.data) {
-    return <div style={{ padding: 14, color: '#ffc1b8' }}>Readiness could not be loaded.</div>;
-  }
+  if (readinessQuery.isLoading) return <div style={{ padding: 14, color: '#667085' }}>Loading readiness…</div>;
+  if (readinessQuery.isError || !readinessQuery.data) return <div style={{ padding: 14, color: '#B42318' }}>Readiness could not be loaded.</div>;
 
   const readiness = readinessQuery.data;
-  const tone = readiness.readyForPublication ? '#47d18c' : readiness.score >= 75 ? '#ffd166' : '#ff8d7a';
+  const tone = readiness.readyForPublication ? '#147D4A' : readiness.score >= 75 ? '#B26A00' : '#B42318';
 
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: 16, background: 'rgba(255,255,255,.035)' }}>
+    <div className="admin-panel" style={{ padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ color: 'rgba(255,255,255,.52)', fontSize: 11, fontWeight: 800, letterSpacing: '.08em' }}>{entityType} READINESS</div>
-          <div style={{ color: 'white', fontSize: 22, fontWeight: 900, marginTop: 3 }}>{readiness.score}/100</div>
+          <div style={{ color: '#667085', fontSize: 11, fontWeight: 800, letterSpacing: '.08em' }}>{entityType} READINESS</div>
+          <div style={{ color: '#14213D', fontSize: 22, fontWeight: 900, marginTop: 3 }}>{readiness.score}/100</div>
         </div>
         <div style={{ color: tone, fontWeight: 900 }}>{readiness.readyForPublication ? 'LEARNER / PUBLISH READY' : readiness.readyForApproval ? 'APPROVAL READY' : 'BLOCKED'}</div>
       </div>
@@ -55,57 +53,30 @@ export default function LearningQualityPanel({ entityType, entityId }: { entityT
         {readiness.checks.map((check) => (
           <div key={check.code} style={{ display: 'grid', gridTemplateColumns: '24px minmax(160px,1fr) 2fr', gap: 8, alignItems: 'start', fontSize: 12 }}>
             <span>{check.passed ? '✅' : '❌'}</span>
-            <strong style={{ color: check.passed ? '#bff4d4' : '#ffd1ca' }}>{check.label}</strong>
-            <span style={{ color: 'rgba(255,255,255,.58)' }}>{check.passed ? 'Complete' : check.reason}</span>
+            <strong style={{ color: check.passed ? '#147D4A' : '#B42318' }}>{check.label}</strong>
+            <span style={{ color: '#667085' }}>{check.passed ? 'Complete' : check.reason}</span>
           </div>
         ))}
       </div>
 
-      <h4 style={{ color: 'white', margin: '18px 0 8px' }}>Human quality gates</h4>
+      <h4 style={{ color: '#14213D', margin: '18px 0 8px' }}>Human quality gates</h4>
       <div style={{ display: 'grid', gap: 9 }}>
         {readiness.manualGates.map((gate) => {
           const noteValue = notes[gate.gateCode] ?? gate.note ?? '';
           return (
             <div key={gate.gateCode} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) 150px minmax(180px,1.4fr) 74px', gap: 8, alignItems: 'center' }}>
-              <div style={{ color: 'rgba(255,255,255,.78)', fontSize: 12, fontWeight: 800 }}>{gate.gateCode.replaceAll('_', ' ')}</div>
-              <select
-                defaultValue={gate.status}
-                id={`gate-${entityType}-${entityId}-${gate.gateCode}`}
-                style={{ padding: '8px 9px', borderRadius: 8, background: '#111a32', color: 'white', border: '1px solid rgba(255,255,255,.14)' }}
-              >
-                <option value="PENDING">PENDING</option>
-                <option value="PASS">PASS</option>
-                <option value="FAIL">FAIL</option>
-                {ALLOW_NA.has(gate.gateCode) && <option value="NOT_APPLICABLE">N/A</option>}
+              <div style={{ color: '#344054', fontSize: 12, fontWeight: 800 }}>{gate.gateCode.replaceAll('_', ' ')}</div>
+              <select defaultValue={gate.status} id={`gate-${entityType}-${entityId}-${gate.gateCode}`} className="admin-select" style={{ marginTop: 0 }}>
+                <option value="PENDING">PENDING</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option>{ALLOW_NA.has(gate.gateCode) && <option value="NOT_APPLICABLE">N/A</option>}
               </select>
-              <input
-                value={noteValue}
-                onChange={(event) => setNotes((current) => ({ ...current, [gate.gateCode]: event.target.value }))}
-                placeholder="Reviewer note"
-                style={{ padding: '8px 9px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'white', border: '1px solid rgba(255,255,255,.12)' }}
-              />
-              <button
-                type="button"
-                disabled={gateMutation.isPending}
-                onClick={() => {
-                  const element = document.getElementById(`gate-${entityType}-${entityId}-${gate.gateCode}`) as HTMLSelectElement | null;
-                  gateMutation.mutate({ gateCode: gate.gateCode, status: (element?.value || gate.status) as QualityGateStatus });
-                }}
-                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.07)', color: 'white', fontWeight: 800 }}
-              >Save</button>
+              <input value={noteValue} onChange={(event) => setNotes((current) => ({ ...current, [gate.gateCode]: event.target.value }))} placeholder="Reviewer note" className="admin-input" style={{ marginTop: 0 }} />
+              <button type="button" disabled={gateMutation.isPending} onClick={() => { const element = document.getElementById(`gate-${entityType}-${entityId}-${gate.gateCode}`) as HTMLSelectElement | null; gateMutation.mutate({ gateCode: gate.gateCode, status: (element?.value || gate.status) as QualityGateStatus }); }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1', background: '#FFFFFF', color: '#14213D', fontWeight: 800, cursor: 'pointer' }}>Save</button>
             </div>
           );
         })}
       </div>
 
-      {readiness.blockers.length > 0 && (
-        <div style={{ marginTop: 15, padding: 12, borderRadius: 10, background: 'rgba(255,109,90,.08)', border: '1px solid rgba(255,109,90,.24)' }}>
-          <strong style={{ color: '#ffc1b8' }}>Current blockers</strong>
-          <ul style={{ margin: '8px 0 0 18px', color: 'rgba(255,255,255,.68)', fontSize: 12, lineHeight: 1.6 }}>
-            {readiness.blockers.slice(0, 10).map((blocker) => <li key={blocker}>{blocker}</li>)}
-          </ul>
-        </div>
-      )}
+      {readiness.blockers.length > 0 && <div style={{ marginTop: 15, padding: 12, borderRadius: 10, background: '#FFF1F0', border: '1px solid #FDA29B' }}><strong style={{ color: '#B42318' }}>Current blockers</strong><ul style={{ margin: '8px 0 0 18px', color: '#7A271A', fontSize: 12, lineHeight: 1.6 }}>{readiness.blockers.slice(0,10).map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div>}
     </div>
   );
 }
