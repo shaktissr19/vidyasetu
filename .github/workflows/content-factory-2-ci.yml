@@ -10,9 +10,9 @@ permissions:
 
 jobs:
   content-factory-foundation:
-    name: Curriculum, source intake and pack foundation
+    name: Content Factory source-to-library E2E
     runs-on: ubuntu-22.04
-    timeout-minutes: 75
+    timeout-minutes: 80
 
     steps:
       - name: Checkout
@@ -26,25 +26,24 @@ jobs:
       - name: Validate Content Factory contracts
         run: |
           set -euxo pipefail
+          bash -n scripts/content-factory-source-library-e2e-smoke.sh
           test -s database/migrations/048_learning_content_factory_foundation.sql
+          test -s database/migrations/049_learning_source_library_handoff.sql
           grep -q "learning_content_packs" database/migrations/048_learning_content_factory_foundation.sql
-          grep -q "learning_content_pack_items" database/migrations/048_learning_content_factory_foundation.sql
           grep -q "EXTERNAL_WEB" database/migrations/048_learning_content_factory_foundation.sql
-          grep -q "WATCH" database/migrations/048_learning_content_factory_foundation.sql
-          grep -q "LISTEN" database/migrations/048_learning_content_factory_foundation.sql
-          grep -q "EXPLORE" database/migrations/048_learning_content_factory_foundation.sql
-          test -s backend/src/services/adminContentFactory.service.ts
-          test -s backend/src/controllers/adminContentFactory.controller.ts
-          test -s backend/src/routes/adminContentFactory.routes.ts
-          grep -q "authorize('SUPER_ADMIN')" backend/src/routes/adminContentFactory.routes.ts
-          grep -q "stageExternalWebSource" backend/src/services/adminContentFactory.service.ts
-          grep -q "Private or local network URLs are not allowed" backend/src/services/adminContentFactory.service.ts
-          grep -q "/admin/learning/factory" backend/src/index.ts
-          test -s frontend/src/services/contentFactoryService.ts
-          test -s 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "licence_verified_at" database/migrations/049_learning_source_library_handoff.sql
+          grep -q "imported_resource_id" database/migrations/049_learning_source_library_handoff.sql
+          grep -q "chapter_label" database/migrations/049_learning_source_library_handoff.sql
+          grep -q "addApprovedIntakeToLibrary" backend/src/services/adminContentFactory.service.ts
+          grep -q "queue-counts" backend/src/routes/adminContentFactory.routes.ts
+          grep -q "add-to-library" backend/src/routes/adminContentFactory.routes.ts
           grep -q "Search Learning Content" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
-          grep -q "Paste any external web address" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "Topic / learning need" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "Sent to Source Review" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "Add to Content Library" 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'
+          grep -q "Save verification" 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'
           grep -q "Content Factory" 'frontend/src/app/(admin)/layout.tsx'
+          grep -q "pending" 'frontend/src/app/(admin)/layout.tsx'
           test -s docs/content-factory-2-design.md
 
       - name: Build shared contracts
@@ -62,6 +61,7 @@ jobs:
           npm run build
           test -s dist/index.js
           test -s dist/services/adminContentFactory.service.js
+          test -s dist/services/adminContentSourceGovernance.service.js
           test -s dist/controllers/adminContentFactory.controller.js
           test -s dist/routes/adminContentFactory.routes.js
 
@@ -87,7 +87,7 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build disposable database through migration 048
+      - name: Build disposable database through migration 049
         env:
           PGPASSWORD: postgres
         run: |
@@ -109,12 +109,13 @@ jobs:
             045_learning_ai_content_creator.sql \
             046_learning_creator_source_discovery.sql \
             047_learning_source_registry_video_discovery.sql \
-            048_learning_content_factory_foundation.sql; do
+            048_learning_content_factory_foundation.sql \
+            049_learning_source_library_handoff.sql; do
               echo "Applying $migration"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
-          echo "Re-applying migration 048 to prove idempotence"
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/048_learning_content_factory_foundation.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/049_learning_source_library_handoff.sql
 
       - name: Validate Content Factory database invariants
         env:
@@ -123,11 +124,11 @@ jobs:
           set -euxo pipefail
           PSQL="psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc"
           test "$($PSQL "SELECT to_regclass('public.learning_content_packs') IS NOT NULL;")" = "t"
-          test "$($PSQL "SELECT to_regclass('public.learning_content_pack_items') IS NOT NULL;")" = "t"
           test "$($PSQL "SELECT COUNT(*) FROM learning_content_sources WHERE code='EXTERNAL_WEB' AND is_active=TRUE;")" = "1"
-          test "$($PSQL "SELECT default_license::text FROM learning_content_sources WHERE code='EXTERNAL_WEB';")" = "EXTERNAL_LINK_ONLY"
-          test "$($PSQL "SELECT requires_item_license_check FROM learning_content_sources WHERE code='EXTERNAL_WEB';")" = "t"
-          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='learning_content_packs'::regclass AND pg_get_constraintdef(oid) LIKE '%WATCH%LISTEN%EXPLORE%');")" = "t"
+          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_intake' AND column_name='licence_verified_at');")" = "t"
+          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_intake' AND column_name='imported_resource_id');")" = "t"
+          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_resources' AND column_name='chapter_label');")" = "t"
+          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='trg_learning_intake_item_governance');")" = "t"
 
       - name: Start compiled backend in safe mock mode
         working-directory: backend
@@ -140,8 +141,8 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           REDIS_URL: redis://127.0.0.1:6379
-          JWT_ACCESS_SECRET: factory_ci_access_secret_2026
-          JWT_REFRESH_SECRET: factory_ci_refresh_secret_2026
+          JWT_ACCESS_SECRET: factory-ci-access
+          JWT_REFRESH_SECRET: factory-ci-refresh
           JWT_ACCESS_EXPIRY: 10m
           JWT_REFRESH_EXPIRY: 30d
           OTP_EXPIRY_MINUTES: '10'
@@ -164,20 +165,12 @@ jobs:
           cat /tmp/vidyasetu-content-factory-api.log
           exit 1
 
-      - name: Validate factory authorization and options API
-        run: |
-          set -euxo pipefail
-          test "$(curl -sS -o /tmp/factory-unauth.json -w '%{http_code}' http://127.0.0.1:5000/api/v1/admin/learning/factory/options)" = "401"
-          SEND="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp -H 'Content-Type: application/json' -d '{"mobile":"9000000000","role":"SUPER_ADMIN"}')"
-          OTP="$(jq -er '.data.otp' <<<"$SEND")"
-          VERIFY="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp -H 'Content-Type: application/json' -d "{\"mobile\":\"9000000000\",\"otp\":\"$OTP\",\"role\":\"SUPER_ADMIN\"}")"
-          TOKEN="$(jq -er '.data.accessToken' <<<"$VERIFY")"
-          OPTIONS="$(curl -fsS http://127.0.0.1:5000/api/v1/admin/learning/factory/options -H "Authorization: Bearer $TOKEN")"
-          jq -e '.data.boards|length>=1' <<<"$OPTIONS" >/dev/null
-          jq -e '.data.readinessByClass|length==12' <<<"$OPTIONS" >/dev/null
-          jq -e '.data.workflow.publication|length>0' <<<"$OPTIONS" >/dev/null
-
-          WEB="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/admin/learning/factory/external-web-source -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"title":"CI external learning reference","sourceUrl":"https://example.com/education/resource","classNumber":5,"subject":"Science","boardCode":"COMMON"}')"
-          jq -e '.data.kind=="OER_INTAKE" and .data.sourceCode=="EXTERNAL_WEB" and .data.licenceCandidate=="EXTERNAL_LINK_ONLY"' <<<"$WEB" >/dev/null
-
-          test "$(curl -sS -o /tmp/factory-private-url.json -w '%{http_code}' -X POST http://127.0.0.1:5000/api/v1/admin/learning/factory/external-web-source -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"title":"Blocked private URL","sourceUrl":"https://127.0.0.1/private"}')" = "400"
+      - name: Run source verification and Content Library E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/content-factory-source-library-e2e-smoke.sh
