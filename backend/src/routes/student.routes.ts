@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/student.controller';
 import * as learningRuntimeCtrl from '../controllers/studentLearningRuntime.controller';
+import * as registrationLinkCtrl from '../controllers/registrationLink.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -27,6 +28,7 @@ const completeProfileSchema = z.object({
   }
 });
 
+const relationshipDecisionSchema = z.object({ action: z.enum(['APPROVE', 'REJECT']) });
 const learningProgressSchema = z.object({ progressPct: z.number().min(0).max(100) });
 const learningSubmitSchema = z.object({
   answers: z.array(z.object({ questionId: z.string().uuid(), answer: z.unknown() })).max(200),
@@ -44,6 +46,8 @@ router.get('/profile/status', ctrl.getProfileStatus);
 router.get('/profile/setup-options', ctrl.getProfileSetupOptions);
 router.post('/profile/complete', validate(completeProfileSchema), ctrl.completeProfile);
 router.get('/school-link', ctrl.getSchoolLink);
+router.get('/parent-link-requests', registrationLinkCtrl.getStudentParentRequests);
+router.patch('/parent-link-requests/:requestId', validate(relationshipDecisionSchema), registrationLinkCtrl.reviewStudentParentRequest);
 
 router.get('/dashboard', ctrl.getDashboard);
 router.get('/attendance', ctrl.getAttendance);
