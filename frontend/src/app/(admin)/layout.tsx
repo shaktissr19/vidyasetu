@@ -13,6 +13,7 @@ const MENU = [
   { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
   { href: '/admin/schools', icon: '🏫', label: 'Schools' },
   { href: '/admin/users', icon: '👥', label: 'Users' },
+  { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
   { href: '/admin/learning/creator', icon: '✨', label: 'Create Content', exact: true },
   { href: '/admin/learning', icon: '📚', label: 'Content Library', exact: true },
   { href: '/admin/learning/creator/discovery', icon: '🔎', label: 'Source Library' },
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const lightLearningWorkspace = pathname === '/admin/learning'
+    || pathname.startsWith('/admin/learning/factory')
     || pathname.startsWith('/admin/learning/creator')
     || pathname.startsWith('/admin/learning/coverage')
     || pathname.startsWith('/admin/learning/intake');
