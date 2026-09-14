@@ -74,7 +74,7 @@ export default function LearningCoveragePage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 18 }}>
         <div>
           <div style={{ color: '#FF6B00', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>LEARNING QUALITY</div>
-          <h1 style={{ fontSize: 34, margin: '5px 0' }}>Coverage</h1>
+          <h1 style={{ fontSize: 34, margin: '5px 0' }}>Content Coverage & Quality</h1>
           <p className="admin-muted" style={{ maxWidth: 850, lineHeight: 1.65 }}>See what each class and subject is missing, then create the missing lesson, bilingual outcome, video, practice or assessment.</p>
         </div>
         <Link href="/admin/learning/creator" className="btn-primary">Create Missing Content</Link>
