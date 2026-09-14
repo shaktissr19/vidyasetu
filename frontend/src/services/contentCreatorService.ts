@@ -8,11 +8,26 @@ export type CreatorSourceRole = 'GROUNDING' | 'REFERENCE_ONLY';
 export type CreatorJobStatus =
   | 'DRAFT' | 'READY_TO_GENERATE' | 'GENERATING' | 'GENERATED' | 'VALIDATION_FAILED'
   | 'READY_FOR_REVIEW' | 'APPROVED' | 'REJECTED' | 'MATERIALISED' | 'FAILED' | 'CANCELLED';
+export type CreatorLearningTarget = 'PUBLIC_LEARNING' | 'PRIVATE_LEARNING';
+export type CreatorDiscoveryProvider = 'LOCAL' | 'DIKSHA';
 
 export interface CreatorProviderStatus {
   name: string;
   model: string;
   configured: boolean;
+}
+
+export interface CreatorDiscoveryCapability {
+  code: CreatorDiscoveryProvider;
+  label: string;
+  enabled: boolean;
+  requiresReview: boolean;
+}
+
+export interface CreatorDiscoveryCapabilities {
+  providers: CreatorDiscoveryCapability[];
+  dikshaEndpoint: 'configured' | 'disabled';
+  policy: string;
 }
 
 export interface CreatorConceptOption {
@@ -62,6 +77,7 @@ export interface CreatorOptions {
   intake: CreatorIntakeOption[];
   sources: CreatorSourceRegistryOption[];
   provider: CreatorProviderStatus;
+  discovery?: CreatorDiscoveryCapabilities;
 }
 
 export interface CreatorPackRequest {
@@ -162,6 +178,7 @@ export interface CreatorJobListItem {
   generated_at?: string | null;
   reviewed_at?: string | null;
   materialised_at?: string | null;
+  submitted_to_learning_at?: string | null;
 }
 
 export interface CreatorJobDetail extends CreatorJobListItem {
@@ -176,6 +193,7 @@ export interface CreatorJobDetail extends CreatorJobListItem {
   validation_report?: CreatorValidationReport | null;
   error_message?: string | null;
   review_note?: string | null;
+  submitted_to_learning_by?: string | null;
   sources: Array<{
     id: string;
     source_role: CreatorSourceRole;
@@ -210,6 +228,88 @@ export interface CreatorMaterialiseResult {
   status: 'MATERIALISED';
 }
 
+export interface CreatorLearningSubmissionResult {
+  jobId: string;
+  target: CreatorLearningTarget;
+  reviewStatus: 'SUBMITTED';
+  visibility: LearningVisibility;
+  accessRequirement: LearningAccessRequirement;
+  resourceIds: string[];
+  questionIds: string[];
+  assessmentIds: string[];
+  submittedAt: string;
+  message: string;
+}
+
+export interface CreatorDiscoveryInput {
+  provider: CreatorDiscoveryProvider;
+  query: string;
+  classNumber?: number | null;
+  subject?: string | null;
+  language?: string | null;
+  limit?: number;
+}
+
+export interface CreatorDiscoveryCandidate {
+  id: string;
+  run_id: string;
+  provider: CreatorDiscoveryProvider;
+  source_code: string;
+  source_item_id: string;
+  resource_id?: string | null;
+  title: string;
+  description?: string | null;
+  source_url?: string | null;
+  primary_category?: string | null;
+  resource_type?: string | null;
+  licence_candidate?: string | null;
+  licence_raw?: string | null;
+  attribution_text?: string | null;
+  author_text?: string | null;
+  publisher_text?: string | null;
+  grade_levels: string[];
+  subjects: string[];
+  languages: string[];
+  can_adapt: boolean;
+  can_use_commercially: boolean;
+  licence_verified: boolean;
+  intake_id?: string | null;
+  staged_at?: string | null;
+  created_at: string;
+}
+
+export interface CreatorDiscoveryRun {
+  id: string;
+  provider: CreatorDiscoveryProvider;
+  query_text: string;
+  class_number?: number | null;
+  subject?: string | null;
+  language?: string | null;
+  status: string;
+  result_count: number;
+  error_message?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+  created_by_name?: string | null;
+  candidates?: CreatorDiscoveryCandidate[];
+}
+
+export interface CreatorDiscoverySearchResult {
+  runId: string;
+  provider: CreatorDiscoveryProvider;
+  count: number;
+  candidates: CreatorDiscoveryCandidate[];
+}
+
+export interface CreatorDiscoveryStageResult {
+  kind: 'GOVERNED_RESOURCE' | 'OER_INTAKE';
+  resourceId?: string;
+  intakeId?: string;
+  status?: string;
+  alreadyStaged?: boolean;
+  message?: string;
+}
+
 export const getContentCreatorOptions = () => api.get<ApiEnvelope<CreatorOptions>>('/admin/learning/creator/options');
 export const getContentCreatorJobs = () => api.get<ApiEnvelope<CreatorJobListItem[]>>('/admin/learning/creator/jobs');
 export const getContentCreatorJob = (jobId: string) => api.get<ApiEnvelope<CreatorJobDetail>>(`/admin/learning/creator/jobs/${jobId}`);
@@ -218,3 +318,11 @@ export const generateContentCreatorJob = (jobId: string) => api.post<ApiEnvelope
 export const reviewContentCreatorJob = (jobId: string, decision: 'APPROVE' | 'REJECT', note?: string | null) =>
   api.post<ApiEnvelope<{ id: string; status: CreatorJobStatus; review_note?: string | null }>>(`/admin/learning/creator/jobs/${jobId}/review`, { decision, note });
 export const materialiseContentCreatorJob = (jobId: string) => api.post<ApiEnvelope<CreatorMaterialiseResult>>(`/admin/learning/creator/jobs/${jobId}/materialise`);
+export const submitContentCreatorJobToLearning = (jobId: string) => api.post<ApiEnvelope<CreatorLearningSubmissionResult>>(`/admin/learning/creator/jobs/${jobId}/submit-learning`);
+
+export const discoverContentCreatorSources = (payload: CreatorDiscoveryInput) => api.post<ApiEnvelope<CreatorDiscoverySearchResult>>('/admin/learning/creator/discovery/search', payload);
+export const getContentCreatorDiscoveryRuns = () => api.get<ApiEnvelope<CreatorDiscoveryRun[]>>('/admin/learning/creator/discovery/runs');
+export const getContentCreatorDiscoveryRun = (runId: string) => api.get<ApiEnvelope<CreatorDiscoveryRun>>(`/admin/learning/creator/discovery/runs/${runId}`);
+export const stageContentCreatorDiscoveryCandidate = (candidateId: string) => api.post<ApiEnvelope<CreatorDiscoveryStageResult>>(`/admin/learning/creator/discovery/candidates/${candidateId}/stage`);
+export const updateContentCreatorIntakeEvidence = (intakeId: string, payload: { licenceCandidate: string; attributionText: string; reviewerNote?: string | null }) =>
+  api.patch<ApiEnvelope<{ id: string; status: string }>>(`/admin/learning/creator/discovery/intake/${intakeId}/evidence`, payload);
