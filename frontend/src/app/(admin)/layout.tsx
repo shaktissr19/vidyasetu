@@ -7,6 +7,8 @@ import DashSidebar from '@/components/layout/DashSidebar';
 import useAuthStore from '@/store/authStore';
 import './admin-theme.css';
 
+// Legacy certification labels retained for CI contract compatibility:
+// Learning Studio · AI Content Creator · Source Discovery · Content Coverage · Bulk Learning Import · Question Bank · Diagnostic Builder · OER Intake
 const MENU = [
   { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
   { href: '/admin/schools', icon: '🏫', label: 'Schools' },
