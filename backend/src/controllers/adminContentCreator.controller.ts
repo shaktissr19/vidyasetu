@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import type { UUID } from '@vidyasetu/contracts';
 import * as creatorService from '../services/adminContentCreator.service';
 import * as discoveryService from '../services/adminContentSourceDiscovery.service';
+import * as governanceService from '../services/adminContentSourceGovernance.service';
+import * as submissionService from '../services/adminContentCreatorSubmission.service';
 import * as R from '../utils/response';
 
 export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -74,6 +76,17 @@ export async function materialiseJob(
   } catch (error: unknown) { next(error); }
 }
 
+export async function submitJobToLearning(
+  req: Request<{ jobId: UUID }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await submissionService.submitCreatorJobToLearning(req.params.jobId, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
 export async function discoverSources(
   req: Request<Record<string, string>, unknown, discoveryService.DiscoverSourcesInput>,
   res: Response,
@@ -107,5 +120,16 @@ export async function stageDiscoveryCandidate(
   try {
     if (!req.user) return R.unauthorized(res);
     return R.created(res, await discoveryService.stageDiscoveryCandidate(req.params.candidateId, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
+export async function updateIntakeEvidence(
+  req: Request<{ intakeId: UUID }, unknown, governanceService.UpdateIntakeEvidenceInput>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await governanceService.updateIntakeEvidence(req.params.intakeId, req.body, req.user.userId));
   } catch (error: unknown) { next(error); }
 }
