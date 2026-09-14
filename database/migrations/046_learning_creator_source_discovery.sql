@@ -1,9 +1,12 @@
 -- ============================================================
 -- 046_learning_creator_source_discovery.sql
--- VidyaSetu hybrid Content Creator: governed source discovery.
+-- VidyaSetu hybrid Content Creator: governed source discovery
+-- plus explicit handoff into Private/Public Learning review.
 --
 -- Discovery only finds/stages candidates. It never makes a source
 -- grounding-ready, never approves a licence, and never publishes content.
+-- Creator materialisation still produces canonical DRAFT entities only;
+-- explicit submission moves them to SUBMITTED in the normal Learning Studio.
 -- ============================================================
 
 DO $$ BEGIN
@@ -94,9 +97,60 @@ CREATE INDEX IF NOT EXISTS idx_learning_discovery_candidates_intake
   ON learning_source_discovery_candidates(intake_id)
   WHERE intake_id IS NOT NULL;
 
+-- Track the explicit handoff from AI Creator into the canonical Learning
+-- review queue. PUBLIC/PRIVATE intent is already represented canonically by
+-- learning_creator_jobs.visibility/access_requirement, so we do not duplicate
+-- that policy in another enum.
+ALTER TABLE learning_creator_jobs
+  ADD COLUMN IF NOT EXISTS submitted_to_learning_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS submitted_to_learning_by UUID REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_learning_creator_jobs_learning_submission
+  ON learning_creator_jobs(submitted_to_learning_at DESC)
+  WHERE submitted_to_learning_at IS NOT NULL;
+
+-- DIKSHA and other item-level-review sources must not be approved merely from
+-- discovery metadata. Licence and attribution evidence are enforced in DB as
+-- a final boundary even if a future API/UI path forgets to validate them.
+CREATE OR REPLACE FUNCTION validate_learning_intake_item_governance()
+RETURNS TRIGGER AS $$
+DECLARE
+  src RECORD;
+BEGIN
+  IF NEW.status NOT IN ('APPROVED','IMPORTED') THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT code, attribution_required, requires_item_license_check
+  INTO src
+  FROM learning_content_sources
+  WHERE id=NEW.source_id;
+
+  IF src.requires_item_license_check THEN
+    IF NEW.licence_candidate IS NULL OR NEW.licence_candidate::text='OTHER' THEN
+      RAISE EXCEPTION 'Item-level licence must be verified before approval/import for source %', src.code;
+    END IF;
+  END IF;
+
+  IF src.attribution_required AND NULLIF(BTRIM(COALESCE(NEW.attribution_text,'')),'') IS NULL THEN
+    RAISE EXCEPTION 'Attribution evidence is required before approval/import for source %', src.code;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_learning_intake_item_governance ON learning_source_intake;
+CREATE TRIGGER trg_learning_intake_item_governance
+  BEFORE INSERT OR UPDATE OF status,licence_candidate,attribution_text
+  ON learning_source_intake
+  FOR EACH ROW EXECUTE FUNCTION validate_learning_intake_item_governance();
+
 COMMENT ON TABLE learning_source_discovery_runs IS
   'Audit trail of Admin-only curated source searches. Discovery is metadata-only and does not grant reuse rights.';
 COMMENT ON TABLE learning_source_discovery_candidates IS
   'Normalized source-search candidates. licence_verified remains false until existing OER intake review explicitly verifies licence/attribution.';
+COMMENT ON COLUMN learning_creator_jobs.submitted_to_learning_at IS
+  'Timestamp when materialised creator outputs were explicitly submitted into the canonical Learning Studio review queue.';
 
 COMMIT;
