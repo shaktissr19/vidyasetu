@@ -8,6 +8,24 @@ interface DecisionBody {
   note?: string;
 }
 
+interface ParentInvitationBody {
+  parentName?: string;
+  parentMobile?: string;
+  parentEmail?: string;
+  parentRelation?: string;
+}
+
+export async function createStudentParentRequest(
+  req: Request<Record<string, string>, unknown, ParentInvitationBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.created(res, await linkService.createStudentParentInvitationForUser(req.user.userId, req.body));
+  } catch (err: unknown) { next(err); }
+}
+
 export async function getStudentParentRequests(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try {
     if (!req.user) return R.unauthorized(res);
@@ -23,6 +41,28 @@ export async function reviewStudentParentRequest(
   try {
     if (!req.user) return R.unauthorized(res);
     return R.ok(res, await linkService.reviewStudentParentLinkRequest(
+      req.user.userId,
+      req.params.requestId as UUID,
+      req.body.action,
+    ));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getParentLinkRequests(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await linkService.getParentLinkRequests(req.user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function reviewParentLinkRequest(
+  req: Request<Record<string, string>, unknown, DecisionBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await linkService.reviewParentLinkRequest(
       req.user.userId,
       req.params.requestId as UUID,
       req.body.action,
