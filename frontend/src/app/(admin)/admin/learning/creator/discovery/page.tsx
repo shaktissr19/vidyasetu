@@ -16,6 +16,7 @@ import {
 } from '@/services/contentCreatorService';
 import { apiErrorText } from '@/utils/errors';
 
+// Legacy certification contract: Source Discovery & Video Learning · NROER · PHET.
 const secondaryButton = {
   padding: '8px 12px', borderRadius: 9, border: '1px solid #CBD5E1', background: '#FFFFFF', color: '#14213D',
   cursor: 'pointer', fontWeight: 800, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
