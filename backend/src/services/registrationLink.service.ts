@@ -1,4 +1,4 @@
-import type { QueryResultRow } from 'pg';
+import type { PoolClient, QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
 
@@ -13,6 +13,13 @@ interface ParentLinkRow extends QueryResultRow {
   parent_mobile: string | null;
   parent_email: string | null;
   created_at: string | Date;
+}
+
+interface ParentIdentityRow extends QueryResultRow {
+  id: UUID;
+  name: string | null;
+  mobile: string;
+  email: string | null;
 }
 
 interface TeacherRequestRow extends QueryResultRow {
@@ -32,6 +39,94 @@ interface TeacherRequestRow extends QueryResultRow {
   email: string | null;
   mobile: string;
   created_at: string | Date;
+}
+
+export interface StudentParentInvitationInput {
+  parentName?: string | null;
+  parentMobile?: string | null;
+  parentEmail?: string | null;
+  parentRelation?: string | null;
+}
+
+async function insertStudentParentInvitation(
+  client: PoolClient,
+  studentId: UUID,
+  studentUserId: UUID,
+  input: StudentParentInvitationInput,
+) {
+  const mobile = input.parentMobile?.trim() || null;
+  const email = input.parentEmail?.trim().toLowerCase() || null;
+  if (!mobile && !email) {
+    throw Object.assign(new Error('Parent mobile or email is required'), { statusCode: 400 });
+  }
+
+  const { rows: [parent] } = await client.query<ParentIdentityRow>(
+    `SELECT id,name,mobile,email FROM users
+     WHERE role='PARENT'
+       AND ((mobile IS NOT NULL AND mobile=$1) OR (email IS NOT NULL AND LOWER(email)=LOWER($2)))
+     LIMIT 1`,
+    [mobile || '', email || ''],
+  );
+
+  const values = [
+    studentId,
+    parent?.id || null,
+    input.parentName?.trim() || parent?.name || null,
+    mobile || parent?.mobile || null,
+    email || parent?.email || null,
+    input.parentRelation || 'PARENT',
+    studentUserId,
+  ];
+
+  if (parent) {
+    const { rows: [request] } = await client.query(
+      `INSERT INTO parent_link_requests
+         (student_id,parent_user_id,parent_name,parent_mobile,parent_email,relation,status,
+          initiated_by,requested_by_user_id,student_confirmed_at)
+       VALUES($1,$2,$3,$4,$5,$6,'AWAITING_PARENT','STUDENT',$7,NOW())
+       ON CONFLICT (parent_user_id,student_id)
+         WHERE status IN ('PENDING','AWAITING_STUDENT','AWAITING_PARENT') AND parent_user_id IS NOT NULL
+       DO UPDATE SET parent_name=EXCLUDED.parent_name,parent_mobile=EXCLUDED.parent_mobile,
+                     parent_email=EXCLUDED.parent_email,relation=EXCLUDED.relation,
+                     status='AWAITING_PARENT',initiated_by='STUDENT',requested_by_user_id=$7,
+                     student_confirmed_at=NOW(),updated_at=NOW()
+       RETURNING *`,
+      values,
+    );
+    return request;
+  }
+
+  const { rows: [request] } = await client.query(
+    `INSERT INTO parent_link_requests
+       (student_id,parent_user_id,parent_name,parent_mobile,parent_email,relation,status,
+        initiated_by,requested_by_user_id,student_confirmed_at)
+     VALUES($1,$2,$3,$4,$5,$6,'AWAITING_PARENT','STUDENT',$7,NOW())
+     RETURNING *`,
+    values,
+  );
+  return request;
+}
+
+export async function createStudentParentInvitation(
+  studentId: UUID,
+  studentUserId: UUID,
+  input: StudentParentInvitationInput,
+) {
+  return transaction((client) => insertStudentParentInvitation(client, studentId, studentUserId, input));
+}
+
+export async function createStudentParentInvitationForUser(
+  studentUserId: UUID,
+  input: StudentParentInvitationInput,
+) {
+  return transaction(async (client) => {
+    const { rows: [student] } = await client.query<{ id: UUID } & QueryResultRow>(
+      'SELECT id FROM students WHERE user_id=$1 LIMIT 1',
+      [studentUserId],
+    );
+    if (!student) throw Object.assign(new Error('Student profile not found'), { statusCode: 404 });
+    return insertStudentParentInvitation(client, student.id, studentUserId, input);
+  });
 }
 
 export async function getStudentParentLinkRequests(studentUserId: UUID) {
@@ -97,6 +192,94 @@ export async function reviewStudentParentLinkRequest(
        SET status='APPROVED',student_confirmed_at=NOW(),reviewed_at=NOW(),reviewed_by=$2,updated_at=NOW()
        WHERE id=$1 RETURNING *`,
       [requestId, studentUserId],
+    );
+    return approved;
+  });
+}
+
+export async function getParentLinkRequests(parentUserId: UUID) {
+  return transaction(async (client) => {
+    const { rows: [parent] } = await client.query<ParentIdentityRow>(
+      "SELECT id,name,mobile,email FROM users WHERE id=$1 AND role='PARENT'",
+      [parentUserId],
+    );
+    if (!parent) throw Object.assign(new Error('Parent account not found'), { statusCode: 404 });
+
+    await client.query(
+      `UPDATE parent_link_requests
+       SET parent_user_id=$1,claimed_at=COALESCE(claimed_at,NOW()),updated_at=NOW()
+       WHERE parent_user_id IS NULL
+         AND status='AWAITING_PARENT'
+         AND ((parent_mobile IS NOT NULL AND parent_mobile=$2)
+           OR (parent_email IS NOT NULL AND LOWER(parent_email)=LOWER($3)))`,
+      [parent.id, parent.mobile || '', parent.email || ''],
+    );
+
+    const { rows } = await client.query(
+      `SELECT plr.id,plr.status,plr.initiated_by,plr.relation,plr.parent_name,
+              plr.student_confirmed_at,plr.parent_confirmed_at,plr.created_at,
+              s.student_code,u.name AS student_name,s.grade_level,
+              sch.name AS school_name
+       FROM parent_link_requests plr
+       JOIN students s ON s.id=plr.student_id
+       JOIN users u ON u.id=s.user_id
+       LEFT JOIN schools sch ON sch.id=s.school_id
+       WHERE plr.parent_user_id=$1
+         AND plr.status IN ('PENDING','AWAITING_PARENT','AWAITING_STUDENT')
+       ORDER BY plr.created_at DESC`,
+      [parentUserId],
+    );
+    return rows;
+  });
+}
+
+export async function reviewParentLinkRequest(
+  parentUserId: UUID,
+  requestId: UUID,
+  action: 'APPROVE' | 'REJECT',
+) {
+  return transaction(async (client) => {
+    const { rows: [parent] } = await client.query<ParentIdentityRow>(
+      "SELECT id,name,mobile,email FROM users WHERE id=$1 AND role='PARENT'",
+      [parentUserId],
+    );
+    if (!parent) throw Object.assign(new Error('Parent account not found'), { statusCode: 404 });
+
+    const { rows: [request] } = await client.query<ParentLinkRow>(
+      `SELECT * FROM parent_link_requests
+       WHERE id=$1
+         AND status IN ('PENDING','AWAITING_PARENT')
+         AND ((parent_user_id=$2)
+           OR (parent_user_id IS NULL AND parent_mobile=$3)
+           OR (parent_user_id IS NULL AND parent_email IS NOT NULL AND LOWER(parent_email)=LOWER($4)))
+       FOR UPDATE`,
+      [requestId, parentUserId, parent.mobile || '', parent.email || ''],
+    );
+    if (!request) throw Object.assign(new Error('Parent invitation not found or not awaiting your confirmation'), { statusCode: 404 });
+
+    if (action === 'REJECT') {
+      const { rows: [rejected] } = await client.query(
+        `UPDATE parent_link_requests
+         SET parent_user_id=$2,status='REJECTED',parent_confirmed_at=NOW(),reviewed_at=NOW(),reviewed_by=$2,updated_at=NOW()
+         WHERE id=$1 RETURNING *`,
+        [requestId, parentUserId],
+      );
+      return rejected;
+    }
+
+    await client.query(
+      `INSERT INTO parent_student_links(parent_user_id,student_id,relation,is_primary)
+       VALUES($1,$2,$3,TRUE)
+       ON CONFLICT(parent_user_id,student_id)
+       DO UPDATE SET relation=EXCLUDED.relation`,
+      [parentUserId, request.student_id, request.relation || 'PARENT'],
+    );
+    const { rows: [approved] } = await client.query(
+      `UPDATE parent_link_requests
+       SET parent_user_id=$2,status='APPROVED',parent_confirmed_at=NOW(),claimed_at=COALESCE(claimed_at,NOW()),
+           reviewed_at=NOW(),reviewed_by=$2,updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [requestId, parentUserId],
     );
     return approved;
   });
