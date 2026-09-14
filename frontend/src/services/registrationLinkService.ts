@@ -17,6 +17,8 @@ export interface ParentLinkRequest {
   grade_level?: string | null;
   school_name?: string | null;
   created_at?: string | null;
+  relationshipStatus?: string;
+  message?: string;
 }
 
 export interface TeacherRegistrationRequest {
@@ -54,6 +56,11 @@ export const getStudentParentLinkRequests = () =>
 
 export const reviewStudentParentLinkRequest = (requestId: string, action: 'APPROVE' | 'REJECT') =>
   api.patch<ApiEnvelope<ParentLinkRequest>>(`/student/parent-link-requests/${requestId}`, { action });
+
+export const requestParentChildLink = (
+  studentCode: string,
+  relation: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'PARENT' = 'PARENT',
+) => api.post<ApiEnvelope<ParentLinkRequest>>('/parent/link-requests', { studentCode, relation });
 
 export const getParentLinkRequests = () =>
   api.get<ApiEnvelope<ParentLinkRequest[]>>('/parent/link-requests');
