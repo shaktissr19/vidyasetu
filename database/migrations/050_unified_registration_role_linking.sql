@@ -4,6 +4,11 @@
 -- Additive and safe to run repeatedly after 049.
 -- ============================================================
 
+-- Add enum values outside the transaction so they are available to statements
+-- below on PostgreSQL versions that defer new enum values until commit.
+ALTER TYPE link_request_status ADD VALUE IF NOT EXISTS 'AWAITING_STUDENT';
+ALTER TYPE link_request_status ADD VALUE IF NOT EXISTS 'AWAITING_PARENT';
+
 BEGIN;
 
 -- Parent/Student relationships are two-sided. A registration form may create
@@ -30,11 +35,11 @@ SET student_confirmed_at = COALESCE(student_confirmed_at, created_at)
 WHERE initiated_by = 'STUDENT'
   AND student_confirmed_at IS NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_parent_link_pending_pair
+CREATE UNIQUE INDEX IF NOT EXISTS uq_parent_link_open_pair
   ON parent_link_requests(parent_user_id, student_id)
-  WHERE status = 'PENDING' AND parent_user_id IS NOT NULL;
+  WHERE status IN ('PENDING', 'AWAITING_STUDENT', 'AWAITING_PARENT') AND parent_user_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_parent_link_pending_parent
+CREATE INDEX IF NOT EXISTS idx_parent_link_open_parent
   ON parent_link_requests(parent_user_id, status, created_at DESC)
   WHERE parent_user_id IS NOT NULL;
 
