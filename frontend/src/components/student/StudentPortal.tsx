@@ -27,6 +27,7 @@ import ReportCardSection from './sections/ReportCardSection';
 import NotificationsSection from './sections/NotificationsSection';
 import OfflineSection from './sections/OfflineSection';
 import ProfileSecuritySection from './sections/ProfileSecuritySection';
+import StudentParentRelationships from './StudentParentRelationships';
 import styles from './StudentPortal.module.css';
 
 const MENU: ReadonlyArray<readonly [StudentSectionId, string, string]> = [
@@ -121,7 +122,7 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
     case 'report': content = <ReportCardSection {...shared} />; break;
     case 'notifications': content = <NotificationsSection {...shared} />; break;
     case 'offline': content = <OfflineSection {...shared} />; break;
-    case 'profile': content = <ProfileSecuritySection {...shared} />; break;
+    case 'profile': content = <><StudentParentRelationships /><ProfileSecuritySection {...shared} /></>; break;
     default: content = <DashboardSection {...shared} greeting={greeting} />;
   }
 

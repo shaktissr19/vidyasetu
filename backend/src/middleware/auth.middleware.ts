@@ -15,6 +15,10 @@ interface TeacherContextRow extends QueryResultRow {
   teacher_id: UUID;
 }
 
+interface AccountStatusRow extends QueryResultRow {
+  status: string;
+}
+
 export async function authenticate(
   req: Request,
   res: Response,
@@ -34,16 +38,32 @@ export async function authenticate(
     }
 
     const decoded = verifyAccessToken(token);
+    const { rows: [account] } = await query<AccountStatusRow>(
+      'SELECT status FROM users WHERE id=$1 LIMIT 1',
+      [decoded.userId],
+    );
+    if (!account) return R.unauthorized(res, 'Account no longer exists');
+    if (account.status === 'PENDING') {
+      return R.forbidden(res, 'Account approval is pending');
+    }
+    if (account.status === 'SUSPENDED') {
+      return R.forbidden(res, 'Account suspended. Contact support.');
+    }
 
     if (!decoded.schoolId && decoded.role === 'SCHOOL_ADMIN') {
       const { rows: [school] } = await query<SchoolContextRow>(
-        'SELECT id FROM schools WHERE admin_user_id = $1 LIMIT 1',
+        "SELECT id FROM schools WHERE admin_user_id = $1 AND status='ACTIVE' LIMIT 1",
         [decoded.userId],
       );
-      if (school) decoded.schoolId = school.id;
+      if (!school) return R.forbidden(res, 'School verification is pending or the School is inactive');
+      decoded.schoolId = school.id;
     }
 
     if (decoded.role === 'TEACHER') {
+      // Preserve the established Teacher identity boundary: an ACTIVE/ON_LEAVE
+      // teachers row is the canonical, School-approved membership. Public
+      // self-registered Teachers remain blocked above while users.status=PENDING
+      // and are activated only when the School approves their request.
       const { rows: [teacher] } = await query<TeacherContextRow>(
         `SELECT t.school_id, t.id AS teacher_id
          FROM teachers t
@@ -51,7 +71,7 @@ export async function authenticate(
          LIMIT 1`,
         [decoded.userId],
       );
-      if (!teacher) return R.forbidden(res, 'Teacher profile is inactive or unavailable');
+      if (!teacher) return R.forbidden(res, 'Teacher School membership is pending, inactive, or unavailable');
       decoded.schoolId = teacher.school_id;
       decoded.teacherId = teacher.teacher_id;
     }

@@ -72,6 +72,31 @@ export interface StudentRegistrationResult extends AuthSessionPayload {
   parentLinkStatus?: string;
 }
 
+export type PublicRegistrationRole = 'PARENT' | 'TEACHER' | 'SCHOOL_ADMIN';
+
+export interface PublicRegistrationUser {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  mobile: string;
+  role: UserRole;
+  language: LanguageCode;
+  status?: string;
+}
+
+export interface PublicRegistrationResult {
+  user: PublicRegistrationUser | SessionUser;
+  approvalStatus: string;
+  relationshipStatus: string;
+  message: string;
+  accessToken?: string;
+  refreshToken?: string;
+  school?: { id: string; name: string; status?: string } | null;
+  childRequest?: { id: string; status: string } | null;
+  teacherRequest?: { id: string; status: string } | null;
+}
+
 export interface SendOtpResult {
   message?: string;
   otp?: string;
@@ -85,6 +110,8 @@ export const getStudentRegistrationOptions = () =>
   api.get<ApiEnvelope<StudentRegistrationOptions>>('/auth/student-registration-options');
 export const registerStudent = (data: Payload) =>
   api.post<ApiEnvelope<StudentRegistrationResult>>('/auth/register/student', data);
+export const registerPublicAccount = (data: Payload) =>
+  api.post<ApiEnvelope<PublicRegistrationResult>>('/auth/register', data);
 
 export const sendOTP = (mobile: string, role?: UserRole | string) =>
   api.post<ApiEnvelope<SendOtpResult>>('/auth/send-otp', { mobile, role });

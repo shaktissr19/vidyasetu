@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/auth.controller';
+import * as registrationCtrl from '../controllers/registration.controller';
 import { validate } from '../middleware/validate.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import { otpLimiter } from '../middleware/rateLimit.middleware';
@@ -12,6 +13,8 @@ const passwordSchema = z.string().min(8).max(128)
   .regex(/\d/, 'Password must contain at least one number');
 
 const roleSchema = z.enum(['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER', 'SUPER_ADMIN']);
+const publicRegistrationRoleSchema = z.enum(['PARENT', 'SCHOOL_ADMIN', 'TEACHER']);
+const languageSchema = z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']);
 const studentGradeSchema = z.string().regex(/^(?:PN|NURSERY|LKG|UKG|[1-9]|1[0-2])$/, 'Grade must be Pre-Nursery, Nursery, LKG, UKG or Class 1-12');
 
 const sendOtpSchema = z.object({
@@ -38,7 +41,7 @@ const registerStudentSchema = z.object({
   email: z.string().email().max(180).optional().or(z.literal('')),
   mobile: z.string().regex(/^\d{10}$/),
   password: passwordSchema,
-  language: z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']).default('hi'),
+  language: languageSchema.default('hi'),
   gradeLevel: studentGradeSchema,
   schoolId: z.string().uuid().nullable().optional(),
   classId: z.string().uuid().nullable().optional(),
@@ -56,6 +59,49 @@ const registerStudentSchema = z.object({
   }
 });
 
+const publicRegisterSchema = z.object({
+  role: publicRegistrationRoleSchema,
+  name: z.string().trim().min(2).max(120),
+  username: z.string().trim().min(3).max(60).regex(/^[A-Za-z0-9._-]+$/).optional().or(z.literal('')),
+  email: z.string().email().max(180).optional().or(z.literal('')),
+  mobile: z.string().regex(/^\d{10}$/),
+  password: passwordSchema,
+  language: languageSchema.default('en'),
+  deviceInfo: z.string().max(500).optional(),
+
+  studentCode: z.string().trim().max(24).optional().or(z.literal('')),
+  parentRelation: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'PARENT']).optional(),
+
+  schoolId: z.string().uuid().optional(),
+  employeeId: z.string().trim().max(30).optional().or(z.literal('')),
+  designation: z.string().trim().max(120).optional().or(z.literal('')),
+  qualification: z.string().trim().max(200).optional().or(z.literal('')),
+  experienceYears: z.number().int().min(0).max(60).optional(),
+  employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'VISITING']).optional(),
+  teacherNote: z.string().trim().max(1000).optional().or(z.literal('')),
+
+  schoolName: z.string().trim().max(200).optional().or(z.literal('')),
+  udiseCode: z.string().trim().max(20).optional().or(z.literal('')),
+  board: z.string().trim().max(50).optional().or(z.literal('')),
+  affiliationNumber: z.string().trim().max(80).optional().or(z.literal('')),
+  principalName: z.string().trim().max(120).optional().or(z.literal('')),
+  address: z.string().trim().max(1000).optional().or(z.literal('')),
+  city: z.string().trim().max(100).optional().or(z.literal('')),
+  district: z.string().trim().max(100).optional().or(z.literal('')),
+  state: z.string().trim().max(100).optional().or(z.literal('')),
+  pincode: z.string().regex(/^\d{6}$/).optional().or(z.literal('')),
+  schoolMobile: z.string().regex(/^\d{10}$/).optional().or(z.literal('')),
+  schoolEmail: z.string().email().max(180).optional().or(z.literal('')),
+  website: z.string().url().max(255).optional().or(z.literal('')),
+}).superRefine((value, ctx) => {
+  if (value.role === 'TEACHER' && !value.schoolId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['schoolId'], message: 'Select the School you want to join' });
+  }
+  if (value.role === 'SCHOOL_ADMIN' && !value.schoolName?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['schoolName'], message: 'School/Institution name is required' });
+  }
+});
+
 const refreshSchema = z.object({ refreshToken: z.string().min(10) });
 const logoutSchema = z.object({ refreshToken: z.string().min(10).optional() });
 const revokeOtherSessionsSchema = z.object({ refreshToken: z.string().min(10) });
@@ -63,7 +109,7 @@ const profileSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   username: z.string().trim().min(3).max(60).regex(/^[A-Za-z0-9._-]+$/).optional(),
   email: z.string().email().max(180).nullable().optional(),
-  language: z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']).optional(),
+  language: languageSchema.optional(),
   profilePhoto: z.string().url().optional(),
 });
 const setPasswordSchema = z.object({ currentPassword: z.string().max(128).nullable().optional(), newPassword: passwordSchema });
@@ -71,7 +117,8 @@ const forgotPasswordSchema = z.object({ identifier: z.string().trim().min(3).max
 const resetPasswordSchema = z.object({ identifier: z.string().trim().min(3).max(180), otp: z.string().length(6), newPassword: passwordSchema });
 
 router.get('/student-registration-options', ctrl.getStudentRegistrationOptions);
-router.post('/register/student', validate(registerStudentSchema), ctrl.registerStudent);
+router.post('/register/student', validate(registerStudentSchema), registrationCtrl.registerStudent);
+router.post('/register', validate(publicRegisterSchema), registrationCtrl.register);
 router.post('/login', validate(loginSchema), ctrl.login);
 router.post('/send-otp', otpLimiter, validate(sendOtpSchema), ctrl.sendOTP);
 router.post('/verify-otp', validate(verifyOtpSchema), ctrl.verifyOTP);
