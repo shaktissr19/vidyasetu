@@ -60,10 +60,13 @@ export async function authenticate(
     }
 
     if (decoded.role === 'TEACHER') {
+      // Preserve the established Teacher identity boundary: an ACTIVE/ON_LEAVE
+      // teachers row is the canonical, School-approved membership. Public
+      // self-registered Teachers remain blocked above while users.status=PENDING
+      // and are activated only when the School approves their request.
       const { rows: [teacher] } = await query<TeacherContextRow>(
         `SELECT t.school_id, t.id AS teacher_id
          FROM teachers t
-         JOIN schools s ON s.id=t.school_id AND s.status='ACTIVE'
          WHERE t.user_id = $1 AND t.status IN ('ACTIVE','ON_LEAVE')
          LIMIT 1`,
         [decoded.userId],
