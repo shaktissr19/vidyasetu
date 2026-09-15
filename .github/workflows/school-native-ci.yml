@@ -66,6 +66,10 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
           # Disposable CI verifies the historical School migration remains idempotent.
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/017_school_management_core.sql
+          # Unified registration is an additive production migration. Apply it twice
+          # here so both first-run correctness and idempotent re-application are release gates.
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/050_unified_registration_role_linking.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/050_unified_registration_role_linking.sql
 
       - name: Validate School Management schema and realistic baseline
         env:
@@ -79,6 +83,9 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='school_classes' AND column_name='is_active';")" = "1"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='fee_payments' AND column_name='receipt_number';")" = "1"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM users WHERE username ~ '\\.[0-9a-f]{32}$';")" = "0"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='teacher_school_requests';")" = "1"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='parent_link_requests' AND column_name IN ('initiated_by','student_confirmed_at','parent_confirmed_at','reviewed_by');")" = "4"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='link_request_status' AND e.enumlabel IN ('AWAITING_STUDENT','AWAITING_PARENT');")" = "2"
 
       - name: Build shared contracts and compiled backend
         run: |
