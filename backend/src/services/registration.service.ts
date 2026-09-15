@@ -217,7 +217,8 @@ async function registerTeacher(data: PublicRegistrationInput) {
 }
 
 async function registerSchool(data: PublicRegistrationInput) {
-  if (!data.schoolName?.trim()) {
+  const schoolName = String(data.schoolName || '').trim();
+  if (!schoolName) {
     throw Object.assign(new Error('School/Institution name is required'), { statusCode: 400 });
   }
 
@@ -239,7 +240,7 @@ async function registerSchool(data: PublicRegistrationInput) {
           address,city,district,state,pincode,mobile,email,website,academic_year)
        VALUES($1,$2,$3,'PENDING',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'2026-27')
        RETURNING id,name,status`,
-      [data.schoolName.trim(), data.udiseCode?.trim() || null, user.id, data.board || null,
+      [schoolName, data.udiseCode?.trim() || null, user.id, data.board || null,
        data.affiliationNumber?.trim() || null, data.principalName?.trim() || null,
        data.address?.trim() || null, data.city?.trim() || null, data.district?.trim() || null,
        data.state?.trim() || 'Uttar Pradesh', data.pincode?.trim() || null,
