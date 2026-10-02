@@ -106,3 +106,5 @@ export const getRevenue = (params: AdminQueryParams = {}) => api.get<ApiEnvelope
 export const getContentAnalytics = () => api.get<ApiEnvelope<AdminContentAnalytics>>('/admin/content');
 export const listCompetitions = () => api.get<ApiEnvelope<CompetitionExamV2[]>>('/admin/competitions');
 export const createExam = (body: Payload) => api.post<ApiEnvelope<CompetitionExamV2>>('/admin/competitions', body);
+
+export const createPlatformAdmin = (body: { name: string; username: string; mobile: string; email?: string; password: string }) => api.post<ApiEnvelope<AdminUser>>('/admin/platform-admins', body);

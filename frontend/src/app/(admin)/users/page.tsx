@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import CreatePlatformAdmin from '@/components/admin/CreatePlatformAdmin';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { exportUsers, getAnalytics, listUsers, updateUserStatus } from '@/services/adminService';
 import { SectionHeader, StatusBadge, TableSkeleton } from '@/components/ui/index';
@@ -75,6 +76,8 @@ export default function AdminUsersPage() {
       <SectionHeader title="👥 User Management" sub={`${meta?.total || 0} matching users`}>
         <button className="btn-primary" onClick={downloadCsv} disabled={exporting}>{exporting ? 'Exporting…' : '📥 Export Users'}</button>
       </SectionHeader>
+
+      <CreatePlatformAdmin />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[

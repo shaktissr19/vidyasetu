@@ -101,7 +101,11 @@ export default function RegisterPage() {
   const router = useRouter();
   const { user, setAuth, updateUser } = useAuthStore();
 
-  const [role, setRole] = useState<RegistrationRole>('STUDENT');
+  const [role, setRole] = useState<RegistrationRole>(() => {
+    if (isComplete) return 'STUDENT';
+    const requested = params.get('role');
+    return requested === 'school' ? 'SCHOOL_ADMIN' : requested === 'teacher' ? 'TEACHER' : requested === 'parent' ? 'PARENT' : 'STUDENT';
+  });
   const [loading, setLoading] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [schools, setSchools] = useState<RegistrationSchoolOption[]>([]);

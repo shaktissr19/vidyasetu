@@ -29,6 +29,7 @@ export default function TeacherRegistrationRequests() {
   });
 
   const requests = (requestsQ.data || []).filter((request) => request.status === 'PENDING');
+  if (requestsQ.isError) return <div className="card mb-5" role="alert">Could not load Teacher membership requests. <button type="button" className="btn-ghost" onClick={() => void requestsQ.refetch()}>Retry</button></div>;
   if (!requestsQ.isLoading && requests.length === 0) return null;
 
   return (

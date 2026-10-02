@@ -48,7 +48,7 @@ export interface StudentParentInvitationInput {
   parentRelation?: string | null;
 }
 
-async function insertStudentParentInvitation(
+export async function insertStudentParentInvitation(
   client: PoolClient,
   studentId: UUID,
   studentUserId: UUID,
@@ -63,7 +63,8 @@ async function insertStudentParentInvitation(
   const { rows: [parent] } = await client.query<ParentIdentityRow>(
     `SELECT id,name,mobile,email FROM users
      WHERE role='PARENT'
-       AND ((mobile IS NOT NULL AND mobile=$1) OR (email IS NOT NULL AND LOWER(email)=LOWER($2)))
+       AND (NULLIF($1,'') IS NULL OR mobile=$1)
+       AND (NULLIF($2,'') IS NULL OR LOWER(email)=LOWER($2))
      LIMIT 1`,
     [mobile || '', email || ''],
   );
@@ -210,16 +211,19 @@ export async function getParentLinkRequests(parentUserId: UUID) {
        SET parent_user_id=$1,claimed_at=COALESCE(claimed_at,NOW()),updated_at=NOW()
        WHERE parent_user_id IS NULL
          AND status='AWAITING_PARENT'
-         AND ((parent_mobile IS NOT NULL AND parent_mobile=$2)
-           OR (parent_email IS NOT NULL AND LOWER(parent_email)=LOWER($3)))`,
+         AND (parent_mobile IS NULL OR parent_mobile=$2)
+         AND (parent_email IS NULL OR LOWER(parent_email)=LOWER($3))
+         AND (parent_mobile IS NOT NULL OR parent_email IS NOT NULL)`,
       [parent.id, parent.mobile || '', parent.email || ''],
     );
 
     const { rows } = await client.query(
       `SELECT plr.id,plr.status,plr.initiated_by,plr.relation,plr.parent_name,
               plr.student_confirmed_at,plr.parent_confirmed_at,plr.created_at,
-              s.student_code,u.name AS student_name,s.grade_level,
-              sch.name AS school_name
+              s.student_code,
+              CASE WHEN plr.status='AWAITING_STUDENT' THEN NULL ELSE u.name END AS student_name,
+              CASE WHEN plr.status='AWAITING_STUDENT' THEN NULL ELSE s.grade_level END AS grade_level,
+              CASE WHEN plr.status='AWAITING_STUDENT' THEN NULL ELSE sch.name END AS school_name
        FROM parent_link_requests plr
        JOIN students s ON s.id=plr.student_id
        JOIN users u ON u.id=s.user_id
@@ -250,8 +254,10 @@ export async function reviewParentLinkRequest(
        WHERE id=$1
          AND status IN ('PENDING','AWAITING_PARENT')
          AND ((parent_user_id=$2)
-           OR (parent_user_id IS NULL AND parent_mobile=$3)
-           OR (parent_user_id IS NULL AND parent_email IS NOT NULL AND LOWER(parent_email)=LOWER($4)))
+           OR (parent_user_id IS NULL
+               AND (parent_mobile IS NULL OR parent_mobile=$3)
+               AND (parent_email IS NULL OR LOWER(parent_email)=LOWER($4))
+               AND (parent_mobile IS NOT NULL OR parent_email IS NOT NULL)))
        FOR UPDATE`,
       [requestId, parentUserId, parent.mobile || '', parent.email || ''],
     );

@@ -23,7 +23,8 @@ for migration in \
   014_student_identity_enrollment.sql \
   015_realistic_demo_identities.sql \
   016_demo_academic_year_alignment.sql \
-  017_school_management_core.sql; do
+  017_school_management_core.sql \
+  050_unified_registration_role_linking.sql; do
   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
 done
 

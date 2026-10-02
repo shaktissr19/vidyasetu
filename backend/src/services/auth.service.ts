@@ -21,6 +21,7 @@ import {
   REFRESH_EXPIRY,
 } from '../utils/jwt';
 import notificationService = require('./notification.service');
+import { insertStudentParentInvitation } from './registrationLink.service';
 import logger = require('../utils/logger');
 
 const MAX_OTP_ATTEMPTS = Number.parseInt(process.env.OTP_MAX_ATTEMPTS || '3', 10);
@@ -211,6 +212,9 @@ async function issueSession(
   deviceInfo: string | null = null,
   ipAddress: string | null = null,
 ): Promise<SessionResult> {
+  if (user.status !== 'ACTIVE') {
+    throw Object.assign(new Error('Account approval is pending or the account is inactive'), { statusCode: 403 });
+  }
   const tokenPayload: Omit<AuthTokenClaims, 'iat' | 'exp'> = {
     userId: user.id,
     role: user.role,
@@ -218,12 +222,20 @@ async function issueSession(
 
   if (user.role === 'SCHOOL_ADMIN') {
     const schoolRes = await query<IdRow>(
-      'SELECT id FROM schools WHERE admin_user_id = $1 LIMIT 1',
+      "SELECT id FROM schools WHERE admin_user_id = $1 AND status='ACTIVE' LIMIT 1",
       [user.id],
     );
-    if (schoolRes.rows[0]) tokenPayload.schoolId = schoolRes.rows[0].id;
+    if (!schoolRes.rows[0]) throw Object.assign(new Error('School verification is pending or inactive'), { statusCode: 403 });
+    tokenPayload.schoolId = schoolRes.rows[0].id;
   }
 
+  if (user.role === 'TEACHER') {
+    const { rows: [teacher] } = await query<IdRow>(
+      "SELECT t.id FROM teachers t JOIN schools s ON s.id=t.school_id WHERE t.user_id=$1 AND t.status IN ('ACTIVE','ON_LEAVE') AND s.status='ACTIVE' LIMIT 1",
+      [user.id],
+    );
+    if (!teacher) throw Object.assign(new Error('Teacher School membership is pending or inactive'), { statusCode: 403 });
+  }
   const accessToken = signAccessToken(tokenPayload);
   const refreshToken = signRefreshToken(tokenPayload);
   const refreshHash = hashToken(refreshToken);
@@ -545,39 +557,10 @@ export async function registerStudent(
     }
 
     let parentLinkStatus = 'NOT_PROVIDED';
+    let parentRequest: unknown = null;
     if (parentMobile || parentEmail) {
-      const { rows: parentRows } = await client.query<ParentUserRow>(
-        `SELECT id FROM users
-         WHERE role = 'PARENT'
-           AND ((NULLIF($1, '') IS NOT NULL AND mobile = $1)
-             OR (NULLIF($2, '') IS NOT NULL AND LOWER(COALESCE(email, '')) = LOWER($2)))
-         LIMIT 1`,
-        [parentMobile || '', parentEmail || ''],
-      );
-      const parent = parentRows[0];
-      if (parent) {
-        await client.query(
-          `INSERT INTO parent_student_links (parent_user_id, student_id, relation, is_primary)
-           VALUES ($1, $2, $3, TRUE)
-           ON CONFLICT (parent_user_id, student_id) DO NOTHING`,
-          [parent.id, student.id, data.parentRelation || 'PARENT'],
-        );
-        parentLinkStatus = 'APPROVED';
-      } else {
-        await client.query(
-          `INSERT INTO parent_link_requests
-             (student_id, parent_name, parent_mobile, parent_email, relation, status)
-           VALUES ($1, $2, $3, $4, $5, 'PENDING')`,
-          [
-            student.id,
-            data.parentName || null,
-            parentMobile,
-            parentEmail,
-            data.parentRelation || 'PARENT',
-          ],
-        );
-        parentLinkStatus = 'PENDING';
-      }
+      parentRequest = await insertStudentParentInvitation(client, student.id, user.id, data);
+      parentLinkStatus = 'AWAITING_PARENT';
     }
 
     return {
@@ -585,6 +568,7 @@ export async function registerStudent(
       student,
       schoolRequest,
       parentLinkStatus,
+      parentRequest,
       schoolName: school?.name || null,
       classLabel: schoolClass ? `${schoolClass.class_name}-${schoolClass.section}` : gradeLevel,
     };
@@ -603,6 +587,7 @@ export async function registerStudent(
     },
     schoolRequest: result.schoolRequest,
     parentLinkStatus: result.parentLinkStatus,
+    parentRequest: result.parentRequest,
   };
 }
 
@@ -748,6 +733,10 @@ export async function refreshAccessToken(
     throw Object.assign(new Error('Refresh token not found or expired'), { statusCode: 401 });
   }
 
+  const { rows: [account] } = await query<UserRow>('SELECT * FROM users WHERE id=$1', [decoded.userId]);
+  if (!account || account.status !== 'ACTIVE' || account.role !== decoded.role) {
+    throw Object.assign(new Error('Account approval is pending or access has changed'), { statusCode: 403 });
+  }
   const newAccessToken = signAccessToken({
     userId: decoded.userId,
     role: decoded.role,

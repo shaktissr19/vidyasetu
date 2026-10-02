@@ -107,7 +107,7 @@ export async function getSchoolEnrollmentRequests(
             ) AS parent_linked,
             EXISTS (
               SELECT 1 FROM parent_link_requests plr
-              WHERE plr.student_id = s.id AND plr.status = 'PENDING'
+              WHERE plr.student_id = s.id AND plr.status::text IN ('PENDING','AWAITING_PARENT','AWAITING_STUDENT')
             ) AS parent_link_pending
      FROM student_school_requests r
      JOIN students s ON s.id = r.student_id
@@ -245,7 +245,7 @@ export async function getStudentLinkSummary(userId: UUID): Promise<StudentLinkSu
             sc.id AS class_id, sc.class_name, sc.section,
             r.id AS request_id, r.status AS request_status, r.requested_at, r.school_note,
             EXISTS (SELECT 1 FROM parent_student_links psl WHERE psl.student_id = s.id) AS parent_linked,
-            EXISTS (SELECT 1 FROM parent_link_requests plr WHERE plr.student_id = s.id AND plr.status = 'PENDING') AS parent_link_pending
+            EXISTS (SELECT 1 FROM parent_link_requests plr WHERE plr.student_id = s.id AND plr.status::text IN ('PENDING','AWAITING_PARENT','AWAITING_STUDENT')) AS parent_link_pending
      FROM students s
      LEFT JOIN schools sch ON sch.id = s.school_id
      LEFT JOIN school_classes sc ON sc.id = s.class_id

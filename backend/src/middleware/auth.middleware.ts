@@ -17,6 +17,7 @@ interface TeacherContextRow extends QueryResultRow {
 
 interface AccountStatusRow extends QueryResultRow {
   status: string;
+  role: UserRole;
 }
 
 export async function authenticate(
@@ -39,10 +40,11 @@ export async function authenticate(
 
     const decoded = verifyAccessToken(token);
     const { rows: [account] } = await query<AccountStatusRow>(
-      'SELECT status FROM users WHERE id=$1 LIMIT 1',
+      'SELECT status,role FROM users WHERE id=$1 LIMIT 1',
       [decoded.userId],
     );
     if (!account) return R.unauthorized(res, 'Account no longer exists');
+    if (account.role !== decoded.role) return R.unauthorized(res, 'Account role has changed');
     if (account.status === 'PENDING') {
       return R.forbidden(res, 'Account approval is pending');
     }
@@ -50,7 +52,7 @@ export async function authenticate(
       return R.forbidden(res, 'Account suspended. Contact support.');
     }
 
-    if (!decoded.schoolId && decoded.role === 'SCHOOL_ADMIN') {
+    if (decoded.role === 'SCHOOL_ADMIN') {
       const { rows: [school] } = await query<SchoolContextRow>(
         "SELECT id FROM schools WHERE admin_user_id = $1 AND status='ACTIVE' LIMIT 1",
         [decoded.userId],
@@ -66,8 +68,8 @@ export async function authenticate(
       // and are activated only when the School approves their request.
       const { rows: [teacher] } = await query<TeacherContextRow>(
         `SELECT t.school_id, t.id AS teacher_id
-         FROM teachers t
-         WHERE t.user_id = $1 AND t.status IN ('ACTIVE','ON_LEAVE')
+         FROM teachers t JOIN schools s ON s.id=t.school_id
+         WHERE t.user_id = $1 AND t.status IN ('ACTIVE','ON_LEAVE') AND s.status='ACTIVE'
          LIMIT 1`,
         [decoded.userId],
       );

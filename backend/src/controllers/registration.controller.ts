@@ -1,6 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as registrationService from '../services/registration.service';
-import * as registrationLinkService from '../services/registrationLink.service';
 import * as authService from '../services/auth.service';
 import * as R from '../utils/response';
 
@@ -18,42 +17,9 @@ export async function registerStudent(
   next: NextFunction,
 ): Promise<Response | void> {
   try {
-    const {
-      parentName,
-      parentMobile,
-      parentEmail,
-      parentRelation,
-      ...studentData
-    } = req.body;
-
-    // Create the Student identity/profile without granting any Parent access.
-    // Parent details become a two-sided invitation that the Parent must accept.
-    const result = await authService.registerStudent(
-      {
-        ...studentData,
-        parentName: undefined,
-        parentMobile: undefined,
-        parentEmail: undefined,
-        parentRelation: undefined,
-      },
-      req.body.deviceInfo || null,
-      req.ip || null,
-    );
-
-    let parentRequest: unknown = null;
-    if (parentMobile || parentEmail) {
-      parentRequest = await registrationLinkService.createStudentParentInvitation(
-        result.student.id,
-        result.user.id,
-        { parentName, parentMobile, parentEmail, parentRelation },
-      );
-    }
-
-    return R.created(res, {
-      ...result,
-      parentLinkStatus: parentRequest ? 'AWAITING_PARENT' : 'NOT_PROVIDED',
-      parentRequest,
-    });
+    // Identity, School request and Parent invitation commit atomically.
+    const result = await authService.registerStudent(req.body, req.body.deviceInfo || null, req.ip || null);
+    return R.created(res, result);
   } catch (err: unknown) {
     next(err);
   }

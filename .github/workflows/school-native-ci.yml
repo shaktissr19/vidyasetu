@@ -27,6 +27,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n scripts/school-e2e-smoke.sh
+          bash -n scripts/unified-registration-e2e-smoke.sh
           bash -n scripts/school-production-smoke.sh
           bash -n scripts/student-production-smoke.sh
           bash -n scripts/parent-admin-production-smoke.sh
@@ -137,6 +138,11 @@ jobs:
         env:
           API_BASE: http://127.0.0.1:5000/api/v1
         run: bash scripts/school-e2e-smoke.sh
+
+      - name: Unified account registration and approval E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+        run: bash scripts/unified-registration-e2e-smoke.sh
 
       - name: Validate School database invariants after E2E
         env:

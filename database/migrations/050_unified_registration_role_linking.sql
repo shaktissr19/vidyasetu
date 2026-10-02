@@ -35,6 +35,19 @@ SET student_confirmed_at = COALESCE(student_confirmed_at, created_at)
 WHERE initiated_by = 'STUDENT'
   AND student_confirmed_at IS NULL;
 
+-- Legacy pending invitations must be confirmed explicitly, never auto-claimed at login.
+UPDATE parent_link_requests SET status='AWAITING_PARENT'
+WHERE status='PENDING' AND initiated_by='STUDENT';
+
+-- Retain the oldest open request when historic data contains duplicate pairs.
+WITH ranked AS (
+  SELECT id, ROW_NUMBER() OVER (PARTITION BY parent_user_id,student_id ORDER BY created_at,id) AS ordinal
+  FROM parent_link_requests
+  WHERE status IN ('PENDING','AWAITING_STUDENT','AWAITING_PARENT') AND parent_user_id IS NOT NULL
+)
+UPDATE parent_link_requests SET status='REJECTED',updated_at=NOW()
+WHERE id IN (SELECT id FROM ranked WHERE ordinal > 1);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_parent_link_open_pair
   ON parent_link_requests(parent_user_id, student_id)
   WHERE status IN ('PENDING', 'AWAITING_STUDENT', 'AWAITING_PARENT') AND parent_user_id IS NOT NULL;

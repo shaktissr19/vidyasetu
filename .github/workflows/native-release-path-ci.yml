@@ -32,6 +32,10 @@ jobs:
           set -Eeuo pipefail
           bash -n scripts/build-production-native.sh
           bash -n scripts/deploy-main-native.sh
+          bash -n scripts/prepare-registration-release.sh
+          grep -q "pg_restore -l" scripts/prepare-registration-release.sh
+          grep -q "handle_deploy_error" scripts/deploy-main-native.sh
+          grep -q "teacher_school_requests" scripts/deploy-main-native.sh
           bash -n scripts/switch-pm2-release.sh
           bash -n scripts/student-production-smoke.sh
           bash -n scripts/school-production-smoke.sh
