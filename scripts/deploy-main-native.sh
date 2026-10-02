@@ -16,7 +16,15 @@ read_env_value() {
   grep -m1 -E "^${key}=" "$file" 2>/dev/null | cut -d= -f2- || true
 }
 
-trap 'printf "\nERROR: deployment failed at line %s. Review the last completed gate before taking any further action.\n" "$LINENO" >&2' ERR
+PM2_SWITCH_STARTED=0
+handle_deploy_error() {
+  local exit_status=$? line_number=$1
+  trap - ERR
+  printf '\nERROR: deployment failed at line %s.\n' "$line_number" >&2
+  if [[ "$PM2_SWITCH_STARTED" == "1" ]]; then rollback_pm2; fi
+  exit "$exit_status"
+}
+trap 'handle_deploy_error "$LINENO"' ERR
 
 [[ $EUID -eq 0 ]] || fail "Run this script as root."
 [[ -d "$PROJECT_DIR/.git" ]] || fail "Repository not found at $PROJECT_DIR"
@@ -84,10 +92,22 @@ for table_name in \
   users students schools school_classes teachers teacher_assignments subjects \
   attendance fee_structures fee_invoices fee_payments timetable_periods exams \
   exam_attempts announcements notifications parent_student_links platform_config \
-  subscription_events support_tickets audit_log; do
+  subscription_events support_tickets audit_log learning_resources learning_assessments \
+  learning_entitlements learning_creator_jobs learning_creator_sources learning_creator_outputs \
+  learning_source_discovery_candidates learning_source_connectors learning_content_packs \
+  learning_content_pack_items teacher_school_requests; do
   exists="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.$table_name') IS NOT NULL;")"
   [[ "$exists" == "t" ]] || fail "Required table '$table_name' is missing. No migration was attempted. Backup: $SAFETY_DUMP"
 done
+
+REGISTRATION_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "
+SELECT
+ (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='parent_link_requests'
+   AND column_name IN ('initiated_by','requested_by_user_id','student_confirmed_at','parent_confirmed_at','school_confirmed_at','reviewed_by'))=6
+ AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake'
+   AND column_name IN ('licence_verified_at','imported_resource_id'))=2
+ AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('learning_resources','learning_assessments') AND column_name='access_requirement')=2;")"
+[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration schema is incomplete. Apply reviewed migrations through 050 separately before deployment. No migration was attempted."
 
 TEACHER_ENUM="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")"
 [[ "$TEACHER_ENUM" == "1" ]] || fail "TEACHER role is missing. No migration was attempted."
@@ -130,6 +150,7 @@ rollback_pm2() {
 }
 
 log "6/9 Switch PM2 to the certified release"
+PM2_SWITCH_STARTED=1
 bash "$RELEASE_DIR/scripts/switch-pm2-release.sh" "$RELEASE_DIR"
 
 for i in {1..40}; do

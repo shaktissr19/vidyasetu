@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as ctrl from '../controllers/student.controller';
 import * as learningRuntimeCtrl from '../controllers/studentLearningRuntime.controller';
+import * as registrationLinkCtrl from '../controllers/registrationLink.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 
@@ -17,16 +18,22 @@ const completeProfileSchema = z.object({
   schoolNote: z.string().max(500).optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).nullable().optional(),
-  parentName: z.string().trim().min(2).max(120).optional().or(z.literal('')),
-  parentMobile: z.string().regex(/^\d{10}$/).optional().or(z.literal('')),
-  parentEmail: z.string().email().max(180).optional().or(z.literal('')),
-  parentRelation: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'PARENT']).optional(),
 }).superRefine((value, ctx) => {
   if (value.schoolId && !value.classId) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['classId'], message: 'Class/section is required when a school is selected' });
   }
 });
 
+const parentInvitationSchema = z.object({
+  parentName: z.string().trim().min(2).max(120).optional().or(z.literal('')),
+  parentMobile: z.string().regex(/^\d{10}$/).optional().or(z.literal('')),
+  parentEmail: z.string().email().max(180).optional().or(z.literal('')),
+  parentRelation: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'PARENT']).optional(),
+}).refine((value) => Boolean(value.parentMobile) || Boolean(value.parentEmail), {
+  message: 'Parent mobile or email is required',
+});
+
+const relationshipDecisionSchema = z.object({ action: z.enum(['APPROVE', 'REJECT']) });
 const learningProgressSchema = z.object({ progressPct: z.number().min(0).max(100) });
 const learningSubmitSchema = z.object({
   answers: z.array(z.object({ questionId: z.string().uuid(), answer: z.unknown() })).max(200),
@@ -44,6 +51,9 @@ router.get('/profile/status', ctrl.getProfileStatus);
 router.get('/profile/setup-options', ctrl.getProfileSetupOptions);
 router.post('/profile/complete', validate(completeProfileSchema), ctrl.completeProfile);
 router.get('/school-link', ctrl.getSchoolLink);
+router.post('/parent-link-requests', validate(parentInvitationSchema), registrationLinkCtrl.createStudentParentRequest);
+router.get('/parent-link-requests', registrationLinkCtrl.getStudentParentRequests);
+router.patch('/parent-link-requests/:requestId', validate(relationshipDecisionSchema), registrationLinkCtrl.reviewStudentParentRequest);
 
 router.get('/dashboard', ctrl.getDashboard);
 router.get('/attendance', ctrl.getAttendance);

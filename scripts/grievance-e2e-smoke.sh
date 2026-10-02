@@ -65,6 +65,10 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO schools (id,name,admin_user_id,status,state,academic_year)
 VALUES ('$OTHER_SCHOOL_ID','Other Isolation School','$OTHER_SCHOOL_ADMIN_ID','ACTIVE','Uttar Pradesh','2026-27')
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO teachers (user_id,school_id,designation,status)
+SELECT '$TEACHER_USER_ID','$PRIMARY_SCHOOL_ID','Teacher','ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE user_id='$TEACHER_USER_ID');
 SQL
 
 log "Authenticate Parent, School Admin, Platform Admin and isolation roles"
