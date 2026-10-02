@@ -62,6 +62,20 @@ call 200 PATCH "/parent/link-requests/$INVITE_ID" '{"action":"REJECT"}' "$PARENT
 call 200 GET /parent/children '' "$PARENT_TOKEN"
 test "$(jq '.data | length' <<< "$BODY")" = 1
 
+echo 'Repeated invitations before Parent signup remain claimable'
+call 201 POST /auth/register/student '{"name":"Pre Parent Student","mobile":"9397770003","password":"Registration12345","language":"en","gradeLevel":"7","parentMobile":"9497770002"}'
+PRE_PARENT_TOKEN="$(jq -er '.data.accessToken' <<< "$BODY")"
+PRE_INVITE_ID="$(jq -er '.data.parentRequest.id' <<< "$BODY")"
+call 201 POST /student/parent-link-requests '{"parentMobile":"9497770002"}' "$PRE_PARENT_TOKEN"
+test "$(jq -r '.data.id' <<< "$BODY")" = "$PRE_INVITE_ID"
+call 201 POST /auth/register '{"role":"PARENT","name":"Later Parent","mobile":"9497770002","password":"Registration12345"}'
+LATER_PARENT_TOKEN="$(jq -er '.data.accessToken' <<< "$BODY")"
+call 200 GET /parent/link-requests '' "$LATER_PARENT_TOKEN"
+test "$(jq -r --arg id "$PRE_INVITE_ID" '[.data[] | select(.id==$id)] | length' <<< "$BODY")" = 1
+call 200 PATCH "/parent/link-requests/$PRE_INVITE_ID" '{"action":"APPROVE"}' "$LATER_PARENT_TOKEN"
+call 200 GET /parent/children '' "$LATER_PARENT_TOKEN"
+test "$(jq '.data | length' <<< "$BODY")" = 1
+
 echo 'School application is unusable until Platform Admin approval'
 call 201 POST /auth/register '{"role":"SCHOOL_ADMIN","name":"School Representative","username":"registration.school","mobile":"9197770001","password":"Registration12345","schoolName":"Registration School","udiseCode":"REG7770001","state":"Uttar Pradesh"}'
 SCHOOL_ID="$(jq -er '.data.school.id' <<< "$BODY")"

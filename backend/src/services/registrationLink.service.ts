@@ -69,6 +69,8 @@ export async function insertStudentParentInvitation(
     [mobile || '', email || ''],
   );
 
+  await client.query('SELECT id FROM students WHERE id=$1 FOR UPDATE', [studentId]);
+
   const values = [
     studentId,
     parent?.id || null,
@@ -93,6 +95,23 @@ export async function insertStudentParentInvitation(
                      student_confirmed_at=NOW(),updated_at=NOW()
        RETURNING *`,
       values,
+    );
+    return request;
+  }
+
+  const { rows: [existing] } = await client.query(
+    `SELECT id FROM parent_link_requests
+     WHERE student_id=$1 AND parent_user_id IS NULL AND status='AWAITING_PARENT'
+       AND parent_mobile IS NOT DISTINCT FROM $2
+       AND LOWER(parent_email) IS NOT DISTINCT FROM $3
+     ORDER BY created_at,id LIMIT 1`,
+    [studentId, mobile, email],
+  );
+  if (existing) {
+    const { rows: [request] } = await client.query(
+      `UPDATE parent_link_requests SET parent_name=$2,relation=$3,updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [existing.id, values[2], values[5]],
     );
     return request;
   }
@@ -201,19 +220,28 @@ export async function reviewStudentParentLinkRequest(
 export async function getParentLinkRequests(parentUserId: UUID) {
   return transaction(async (client) => {
     const { rows: [parent] } = await client.query<ParentIdentityRow>(
-      "SELECT id,name,mobile,email FROM users WHERE id=$1 AND role='PARENT'",
+      "SELECT id,name,mobile,email FROM users WHERE id=$1 AND role='PARENT' FOR UPDATE",
       [parentUserId],
     );
     if (!parent) throw Object.assign(new Error('Parent account not found'), { statusCode: 404 });
 
     await client.query(
-      `UPDATE parent_link_requests
+      `WITH candidates AS (
+         SELECT DISTINCT ON (plr.student_id) plr.id
+         FROM parent_link_requests plr
+         WHERE plr.parent_user_id IS NULL AND plr.status='AWAITING_PARENT'
+           AND (plr.parent_mobile IS NULL OR plr.parent_mobile=$2)
+           AND (plr.parent_email IS NULL OR LOWER(plr.parent_email)=LOWER($3))
+           AND (plr.parent_mobile IS NOT NULL OR plr.parent_email IS NOT NULL)
+           AND NOT EXISTS (
+             SELECT 1 FROM parent_link_requests bound
+             WHERE bound.student_id=plr.student_id AND bound.parent_user_id=$1
+               AND bound.status IN ('PENDING','AWAITING_PARENT','AWAITING_STUDENT'))
+         ORDER BY plr.student_id,plr.created_at,plr.id
+       )
+       UPDATE parent_link_requests
        SET parent_user_id=$1,claimed_at=COALESCE(claimed_at,NOW()),updated_at=NOW()
-       WHERE parent_user_id IS NULL
-         AND status='AWAITING_PARENT'
-         AND (parent_mobile IS NULL OR parent_mobile=$2)
-         AND (parent_email IS NULL OR LOWER(parent_email)=LOWER($3))
-         AND (parent_mobile IS NOT NULL OR parent_email IS NOT NULL)`,
+       WHERE id IN (SELECT id FROM candidates)`,
       [parent.id, parent.mobile || '', parent.email || ''],
     );
 
@@ -244,7 +272,7 @@ export async function reviewParentLinkRequest(
 ) {
   return transaction(async (client) => {
     const { rows: [parent] } = await client.query<ParentIdentityRow>(
-      "SELECT id,name,mobile,email FROM users WHERE id=$1 AND role='PARENT'",
+      "SELECT id,name,mobile,email FROM users WHERE id=$1 AND role='PARENT' FOR UPDATE",
       [parentUserId],
     );
     if (!parent) throw Object.assign(new Error('Parent account not found'), { statusCode: 404 });
