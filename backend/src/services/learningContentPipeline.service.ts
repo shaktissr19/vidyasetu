@@ -377,9 +377,10 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID) {
     const { rows: [intake] } = await client.query<{ id: UUID; status: string; title: string; source_url: string }>(
       `INSERT INTO learning_source_intake
         (source_id,source_item_id,title,source_url,licence_candidate,attribution_text,class_hint,board_hint,subject_hint,
-         category,delivery_mode,rights_status,licence_url,rights_evidence_url,grade_code,media_kind,embed_url,created_by)
+         category,delivery_mode,rights_status,licence_url,rights_evidence_url,grade_code,media_kind,embed_url,
+         licence_verified_at,licence_verified_by,created_by)
        VALUES($1::uuid,$2,$3,$4,$5::learning_license_code,$6,$7,$8,$9,$10::learning_category,$11::learning_delivery_mode,$12::learning_rights_status,
-              $13,$14,$15,$16,$17,$18::uuid)
+              $13,$14,$15,$16,$17,$18,$19::uuid,$20::uuid)
        ON CONFLICT(source_id,source_url) DO UPDATE SET
        title=EXCLUDED.title,
        source_item_id=COALESCE(EXCLUDED.source_item_id,learning_source_intake.source_item_id),
@@ -393,9 +394,11 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID) {
        rights_evidence_url=EXCLUDED.rights_evidence_url,
        grade_code=EXCLUDED.grade_code,
        embed_url=EXCLUDED.embed_url,
+       licence_verified_at=COALESCE(EXCLUDED.licence_verified_at,learning_source_intake.licence_verified_at),
+       licence_verified_by=COALESCE(EXCLUDED.licence_verified_by,learning_source_intake.licence_verified_by),
        updated_at=NOW()
        RETURNING id,status,title,source_url`,
-      [source.id,sourceItemId,text(input.title),policy.sourceUrl,policy.licence,attributionText,scope.grades.join(','),scope.boards.map((item) => item.code).join(','),nullable(input.subjectLabel),policy.category,input.deliveryMode,policy.rightsStatus,licenceUrl,rightsEvidenceUrl,scope.grades[0],input.mediaKind,policy.embedUrl,adminId],
+      [source.id,sourceItemId,text(input.title),policy.sourceUrl,policy.licence,attributionText,scope.grades.join(','),scope.boards.map((item) => item.code).join(','),nullable(input.subjectLabel),policy.category,input.deliveryMode,policy.rightsStatus,licenceUrl,rightsEvidenceUrl,scope.grades[0],input.mediaKind,policy.embedUrl,policy.rightsStatus === 'VERIFIED' ? new Date() : null,policy.rightsStatus === 'VERIFIED' ? adminId : null,adminId],
     );
 
     const { rows: [asset] } = await client.query<{ id: UUID }>(
