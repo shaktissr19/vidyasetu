@@ -136,6 +136,7 @@ jobs:
         run: |
           set -euxo pipefail
           PSQL="psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -At -f scripts/production-schema-preflight.sql)" = "t"
           test "$($PSQL "SELECT to_regclass('public.learning_content_packs') IS NOT NULL;")" = "t"
           test "$($PSQL "SELECT COUNT(*) FROM learning_content_sources WHERE code='EXTERNAL_WEB' AND is_active=TRUE;")" = "1"
           test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_intake' AND column_name='licence_verified_at');")" = "t"

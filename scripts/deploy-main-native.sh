@@ -100,18 +100,8 @@ for table_name in \
   [[ "$exists" == "t" ]] || fail "Required table '$table_name' is missing. No migration was attempted. Backup: $SAFETY_DUMP"
 done
 
-REGISTRATION_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "
-SELECT
- (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='parent_link_requests'
-   AND column_name IN ('initiated_by','requested_by_user_id','student_confirmed_at','parent_confirmed_at','school_confirmed_at','reviewed_by'))=6
- AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake'
-   AND column_name IN ('licence_verified_at','imported_resource_id','category'))=3
-   AND column_name IN ('licence_verified_at','imported_resource_id','category'))=3
- AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources'
-   AND column_name IN ('delivery_mode','rights_status','asset_id'))=3
- AND to_regclass('public.learning_content_assets') IS NOT NULL
- AND to_regclass('public.learning_content_pipeline_events') IS NOT NULL
- AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('learning_resources','learning_assessments') AND column_name='access_requirement')=2;")"
+REGISTRATION_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -v ON_ERROR_STOP=1 -At -f "$PROJECT_DIR/scripts/production-schema-preflight.sql")"
 [[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration/content-pipeline schema is incomplete. Apply reviewed migrations through 051 separately before deployment. No migration was attempted."
 
 TEACHER_ENUM="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")"
