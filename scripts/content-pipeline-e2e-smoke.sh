@@ -46,7 +46,8 @@ jq -e '.data.categories|map(.code)|index("ACADEMIC") and index("LIFE_SKILLS")' <
 
 UNIQUE="$(date +%s)-$RANDOM"
 log "Stage original text for UKG without a remote download"
-ORIGINAL="$(curl -fsS -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg title "CI original counting $UNIQUE" '{sourceCode:"VIDYASETU_ORIGINAL",title:$title,mediaKind:"ARTICLE",deliveryMode:"VIDYASETU_ORIGINAL",category:"ACADEMIC",gradeCodes:["UKG"],boardCodes:["COMMON"],subjectLabel:"Mathematics",topicLabel:"Counting",language:"en",visibility:"PUBLIC",accessRequirement:"PUBLIC",bodyMarkdown:"# Count objects\n\nCount the objects carefully."}')")"
+expect_status 201 "$TMP_DIR/original.json" -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg title "CI original counting $UNIQUE" '{sourceCode:"VIDYASETU_ORIGINAL",title:$title,mediaKind:"ARTICLE",deliveryMode:"VIDYASETU_ORIGINAL",category:"ACADEMIC",gradeCodes:["UKG"],boardCodes:["COMMON"],subjectLabel:"Mathematics",topicLabel:"Counting",language:"en",visibility:"PUBLIC",accessRequirement:"PUBLIC",bodyMarkdown:"# Count objects\n\nCount the objects carefully."}')"
+ORIGINAL="$(<"$TMP_DIR/original.json")"
 ORIGINAL_INTAKE="$(jq -er '.data.intakeId' <<<"$ORIGINAL")"
 ORIGINAL_ASSET="$(jq -er '.data.assetId' <<<"$ORIGINAL")"
 jq -e '.data.rightsStatus=="VERIFIED" and .data.deliveryMode=="VIDYASETU_ORIGINAL"' <<<"$ORIGINAL" >/dev/null || fail "Original was not staged as verified VidyaSetu content"
@@ -58,7 +59,8 @@ ORIGINAL_RESOURCE="$(curl -fsS -X POST "$API_BASE/admin/learning/pipeline/intake
 [[ "$(psqlq "SELECT COUNT(*) FROM learning_resource_grades lrg JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE lrg.resource_id='$ORIGINAL_RESOURCE' AND egl.code='UKG';")" == "1" ]] || fail "UKG mapping missing"
 
 log "Stage and materialise an external pictorial link only after evidence"
-EXTERNAL="$(curl -fsS -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg title "CI CBSE pictorial reference $UNIQUE" '{sourceCode:"CBSE",title:$title,mediaKind:"IMAGE",deliveryMode:"EXTERNAL_LINK",category:"LIFE_SKILLS",sourceUrl:"https://cbseacademic.nic.in",gradeCodes:["UKG"],boardCodes:["CBSE"],subjectLabel:"Foundational learning",visibility:"PUBLIC",accessRequirement:"PUBLIC",licenceCandidate:"EXTERNAL_LINK_ONLY"}')")"
+expect_status 201 "$TMP_DIR/external.json" -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg title "CI CBSE pictorial reference $UNIQUE" '{sourceCode:"CBSE",title:$title,mediaKind:"IMAGE",deliveryMode:"EXTERNAL_LINK",category:"LIFE_SKILLS",sourceUrl:"https://cbseacademic.nic.in",gradeCodes:["UKG"],boardCodes:["CBSE"],subjectLabel:"Foundational learning",visibility:"PUBLIC",accessRequirement:"PUBLIC",licenceCandidate:"EXTERNAL_LINK_ONLY"}')"
+EXTERNAL="$(<"$TMP_DIR/external.json")"
 EXTERNAL_INTAKE="$(jq -er '.data.intakeId' <<<"$EXTERNAL")"
 [[ "$(jq -r '.data.rightsStatus' <<<"$EXTERNAL")" == "PENDING_REVIEW" ]] || fail "External item bypassed rights review"
 curl -fsS -X PATCH "$API_BASE/admin/learning/pipeline/intake/$EXTERNAL_INTAKE/rights" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"licenceCandidate":"EXTERNAL_LINK_ONLY","attributionText":"CBSE official reference; link-only","rightsEvidenceUrl":"https://cbseacademic.nic.in"}' >/dev/null
