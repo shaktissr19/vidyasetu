@@ -13,7 +13,7 @@ log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 read_env_value() {
   local key="$1" file="$2"
-  grep -m1 -E "^${key}=" "$file" 2>/dev/null | cut -d= -f2- || true
+  bash "$PROJECT_DIR/scripts/read-dotenv-value.sh" "$key" "$file"
 }
 
 PM2_SWITCH_STARTED=0

@@ -33,6 +33,11 @@ jobs:
           bash -n scripts/build-production-native.sh
           bash -n scripts/deploy-main-native.sh
           bash -n scripts/prepare-registration-release.sh
+          bash -n scripts/read-dotenv-value.sh
+          ENV_FIXTURE="$(mktemp)"
+          trap 'rm -f "$ENV_FIXTURE"' EXIT
+          printf '%s\n' 'DB_PASSWORD="quoted#password=with spaces"' > "$ENV_FIXTURE"
+          test "$(bash scripts/read-dotenv-value.sh DB_PASSWORD "$ENV_FIXTURE")" = 'quoted#password=with spaces'
           grep -q "pg_restore -l" scripts/prepare-registration-release.sh
           grep -q "handle_deploy_error" scripts/deploy-main-native.sh
           grep -q "teacher_school_requests" scripts/deploy-main-native.sh
