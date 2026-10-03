@@ -59,7 +59,7 @@ ORIGINAL_RESOURCE="$(curl -fsS -X POST "$API_BASE/admin/learning/pipeline/intake
 [[ "$(psqlq "SELECT COUNT(*) FROM learning_resource_grades lrg JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE lrg.resource_id='$ORIGINAL_RESOURCE' AND egl.code='UKG';")" == "1" ]] || fail "UKG mapping missing"
 
 log "Stage and materialise an external pictorial link only after evidence"
-expect_status 201 "$TMP_DIR/external.json" -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg title "CI CBSE pictorial reference $UNIQUE" '{sourceCode:"CBSE",title:$title,mediaKind:"IMAGE",deliveryMode:"EXTERNAL_LINK",category:"LIFE_SKILLS",sourceUrl:"https://cbseacademic.nic.in",gradeCodes:["UKG"],boardCodes:["CBSE"],subjectLabel:"Foundational learning",visibility:"PUBLIC",accessRequirement:"PUBLIC",licenceCandidate:"EXTERNAL_LINK_ONLY"}')"
+expect_status 201 "$TMP_DIR/external.json" -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg title "CI CBSE pictorial reference $UNIQUE" '{sourceCode:"CBSE_ACADEMIC",title:$title,mediaKind:"IMAGE",deliveryMode:"EXTERNAL_LINK",category:"LIFE_SKILLS",sourceUrl:"https://cbseacademic.nic.in",gradeCodes:["UKG"],boardCodes:["CBSE"],subjectLabel:"Foundational learning",visibility:"PUBLIC",accessRequirement:"PUBLIC",licenceCandidate:"EXTERNAL_LINK_ONLY"}')"
 EXTERNAL="$(<"$TMP_DIR/external.json")"
 EXTERNAL_INTAKE="$(jq -er '.data.intakeId' <<<"$EXTERNAL")"
 [[ "$(jq -r '.data.rightsStatus' <<<"$EXTERNAL")" == "PENDING_REVIEW" ]] || fail "External item bypassed rights review"
