@@ -86,12 +86,12 @@ export interface LearningStudioResource {
 export interface SaveLearningStudioResource {
   title: string; titleHi?: string | null; summary?: string | null; summaryHi?: string | null;
   bodyMarkdown?: string | null; bodyMarkdownHi?: string | null;
-  resourceType: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
+  resourceType: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
   category: LearningCategory; visibility: LearningVisibility; accessRequirement?: LearningAccessRequirement;
   reviewStatus?: LearningReviewStatus;
   language?: string; classMin?: number | null; classMax?: number | null; sourceCode: string;
   sourceUrl?: string | null; sourceItemId?: string | null;
-  licence: 'VIDYASETU_ORIGINAL' | 'CC_BY' | 'CC_BY_SA' | 'CC_BY_NC_SA' | 'CC_BY_NC_ND' | 'PUBLIC_DOMAIN' | 'EXTERNAL_LINK_ONLY' | 'OTHER';
+  licence: 'VIDYASETU_ORIGINAL' | 'CC_BY' | 'CC_BY_SA' | 'CC_BY_NC' | 'CC_BY_NC_SA' | 'CC_BY_ND' | 'CC_BY_NC_ND' | 'PUBLIC_DOMAIN' | 'EXTERNAL_LINK_ONLY' | 'OTHER';
   licenceUrl?: string | null; attributionText?: string | null; externalUrl?: string | null; fileKey?: string | null;
   thumbnailUrl?: string | null; durationSecs?: number | null; isOfflineReady?: boolean; isFeaturedPublic?: boolean;
   boardCodes?: string[]; publicSlug?: string | null;

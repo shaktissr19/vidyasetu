@@ -11,9 +11,9 @@ router.use(authorize('SUPER_ADMIN'));
 
 const visibilitySchema = z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']);
 const accessRequirementSchema = z.enum(['PUBLIC','REGISTERED','SUBSCRIBER']);
-const licenceSchema = z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']);
+const licenceSchema = z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']);
 const discoveryProviderSchema = z.enum(['LOCAL','DIKSHA','NROER','CBSE','NCERT_EPATHSHALA','NIOS','SWAYAM','PHET','OER_COMMONS']);
-const discoveryMediaSchema = z.enum(['ARTICLE','VIDEO','AUDIO','INTERACTIVE','PDF','COURSE','LINK']);
+const discoveryMediaSchema = z.enum(['ARTICLE','VIDEO','AUDIO','IMAGE','INTERACTIVE','PDF','COURSE','LINK']);
 
 const creatorSourceSchema = z.object({
   sourceRole: z.enum(['GROUNDING','REFERENCE_ONLY']).optional(),

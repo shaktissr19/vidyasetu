@@ -1,5 +1,6 @@
 import type { QueryResultRow } from 'pg';
 import { query } from '../config/db';
+import { getDownloadUrl } from '../config/s3';
 
 export interface PublicLearningFilters {
   className?: number | null;
@@ -236,8 +237,9 @@ export async function getPublicLearningResource(publicSlug: string) {
             lr.body_markdown, lr.body_markdown_hi, lr.resource_type, lr.category,
             lr.language, lr.class_min, lr.class_max, lr.subject_label,lr.topic_label,
             lr.thumbnail_url, lr.duration_secs,
-            lr.external_url, lr.source_url, lr.licence, lr.licence_url,
+            lr.external_url, lr.source_url, lr.file_key, lr.licence, lr.licence_url,
             lr.attribution_text, lr.published_at, lr.is_offline_ready,
+            lr.delivery_mode, lr.rights_status,
             COALESCE(sub.name,lr.subject_label) AS subject_name, sub.code AS subject_code,
             lcs.code AS source_code, lcs.name AS source_name, lcs.source_kind,
             lcs.homepage_url AS source_homepage,
@@ -263,7 +265,9 @@ export async function getPublicLearningResource(publicSlug: string) {
   );
 
   if (!resource) throw Object.assign(new Error('Learning resource not found'), { statusCode: 404 });
-  return resource;
+  const contentUrl = resource.file_key ? await getDownloadUrl(resource.file_key, 1800) : null;
+  const { file_key: _fileKey, ...safeResource } = resource as typeof resource & { file_key?: string | null };
+  return { ...safeResource, content_url: contentUrl };
 }
 
 export async function listLearningSources() {

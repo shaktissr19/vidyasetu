@@ -12,7 +12,7 @@ export type CreatorLearningTarget = 'PUBLIC_LEARNING' | 'PRIVATE_LEARNING';
 export type CreatorDiscoveryProvider =
   | 'LOCAL' | 'DIKSHA' | 'NROER' | 'CBSE' | 'NCERT_EPATHSHALA'
   | 'NIOS' | 'SWAYAM' | 'PHET' | 'OER_COMMONS';
-export type CreatorDiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
+export type CreatorDiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
 export type CreatorConnectorMode = 'LOCAL_CATALOGUE' | 'LIVE_API' | 'REFERENCE_SEARCH';
 
 export interface CreatorProviderStatus {

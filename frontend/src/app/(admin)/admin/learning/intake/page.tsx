@@ -19,8 +19,8 @@ import {
 } from '@/services/contentFactoryService';
 import { apiErrorText } from '@/utils/errors';
 
-const LICENCES = ['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'] as const;
-const MANUAL_CREATE_LICENCES = ['CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'] as const;
+const LICENCES = ['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'] as const;
+const MANUAL_CREATE_LICENCES = ['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'] as const;
 const SOURCE_OPTIONS = [
   { code: 'NROER', label: 'NROER' }, { code: 'DIKSHA', label: 'DIKSHA / PM eVIDYA' }, { code: 'CBSE_ACADEMIC', label: 'CBSE Academic' },
   { code: 'NCERT_EPATHSHALA', label: 'NCERT / ePathshala' }, { code: 'NIOS', label: 'NIOS' }, { code: 'SWAYAM', label: 'SWAYAM' },

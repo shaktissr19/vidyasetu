@@ -51,7 +51,7 @@ const resourceSchema = z.object({
   summaryHi: z.string().trim().max(1200).nullable().optional(),
   bodyMarkdown: z.string().max(30000).nullable().optional(),
   bodyMarkdownHi: z.string().max(30000).nullable().optional(),
-  resourceType: z.enum(['ARTICLE','VIDEO','AUDIO','PDF','WORKSHEET','QUIZ','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK']),
+  resourceType: z.enum(['ARTICLE','VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUIZ','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK']),
   category: z.enum(['ACADEMIC','MOTIVATION','STUDY_SKILLS','WORK_ETHIC','SOCIAL_RESPONSIBILITY','LIFE_SKILLS','WELLBEING','CAREER_AWARENESS','DIGITAL_CITIZENSHIP']),
   visibility: visibilitySchema,
   accessRequirement: accessRequirementSchema.optional(),
@@ -62,7 +62,7 @@ const resourceSchema = z.object({
   sourceCode: z.string().trim().min(2).max(40),
   sourceUrl: z.string().url().nullable().optional(),
   sourceItemId: z.string().trim().max(180).nullable().optional(),
-  licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']),
+  licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']),
   licenceUrl: z.string().url().nullable().optional(),
   attributionText: z.string().trim().max(2000).nullable().optional(),
   externalUrl: z.string().url().nullable().optional(),
@@ -97,7 +97,7 @@ const questionSchema = z.object({
   subjectId: z.string().uuid().nullable().optional(),
   sourceCode: z.string().trim().min(2).max(40).optional(),
   sourceUrl: z.string().url().nullable().optional(),
-  licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']).optional(),
+  licence: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']).optional(),
   attributionText: z.string().trim().max(2000).nullable().optional(),
   visibility: visibilitySchema.optional(),
   reviewStatus: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']).optional(),
@@ -149,7 +149,7 @@ const qualityGateSchema = z.object({
 
 const mediaUploadSchema = z.object({
   fileName: z.string().trim().min(1).max(240),
-  contentType: z.enum(['video/mp4','audio/mpeg','audio/mp4','audio/wav','application/pdf','image/png','image/jpeg','image/webp']),
+  contentType: z.enum(['video/mp4','video/webm','audio/mpeg','audio/mp4','audio/wav','audio/ogg','application/pdf','image/png','image/jpeg','image/webp']),
 });
 
 const intakeSchema = z.object({
@@ -157,7 +157,7 @@ const intakeSchema = z.object({
   sourceItemId: z.string().trim().max(220).nullable().optional(),
   title: z.string().trim().min(3).max(300),
   sourceUrl: z.string().url(),
-  licenceCandidate: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']).nullable().optional(),
+  licenceCandidate: z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']).nullable().optional(),
   attributionText: z.string().trim().max(3000).nullable().optional(),
   classHint: z.string().trim().max(50).nullable().optional(),
   boardHint: z.string().trim().max(50).nullable().optional(),

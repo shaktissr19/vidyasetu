@@ -27,13 +27,19 @@ jobs:
         run: |
           set -euxo pipefail
           bash -n scripts/content-factory-source-library-e2e-smoke.sh
+          bash -n scripts/content-pipeline-e2e-smoke.sh
           test -s database/migrations/048_learning_content_factory_foundation.sql
           test -s database/migrations/049_learning_source_library_handoff.sql
+          test -s database/migrations/050_unified_registration_role_linking.sql
+          test -s database/migrations/051_learning_content_pipeline.sql
           grep -q "learning_content_packs" database/migrations/048_learning_content_factory_foundation.sql
           grep -q "EXTERNAL_WEB" database/migrations/048_learning_content_factory_foundation.sql
           grep -q "licence_verified_at" database/migrations/049_learning_source_library_handoff.sql
           grep -q "imported_resource_id" database/migrations/049_learning_source_library_handoff.sql
           grep -q "chapter_label" database/migrations/049_learning_source_library_handoff.sql
+          grep -q "learning_content_assets" database/migrations/051_learning_content_pipeline.sql
+          grep -q "learning_delivery_mode" database/migrations/051_learning_content_pipeline.sql
+          grep -q "Content Pipeline" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
           grep -q "addApprovedIntakeToLibrary" backend/src/services/adminContentFactory.service.ts
           grep -q "queue-counts" backend/src/routes/adminContentFactory.routes.ts
           grep -q "add-to-library" backend/src/routes/adminContentFactory.routes.ts
@@ -64,6 +70,9 @@ jobs:
           test -s dist/services/adminContentSourceGovernance.service.js
           test -s dist/controllers/adminContentFactory.controller.js
           test -s dist/routes/adminContentFactory.routes.js
+          test -s dist/services/learningContentPipeline.service.js
+          test -s dist/controllers/learningContentPipeline.controller.js
+          test -s dist/routes/learningContentPipeline.routes.js
 
       - name: Typecheck and build frontend
         working-directory: frontend
@@ -110,12 +119,16 @@ jobs:
             046_learning_creator_source_discovery.sql \
             047_learning_source_registry_video_discovery.sql \
             048_learning_content_factory_foundation.sql \
-            049_learning_source_library_handoff.sql; do
+            049_learning_source_library_handoff.sql \
+            050_unified_registration_role_linking.sql \
+            051_learning_content_pipeline.sql; do
               echo "Applying $migration"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/048_learning_content_factory_foundation.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/049_learning_source_library_handoff.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/050_unified_registration_role_linking.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/051_learning_content_pipeline.sql
 
       - name: Validate Content Factory database invariants
         env:
@@ -127,8 +140,12 @@ jobs:
           test "$($PSQL "SELECT COUNT(*) FROM learning_content_sources WHERE code='EXTERNAL_WEB' AND is_active=TRUE;")" = "1"
           test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_intake' AND column_name='licence_verified_at');")" = "t"
           test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_intake' AND column_name='imported_resource_id');")" = "t"
+          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_intake' AND column_name='category');")" = "t"
           test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_resources' AND column_name='chapter_label');")" = "t"
           test "$($PSQL "SELECT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='trg_learning_intake_item_governance');")" = "t"
+          test "$($PSQL "SELECT to_regclass('public.learning_content_assets') IS NOT NULL;")" = "t"
+          test "$($PSQL "SELECT to_regclass('public.learning_content_pipeline_events') IS NOT NULL;")" = "t"
+          test "$($PSQL "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_resources' AND column_name='delivery_mode');")" = "t"
 
       - name: Start compiled backend in safe mock mode
         working-directory: backend
@@ -174,3 +191,13 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
         run: bash scripts/content-factory-source-library-e2e-smoke.sh
+
+      - name: Run provider-agnostic Content Pipeline E2E
+        env:
+          API_BASE: http://127.0.0.1:5000/api/v1
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: vidyasetu_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bash scripts/content-pipeline-e2e-smoke.sh

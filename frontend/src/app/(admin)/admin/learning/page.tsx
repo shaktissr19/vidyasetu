@@ -43,7 +43,7 @@ const CATEGORIES: Array<{ value: LearningCategory; label: string }> = [
   { value: 'WELLBEING', label: 'Well-being' }, { value: 'CAREER_AWARENESS', label: 'Career Awareness' },
   { value: 'DIGITAL_CITIZENSHIP', label: 'Digital Citizenship' },
 ];
-const FILE_TYPES = new Set(['VIDEO','AUDIO','PDF','WORKSHEET','QUESTION_PAPER']);
+const FILE_TYPES = new Set(['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER']);
 const secondaryButton = { padding: '8px 12px', borderRadius: 9, border: '1px solid #CBD5E1', background: '#FFFFFF', color: '#14213D', cursor: 'pointer', fontWeight: 800, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 } as const;
 
 interface StudioForm extends SaveLearningStudioResource {
@@ -78,7 +78,7 @@ export default function AdminContentLibraryPage() {
     mutationFn: async () => {
       let fileKey = form.fileKey || null;
       if (file && FILE_TYPES.has(form.resourceType)) {
-        if (file.size > 100 * 1024 * 1024) throw new Error('Learning media must be 100 MB or smaller');
+        if (file.size > 500 * 1024 * 1024) throw new Error('Learning media must be 500 MB or smaller');
         const upload = await getLearningMediaUploadUrl(file.name, file.type || 'application/octet-stream').then((r) => r.data.data);
         const response = await fetch(upload.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
         if (!response.ok) throw new Error(`Media upload failed (${response.status})`);
@@ -164,7 +164,7 @@ export default function AdminContentLibraryPage() {
           <h1 style={{ margin: '5px 0', fontSize: 34 }}>Content Library</h1>
           <p className="admin-muted" style={{ maxWidth: 850, lineHeight: 1.65 }}>Review, approve and publish the lessons created by Admin, AI Creator, bulk import or governed source workflows.</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Link href="/admin/learning/creator" className="btn-primary">Create Content</Link><Link href="/admin/learning/coverage" style={secondaryButton}>Coverage</Link><Link href="/admin/learning/practice" style={secondaryButton}>Question Bank</Link><Link href="/admin/learning/intake" style={secondaryButton}>Advanced Source Review</Link></div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Link href="/admin/learning/creator" className="btn-primary">Create Content</Link><Link href="/admin/learning/pipeline" style={secondaryButton}>Content Pipeline</Link><Link href="/admin/learning/coverage" style={secondaryButton}>Coverage</Link><Link href="/admin/learning/practice" style={secondaryButton}>Question Bank</Link><Link href="/admin/learning/intake" style={secondaryButton}>Advanced Source Review</Link></div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
@@ -207,7 +207,7 @@ export default function AdminContentLibraryPage() {
           <label className="admin-label">English summary<textarea className="admin-textarea" style={{ minHeight: 80 }} value={form.summary || ''} onChange={(e) => setForm((v) => ({ ...v, summary: e.target.value }))} /></label>
           <label className="admin-label">Hindi summary<textarea className="admin-textarea" style={{ minHeight: 80 }} value={form.summaryHi || ''} onChange={(e) => setForm((v) => ({ ...v, summaryHi: e.target.value }))} /></label>
           <label className="admin-label">Category<select className="admin-select" value={form.category} onChange={(e) => setForm((v) => ({ ...v, category: e.target.value as LearningCategory }))}>{CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-          <label className="admin-label">Resource type<select className="admin-select" value={form.resourceType} onChange={(e) => { setForm((v) => ({ ...v, resourceType: e.target.value as SaveLearningStudioResource['resourceType'] })); setFile(null); }}>{['ARTICLE','VIDEO','AUDIO','PDF','WORKSHEET','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK'].map((type) => <option key={type}>{type}</option>)}</select></label>
+          <label className="admin-label">Resource type<select className="admin-select" value={form.resourceType} onChange={(e) => { setForm((v) => ({ ...v, resourceType: e.target.value as SaveLearningStudioResource['resourceType'] })); setFile(null); }}>{['ARTICLE','VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER','INTERACTIVE','EXTERNAL_LINK'].map((type) => <option key={type}>{type}</option>)}</select></label>
           <label className="admin-label">Class<select className="admin-select" value={form.classMin || 5} onChange={(e) => setForm((v) => ({ ...v, classMin: Number(e.target.value), classMax: Number(e.target.value), selectedConceptId: '' }))}>{Array.from({ length: 12 },(_,i)=>i+1).map((n)=><option key={n} value={n}>Class {n}</option>)}</select></label>
           <label className="admin-label">Curriculum concept<select className="admin-select" value={form.selectedConceptId} onChange={(e) => setForm((v) => ({ ...v, selectedConceptId: e.target.value }))}><option value="">No concept mapping</option>{(conceptsQuery.data || []).map((concept) => <option key={concept.id} value={concept.id}>{concept.subject_name || concept.subject_code} · {concept.chapter_title || 'Concept'} · {concept.name}</option>)}</select></label>
           <label className="admin-label">Source<select className="admin-select" value={form.sourceCode} onChange={(e) => changeSource(e.target.value)}>{(optionsQuery.data?.sources || []).map((source) => <option key={source.code} value={source.code}>{source.name}</option>)}</select></label>

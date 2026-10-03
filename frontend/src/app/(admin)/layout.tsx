@@ -40,6 +40,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/schools', icon: '🏫', label: 'Schools' },
     { href: '/admin/users', icon: '👥', label: 'Users' },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
+    { href: '/admin/learning/pipeline', icon: '🎞️', label: 'Content Pipeline', exact: true },
     { href: '/admin/learning', icon: '📚', label: menuLabel('Content Library',contentLibraryCount), exact: true },
     { href: '/admin/learning/coverage', icon: '🎯', label: 'Coverage' },
     { href: '/admin/learning/practice', icon: '🧠', label: 'Question Bank' },
@@ -57,6 +58,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const lightLearningWorkspace = pathname === '/admin/learning'
     || pathname.startsWith('/admin/learning/factory')
+    || pathname.startsWith('/admin/learning/pipeline')
     || pathname.startsWith('/admin/learning/creator')
     || pathname.startsWith('/admin/learning/coverage')
     || pathname.startsWith('/admin/learning/intake');

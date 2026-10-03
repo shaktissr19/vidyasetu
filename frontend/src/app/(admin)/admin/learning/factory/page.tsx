@@ -29,7 +29,7 @@ const providerIcon: Record<CreatorDiscoveryProvider,string> = {
   LOCAL: '📚',DIKSHA: '🇮🇳',NROER: '🏛️',CBSE: '🎓',NCERT_EPATHSHALA: '📖',NIOS: '🏫',SWAYAM: '🎬',PHET: '🔬',OER_COMMONS: '🌍',
 };
 const mediaIcon: Record<CreatorDiscoveryMediaKind,string> = {
-  ARTICLE: '📖',VIDEO: '▶️',AUDIO: '🎧',INTERACTIVE: '🧩',PDF: '📄',COURSE: '🎓',LINK: '🔗',
+  ARTICLE: '📖',VIDEO: '▶️',AUDIO: '🎧',IMAGE: '🖼️',INTERACTIVE: '🧩',PDF: '📄',COURSE: '🎓',LINK: '🔗',
 };
 
 type StageState = { kind: 'GOVERNED_RESOURCE' | 'OER_INTAKE'; intakeId?: string; resourceId?: string };

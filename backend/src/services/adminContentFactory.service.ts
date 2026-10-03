@@ -103,9 +103,10 @@ function slugify(value: string): string {
   return value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,135) || 'learning-resource';
 }
 
-function mapExternalResourceType(mediaKind: string | null): 'VIDEO' | 'AUDIO' | 'PDF' | 'INTERACTIVE' | 'EXTERNAL_LINK' {
+function mapExternalResourceType(mediaKind: string | null): 'VIDEO' | 'AUDIO' | 'IMAGE' | 'PDF' | 'INTERACTIVE' | 'EXTERNAL_LINK' {
   if (mediaKind === 'VIDEO') return 'VIDEO';
   if (mediaKind === 'AUDIO') return 'AUDIO';
+  if (mediaKind === 'IMAGE') return 'IMAGE';
   if (mediaKind === 'PDF') return 'PDF';
   if (mediaKind === 'INTERACTIVE') return 'INTERACTIVE';
   // External articles/courses are link-first unless VidyaSetu has an authored

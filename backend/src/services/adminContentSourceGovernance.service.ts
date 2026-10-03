@@ -13,7 +13,7 @@ function appError(message: string, statusCode = 400): Error & { statusCode: numb
 }
 
 const ALLOWED_LICENCES = new Set([
-  'CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER',
+  'CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER',
 ]);
 
 async function hasExplicitVerificationColumns(): Promise<boolean> {
@@ -24,6 +24,9 @@ async function hasExplicitVerificationColumns(): Promise<boolean> {
      ) AND EXISTS (
        SELECT 1 FROM information_schema.columns
        WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='licence_verified_by'
+     ) AND EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='rights_status'
      ) AS ready`,
   );
   return Boolean(row?.ready);
@@ -54,7 +57,7 @@ export async function updateIntakeEvidence(intakeId: UUID, input: UpdateIntakeEv
   const verified = licence !== 'OTHER';
   const nextStatus = ['APPROVED','REJECTED'].includes(item.status) ? 'LICENCE_REVIEW' : item.status;
 
-  // Migration 049 adds an explicit human-verification timestamp. The fallback
+  // Migrations 049/051 add explicit verification and rights-status fields. The fallback
   // keeps this endpoint deploy-safe during rolling upgrades and disposable CI
   // databases that intentionally stop at the older source-discovery schema.
   if (await hasExplicitVerificationColumns()) {
@@ -68,10 +71,11 @@ export async function updateIntakeEvidence(intakeId: UUID, input: UpdateIntakeEv
            reviewed_at=NOW(),
            licence_verified_at=CASE WHEN $7::boolean THEN NOW() ELSE NULL END,
            licence_verified_by=CASE WHEN $7::boolean THEN $6::uuid ELSE NULL END,
+           rights_status=CASE WHEN $7::boolean THEN 'VERIFIED'::learning_rights_status ELSE 'PENDING_REVIEW'::learning_rights_status END,
            updated_at=NOW()
        WHERE id=$1::uuid
        RETURNING id,title,source_url,licence_candidate,attribution_text,status,reviewer_note,reviewed_at,
-                 licence_verified_at,licence_verified_by`,
+                 licence_verified_at,licence_verified_by,rights_status`,
       [intakeId, licence, attribution || null, input.reviewerNote?.trim() || null, nextStatus, adminId, verified],
     );
     return updated;
