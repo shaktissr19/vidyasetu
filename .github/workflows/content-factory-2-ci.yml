@@ -39,7 +39,7 @@ jobs:
           grep -q "chapter_label" database/migrations/049_learning_source_library_handoff.sql
           grep -q "learning_content_assets" database/migrations/051_learning_content_pipeline.sql
           grep -q "learning_delivery_mode" database/migrations/051_learning_content_pipeline.sql
-          grep -q "Content Pipeline" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
+          grep -q "CONTENT PIPELINE" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
           grep -q "addApprovedIntakeToLibrary" backend/src/services/adminContentFactory.service.ts
           grep -q "queue-counts" backend/src/routes/adminContentFactory.routes.ts
           grep -q "add-to-library" backend/src/routes/adminContentFactory.routes.ts
