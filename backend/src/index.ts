@@ -43,6 +43,7 @@ import adminLearningPrerequisitesRoutes = require('./routes/adminLearningPrerequ
 import adminDiagnosticGovernanceRoutes = require('./routes/adminDiagnosticGovernance.routes');
 import adminContentCreatorRoutes = require('./routes/adminContentCreator.routes');
 import adminContentFactoryRoutes = require('./routes/adminContentFactory.routes');
+import learningContentPipelineRoutes = require('./routes/learningContentPipeline.routes');
 import competitionRoutes = require('./routes/competition.routes');
 import contentRoutes = require('./routes/content.routes');
 import doubtRoutes = require('./routes/doubt.routes');
@@ -109,6 +110,7 @@ app.use(`${API}/parent`, parentRoutes);
 app.use(`${API}/admin`, adminRegistrationRoutes);
 app.use(`${API}/admin/grievances`, adminGrievanceRoutes);
 app.use(`${API}/admin/learning/factory`, adminContentFactoryRoutes);
+app.use(`${API}/admin/learning/pipeline`, learningContentPipelineRoutes);
 app.use(`${API}/admin/learning/creator`, adminContentCreatorRoutes);
 app.use(`${API}/admin/learning`, adminLearningPrerequisitesRoutes);
 app.use(`${API}/admin/learning`, adminDiagnosticGovernanceRoutes);

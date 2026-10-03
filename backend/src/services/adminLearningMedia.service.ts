@@ -3,9 +3,11 @@ import { getUploadUrl } from '../config/s3';
 
 const ALLOWED_CONTENT_TYPES = new Set([
   'video/mp4',
+  'video/webm',
   'audio/mpeg',
   'audio/mp4',
   'audio/wav',
+  'audio/ogg',
   'application/pdf',
   'image/png',
   'image/jpeg',
@@ -30,5 +32,5 @@ export async function createLearningUploadUrl(fileName: string, contentType: str
   const folder = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
   const key = `learning/${folder}/${randomUUID()}${extension}`;
   const uploadUrl = await getUploadUrl(key, contentType);
-  return { uploadUrl, key, contentType, maxRecommendedBytes: 100 * 1024 * 1024 };
+  return { uploadUrl, key, contentType, maxRecommendedBytes: 500 * 1024 * 1024 };
 }

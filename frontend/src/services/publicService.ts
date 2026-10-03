@@ -96,7 +96,7 @@ export interface PublicLearningResource {
   summary_hi?: string | null;
   body_markdown?: string | null;
   body_markdown_hi?: string | null;
-  resource_type: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
+  resource_type: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
   category: LearningCategory;
   language: string;
   class_min?: number | null;
@@ -121,6 +121,9 @@ export interface PublicLearningResource {
   subject_name?: string | null;
   subject_code?: string | null;
   is_offline_ready?: boolean;
+  content_url?: string | null;
+  delivery_mode?: 'EXTERNAL_LINK' | 'OFFICIAL_EMBED' | 'LICENSED_REHOST' | 'VIDYASETU_ORIGINAL' | null;
+  rights_status?: string | null;
 }
 
 export interface PublicLearningSource {

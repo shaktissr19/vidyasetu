@@ -10,7 +10,7 @@ import { ProgressBar, CardSkeleton, EmptyState } from '@/components/ui/index';
 import useLanguageStore from '@/store/languageStore';
 
 const TYPE_ICON: Record<string, string> = {
-  ARTICLE: '📘', VIDEO: '🎬', AUDIO: '🎧', PDF: '📄', WORKSHEET: '📝',
+  ARTICLE: '📘', VIDEO: '🎬', AUDIO: '🎧', IMAGE: '🖼️', PDF: '📄', WORKSHEET: '📝',
   QUIZ: '✅', QUESTION_PAPER: '📋', INTERACTIVE: '🧩', EXTERNAL_LINK: '↗',
 };
 

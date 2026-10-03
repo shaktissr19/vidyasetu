@@ -114,7 +114,7 @@ export interface FactorySourceReviewItem {
   attribution_required: boolean;
   requires_item_license_check: boolean;
   evidence_ready: boolean;
-  media_kind?: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK' | null;
+  media_kind?: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK' | null;
   duration_seconds?: number | null;
   thumbnail_url?: string | null;
   embed_url?: string | null;

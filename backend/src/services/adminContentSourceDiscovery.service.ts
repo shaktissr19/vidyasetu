@@ -15,7 +15,7 @@ export type DiscoveryProvider =
   | 'PHET'
   | 'OER_COMMONS';
 
-export type DiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
+export type DiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
 
 export interface DiscoverSourcesInput {
   provider?: DiscoveryProvider;
@@ -182,6 +182,7 @@ function mapLicence(rawValue: unknown): string {
   if (raw.includes('PUBLIC DOMAIN') || raw === 'CC0' || raw.includes('CC ZERO')) return 'PUBLIC_DOMAIN';
   if (raw.includes('CC BY-NC-ND') || raw.includes('CC BY NC ND')) return 'CC_BY_NC_ND';
   if (raw.includes('CC BY-NC-SA') || raw.includes('CC BY NC SA')) return 'CC_BY_NC_SA';
+  if (raw.includes('CC BY-ND') || raw.includes('CC BY ND')) return 'CC_BY_ND';
   if (raw.includes('CC BY-NC') || raw.includes('CC BY NC')) return 'CC_BY_NC';
   if (raw.includes('CC BY-SA') || raw.includes('CC BY SA')) return 'CC_BY_SA';
   if (raw.includes('CC BY')) return 'CC_BY';
@@ -191,7 +192,7 @@ function mapLicence(rawValue: unknown): string {
 function candidateRights(licence: string): { canAdapt: boolean; commercial: boolean } {
   return {
     canAdapt: ['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','PUBLIC_DOMAIN','VIDYASETU_ORIGINAL'].includes(licence),
-    commercial: ['CC_BY','CC_BY_SA','PUBLIC_DOMAIN','VIDYASETU_ORIGINAL'].includes(licence),
+    commercial: ['CC_BY','CC_BY_SA','CC_BY_ND','PUBLIC_DOMAIN','VIDYASETU_ORIGINAL'].includes(licence),
   };
 }
 
@@ -199,6 +200,7 @@ function normalizeMediaKind(...rawValues: unknown[]): DiscoveryMediaKind {
   const raw = rawValues.flatMap(asStrings).join(' ').toUpperCase();
   if (/VIDEO|MP4|WEBM|YOUTUBE/.test(raw)) return 'VIDEO';
   if (/AUDIO|MP3|WAV|M4A/.test(raw)) return 'AUDIO';
+  if (/IMAGE|PHOTO|PICTURE|PNG|JPEG|JPG|WEBP|ILLUSTRATION|POSTER/.test(raw)) return 'IMAGE';
   if (/SIMULATION|INTERACTIVE|HTML5|H5P|GAME|ACTIVITY/.test(raw)) return 'INTERACTIVE';
   if (/PDF|EPUB|E-BOOK|EBOOK|DOCUMENT|WORKSHEET|QUESTION PAPER/.test(raw)) return 'PDF';
   if (/COURSE|COLLECTION|TEXTBOOK/.test(raw)) return 'COURSE';
@@ -359,6 +361,7 @@ function localMediaKind(resourceType: string): DiscoveryMediaKind {
   switch (resourceType) {
     case 'VIDEO': return 'VIDEO';
     case 'AUDIO': return 'AUDIO';
+    case 'IMAGE': return 'IMAGE';
     case 'PDF':
     case 'WORKSHEET':
     case 'QUESTION_PAPER': return 'PDF';
@@ -672,6 +675,7 @@ export async function sourceDiscoveryCapabilities() {
       { code: 'ARTICLE' as const,label: 'Learn / Article' },
       { code: 'VIDEO' as const,label: 'Watch / Video' },
       { code: 'AUDIO' as const,label: 'Listen / Audio' },
+      { code: 'IMAGE' as const,label: 'See / Image' },
       { code: 'INTERACTIVE' as const,label: 'Explore / Interactive' },
       { code: 'PDF' as const,label: 'PDF / Worksheet' },
       { code: 'COURSE' as const,label: 'Course' },

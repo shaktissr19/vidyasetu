@@ -58,7 +58,11 @@ export default function PublicLearningResourcePage() {
     );
   }
 
-  const isExternal = resource.resource_type === 'EXTERNAL_LINK' && (resource.external_url || resource.source_url);
+  const mediaUrl = resource.content_url || null;
+  const embedUrl = resource.delivery_mode === 'OFFICIAL_EMBED'
+    ? (resource.external_url || resource.source_url || null)
+    : null;
+  const isExternal = !mediaUrl && !embedUrl && (resource.external_url || resource.source_url);
   const textBody = renderBody(resource.body_markdown);
 
   return (
@@ -78,6 +82,30 @@ export default function PublicLearningResourcePage() {
       </section>
 
       <article className={styles.article}>
+        {embedUrl && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', overflow: 'hidden', borderRadius: 14, background: '#0F172A' }}>
+              <iframe
+                title={`${resource.title} official player`}
+                src={embedUrl}
+                style={{ width: '100%', height: '100%', border: 0 }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+            <p className={styles.muted}>This is the provider’s official player. VidyaSetu does not copy or proxy the remote stream.</p>
+          </div>
+        )}
+        {mediaUrl && resource.resource_type === 'VIDEO' && <video controls preload="metadata" style={{ width: '100%', borderRadius: 14, marginBottom: 24 }} src={mediaUrl} />}
+        {mediaUrl && resource.resource_type === 'AUDIO' && <audio controls preload="metadata" style={{ width: '100%', marginBottom: 24 }} src={mediaUrl} />}
+        {mediaUrl && resource.resource_type === 'IMAGE' && <img src={mediaUrl} alt={resource.title} style={{ width: '100%', maxHeight: 620, objectFit: 'contain', borderRadius: 14, marginBottom: 24, background: '#F8FAFC' }} />}
+        {mediaUrl && ['PDF','WORKSHEET','QUESTION_PAPER'].includes(resource.resource_type) && (
+          <div style={{ marginBottom: 24 }}>
+            <object data={mediaUrl} type="application/pdf" width="100%" height="720" style={{ borderRadius: 14, border: '1px solid #E2E8F0' }}>
+              <a className={styles.primary} href={mediaUrl} target="_blank" rel="noopener noreferrer">Open document ↗</a>
+            </object>
+          </div>
+        )}
         {textBody.length > 0 ? textBody : (
           <>
             <h2>Learning resource</h2>

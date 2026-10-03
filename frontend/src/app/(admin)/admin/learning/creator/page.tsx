@@ -37,7 +37,7 @@ const providerIcon: Record<CreatorDiscoveryProvider,string> = {
   NIOS: '🏫', SWAYAM: '🎬', PHET: '🔬', OER_COMMONS: '🌍',
 };
 const mediaIcon: Record<CreatorDiscoveryMediaKind,string> = {
-  ARTICLE: '📖', VIDEO: '▶️', AUDIO: '🎧', INTERACTIVE: '🔬', PDF: '📄', COURSE: '🎓', LINK: '🔗',
+  ARTICLE: '📖', VIDEO: '▶️', AUDIO: '🎧', IMAGE: '🖼️', INTERACTIVE: '🔬', PDF: '📄', COURSE: '🎓', LINK: '🔗',
 };
 
 type Destination = 'PRIVATE' | 'PUBLIC';

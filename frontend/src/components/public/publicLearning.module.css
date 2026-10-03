@@ -162,6 +162,7 @@
 .resourceHero{padding:58px 24px 40px;background:linear-gradient(135deg,#0d1b3e,#1c4a83);color:#fff}
 .resourceShell{max-width:900px;margin:0 auto}.resourceTitle{font-size:clamp(38px,5vw,64px);line-height:1.02;margin:10px 0 14px}.resourceSummary{font-size:18px;line-height:1.7;color:rgba(255,255,255,.78)}
 .article{max-width:900px;margin:0 auto;padding:46px 24px 80px}.article h1{color:#102148}.article h2{font-size:26px;margin:34px 0 10px}.article p{font-size:17px;line-height:1.82;color:#34415b}
+.muted{color:#68758a;font-size:13px;line-height:1.6}
 .article .resourceCard{padding:22px;min-height:auto}.article .resourceCard p{display:block;-webkit-line-clamp:unset;overflow:visible}
 .sourceBox{margin-top:36px;padding:18px;border-radius:14px;background:#f2f6fb;border:1px solid #dfe7f1;color:#5d687e;font-size:13px;line-height:1.6}
 .cta{margin-top:40px;background:linear-gradient(135deg,#fff0e5,#eef7ff);border:1px solid #f3d9c5;border-radius:22px;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:18px}.cta strong{font-size:22px}.cta .secondary{color:#173154;border-color:#d4dfec;background:#fff}

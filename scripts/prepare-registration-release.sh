@@ -49,5 +49,7 @@ apply_if_missing 049_learning_source_library_handoff.sql "SELECT (SELECT COUNT(*
 # Always reapply 050: its data normalization and duplicate-pair protection are idempotent.
 "${PSQL[@]}" -f database/migrations/050_unified_registration_role_linking.sql
 [[ "$("${PSQL[@]}" -Atc "SELECT to_regclass('public.teacher_school_requests') IS NOT NULL AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='parent_link_requests' AND column_name IN ('initiated_by','requested_by_user_id','student_confirmed_at','parent_confirmed_at','school_confirmed_at','reviewed_by'))=6;")" == t ]]
+apply_if_missing 051_learning_content_pipeline.sql "SELECT to_regclass('public.learning_content_assets') IS NOT NULL AND to_regclass('public.learning_content_pipeline_events') IS NOT NULL AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name IN ('delivery_mode','rights_status','asset_id'))=3 AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='category');"
+[[ "$("${PSQL[@]}" -Atc "SELECT to_regclass('public.learning_content_assets') IS NOT NULL AND to_regclass('public.learning_content_pipeline_events') IS NOT NULL;")" == t ]] || { echo 'Content Pipeline migration 051 did not complete.' >&2; exit 1; }
 unset PGPASSWORD
-echo 'Registration database preparation passed. Deploy using scripts/deploy-main-native.sh.'
+echo 'Registration and Content Pipeline database preparation passed. Deploy using scripts/deploy-main-native.sh.'

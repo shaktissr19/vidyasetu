@@ -145,6 +145,19 @@ export default function StudentLearningResourcePage() {
           </div>
         )}
 
+        {resource.delivery_mode === 'OFFICIAL_EMBED' && externalUrl && (
+          <div className="mb-6">
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', overflow: 'hidden', borderRadius: 14, background: '#071126' }}>
+              <iframe title={`${title} official player`} src={externalUrl} style={{ width: '100%', height: '100%', border: 0 }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+            </div>
+            <p className="text-xs mt-2" style={{ color: 'var(--slate)' }}>Official provider player; VidyaSetu does not copy or proxy this stream.</p>
+          </div>
+        )}
+
+        {mediaUrl && resource.resource_type === 'IMAGE' && (
+          <div className="mb-6"><img src={mediaUrl} alt={title} style={{ width: '100%', maxHeight: 620, objectFit: 'contain', borderRadius: 14, background: '#f6f7f9' }} /></div>
+        )}
+
         {mediaUrl && ['PDF', 'WORKSHEET', 'QUESTION_PAPER'].includes(resource.resource_type) && (
           <div className="mb-6">
             <a className="btn-primary inline-block" href={mediaUrl} target="_blank" rel="noopener noreferrer">

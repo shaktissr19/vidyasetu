@@ -78,6 +78,8 @@ export interface CanonicalLearningResource extends CanonicalLearningResourceSumm
   external_url?: string | null;
   source_url?: string | null;
   content_url?: string | null;
+  delivery_mode?: 'EXTERNAL_LINK' | 'OFFICIAL_EMBED' | 'LICENSED_REHOST' | 'VIDYASETU_ORIGINAL' | null;
+  rights_status?: string | null;
   licence: string;
   licence_url?: string | null;
   attribution_text?: string | null;

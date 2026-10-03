@@ -95,7 +95,7 @@ for table_name in \
   subscription_events support_tickets audit_log learning_resources learning_assessments \
   learning_entitlements learning_creator_jobs learning_creator_sources learning_creator_outputs \
   learning_source_discovery_candidates learning_source_connectors learning_content_packs \
-  learning_content_pack_items teacher_school_requests; do
+  learning_content_pack_items learning_content_assets learning_content_pipeline_events teacher_school_requests; do
   exists="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.$table_name') IS NOT NULL;")"
   [[ "$exists" == "t" ]] || fail "Required table '$table_name' is missing. No migration was attempted. Backup: $SAFETY_DUMP"
 done
@@ -105,9 +105,14 @@ SELECT
  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='parent_link_requests'
    AND column_name IN ('initiated_by','requested_by_user_id','student_confirmed_at','parent_confirmed_at','school_confirmed_at','reviewed_by'))=6
  AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake'
-   AND column_name IN ('licence_verified_at','imported_resource_id'))=2
+   AND column_name IN ('licence_verified_at','imported_resource_id','category'))=3
+   AND column_name IN ('licence_verified_at','imported_resource_id','category'))=3
+ AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources'
+   AND column_name IN ('delivery_mode','rights_status','asset_id'))=3
+ AND to_regclass('public.learning_content_assets') IS NOT NULL
+ AND to_regclass('public.learning_content_pipeline_events') IS NOT NULL
  AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('learning_resources','learning_assessments') AND column_name='access_requirement')=2;")"
-[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration schema is incomplete. Apply reviewed migrations through 050 separately before deployment. No migration was attempted."
+[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration/content-pipeline schema is incomplete. Apply reviewed migrations through 051 separately before deployment. No migration was attempted."
 
 TEACHER_ENUM="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")"
 [[ "$TEACHER_ENUM" == "1" ]] || fail "TEACHER role is missing. No migration was attempted."
