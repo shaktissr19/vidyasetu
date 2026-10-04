@@ -152,3 +152,11 @@ test('configuration binds an existing intake even when its URL is not normalised
  const staged=await pipeline.stageContent({...base,intakeId:row.id,sourceCode:'CBSE_ACADEMIC',sourceUrl:'https://cbseacademic.nic.in',deliveryMode:'EXTERNAL_LINK',mediaKind:'EXTERNAL_LINK',licenceCandidate:'EXTERNAL_LINK_ONLY'},adminId);
  assert.equal(staged.intakeId,row.id);
 });
+test('older Library schemas reject incomplete publication with a validation error',async () => {
+ // Older regression jobs intentionally stop before migration 049; optional metadata must not cause SQL 500s.
+ await db.exec('ALTER TABLE learning_resources DROP COLUMN chapter_label, DROP COLUMN topic_label;');
+ const row=(await db.query("SELECT lr.id FROM learning_resources lr JOIN learning_content_sources s ON s.id=lr.source_id WHERE s.code='VIDYASETU_ORIGINAL' AND lr.asset_id IS NULL LIMIT 1")).rows[0];
+ assert.ok(row);
+ await db.query("UPDATE learning_resources SET review_status='DRAFT',title_hi=NULL WHERE id=$1",[row.id]);
+ await assert.rejects(admin.updateLearningResourceStatus(row.id,'PUBLISHED',adminId),(error)=>error.statusCode===400 && /not publish-ready/.test(error.message));
+});

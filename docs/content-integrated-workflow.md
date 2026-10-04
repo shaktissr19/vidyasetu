@@ -2,7 +2,7 @@
 
 ## Release status
 
-This update is prepared locally against production baseline `2a947be5d2cad0dad7653370ea14fae9a60c41cb`. It has not been committed, pushed, deployed, or applied to production. Migration 052 is required. No learner accounts, provider downloads, uploads or publications were created externally.
+This update is prepared locally against production baseline `2a947be5d2cad0dad7653370ea14fae9a60c41cb`. GitHub merge and deployment status are tracked in [PR #100](https://github.com/shaktissr19/vidyasetu/pull/100). Production deployment and migration execution require separate verification. Migration 052 is required. No learner accounts, provider downloads, uploads or publications were created externally.
 
 The update connects existing tools rather than introducing another content system. It makes an individual resource usable throughout discovery, rights review, Library review and learner delivery. It does **not** supply a complete Nursery–12 curriculum or certify a provider's resources as reusable.
 
@@ -72,7 +72,7 @@ Snapshots are stored in `learning_resource_revisions`; there is no new revision-
 
 ## Verification evidence
 
-- Backend build and ten real-SQL integration tests passed using embedded PostgreSQL (PGlite), migration 052 and actual service code. Tests cover original early-years drafts, discovery-to-Library flow, import idempotency, malformed uploads/players, rights/subscription rules, DOCX, revision invalidation, academic publication, public/private boundaries and active/revoked student subscriptions.
+- Backend build and eleven real-SQL integration tests passed using embedded PostgreSQL (PGlite), migration 052 and actual service code. Tests cover original early-years drafts, discovery-to-Library flow, import idempotency, malformed uploads/players, rights/subscription rules, DOCX, revision invalidation, academic publication, public/private boundaries and active/revoked student subscriptions and validation on older Library schemas.
 - Six safe-Markdown tests passed.
 - Frontend production build passed, including type checks and generation of 103 routes.
 - Shell syntax checks and `git diff --check` passed.
