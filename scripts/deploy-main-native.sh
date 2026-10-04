@@ -38,7 +38,8 @@ for command_name in git node npm pm2 psql pg_dump redis-cli jq nginx curl; do
 done
 
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
-(( NODE_MAJOR >= 20 )) || fail "Node.js 20+ is required; found $(node --version)"
+NODE_MINOR="$(node -p "Number(process.versions.node.split('.')[1])")"
+(( NODE_MAJOR > 20 || (NODE_MAJOR == 20 && NODE_MINOR >= 19) )) || fail "Node.js 20.19+ is required for PDF syllabus extraction; found $(node --version)"
 
 systemctl is-active --quiet postgresql || fail "Native PostgreSQL is not active."
 systemctl is-active --quiet redis-server || fail "Native Redis is not active."
@@ -95,14 +96,14 @@ for table_name in \
   subscription_events support_tickets audit_log learning_resources learning_assessments \
   learning_entitlements learning_creator_jobs learning_creator_sources learning_creator_outputs \
   learning_source_discovery_candidates learning_source_connectors learning_content_packs \
-  learning_content_pack_items learning_content_assets learning_content_pipeline_events teacher_school_requests; do
+  learning_content_pack_items learning_content_assets learning_content_pipeline_events teacher_school_requests syllabus_documents; do
   exists="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.$table_name') IS NOT NULL;")"
   [[ "$exists" == "t" ]] || fail "Required table '$table_name' is missing. No migration was attempted. Backup: $SAFETY_DUMP"
 done
 
 REGISTRATION_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 -At -f "$PROJECT_DIR/scripts/production-schema-preflight.sql")"
-[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration/content-pipeline schema is incomplete. Apply reviewed migrations through 053 separately before deployment. No migration was attempted."
+[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration/content-pipeline schema is incomplete. Apply reviewed migrations through 054 separately before deployment. No migration was attempted."
 
 TEACHER_ENUM="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")"
 [[ "$TEACHER_ENUM" == "1" ]] || fail "TEACHER role is missing. No migration was attempted."

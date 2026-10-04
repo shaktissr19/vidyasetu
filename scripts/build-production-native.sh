@@ -15,7 +15,8 @@ for command_name in node npm; do
 done
 
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
-(( NODE_MAJOR >= 20 )) || fail "Node.js 20+ is required; found $(node --version)"
+NODE_MINOR="$(node -p "Number(process.versions.node.split('.')[1])")"
+(( NODE_MAJOR > 20 || (NODE_MAJOR == 20 && NODE_MINOR >= 19) )) || fail "Node.js 20.19+ is required for PDF syllabus extraction; found $(node --version)"
 
 install_without_lockfile() {
   # shared/contracts and frontend currently do not have committed lockfiles.

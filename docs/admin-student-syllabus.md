@@ -26,7 +26,13 @@ New academic years have distinct concepts and do not automatically inherit maste
 
 ## Deployment
 
-Migration `053_verified_syllabus_workspace.sql` is required after 052. It is idempotent and additive, widens curriculum grade labels for Pre-Nursery, and deliberately does not set verification timestamps on legacy versions. The existing backup-first preparation script includes 053, and native production schema preflight checks the new tables/verification column before service switch.
+Migration `053_verified_syllabus_workspace.sql` is required after 052. It is idempotent and additive, widens curriculum grade labels for Pre-Nursery, and deliberately does not set verification timestamps on legacy versions. Migration `054_syllabus_document_library.sql` adds private source-PDF provenance, extracted text/page candidates, and explicit redistribution review. The backup-first preparation script applies and checks 054, and native production schema preflight checks its document table before service switch.
+
+## Source documents and topic search
+
+The admin Syllabus Library lists official starting points for CBSE, CISCE/ICSE, CISCE/ISC, UPMSP, and NCERT reference textbooks. Admins can upload a PDF or import a direct PDF URL from the allowlisted official domains. Documents are private by default, SHA-256 deduplicated, malware-scanned, and indexed for text search with page references. Scanned image PDFs need OCR and are not currently accepted. Extracted snippets are candidates; an admin must select and verify topic candidates before adding them to a draft curriculum. Curriculum version review and activation remain separate.
+
+The student library can filter by board, class, subject, and free text. It returns only admin-approved source documents. PDF copies are served only when an admin has recorded redistribution permission and its evidence URL; otherwise learners follow the official source link. This release does not populate every class/subject/board automatically: sources differ by board and many state boards publish documents as separate page or language downloads. NCERT is shown as a reference source, not as a substitute for a board's own syllabus. The existing content catalogue remains available for free-text topics that are not mapped to a syllabus.
 
 For the existing native installation, from its clean main checkout:
 

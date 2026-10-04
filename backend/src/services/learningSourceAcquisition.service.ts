@@ -55,8 +55,8 @@ export function inspectImportedBytes(bytes: Buffer, kind: string, mime: string) 
   if (!valid) throw fail('Downloaded bytes do not match a supported passive media format. HTML, ZIP packages and documents needing conversion must use a reviewed upload.');
 }
 
-export async function downloadLicensedAsset(raw: string, kind: string) {
-  const url = approvedAssetUrl(raw);
+export async function downloadLicensedAsset(raw: string, kind: string, allowedHosts?: string) {
+  const url = approvedAssetUrl(raw, allowedHosts);
   const addresses = await lookup(url.hostname,{ all: true });
   if (!addresses.length || addresses.some(x => !publicAddress(x.address))) throw fail('Provider host resolves to a private or unsupported address');
   const address = addresses[0].address;

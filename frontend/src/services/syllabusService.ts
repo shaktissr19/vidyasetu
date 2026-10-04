@@ -4,7 +4,7 @@ export interface SyllabusRow {gradeCode:string;subjectId:string;chapter:string;t
 export interface SyllabusVersion {id:string;board_code?:string;academic_year:string;title:string;status?:string;source_url:string;verified_at?:string|null;}
 export interface SyllabusTopic {is_retired?:boolean;coverage?:{published_count:number;formats:string[];difficulties:string[]};id:string;title:string;title_hi?:string;chapter:string;subject:string;subject_id:string;grade_code:string;concept_id:string;learning_outcome:string;evidence_url:string;page_reference:string;resources?:{id:string;title:string;title_hi?:string;resource_type:string;difficulty?:string;locked:boolean;completed:boolean}[];availableResources?:number;completedResources?:number;learningComplete?:boolean;mastered?:boolean;masteryPct?:number|null;}
 export interface SyllabusOptions {drafts:{id:string;title:string;subject_id:string;grade_codes:string[]}[];boards:{id:string;code:string;name:string}[];grades:{id:string;code:string;name:string}[];subjects:{id:string;code:string;name:string}[];versions:SyllabusVersion[];}
-export interface StudentSyllabus {profile:{boardCode:string|null;gradeCode:string;academicYear:string;language:string;schoolLinked:boolean};options:{boards:SyllabusOptions['boards'];grades:SyllabusOptions['grades'];years:string[]};version:SyllabusVersion|null;topics:SyllabusTopic[];summary:{totalTopics:number;coveredTopics:number;completedTopics:number;masteredTopics:number}|null;}
+export interface StudentSyllabus {profile:{boardCode:string|null;gradeCode:string;academicYear:string;language:string;schoolLinked:boolean};options:{boards:SyllabusOptions['boards'];grades:SyllabusOptions['grades'];subjects:SyllabusOptions['subjects'];years:string[]};version:SyllabusVersion|null;topics:SyllabusTopic[];summary:{totalTopics:number;coveredTopics:number;completedTopics:number;masteredTopics:number}|null;}
 export const getSyllabusOptions=()=>api.get<ApiEnvelope<SyllabusOptions>>('/admin/syllabus/options');
 export const getSyllabusDetail=(id:string)=>api.get<ApiEnvelope<{version:SyllabusVersion;topics:SyllabusTopic[];history:{action:string;created_at:string;operation:string}[]}>>(`/admin/syllabus/${id}`);
 export const importSyllabus=(input:{boardCode:string;academicYear:string;title:string;sourceUrl:string;rows:SyllabusRow[]})=>api.post<ApiEnvelope<{id:string}>>('/admin/syllabus/import',input);
@@ -15,3 +15,11 @@ export const saveSyllabusProfile=(input:{boardCode:string;gradeCode:string;acade
 export const linkSyllabusResource=(topicId:string,resourceId:string)=>api.post(`/admin/syllabus/topics/${topicId}/resources`,{resourceId});
 
 export const retireSyllabusTopic=(id:string,retired:boolean,note:string)=>api.patch(`/admin/syllabus/topics/${id}`,{retired,note});
+
+export interface SyllabusDocument {id:string;board_code:string;board_name?:string;academic_year:string;grade_code:string|null;grade_name:string|null;subject_id:string|null;subject_name:string|null;title:string;language:string;source_url:string;source_publisher:string|null;page_count:number;outline:{page:number;text:string}[];status:string;redistribution_allowed:boolean;downloadUrl?:string|null;}
+export const getSyllabusDocuments=(params:Record<string,string>,admin=false)=>api.get<ApiEnvelope<SyllabusDocument[]>>(`${admin?'/admin':'/student'}/syllabus/documents`,{params});
+export const getSyllabusDocument=(id:string,admin=false)=>api.get<ApiEnvelope<SyllabusDocument>>(`${admin?'/admin':'/student'}/syllabus/documents/${id}`);
+export const getSyllabusSources=()=>api.get<ApiEnvelope<{boardCode:string;name:string;url:string;note:string}[]>>('/admin/syllabus/documents/sources');
+export const uploadSyllabusDocument=(form:FormData)=>api.post('/admin/syllabus/documents/upload',form,{headers:{'Content-Type':'multipart/form-data'}});
+export const importSyllabusDocument=(input:Record<string,string>)=>api.post('/admin/syllabus/documents/import',input);
+export const reviewSyllabusDocument=(id:string,input:{status:'APPROVED'|'REJECTED';note:string;redistributionAllowed:boolean;redistributionEvidenceUrl?:string})=>api.patch(`/admin/syllabus/documents/${id}/review`,input);
