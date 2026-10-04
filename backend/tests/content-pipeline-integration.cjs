@@ -284,6 +284,13 @@ test('syllabus endpoints enforce real JWT roles and validated input',async()=>{
  assert.equal((await fetch(`${baseUrl}/admin/syllabus/import`,{method:'POST',headers:{Authorization:`Bearer ${adminToken}`,'Content-Type':'application/json'},body:JSON.stringify({boardCode:'CBSE',academicYear:'2026-29',title:'Invalid year',sourceUrl:'https://cbseacademic.nic.in/',rows:[]})})).status,400);
  } finally {await new Promise(r=>server.close(r));}
 });
+test('compiled server loads environment before database-bearing routes',()=>{
+ const {execFileSync}=require('node:child_process');const os=require('node:os');const folder=fs.mkdtempSync(path.join(os.tmpdir(),'syllabus-env-test-'));const fixture=path.join(folder,'fixture.env');fs.writeFileSync(fixture,'DB_NAME=syllabus_bootstrap_fixture\n');
+ const env={...process.env,DOTENV_CONFIG_PATH:fixture};delete env.DB_NAME;
+ const entry=require.resolve('../dist/index');
+ const script=`const Module=require('module');const original=Module._load;Module._load=function(request,parent,main){if(request.endsWith('/config/db'))process.exit(process.env.DB_NAME==='syllabus_bootstrap_fixture'?0:1);return original.apply(this,arguments);};require(${JSON.stringify(entry)});process.exit(2);`;
+ try{execFileSync(process.execPath,['-e',script],{env,stdio:'pipe',timeout:10000});}finally{fs.rmSync(folder,{recursive:true,force:true});}
+});
 test('older Library schemas reject incomplete publication with a validation error',async () => {
  // Older regression jobs intentionally stop before migration 049; optional metadata must not cause SQL 500s.
  await db.exec('ALTER TABLE learning_resources DROP COLUMN chapter_label, DROP COLUMN topic_label;');

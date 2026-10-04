@@ -1,5 +1,5 @@
-import {adminSyllabusRoutes,studentSyllabusRoutes} from './routes/syllabus.routes';
 import 'dotenv/config';
+import {adminSyllabusRoutes,studentSyllabusRoutes} from './routes/syllabus.routes';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
