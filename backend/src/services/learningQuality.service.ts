@@ -186,11 +186,13 @@ export async function getResourceReadiness(resourceId: UUID): Promise<EntityRead
             lcs.code AS source_code,lcs.source_kind,
             COUNT(DISTINCT lrb.board_id)::int AS board_count,
             COUNT(DISTINCT lrc.concept_id)::int AS concept_count,
-            COUNT(DISTINCT lrc.concept_id) FILTER(WHERE lrc.journey_stage IS NOT NULL)::int AS staged_concept_count
+            COUNT(DISTINCT lrc.concept_id) FILTER(WHERE lrc.journey_stage IS NOT NULL)::int AS staged_concept_count,
+            COUNT(DISTINCT lrc.concept_id) FILTER(WHERE lc.code LIKE 'SYLLABUS_%' AND lc.registry_status <> 'ACADEMICALLY_VERIFIED')::int AS unverified_syllabus_count
      FROM learning_resources lr
      JOIN learning_content_sources lcs ON lcs.id=lr.source_id
      LEFT JOIN learning_resource_boards lrb ON lrb.resource_id=lr.id
      LEFT JOIN learning_resource_concepts lrc ON lrc.resource_id=lr.id
+     LEFT JOIN learning_concepts lc ON lc.id=lrc.concept_id
      WHERE lr.id=$1::uuid
      GROUP BY lr.id,lcs.id`,
     [resourceId],
@@ -211,6 +213,7 @@ export async function getResourceReadiness(resourceId: UUID): Promise<EntityRead
     { code: 'CURRICULUM_SCOPE', label: 'Class and board scope', passed: !academic || (Number(row.board_count) > 0 && (Number(row.grade_count) > 0 || (row.class_min != null && row.class_max != null))), reason: 'Academic resources require class range and at least one board mapping.', weight: 10 },
     { code: 'ACADEMIC_METADATA', label: 'Subject, topic and difficulty', passed: !academic || !row.asset_id || (truthyText(row.subject_id) && truthyText(row.topic_label) && truthyText(row.difficulty)), reason: 'New academic Pipeline resources require a canonical subject, topic and Easy/Moderate/Advanced difficulty.', weight: 10 },
     { code: 'CONCEPT_MAPPING', label: 'Canonical concept mapping', passed: !academic || (Number(row.concept_count) > 0 && Number(row.staged_concept_count) === Number(row.concept_count)), reason: 'Academic resources must map to a canonical concept and learning-journey stage.', weight: 20 },
+    { code: 'SYLLABUS_VERIFICATION', label: 'Approved syllabus mapping', passed: !academic || Number(row.unverified_syllabus_count || 0)===0, reason: 'Mapped syllabus topics must belong to an academically verified active syllabus.', weight: 5 },
     { code: 'SOURCE_LICENCE', label: 'Source and licence', passed: sourceReady, reason: 'External learning resources require verified source, attribution and licence metadata.', weight: 15 },
     { code: 'TECHNICAL_ASSET', label: 'Usable learning asset', passed: technicalAsset, reason: 'Resource requires a usable article body, file or external/source URL.', weight: 15 },
     { code: 'SUMMARY', label: 'Learner summary', passed: truthyText(row.summary) && truthyText(row.summary_hi), reason: 'English and Hindi summaries are required before academic approval.', weight: 10 },

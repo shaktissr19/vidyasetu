@@ -97,7 +97,7 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build disposable database through migration 052
+      - name: Build disposable database through migration 053
         env:
           PGPASSWORD: postgres
         run: |
@@ -123,7 +123,8 @@ jobs:
             049_learning_source_library_handoff.sql \
             050_unified_registration_role_linking.sql \
             051_learning_content_pipeline.sql \
-            052_learning_content_integration.sql; do
+            052_learning_content_integration.sql \
+            053_verified_syllabus_workspace.sql; do
               echo "Applying $migration"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done

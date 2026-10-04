@@ -40,6 +40,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
     { href: '/admin/schools', icon: '🏫', label: 'Schools' },
     { href: '/admin/users', icon: '👥', label: 'Users' },
+    { href: '/admin/learning/syllabus', icon: '📋', label: 'Syllabus', exact: true },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
     { href: '/admin/learning', icon: '📚', label: menuLabel('Content Library · pending',contentLibraryCount), exact: true },
     { href: '/admin/learning/coverage', icon: '🎯', label: 'Coverage' },
@@ -81,7 +82,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           menuItems={menu}
         />
         <main className={`dash-main admin-main${lightLearningWorkspace ? ' admin-learning-workspace' : ''}`} style={{ background: lightLearningWorkspace ? '#F3F6FB' : '#182540', color: lightLearningWorkspace ? '#14213D' : 'white' }}>{pathname.startsWith('/admin/learning') && <nav aria-label="Content workspace" style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 16px',background:'#fff',borderBottom:'1px solid #DCE3EE'}}>{[
- ['/admin/learning/factory','1 · Find content'],['/admin/learning/pipeline',`2 · Prepare & rights (${sourceReviewCount})`],['/admin/learning','3 · Review & publish'],['/admin/learning/practice','Questions & tests'],['/admin/learning/coverage','Coverage'],['/admin/learning/imports','Bulk records']
+ ['/admin/learning/syllabus','Syllabus'],['/admin/learning/factory','1 · Find content'],['/admin/learning/pipeline',`2 · Prepare & rights (${sourceReviewCount})`],['/admin/learning','3 · Review & publish'],['/admin/learning/practice','Questions & tests'],['/admin/learning/coverage','Coverage'],['/admin/learning/imports','Bulk records']
  ].map(([href,title]) => <Link key={href} href={href} aria-current={pathname===href || (pathname==='/admin/learning/intake' && href==='/admin/learning/pipeline') ? 'page' : undefined} style={{padding:'8px 12px',borderRadius:8,color:'#14213D',background:pathname===href ? '#FFF0E5' : '#F3F6FB',fontWeight:700,textDecoration:'none'}}>{title}</Link>)}</nav>}{children}</main>
       </div>
     </div>

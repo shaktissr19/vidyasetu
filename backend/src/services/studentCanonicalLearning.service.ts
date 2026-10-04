@@ -28,7 +28,7 @@ function appError(message: string, statusCode: number): Error & { statusCode: nu
   return Object.assign(new Error(message), { statusCode });
 }
 
-function canonicalGradeCode(ctx: StudentContextRow): string {
+export function canonicalGradeCode(ctx: StudentContextRow): string {
   if (ctx.grade_code) return ctx.grade_code;
   const raw = String(ctx.class_name || ctx.grade_level || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
   if (['PN', 'PRENURSERY', 'PRE_NURSERY'].includes(raw)) return 'PRE_NURSERY';
@@ -59,7 +59,7 @@ function gradeLabel(gradeCode: string): string {
   return numeric ? `Class ${numeric}` : gradeCode.replaceAll('_', ' ');
 }
 
-async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
+export async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
     `SELECT s.id AS student_id, s.grade_level, s.grade_code, sc.class_name,
             s.school_id, sch.name AS school_name,
@@ -72,10 +72,17 @@ async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
     [userId],
   );
   if (!student) throw appError('Student profile not found', 404);
+  if (!student.school_id) {
+    const schema = await query("SELECT to_regclass('public.student_learning_preferences') IS NOT NULL AS ready");
+    if (schema.rows[0]?.ready) {
+      const { rows:[preference] } = await query(`SELECT eb.code AS board_code,eb.name AS board_name,egl.code AS grade_code FROM student_learning_preferences p JOIN education_boards eb ON eb.id=p.board_id JOIN education_grade_levels egl ON egl.id=p.grade_id WHERE p.student_id=$1 AND eb.is_active=TRUE AND egl.is_active=TRUE`,[student.student_id]);
+      if (preference) Object.assign(student,preference);
+    }
+  }
   return student;
 }
 
-function resourceScopeSql(boardParam: number, gradeCodeParam: number, classParam: number): string {
+export function resourceScopeSql(boardParam: number, gradeCodeParam: number, classParam: number): string {
   return `
     (
       EXISTS (

@@ -18,6 +18,7 @@ export interface FactorySubjectOption {
 }
 
 export interface FactoryCurriculumSubjectOption {
+  academic_year?:string;
   id: string;
   curriculum_version_id: string;
   board_id: string;

@@ -135,7 +135,7 @@ export async function getFactoryOptions() {
   const [boards,subjects,curriculumSubjects,units,topics,concepts,conceptCoverage,grades] = await Promise.all([
     query(`SELECT id,code,name,short_name,board_type,state,sort_order FROM education_boards WHERE is_active=TRUE ORDER BY sort_order,name`),
     query(`SELECT id,code,name FROM subjects ORDER BY name`),
-    query(`SELECT cs.id,cs.curriculum_version_id,cv.board_id,eb.code AS board_code,eb.name AS board_name,
+    query(`SELECT cs.id,cs.curriculum_version_id,cv.academic_year,cv.board_id,eb.code AS board_code,eb.name AS board_name,
                   cs.subject_id,cs.class_name,cs.display_name,cs.display_name_hi,cs.subject_code,cs.sort_order
            FROM curriculum_subjects cs
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
@@ -153,7 +153,7 @@ export async function getFactoryOptions() {
            JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id
            JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
-           WHERE cs.is_active=TRUE AND cv.status='ACTIVE'
+           WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND COALESCE((to_jsonb(ct)->>'is_retired')::boolean,FALSE)=FALSE
            ORDER BY ct.curriculum_unit_id,ct.sort_order,ct.title`),
     query(`SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.chapter_title,lc.subject_code,lc.subject_id,
                   sub.name AS subject_name,egl.code AS grade_code,egl.class_number
