@@ -94,11 +94,11 @@ export default function ContentFactoryPage() {
 
   const curriculumSubject = useMemo(() => {
     const candidatesForClass = (factoryQuery.data?.curriculumSubjects || []).filter((item) =>
-      item.board_code === boardCode && String(item.class_name).replace(/\D/g,'') === String(classNumber),
+      item.board_code === boardCode && (!syllabusYear || item.academic_year===syllabusYear) && (item.class_name===gradeCode || (gradeCode.startsWith('CLASS_') && String(item.class_name).replace(/\D/g,'')===String(classNumber))),
     );
     return candidatesForClass.find((item) => item.subject_id === subjectId)
       || candidatesForClass.find((item) => normalizedText(item.display_name) === normalizedText(subject));
-  },[factoryQuery.data,boardCode,classNumber,subjectId,subject]);
+  },[factoryQuery.data,boardCode,classNumber,gradeCode,syllabusYear,subjectId,subject]);
 
   const chapterSuggestions = useMemo(() => (factoryQuery.data?.units || []).filter((item) => item.curriculum_subject_id === curriculumSubject?.id),[factoryQuery.data,curriculumSubject]);
   const selectedMappedUnit = chapterSuggestions.find((item) => normalizedText(item.title) === normalizedText(chapterText));

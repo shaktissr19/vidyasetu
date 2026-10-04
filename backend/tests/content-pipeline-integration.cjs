@@ -220,6 +220,7 @@ test('verified syllabus is hidden until approval, preserves gaps and protects sc
  await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});
  assert.equal((await syllabus.studentSyllabus(student.user_id)).version,null);
  await syllabus.changeSyllabusStatus(imported.id,'ACTIVE','Reviewed fixture topic against source',adminId);
+ const factoryOptions=await factory.getFactoryOptions();assert.equal(factoryOptions.curriculumSubjects.find(cs=>cs.curriculum_version_id===imported.id).academic_year,'2026-27');
  const view=await syllabus.studentSyllabus(student.user_id);assert.equal(view.topics.length,1);assert.equal(view.summary.totalTopics,1);assert.equal(view.summary.coveredTopics,0);assert.equal(view.summary.completedTopics,0);assert.equal(view.summary.masteredTopics,0);assert.equal(view.profile.language,'hi');
  assert.equal('review_note' in view.version,false);
  await assert.rejects(syllabus.importSyllabus(input,adminId),/Return the existing syllabus to draft/);
