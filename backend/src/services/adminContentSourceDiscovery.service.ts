@@ -22,6 +22,8 @@ export interface DiscoverSourcesInput {
   providers?: DiscoveryProvider[];
   query: string;
   classNumber?: number | null;
+  gradeCode?: string | null;
+  boardCode?: string | null;
   subject?: string | null;
   language?: string | null;
   publisher?: string | null;
@@ -316,6 +318,8 @@ async function createRun(input: DiscoverSourcesInput, provider: DiscoveryProvide
       JSON.stringify({
         limit: Math.min(30, Math.max(1, input.limit || 12)),
         mediaKinds: input.mediaKinds || [],
+        gradeCode: input.gradeCode || (input.classNumber ? `CLASS_${input.classNumber}` : null),
+        boardCode: input.boardCode || null,
         publisher: input.publisher?.trim() || null,
         maxDurationMinutes: input.maxDurationMinutes || null,
         onlyCommercialSafe: Boolean(input.onlyCommercialSafe),
@@ -383,17 +387,18 @@ async function discoverLocal(input: DiscoverSourcesInput): Promise<NormalizedCan
     subject_name: string | null; source_code: string; duration_secs: number | null; thumbnail_url: string | null;
   } & QueryResultRow>(
     `SELECT lr.id,lr.title,lr.summary,lr.source_url,lr.external_url,lr.licence::text,lr.attribution_text,lr.resource_type::text,
-            lr.class_min,lr.class_max,s.name AS subject_name,lcs.code AS source_code,lr.duration_secs,lr.thumbnail_url
+            lr.class_min,lr.class_max,COALESCE(s.name,lr.subject_label) AS subject_name,lcs.code AS source_code,lr.duration_secs,lr.thumbnail_url
      FROM learning_resources lr
      JOIN learning_content_sources lcs ON lcs.id=lr.source_id
      LEFT JOIN subjects s ON s.id=lr.subject_id
      WHERE lr.review_status IN ('APPROVED','PUBLISHED')
        AND (lr.title ILIKE $1 OR COALESCE(lr.summary,'') ILIKE $1 OR COALESCE(lr.body_markdown,'') ILIKE $1)
-       AND ($2::smallint IS NULL OR (COALESCE(lr.class_min,$2) <= $2 AND COALESCE(lr.class_max,$2) >= $2))
-       AND ($3::text IS NULL OR s.name ILIKE '%' || $3 || '%')
+       AND ($5::text IS NULL OR EXISTS (SELECT 1 FROM learning_resource_grades rg JOIN education_grade_levels g ON g.id=rg.grade_id WHERE rg.resource_id=lr.id AND g.code=$5) OR (NOT EXISTS (SELECT 1 FROM learning_resource_grades rg WHERE rg.resource_id=lr.id) AND $2::smallint IS NOT NULL AND COALESCE(lr.class_min,$2) <= $2 AND COALESCE(lr.class_max,$2) >= $2))
+       AND ($3::text IS NULL OR COALESCE(s.name,lr.subject_label) ILIKE '%' || $3 || '%')
+       AND ($6::text IS NULL OR EXISTS (SELECT 1 FROM learning_resource_boards rb JOIN education_boards b ON b.id=rb.board_id WHERE rb.resource_id=lr.id AND b.code IN ($6,'COMMON')))
      ORDER BY CASE WHEN lr.title ILIKE $1 THEN 0 ELSE 1 END,lr.updated_at DESC
      LIMIT $4`,
-    [search,classNumber,subject,Math.min(100,limit * 4)],
+    [search,classNumber,subject,Math.min(100,limit * 4),input.gradeCode || (classNumber ? `CLASS_${classNumber}` : null),input.boardCode || null],
   );
   const mapped = rows.map((row): NormalizedCandidate => {
     const rights = candidateRights(row.licence);
@@ -424,6 +429,8 @@ async function discoverDiksha(input: DiscoverSourcesInput): Promise<NormalizedCa
   const limit = Math.min(30, Math.max(1, input.limit || 12));
   const filters: Record<string, unknown> = { objectType: ['Content'], status: ['Live'] };
   if (input.classNumber) filters.gradeLevel = [`Class ${input.classNumber}`, `Grade ${input.classNumber}`];
+  if (input.gradeCode && !input.classNumber) filters.gradeLevel = [{PRE_NURSERY:'Pre-Nursery',NURSERY:'Nursery',LKG:'LKG',UKG:'UKG'}[input.gradeCode] || input.gradeCode];
+  if (input.boardCode && input.boardCode !== 'COMMON') filters.board = [input.boardCode];
   if (input.subject?.trim()) filters.subject = [input.subject.trim()];
   if (input.language?.trim()) filters.language = [input.language.trim()];
   const fields = [
@@ -586,6 +593,8 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
   }
   if (candidate.intake_id) return { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id,alreadyStaged: true };
   if (!candidate.source_url) throw appError('External discovery candidate has no usable source URL');
+  const { rows: [run] } = await query(`SELECT filters,class_number FROM learning_source_discovery_runs WHERE id=$1::uuid`,[candidate.run_id]);
+  const selectedGrade = run?.filters?.gradeCode || (run?.class_number ? `CLASS_${run.class_number}` : null);
   const intake = await practiceService.createIntake({
     sourceCode: candidate.source_code,
     sourceItemId: candidate.source_item_id,
@@ -593,9 +602,9 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
     sourceUrl: candidate.source_url,
     licenceCandidate: candidate.licence_candidate || 'OTHER',
     attributionText: candidate.attribution_text,
-    classHint: candidate.grade_levels.join(', ') || null,
+    classHint: selectedGrade || candidate.grade_levels.join(', ') || null,
     subjectHint: candidate.subjects.join(', ') || null,
-    boardHint: null,
+    boardHint: run?.filters?.boardCode || null,
   },adminId);
   await query(
     `UPDATE learning_source_discovery_candidates SET intake_id=$2,staged_by=$3,staged_at=NOW() WHERE id=$1`,

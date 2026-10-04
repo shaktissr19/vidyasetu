@@ -2,9 +2,9 @@ import api from './api';
 import type { ApiEnvelope } from '@/types/api';
 import type { LearningMediaUpload } from './learningMediaService';
 
-export type PipelineMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'WORKSHEET' | 'QUESTION_PAPER' | 'EXTERNAL_LINK';
+export type PipelineMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'WORKSHEET' | 'QUESTION_PAPER' | 'DOCUMENT' | 'EXTERNAL_LINK';
 export type PipelineDeliveryMode = 'EXTERNAL_LINK' | 'OFFICIAL_EMBED' | 'LICENSED_REHOST' | 'VIDYASETU_ORIGINAL';
-export type PipelineLicence = 'VIDYASETU_ORIGINAL' | 'CC_BY' | 'CC_BY_SA' | 'CC_BY_NC' | 'CC_BY_NC_SA' | 'CC_BY_ND' | 'CC_BY_NC_ND' | 'PUBLIC_DOMAIN' | 'EXTERNAL_LINK_ONLY' | 'OTHER';
+export type PipelineLicence = 'VIDYASETU_ORIGINAL' | 'CC_BY' | 'CC_BY_SA' | 'CC_BY_NC' | 'CC_BY_NC_SA' | 'CC_BY_ND' | 'CC_BY_NC_ND' | 'PUBLIC_DOMAIN' | 'EXTERNAL_LINK_ONLY' | 'PERMISSION_GRANTED' | 'OTHER';
 export type PipelineCategory = 'ACADEMIC' | 'MOTIVATION' | 'STUDY_SKILLS' | 'WORK_ETHIC' | 'SOCIAL_RESPONSIBILITY' | 'LIFE_SKILLS' | 'WELLBEING' | 'CAREER_AWARENESS' | 'DIGITAL_CITIZENSHIP';
 export type PipelineVisibility = 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY' | 'SCHOOL_ONLY';
 export type PipelineAccess = 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
@@ -17,6 +17,8 @@ export interface PipelineSourceOption {
   requires_item_license_check: boolean; notes?: string | null;
 }
 export interface PipelineOptions {
+  subjects: Array<{ id: string; name: string; code: string }>;
+  concepts: Array<{ id: string; name: string; name_hi?: string; chapter_title?: string; subject_id?: string; grade_code: string }>;
   grades: PipelineGradeOption[];
   boards: PipelineBoardOption[];
   sources: PipelineSourceOption[];
@@ -32,11 +34,16 @@ export interface PipelineQueueItem {
   licence_url?: string | null; attribution_text?: string | null; rights_evidence_url?: string | null;
   grade_code?: string | null; status: string; created_at: string; reviewed_at?: string | null;
   imported_resource_id?: string | null; source_code: string; source_name: string; asset_id?: string | null;
+  metadata?: Partial<StagePipelinePayload>; embed_url?: string | null; discovered_media_kind?: string | null; discovered_embed_url?: string | null; discovered_thumbnail_url?: string | null; class_hint?: string | null; board_hint?: string | null; subject_hint?: string | null;
   storage_key?: string | null; mime_type?: string | null; byte_size?: number | null;
   processing_status?: string | null; asset_verified_at?: string | null; resource_id?: string | null;
 }
 
 export interface StagePipelinePayload {
+  intakeId?: string;
+  titleHi?: string | null; difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null; conceptIds?: string[];
+  journeyStage?: 'SEE' | 'UNDERSTAND' | 'DO' | 'PRACTISE' | 'APPLY' | 'REVISE';
+  transcript?: string | null; altText?: string | null;
   sourceCode: string; title: string; mediaKind: PipelineMediaKind; deliveryMode: PipelineDeliveryMode;
   sourceUrl?: string | null; sourceItemId?: string | null; embedUrl?: string | null; storageKey?: string | null;
   mimeType?: string | null; byteSize?: number | null; checksumSha256?: string | null;
@@ -75,3 +82,5 @@ export async function uploadLearningPipelineFile(file: File): Promise<LearningMe
   if (!response.ok) throw new Error(`Media upload failed (${response.status})`);
   return { ...upload, byteSize: file.size };
 }
+
+export const updateLearningPipelineDraft = (resourceId: string,payload: StagePipelinePayload) => api.patch<ApiEnvelope<{ resourceId: string; message: string }>>(`${base}/resources/${resourceId}/details`,payload);

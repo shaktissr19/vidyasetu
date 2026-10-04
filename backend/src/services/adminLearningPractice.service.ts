@@ -420,6 +420,12 @@ export async function createIntake(input: SaveIntakeInput, createdBy: UUID) {
 }
 
 export async function updateIntakeStatus(intakeId: UUID, status: string, reviewerId: UUID, note?: string | null) {
+  const integrated = await query(`SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='difficulty') AS ready`);
+  if (integrated.rows[0]?.ready && ['APPROVED','IMPORTED'].includes(status)) {
+    if (status === 'IMPORTED') throw appError('Only Pipeline materialisation can mark a source imported');
+    const pipeline = await import('./learningContentPipeline.service');
+    return pipeline.approveIntake(intakeId,reviewerId,note);
+  }
   const { rows: [item] } = await query<{ source_code: string; licence_candidate: string | null; attribution_text: string | null } & QueryResultRow>(
     `SELECT lcs.code AS source_code,lsi.licence_candidate,lsi.attribution_text
      FROM learning_source_intake lsi JOIN learning_content_sources lcs ON lcs.id=lsi.source_id WHERE lsi.id=$1::uuid`, [intakeId],

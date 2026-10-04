@@ -83,6 +83,8 @@ const reviewSchema = z.object({
 });
 
 const discoverySchema = z.object({
+  gradeCode: z.string().trim().min(2).max(24).nullable().optional(),
+  boardCode: z.string().trim().min(2).max(40).nullable().optional(),
   provider: discoveryProviderSchema.optional(),
   providers: z.array(discoveryProviderSchema).min(1).max(9).optional(),
   query: z.string().trim().min(2).max(300),
@@ -111,6 +113,8 @@ const externalItemSchema = z.object({
 });
 
 const intakeEvidenceSchema = z.object({
+  rightsEvidenceUrl: z.string().url().max(2000).nullable().optional(),
+  licenceUrl: z.string().url().max(2000).nullable().optional(),
   licenceCandidate: licenceSchema,
   attributionText: z.string().trim().max(4000),
   reviewerNote: z.string().trim().max(3000).nullable().optional(),

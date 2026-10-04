@@ -45,6 +45,8 @@ export interface CanonicalLearningResourceSummary {
   title_hi?: string | null;
   summary?: string | null;
   summary_hi?: string | null;
+  difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null;
+  transcript?: string | null; alt_text?: string | null;
   resource_type: string;
   category: string;
   visibility: string;

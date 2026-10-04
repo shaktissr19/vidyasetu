@@ -19,7 +19,7 @@ SELECT
   AND (SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public'
       AND table_name='learning_resources'
-      AND column_name IN ('delivery_mode','rights_status','asset_id'))=3
+      AND column_name IN ('delivery_mode','rights_status','asset_id','difficulty','transcript','alt_text'))=6
   AND to_regclass('public.learning_content_assets') IS NOT NULL
   AND to_regclass('public.learning_content_pipeline_events') IS NOT NULL
   AND (SELECT COUNT(*) FROM information_schema.columns

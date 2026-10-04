@@ -187,6 +187,7 @@ export async function getCanonicalSubjectResources(userId: UUID, subjectId: UUID
 
   const { rows } = await query(
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary, lr.summary_hi,
+            to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
             lr.resource_type, lr.category, lr.visibility, lr.access_requirement,
             lr.thumbnail_url, lr.duration_secs, lr.is_offline_ready, lr.is_featured_public,
             lcs.code AS source_code, lcs.name AS source_name,
@@ -275,7 +276,8 @@ export async function getCanonicalLearningResource(userId: UUID, resourceId: UUI
   const { student, access } = await assertResourceForLearner(userId, resourceId);
   const { rows: [resource] } = await query(
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary, lr.summary_hi,
-            lr.body_markdown, lr.body_markdown_hi, lr.resource_type, lr.category,
+            lr.body_markdown, lr.body_markdown_hi, to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
+            lr.resource_type, lr.category,
             lr.visibility, lr.access_requirement, lr.language,
             lr.class_min, lr.class_max, lr.thumbnail_url, lr.duration_secs,
             lr.external_url, lr.source_url, lr.file_key, lr.licence, lr.licence_url,

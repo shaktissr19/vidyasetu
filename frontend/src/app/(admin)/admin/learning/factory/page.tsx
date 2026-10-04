@@ -47,6 +47,7 @@ function normalizedText(value?: string | null) {
 
 export default function ContentFactoryPage() {
   const queryClient = useQueryClient();
+  const [gradeCode,setGradeCode] = useState('CLASS_5');
   const [classNumber,setClassNumber] = useState(5);
   const [boardCode,setBoardCode] = useState('COMMON');
   const [subjectId,setSubjectId] = useState('');
@@ -108,7 +109,8 @@ export default function ContentFactoryPage() {
     mutationFn: () => discoverContentCreatorSources({
       providers,
       query: searchText,
-      classNumber,
+      gradeCode,boardCode,
+      classNumber: gradeCode.startsWith('CLASS_') ? classNumber : null,
       subject: subject || null,
       language: language === 'Bilingual' ? null : language,
       publisher: publisher || null,
@@ -141,7 +143,7 @@ export default function ContentFactoryPage() {
         }
         toast.success('Governed VidyaSetu resource selected for the optional draft creator.');
       } else {
-        toast.success('Saved in Source & Licence Review. Verify it there, then add it to Content Library.');
+        toast.success('Saved in Content Review Queue. Verify it there, then add it to Content Library.');
       }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['content-creator-options'] }),
@@ -164,7 +166,7 @@ export default function ContentFactoryPage() {
     }),
     onSuccess: async (response) => {
       setLastWebIntakeId(response.data.data.intakeId);
-      toast.success('Web item saved in Source & Licence Review.');
+      toast.success('Web item saved in Content Review Queue.');
       setWebTitle(''); setWebUrl(''); setWebAttribution('');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['content-factory-source-review'] }),
@@ -232,7 +234,7 @@ export default function ContentFactoryPage() {
   }
 
   const canSearch = searchText.length >= 2 && providers.length > 0 && mediaKinds.length > 0;
-  const canCreate = Boolean((matchedConcept || selectedSources.length) && searchText.length >= 2);
+  const canCreate = gradeCode.startsWith('CLASS_') && Boolean((matchedConcept || selectedSources.length) && searchText.length >= 2);
 
   return (
     <div className="admin-page" style={{ padding: 8 }}>
@@ -243,22 +245,22 @@ export default function ContentFactoryPage() {
           <p className="admin-muted" style={{ maxWidth: 940,lineHeight: 1.65 }}>Choose the learner context, search trusted sources, select an item, verify its rights, then add it to Content Library. You can also create an AI-assisted text/question draft from governed sources. Nothing is published automatically.</p>
         </div>
         <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap' }}>
-          <Link href="/admin/learning/intake" style={secondary}>Source & Licence Review {queueQuery.data?.sourceReviewPending ? `(${queueQuery.data.sourceReviewPending})` : ''}</Link>
+          <Link href="/admin/learning/pipeline" style={secondary}>Content Review Queue {queueQuery.data?.sourceReviewPending ? `(${queueQuery.data.sourceReviewPending})` : ''}</Link>
           <Link href="/admin/learning" style={secondary}>Content Library {queueQuery.data?.contentLibraryPending ? `(${queueQuery.data.contentLibraryPending})` : ''}</Link>
           <Link href="/admin/learning/creator/discovery" style={secondary}>Advanced Source Search</Link>
         </div>
       </div>
 
       <div className="admin-success-note" style={{ padding: 13,marginBottom: 16 }}>
-        <strong>How this works:</strong> Search → select an external item → Source & Licence Review → verify licence/attribution → approve → Add to Content Library → normal Learning review → publish. Public items then appear under Learn; class-private items are filtered by the Student Learning runtime.
+        <strong>How this works:</strong> Search → select an external item → Content Review Queue → verify licence/attribution → approve → Add to Content Library → normal Learning review → publish. Public items then appear under Learn; class-private items are filtered by the Student Learning runtime.
       </div>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">1</span>What do you want to teach?</h2>
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(4,minmax(160px,1fr))',gap: 12 }}>
           <label className="admin-label">Class
-            <select className="admin-select" value={classNumber} onChange={(e) => { setClassNumber(Number(e.target.value)); setChapterText(''); setTopicText(''); }}>
-              {Array.from({ length: 12 },(_,i) => i + 1).map((value) => <option key={value} value={value}>Class {value}</option>)}
+            <select className="admin-select" value={gradeCode} onChange={(e) => { setGradeCode(e.target.value); const grade = factoryQuery.data?.grades.find((item) => item.code === e.target.value); setClassNumber(grade?.class_number || 1); setChapterText(''); setTopicText(''); }}>
+              {(factoryQuery.data?.grades || []).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
             </select>
           </label>
           <label className="admin-label">Board
@@ -318,7 +320,7 @@ export default function ContentFactoryPage() {
 
         <div style={{ display: 'grid',gridTemplateColumns: '2fr 1fr',gap: 12,marginTop: 14 }}>
           <div className="admin-note" style={{ padding: 11 }}>
-            Search target: <strong>{searchText || 'select a subject or enter a chapter/topic'}</strong> · Class {classNumber} · {selectedBoard?.short_name || boardCode}
+            Search target: <strong>{searchText || 'select a subject or enter a chapter/topic'}</strong> · {factoryQuery.data?.grades.find((item) => item.code === gradeCode)?.name || `Class ${classNumber}`} · {selectedBoard?.short_name || boardCode}
           </div>
           <label className="admin-label">Publisher filter
             <select className="admin-select" value={publisher} onChange={(e) => setPublisher(e.target.value)}><option value="">Any publisher</option>{(discovery?.publisherPresets || []).map((item) => <option key={item}>{item}</option>)}</select>
@@ -338,7 +340,7 @@ export default function ContentFactoryPage() {
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">3</span>Select a useful result</h2>
-        {!candidates.length && <div className="admin-panel-muted" style={{ padding: 16 }}>No results loaded yet. Search above. When you select an external item, its status remains visible here and it is saved in Source & Licence Review.</div>}
+        {!candidates.length && <div className="admin-panel-muted" style={{ padding: 16 }}>No results loaded yet. Search above. When you select an external item, its status remains visible here and it is saved in Content Review Queue.</div>}
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',gap: 12 }}>
           {candidates.map((candidate) => {
             const stage = staged[candidate.id] || (candidate.intake_id ? { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id } : undefined);
@@ -356,7 +358,7 @@ export default function ContentFactoryPage() {
               <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginTop: 12 }}>
                 {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={secondary}>Preview / open source ↗</a>}
                 {!candidate.reference_only && !stage && <button type="button" style={button} disabled={stageCandidateMutation.isPending} onClick={() => stageCandidateMutation.mutate(candidate)}>{candidate.resource_id ? 'Select governed source' : `Select this ${candidate.media_kind === 'VIDEO' ? 'video' : 'item'}`}</button>}
-                {stage?.kind === 'OER_INTAKE' && <Link href="/admin/learning/intake" style={{ ...secondary,borderColor: '#22C55E',background: '#ECFDF3' }}>✓ Sent to Source Review · Review now →</Link>}
+                {stage?.kind === 'OER_INTAKE' && stage.intakeId && <Link href={`/admin/learning/pipeline?intake=${stage.intakeId}`} style={button}>Complete delivery &amp; add to Library</Link>}
                 {stage?.kind === 'GOVERNED_RESOURCE' && <span className="admin-success-note" style={{ padding: '9px 12px',borderRadius: 9 }}>✓ Governed source selected</span>}
                 {candidate.reference_only && <span className="admin-note" style={{ padding: '9px 12px',borderRadius: 9,fontSize: 12 }}>Open the official library, choose the exact item, then use the web-address section below.</span>}
               </div>
@@ -367,22 +369,22 @@ export default function ContentFactoryPage() {
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">4</span>Already have an exact web address?</h2>
-        <p className="admin-muted">Paste any HTTPS learning item that is not returned directly. VidyaSetu stores the exact URL in Source & Licence Review as link-only first. It is never silently copied or published.</p>
+        <p className="admin-muted">Paste any HTTPS learning item that is not returned directly. VidyaSetu stores the exact URL in Content Review Queue as link-only first. It is never silently copied or published.</p>
         <div style={{ display: 'grid',gridTemplateColumns: '1fr 2fr 1fr',gap: 12 }}>
           <label className="admin-label">Title<input className="admin-input" value={webTitle} onChange={(e) => setWebTitle(e.target.value)} placeholder="Resource title" /></label>
           <label className="admin-label">HTTPS URL<input className="admin-input" value={webUrl} onChange={(e) => setWebUrl(e.target.value)} placeholder="https://..." /></label>
           <label className="admin-label">Attribution / publisher<input className="admin-input" value={webAttribution} onChange={(e) => setWebAttribution(e.target.value)} placeholder="Optional — domain used if blank" /></label>
         </div>
         <div style={{ display: 'flex',gap: 9,alignItems: 'center',marginTop: 12,flexWrap: 'wrap' }}>
-          <button type="button" style={{ ...button,opacity: webTitle.trim().length >= 2 && webUrl.startsWith('https://') ? 1 : .55 }} disabled={webTitle.trim().length < 2 || !webUrl.startsWith('https://') || webMutation.isPending} onClick={() => webMutation.mutate()}>{webMutation.isPending ? 'Sending…' : 'Send to Source & Licence Review'}</button>
-          {lastWebIntakeId && <Link href="/admin/learning/intake" style={{ ...secondary,borderColor: '#22C55E',background: '#ECFDF3' }}>✓ Saved · Open Source Review →</Link>}
+          <button type="button" style={{ ...button,opacity: webTitle.trim().length >= 2 && webUrl.startsWith('https://') ? 1 : .55 }} disabled={webTitle.trim().length < 2 || !webUrl.startsWith('https://') || webMutation.isPending} onClick={() => webMutation.mutate()}>{webMutation.isPending ? 'Sending…' : 'Send to Content Review Queue'}</button>
+          {lastWebIntakeId && <Link href={`/admin/learning/pipeline?intake=${lastWebIntakeId}`} style={{ ...secondary,borderColor: '#22C55E',background: '#ECFDF3' }}>✓ Saved · Configure in Pipeline →</Link>}
         </div>
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">5</span>What happens after source review?</h2>
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(3,minmax(190px,1fr))',gap: 10 }}>
-          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>1 · Verify and approve</strong><p className="admin-muted">Source Review records item-level licence and attribution. Approval is disabled until required evidence is saved.</p><Link href="/admin/learning/intake" style={secondary}>Open Source Review</Link></div>
+          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>1 · Verify and approve</strong><p className="admin-muted">Source Review records item-level licence and attribution. Approval is disabled until required evidence is saved.</p><Link href={`/admin/learning/pipeline?intake=${lastWebIntakeId}`} style={secondary}>Open Source Review</Link></div>
           <div className="admin-panel-muted" style={{ padding: 14 }}><strong>2 · Add to Content Library</strong><p className="admin-muted">Choose class, board, subject, chapter/topic and Public / Registered / Subscriber audience. The item enters Content Library as DRAFT.</p><Link href="/admin/learning" style={secondary}>Open Content Library</Link></div>
           <div className="admin-panel-muted" style={{ padding: 14 }}><strong>3 · Review and publish</strong><p className="admin-muted">Only PUBLISHED items reach learners. Public Free appears under Learn; private items are restricted by class and, when selected, subscription entitlement.</p></div>
         </div>

@@ -96,7 +96,9 @@ export interface PublicLearningResource {
   summary_hi?: string | null;
   body_markdown?: string | null;
   body_markdown_hi?: string | null;
-  resource_type: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'EXTERNAL_LINK';
+  difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null;
+  transcript?: string | null; alt_text?: string | null;
+  resource_type: 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'PDF' | 'WORKSHEET' | 'QUIZ' | 'QUESTION_PAPER' | 'INTERACTIVE' | 'DOCUMENT' | 'EXTERNAL_LINK';
   category: LearningCategory;
   language: string;
   class_min?: number | null;

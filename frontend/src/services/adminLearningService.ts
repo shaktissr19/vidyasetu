@@ -80,7 +80,7 @@ export interface LearningStudioResource {
   class_min?: number | null; class_max?: number | null; licence: string; source_url?: string | null;
   external_url?: string | null; attribution_text?: string | null; is_featured_public: boolean;
   published_at?: string | null; created_at: string; source_code: string; source_name: string; board_codes: string[];
-  concept_count?: number;
+  concept_count?: number; difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null;
 }
 
 export interface SaveLearningStudioResource {
@@ -250,3 +250,10 @@ export const stageLearningImport = (file: File) => {
 export const commitLearningImport = (batchId: string) => api.post<ApiEnvelope<LearningImportBatch>>(`/admin/learning/imports/${batchId}/commit`);
 export const learningImportTemplateUrl = (format: 'csv' | 'json', sample: 'BLANK' | 'EARLY_YEARS' | 'CLASS_5' | 'CLASS_8' = 'BLANK') =>
   `/api/v1/admin/learning/imports/template?format=${encodeURIComponent(format)}&sample=${encodeURIComponent(sample)}`;
+
+export interface LearningResourcePreview extends LearningStudioResource {
+  body_markdown?: string | null; body_markdown_hi?: string | null;
+  grade_codes?: string[]; concept_ids?: string[]; subject_id?: string; subject_label?: string; chapter_label?: string; topic_label?: string; delivery_mode?: string;
+  content_url?: string | null; embed_url?: string | null; transcript?: string | null; alt_text?: string | null; rights_evidence_url?: string | null; licence_url?: string | null;
+}
+export const getLearningResourcePreview = (id: string) => api.get<ApiEnvelope<LearningResourcePreview>>(`/admin/learning/resources/${id}/preview`);

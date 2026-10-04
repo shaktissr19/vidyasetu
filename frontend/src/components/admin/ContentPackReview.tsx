@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getContentPackReview } from '@/services/contentPackReviewService';
+import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import styles from '@/components/public/publicLearning.module.css';
 
 const PACK_LABELS: Record<string, string> = {
@@ -169,8 +170,8 @@ export default function ContentPackReview({ packKey }: { packKey: string }) {
               {resource.subject_label && <span className={styles.pill}>{resource.subject_label}</span>}
               {resource.topic_label && <span className={styles.pill}>{resource.topic_label}</span>}
             </div>
-            <div style={{ whiteSpace: 'pre-wrap', color: 'rgba(255,255,255,.82)', lineHeight: 1.75, fontSize: 14, marginTop: 16, padding: 16, borderRadius: 12, background: 'rgba(0,0,0,.18)', maxHeight: 620, overflowY: 'auto' }}>
-              {body || 'This language body is missing.'}
+            <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'rgba(0,0,0,.18)', maxHeight: 620, overflowY: 'auto' }}>
+              {body ? <LearningMarkdown body={body} tone="inverse" /> : <p style={{ color: 'rgba(255,255,255,.65)' }}>This language body is missing.</p>}
             </div>
           </>
         ) : <p style={{ color: '#fca5a5' }}>The pack exists in Git, but its learner resource is not staged in this database.</p>}
