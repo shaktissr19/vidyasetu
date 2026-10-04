@@ -357,11 +357,11 @@ export async function listPipelineQueue() {
             lcs.code AS source_code,lcs.name AS source_name,
             a.id AS asset_id,a.storage_key,a.mime_type,a.byte_size,a.processing_status,a.resource_id,
             a.verified_at AS asset_verified_at,a.metadata,lsi.embed_url,lsi.class_hint,lsi.board_hint,lsi.subject_hint,
-            dc.media_kind AS discovered_media_kind,dc.embed_url AS discovered_embed_url,dc.thumbnail_url AS discovered_thumbnail_url
+            dc.media_kind AS discovered_media_kind,dc.embed_url AS discovered_embed_url,dc.thumbnail_url AS discovered_thumbnail_url,dc.metadata->>'artifactUrl' AS discovered_asset_url,dc.filters AS discovery_context,dc.language AS discovered_language,dc.duration_seconds AS discovered_duration
      FROM learning_source_intake lsi
      JOIN learning_content_sources lcs ON lcs.id=lsi.source_id
      LEFT JOIN learning_content_assets a ON a.id=lsi.asset_id
-     LEFT JOIN LATERAL (SELECT media_kind,embed_url,thumbnail_url FROM learning_source_discovery_candidates WHERE intake_id=lsi.id ORDER BY created_at DESC LIMIT 1) dc ON TRUE
+     LEFT JOIN LATERAL (SELECT c.media_kind,c.embed_url,c.thumbnail_url,c.metadata,c.duration_seconds,r.filters,r.language FROM learning_source_discovery_candidates c JOIN learning_source_discovery_runs r ON r.id=c.run_id WHERE c.intake_id=lsi.id ORDER BY c.created_at DESC LIMIT 1) dc ON TRUE
      ORDER BY CASE lsi.status WHEN 'DISCOVERED' THEN 1 WHEN 'LICENCE_REVIEW' THEN 2 WHEN 'CONTENT_REVIEW' THEN 3
                               WHEN 'APPROVED' THEN 4 WHEN 'IMPORTED' THEN 8 ELSE 9 END,lsi.created_at DESC
      LIMIT 500`,
@@ -369,7 +369,7 @@ export async function listPipelineQueue() {
   return rows;
 }
 
-export async function stageContent(input: StagePipelineInput, adminId: UUID) {
+export async function stageContent(input: StagePipelineInput, adminId: UUID, acquisition?: { url:string; actorId:string; acquiredAt:string; permissionConfirmed:true }) {
   await assertPipelineSchema();
   return transaction(async (client) => {
     const source = await getSource(client, input.sourceCode);
@@ -384,6 +384,10 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID) {
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`${source.id}:${lockedUrl}`]);
     const previous = await client.query(`SELECT id,status,imported_resource_id FROM learning_source_intake WHERE source_id=$1::uuid AND source_url=$2 FOR UPDATE`, [source.id,lockedUrl]);
     if (previous.rows[0]?.imported_resource_id || previous.rows[0]?.status === 'IMPORTED') throw appError('This source is already in Content Library. Archive/revise its resource rather than overwriting imported evidence',409);
+    if (acquisition && previous.rows[0]) {
+      const existingAsset = await client.query('SELECT a.storage_key FROM learning_source_intake i JOIN learning_content_assets a ON a.id=i.asset_id WHERE i.id=$1::uuid',[previous.rows[0].id]);
+      if (existingAsset.rows[0]?.storage_key) throw appError('This intake already has a hosted asset. Review it before creating a replacement intake',409);
+    }
     const policy = validateStage(input, source);
     // Keep the selected intake key exact; older discovery rows may omit a trailing slash.
     if (input.intakeId) policy.sourceUrl = lockedUrl;
@@ -399,6 +403,7 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID) {
       if (mapped.rows.length !== conceptIds.length) throw appError('Curriculum concepts must match the selected grades and subject');
     }
     const metadata = {
+      ...(acquisition ? { acquisition } : {}),
       titleHi: nullable(input.titleHi), difficulty: input.difficulty || null, conceptIds,
       journeyStage: input.journeyStage || ({ VIDEO: 'SEE', AUDIO: 'UNDERSTAND', INTERACTIVE: 'DO', WORKSHEET: 'PRACTISE' } as Record<string,string>)[input.mediaKind] || 'UNDERSTAND',
       transcript: nullable(input.transcript), altText: nullable(input.altText),
@@ -659,5 +664,23 @@ export async function updateDraftDetails(resourceId: UUID, input: StagePipelineI
     await client.query(`UPDATE learning_quality_gate_reviews SET status='PENDING',note='Content changed; review again',reviewer_id=NULL,reviewed_at=NULL WHERE entity_type='RESOURCE' AND entity_id=$1::uuid`,[resourceId]);
     await client.query(`INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note) VALUES($1::uuid,$2::uuid,$3::learning_review_status,'DRAFT','Details corrected; previous quality reviews invalidated')`,[resourceId,adminId,resource.review_status]);
     return { resourceId,reviewStatus: 'DRAFT',message: 'Draft saved with revision history. Quality review must be repeated.' };
+  });
+}
+
+export async function createCurriculumTopic(input: { gradeCode:string; subjectId:string; name:string; nameHi?:string; chapterTitle?:string; academicYear:string; evidenceUrl:string },adminId:string) {
+  const evidence = normalizeHttpsUrl(input.evidenceUrl,'Syllabus evidence URL');
+  if (!evidence || !input.name.trim()) throw appError('Topic name and syllabus evidence are required');
+  return transaction(async client => {
+    const {rows:[grade]} = await client.query('SELECT id FROM education_grade_levels WHERE code=$1 AND is_active=TRUE',[input.gradeCode]);
+    const {rows:[subject]} = await client.query('SELECT id,code FROM subjects WHERE id=$1::uuid',[input.subjectId]);
+    if (!grade || !subject) throw appError('Select a valid grade and subject');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`${grade.id}:${subject.id}:${input.academicYear}:${input.name.trim().toLowerCase()}`]);
+    const {rows:[existing]} = await client.query('SELECT id,name FROM learning_concepts WHERE grade_id=$1 AND subject_id=$2 AND academic_year=$3 AND lower(name)=lower($4) AND is_active=TRUE',[grade.id,subject.id,input.academicYear,input.name.trim()]);
+    if (existing) return existing;
+    const {rows:[topic]} = await client.query(`INSERT INTO learning_concepts(code,name,name_hi,academic_year,grade_id,subject_id,subject_code,chapter_title,registry_source,registry_status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'DRAFT_FOR_ACADEMIC_REVIEW') RETURNING id,name`,
+      [`ADMIN_${randomUUID()}`,input.name.trim(),nullable(input.nameHi),input.academicYear,grade.id,subject.id,subject.code,nullable(input.chapterTitle),evidence]);
+    await client.query(`INSERT INTO audit_log(actor_id,action,entity_type,entity_id,new_value) VALUES($1::uuid,'CREATE','learning_concept',$2::uuid,$3::jsonb)`,[adminId,topic.id,JSON.stringify({gradeCode:input.gradeCode,subjectId:subject.id,evidenceUrl:evidence,registryStatus:'DRAFT_FOR_ACADEMIC_REVIEW'})]);
+    return topic;
   });
 }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { deliveryCapability } from './learningSourceAcquisition.service';
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
@@ -24,6 +25,7 @@ export interface DiscoverSourcesInput {
   classNumber?: number | null;
   gradeCode?: string | null;
   boardCode?: string | null;
+  subjectId?:string | null; chapterLabel?:string | null; topicLabel?:string | null;
   subject?: string | null;
   language?: string | null;
   publisher?: string | null;
@@ -320,6 +322,7 @@ async function createRun(input: DiscoverSourcesInput, provider: DiscoveryProvide
         mediaKinds: input.mediaKinds || [],
         gradeCode: input.gradeCode || (input.classNumber ? `CLASS_${input.classNumber}` : null),
         boardCode: input.boardCode || null,
+        subjectId:input.subjectId || null,chapterLabel:input.chapterLabel || null,topicLabel:input.topicLabel || null,
         publisher: input.publisher?.trim() || null,
         maxDurationMinutes: input.maxDurationMinutes || null,
         onlyCommercialSafe: Boolean(input.onlyCommercialSafe),
@@ -357,7 +360,7 @@ async function persistCandidates(runId: UUID, candidates: NormalizedCandidate[])
     const { rows } = await client.query<CandidateRow>(
       `SELECT * FROM learning_source_discovery_candidates WHERE run_id=$1 ORDER BY reference_only,created_at,id`, [runId],
     );
-    return rows;
+    return rows.map((item) => ({ ...item,delivery_capability: deliveryCapability(item) }));
   });
 }
 
@@ -574,7 +577,7 @@ export async function getDiscoveryRun(runId: UUID) {
   const { rows: [run] } = await query(`SELECT * FROM learning_source_discovery_runs WHERE id=$1`, [runId]);
   if (!run) throw appError('Source discovery run not found',404);
   const { rows: candidates } = await query(`SELECT * FROM learning_source_discovery_candidates WHERE run_id=$1 ORDER BY reference_only,created_at,id`, [runId]);
-  return { ...run,candidates };
+  return { ...run,candidates: candidates.map(item => ({ ...item,delivery_capability: deliveryCapability(item) })) };
 }
 
 export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) {

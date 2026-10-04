@@ -78,6 +78,8 @@ const verifySchema = z.object({
 });
 
 router.patch('/resources/:resourceId/details', validate(stageSchema), ctrl.updateDraft);
+router.post('/acquire', validate(stageSchema.and(z.object({ assetUrl:z.string().url().max(2000),permissionConfirmed:z.literal(true) }))), ctrl.acquire);
+router.post('/curriculum-topics', validate(z.object({ gradeCode:z.string().min(2).max(24),subjectId:z.string().uuid(),name:z.string().trim().min(2).max(300),nameHi:z.string().trim().max(300).optional(),chapterTitle:z.string().trim().max(300).optional(),academicYear:z.string().regex(/^\d{4}-\d{2}$/),evidenceUrl:z.string().url().max(220) })), ctrl.createTopic);
 router.get('/options', ctrl.options);
 router.get('/queue', ctrl.queue);
 router.post('/stage', validate(stageSchema), ctrl.stage);
