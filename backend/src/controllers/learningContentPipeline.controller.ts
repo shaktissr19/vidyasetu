@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { UUID } from '@vidyasetu/contracts';
 import * as pipeline from '../services/learningContentPipeline.service';
+import { acquireContent } from '../services/learningSourceAcquisition.service';
 import * as R from '../utils/response';
 
 export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -60,4 +61,11 @@ export async function materialise(
 export async function updateDraft(req: Request<{ resourceId: UUID },unknown,pipeline.StagePipelineInput>,res: Response,next: NextFunction): Promise<Response | void> {
   try { if (!req.user) return R.unauthorized(res); return R.ok(res,await pipeline.updateDraftDetails(req.params.resourceId,req.body,req.user.userId)); }
   catch (error: unknown) { next(error); }
+}
+
+export async function acquire(req:Request,res:Response,next:NextFunction):Promise<Response|void> {
+  try { if (!req.user) return R.unauthorized(res); return R.created(res,await acquireContent(req.body,req.user.userId)); } catch(error) { next(error); }
+}
+export async function createTopic(req:Request,res:Response,next:NextFunction):Promise<Response|void> {
+  try { if (!req.user) return R.unauthorized(res); return R.created(res,await pipeline.createCurriculumTopic(req.body,req.user.userId)); } catch(error) { next(error); }
 }

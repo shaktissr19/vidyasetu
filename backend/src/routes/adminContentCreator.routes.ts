@@ -83,6 +83,7 @@ const reviewSchema = z.object({
 });
 
 const discoverySchema = z.object({
+  subjectId:z.string().uuid().nullable().optional(),chapterLabel:z.string().trim().max(220).nullable().optional(),topicLabel:z.string().trim().max(220).nullable().optional(),
   gradeCode: z.string().trim().min(2).max(24).nullable().optional(),
   boardCode: z.string().trim().min(2).max(40).nullable().optional(),
   provider: discoveryProviderSchema.optional(),

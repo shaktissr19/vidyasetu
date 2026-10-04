@@ -1,16 +1,16 @@
-# Integrated content workflow — local implementation, 3 October 2026
+# Integrated content workflow — 4 October 2026
 
 ## Release status
 
-This update is prepared locally against production baseline `2a947be5d2cad0dad7653370ea14fae9a60c41cb`. GitHub merge and deployment status are tracked in [PR #100](https://github.com/shaktissr19/vidyasetu/pull/100). Production deployment and migration execution require separate verification. Migration 052 is required. No learner accounts, provider downloads, uploads or publications were created externally.
+PR #100 is merged. This completion update builds on main commit `1e379faaa9663405a5f91338a8d08d0f47b6d630`. Migration 052 remains required; this update adds no migration. Exact production revision, media storage and authenticated journeys require separate verification. No learner accounts, actual provider downloads, uploads or publications were created externally.
 
 The update connects existing tools rather than introducing another content system. It makes an individual resource usable throughout discovery, rights review, Library review and learner delivery. It does **not** supply a complete Nursery–12 curriculum or certify a provider's resources as reusable.
 
 ## Administrator workflow
 
 1. Open **Content Factory**, select grade, board, subject/topic and search. LOCAL searches existing published Library resources; DIKSHA has structured discovery. Other existing providers offer reference discovery rather than a guaranteed playable-media import. Finding a web page is not obtaining its media or permission.
-2. Stage a candidate and choose **Complete delivery & add to Library**. Existing Source Review bookmarks now open the Pipeline. A manually entered resource or original content can start directly in the Pipeline.
-3. Configure the exact resource, curriculum metadata and delivery mode. Choose an approved official player, upload an owned/licensed asset through the existing upload flow, or write original bilingual article content. Discovery alone does not download provider files.
+2. Stage a candidate and choose **Complete delivery & add to Library**. The shared workspace navigation is **Find content → Prepare & rights → Review & publish**; there is one Prepare queue rather than duplicate Pipeline/Source Review menus. Existing Source Review bookmarks now open the Pipeline. A manually entered resource or original content can start directly in the Pipeline.
+3. Configure the exact resource, curriculum metadata and delivery mode. Choose an approved official player, upload an owned/licensed asset through the existing upload flow, or write original bilingual article content. Discovery alone does not download provider files. For a permitted direct media file, choose licensed hosted delivery, confirm asset-level copying permission, enter the media URL and licence evidence, and select **Import licensed file & stage**.
 4. For external content, record the actual item-level rights evidence, licence and attribution. Verify rights, then approve intake. Editing staged delivery details invalidates prior verification. Original content must use the original source and licence.
 5. **Materialise** creates one canonical Library **DRAFT**. Repeating the operation returns the existing resource. It never publishes automatically. Legacy Factory import routes use the same implementation.
 6. In **Library**, preview the learner presentation, complete metadata, pass the existing academic, language, accessibility, safety, copyright and technical quality gates, then approve and publish.
@@ -85,7 +85,34 @@ Snapshots are stored in `learning_resource_revisions`; there is no new revision-
 3. Validate storage ownership/MIME beyond browser declarations, scan files, confirm signed URL expiry and review child privacy/provider designations. No claim of production safety should rely solely on local tests.
 4. Pilot one board, two grades and selected subjects. Populate each topic with reviewed Easy/Moderate/Advanced videos plus supporting original/permissioned text, PDF and questions. Use the existing Coverage module to track actual published coverage; grade selection alone is not coverage.
 5. Obtain commercial hosting rights for subscriber video or commission originals. Implement permitted provider API discovery/download adapters only after verifying terms, API credentials, rate limits and item-level provenance. A YouTube native search connector is not included in this update.
-6. Add asynchronous acquisition/import jobs, retries and per-item status to the existing Pipeline; never a second disconnected Library. Prioritise malware scanning, caption tracks, document conversion and media processing before bulk ingestion.
+6. Extend bounded synchronous acquisition into asynchronous jobs, retries and per-item status in the existing Pipeline; never a second disconnected Library. Remote acquisition now requires malware scanning; caption tracks, document conversion, upload scanning and media processing remain prerequisites for unattended bulk ingestion.
 7. Expand curriculum coverage, languages and source partnerships after the pilot. Version-history UI, thumbnail generation, bulk imports, learner difficulty filters and cross-provider duplicate detection remain subsequent backlog items.
 
 The correct approach remains one governed Library with multiple acquisition methods. Filling it requires a separate, ongoing editorial and licensing programme; software integration cannot replace that work.
+
+
+## Completion update: acquisition and curriculum gaps
+
+- Search results have delivery capability labels: already in Library, approved official player, direct-media import candidate, or reference needing configuration. This is a technical capability label, never a licence approval. Official embeds can be previewed without opening a provider page.
+- Subject ID, chapter, topic, language, duration, thumbnail and direct asset URL follow a staged discovery candidate into Prepare. Source links remain available for the administrator to inspect rights evidence.
+- New acquisition accepts only an exact configured HTTPS hostname, without credentials, ports or query tokens. It rejects redirects, private/reserved DNS answers, IPv6, unsupported file signatures and protected/HTML pages. DNS is pinned for the download; proxies are disabled. Default limit: 50 MB, configurable up to 150 MB.
+- MP4/WebM video, supported audio, images and PDF may be imported when their actual licence permits distribution. DOCX/TXT use reviewed upload and download delivery; they are not converted into an in-page viewer by this update. ZIP/course packages and protected streams are not acquired.
+- ClamAV must pass before the private S3 object is written. Checksum, exact acquisition URL, actor, timestamp and permission confirmation persist atomically with staging. A repeated hosted import cannot replace existing staged bytes; failure removes its newly uploaded object. Acquisition never verifies rights, approves or publishes automatically.
+- Administrators can add and map a missing curriculum topic with grade, canonical subject, academic year and exact syllabus evidence. It remains `DRAFT_FOR_ACADEMIC_REVIEW`, with an audit entry; a content academic review is still required before publication. This does not fill or certify an entire syllabus.
+- Article fields appear only for articles. The Prepare form shows outstanding publication metadata. Library badges explicitly count pending items, rather than implying total inventory.
+
+## Deployment and closure evidence
+
+Use the existing native release script from the clean current main checkout (`bash scripts/deploy-main-native.sh`) or the existing Docker release script for a Docker installation. Do not switch installation methods. Native deployment was the previously used workflow.
+
+Operations must additionally verify:
+
+1. `clamscan --version`, current antivirus signatures and scanner execution by the backend service account. Install/maintain ClamAV using the server's supported package and signature-update service. There is no scanning bypass; unavailable scanning blocks remote acquisition.
+2. `LEARNING_IMPORT_ALLOWED_HOSTS` contains only individually reviewed exact media hosts. The default is `obj.diksha.gov.in`; many provider assets use other hosts and will be blocked until separately reviewed. Host approval does not confer content rights.
+3. The existing S3 bucket remains private and the backend can write/delete objects and issue preview/download URLs. Public bucket access is not needed.
+4. Reverse-proxy/request timeouts support the download and scan operation. This synchronous pilot path is intended for bounded individual files; durable jobs and transcoding are not implemented.
+5. A Super Admin can search, prepare an explicitly permitted test asset, preview the Library draft, complete reviews and publish. With user authorization, verify a public visitor and student can play it, and a student without an active entitlement cannot access a subscriber item. Repeat at mobile widths. **Not verified on production.**
+
+Local regression evidence: 15 real-database integration tests, with external network/storage/scanner IO mocked, cover source discovery, original content, format/licence enforcement, acquisition/scan failure, duplicate cleanup, curriculum topic creation, corrections, review/publication and active/revoked subscriber entitlements. Production media acquisition and actual provider playback are not established by these tests.
+
+The remaining programme is editorial and operational as well as software: licensed content inventory for every class/subject, permitted connectors for reference-only providers, caption/transcript quality, upload scanning, document conversion, durable bulk import, per-topic mixed-media learner collections and additional language support. Do not mark the full Nursery–12 catalogue or production launch complete based on this release.

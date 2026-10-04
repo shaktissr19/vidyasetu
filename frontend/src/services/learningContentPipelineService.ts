@@ -34,7 +34,7 @@ export interface PipelineQueueItem {
   licence_url?: string | null; attribution_text?: string | null; rights_evidence_url?: string | null;
   grade_code?: string | null; status: string; created_at: string; reviewed_at?: string | null;
   imported_resource_id?: string | null; source_code: string; source_name: string; asset_id?: string | null;
-  metadata?: Partial<StagePipelinePayload>; embed_url?: string | null; discovered_media_kind?: string | null; discovered_embed_url?: string | null; discovered_thumbnail_url?: string | null; class_hint?: string | null; board_hint?: string | null; subject_hint?: string | null;
+  metadata?: Partial<StagePipelinePayload>; embed_url?: string | null; discovered_media_kind?: string | null; discovered_embed_url?: string | null; discovered_asset_url?: string | null; discovery_context?:Partial<StagePipelinePayload>; discovered_language?:string | null; discovered_duration?:number | null; discovered_thumbnail_url?: string | null; class_hint?: string | null; board_hint?: string | null; subject_hint?: string | null;
   storage_key?: string | null; mime_type?: string | null; byte_size?: number | null;
   processing_status?: string | null; asset_verified_at?: string | null; resource_id?: string | null;
 }
@@ -84,3 +84,6 @@ export async function uploadLearningPipelineFile(file: File): Promise<LearningMe
 }
 
 export const updateLearningPipelineDraft = (resourceId: string,payload: StagePipelinePayload) => api.patch<ApiEnvelope<{ resourceId: string; message: string }>>(`${base}/resources/${resourceId}/details`,payload);
+
+export const acquireLearningContent = (payload:StagePipelinePayload & {assetUrl:string;permissionConfirmed:true}) => api.post<ApiEnvelope<{intakeId:string;assetId:string}>>(`${base}/acquire`,payload,{timeout:120000});
+export const createLearningCurriculumTopic = (payload:{gradeCode:string;subjectId:string;name:string;nameHi?:string;chapterTitle?:string;academicYear:string;evidenceUrl:string}) => api.post<ApiEnvelope<{id:string;name:string}>>(`${base}/curriculum-topics`,payload);

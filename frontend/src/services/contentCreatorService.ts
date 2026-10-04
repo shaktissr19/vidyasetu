@@ -255,7 +255,7 @@ export interface CreatorLearningSubmissionResult {
 }
 
 export interface CreatorDiscoveryInput {
-  gradeCode?: string | null; boardCode?: string | null;
+  gradeCode?: string | null; subjectId?:string | null; chapterLabel?:string | null; topicLabel?:string | null; boardCode?: string | null;
   provider?: CreatorDiscoveryProvider;
   providers?: CreatorDiscoveryProvider[];
   query: string;
@@ -270,6 +270,7 @@ export interface CreatorDiscoveryInput {
 }
 
 export interface CreatorDiscoveryCandidate {
+  delivery_capability?: {code: 'LIBRARY' | 'EMBED' | 'IMPORT' | 'REFERENCE';label:string};
   id: string;
   run_id: string;
   provider: CreatorDiscoveryProvider;

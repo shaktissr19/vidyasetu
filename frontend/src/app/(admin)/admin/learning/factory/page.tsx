@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import LearningAsset from '@/components/learning/LearningAsset';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -109,7 +110,7 @@ export default function ContentFactoryPage() {
     mutationFn: () => discoverContentCreatorSources({
       providers,
       query: searchText,
-      gradeCode,boardCode,
+      gradeCode,boardCode,subjectId:subjectId || null,chapterLabel:chapterText || null,topicLabel:topicText || null,
       classNumber: gradeCode.startsWith('CLASS_') ? classNumber : null,
       subject: subject || null,
       language: language === 'Bilingual' ? null : language,
@@ -293,7 +294,7 @@ export default function ContentFactoryPage() {
         </div>
 
         <div className={readiness?.curriculumReady ? 'admin-success-note' : 'admin-note'} style={{ marginTop: 14,padding: 12 }}>
-          <strong>Curriculum mapping:</strong> Class {classNumber} currently has {readiness?.conceptCount || 0} canonical concept(s). {!readiness?.curriculumReady ? 'No problem: Chapter and Topic remain editable, so you can search and classify content now. Canonical curriculum mapping can be completed separately.' : 'Mapped suggestions are shown as you type; manual chapter/topic text is still allowed.'}
+          <strong>Curriculum mapping:</strong> Class {classNumber} currently has {readiness?.conceptCount || 0} canonical concept(s). {!readiness?.curriculumReady ? 'Search is available. Academic publication needs a mapped curriculum topic. Add a topic with syllabus evidence in Prepare & rights before sending the draft for review.' : 'Mapped suggestions are shown as you type; manual chapter/topic text is still allowed.'}
         </div>
       </section>
 
@@ -349,6 +350,8 @@ export default function ContentFactoryPage() {
                 <strong>{mediaIcon[candidate.media_kind || 'LINK']} {candidate.title}</strong>
                 <span style={{ color: candidate.reference_only ? '#B45309' : '#15803D',fontWeight: 800,fontSize: 11 }}>{candidate.reference_only ? 'OFFICIAL REFERENCE' : 'ITEM RESULT'}</span>
               </div>
+              <p className="admin-chip">{candidate.delivery_capability?.label || (candidate.reference_only ? 'Reference search only' : 'Delivery requires configuration')}</p>
+              {candidate.delivery_capability?.code === 'EMBED' && <LearningAsset title={candidate.title} kind="VIDEO" embedUrl={candidate.embed_url} />}
               <p className="admin-muted" style={{ minHeight: 38 }}>{candidate.description || candidate.primary_category || candidate.provider}</p>
               <div style={{ fontSize: 13,lineHeight: 1.65 }}>
                 <strong>{candidate.provider}</strong>{candidate.publisher_text ? ` · ${candidate.publisher_text}` : ''}{candidate.duration_seconds ? ` · ${durationText(candidate.duration_seconds)}` : ''}<br />
@@ -356,10 +359,11 @@ export default function ContentFactoryPage() {
                 Licence metadata: {candidate.licence_candidate || 'review required'} · Adaptation: {candidate.can_adapt ? 'possible after verification' : 'not assumed'}
               </div>
               <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginTop: 12 }}>
-                {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={secondary}>Preview / open source ↗</a>}
+                {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={secondary}>Inspect source / rights ↗</a>}
                 {!candidate.reference_only && !stage && <button type="button" style={button} disabled={stageCandidateMutation.isPending} onClick={() => stageCandidateMutation.mutate(candidate)}>{candidate.resource_id ? 'Select governed source' : `Select this ${candidate.media_kind === 'VIDEO' ? 'video' : 'item'}`}</button>}
                 {stage?.kind === 'OER_INTAKE' && stage.intakeId && <Link href={`/admin/learning/pipeline?intake=${stage.intakeId}`} style={button}>Complete delivery &amp; add to Library</Link>}
-                {stage?.kind === 'GOVERNED_RESOURCE' && <span className="admin-success-note" style={{ padding: '9px 12px',borderRadius: 9 }}>✓ Governed source selected</span>}
+                {stage?.kind === 'GOVERNED_RESOURCE' && <Link href="/admin/learning" style={secondary}>Open Library</Link>}
+                {stage?.kind === 'GOVERNED_RESOURCE' && <span className="admin-success-note" style={{ padding: '9px 12px',borderRadius: 9 }}>✓ Already in Library</span>}
                 {candidate.reference_only && <span className="admin-note" style={{ padding: '9px 12px',borderRadius: 9,fontSize: 12 }}>Open the official library, choose the exact item, then use the web-address section below.</span>}
               </div>
             </article>;

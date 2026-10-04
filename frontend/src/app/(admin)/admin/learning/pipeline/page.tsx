@@ -13,6 +13,8 @@ import {
   getLearningPipelineOptions,
   getLearningPipelineQueue,
   materialiseLearningPipelineIntake,
+  acquireLearningContent,
+  createLearningCurriculumTopic,
   stageLearningPipelineContent,
   uploadLearningPipelineFile,
   updateLearningPipelineDraft,
@@ -58,6 +60,10 @@ export default function LearningContentPipelinePage() {
   const [resourceLoaded, setResourceLoaded] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [queueSearch, setQueueSearch] = useState('');
+  const [assetUrl,setAssetUrl] = useState('');
+  const [permissionConfirmed,setPermissionConfirmed] = useState(false);
+  const [syllabusUrl,setSyllabusUrl] = useState('');
+  const [academicYear,setAcademicYear] = useState('2026-27');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [openedFromSearch, setOpenedFromSearch] = useState(false);
   const [rightsDrafts, setRightsDrafts] = useState<Record<string, { licenceCandidate: PipelineLicence; attributionText: string; licenceUrl: string; rightsEvidenceUrl: string; reviewerNote: string }>>({});
@@ -144,9 +150,13 @@ export default function LearningContentPipelinePage() {
         thumbnailUrl: form.thumbnailUrl?.trim() || null,
         durationSecs: form.durationSecs || null,
       };
+      if (!editingResourceId && !form.file && assetUrl.trim() && form.deliveryMode === 'LICENSED_REHOST') {
+        if (!permissionConfirmed) throw new Error('Review the asset permission and confirm copying/distribution rights');
+        return acquireLearningContent({...payload,assetUrl:assetUrl.trim(),permissionConfirmed:true});
+      }
       return editingResourceId ? updateLearningPipelineDraft(editingResourceId,payload) : stageLearningPipelineContent(payload);
     },
-    onSuccess: async () => { if (editingResourceId) { toast.success('Draft corrected; repeat Library quality review.'); await resourceQuery.refetch(); return; } toast.success('Staged. Verify rights before approval.'); setEditingId(''); setForm((current) => ({ ...INITIAL_FORM, gradeCodes: current.gradeCodes, boardCodes: current.boardCodes })); await refresh(); },
+    onSuccess: async () => { if (editingResourceId) { toast.success('Draft corrected; repeat Library quality review.'); await resourceQuery.refetch(); return; } toast.success('Staged. Verify rights before approval.'); setEditingId(''); setAssetUrl(''); setPermissionConfirmed(false); setForm((current) => ({ ...INITIAL_FORM, gradeCodes: current.gradeCodes, boardCodes: current.boardCodes })); await refresh(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not stage content')),
   });
 
@@ -187,12 +197,13 @@ export default function LearningContentPipelinePage() {
     const inferredGrade = item.grade_code || (options?.grades.some((grade) => grade.code === item.class_hint) ? item.class_hint : '') || (/Class\s*(\d+)/i.exec(item.class_hint || '')?.[1] ? `CLASS_${/Class\s*(\d+)/i.exec(item.class_hint || '')![1]}` : '');
     const discoveredKind = item.discovered_media_kind;
     const mediaKind = (item.asset_id ? item.media_kind : discoveredKind && !['LINK','COURSE','ARTICLE'].includes(discoveredKind) ? discoveredKind : 'EXTERNAL_LINK') as PipelineMediaKind;
-    setEditingId(item.id);
+    setEditingId(item.id); setAssetUrl(item.discovered_asset_url || ''); setPermissionConfirmed(false);
     setForm({ ...INITIAL_FORM, ...metadata, file: null, title: item.title, sourceCode: item.source_code,
       sourceUrl: item.source_url, sourceItemId: item.source_item_id, mediaKind,
-      deliveryMode: item.delivery_mode, embedUrl: item.embed_url || '', storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
+      deliveryMode: item.delivery_mode, embedUrl: item.embed_url || (item.discovered_embed_url && /^https:\/\/(www\.youtube(?:-nocookie)?\.com\/embed\/|player\.vimeo\.com\/video\/|phet\.colorado\.edu\/sims\/)/.test(item.discovered_embed_url) ? item.discovered_embed_url : ''), storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
       licenceCandidate: item.licence_candidate || 'OTHER', attributionText: item.attribution_text || '', licenceUrl: item.licence_url || '', rightsEvidenceUrl: item.rights_evidence_url || '',
       gradeCodes: metadata.gradeCodes || (inferredGrade ? [inferredGrade] : []), boardCodes: metadata.boardCodes || [item.board_hint || 'COMMON'],
+      subjectId:metadata.subjectId || item.discovery_context?.subjectId || null,chapterLabel:metadata.chapterLabel || item.discovery_context?.chapterLabel || '',topicLabel:metadata.topicLabel || item.discovery_context?.topicLabel || '',language:metadata.language || item.discovered_language || 'en',durationSecs:metadata.durationSecs || item.discovered_duration || null,
       subjectLabel: metadata.subjectLabel || item.subject_hint || '', thumbnailUrl: metadata.thumbnailUrl || item.discovered_thumbnail_url || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -203,6 +214,15 @@ export default function LearningContentPipelinePage() {
     const item = queue.find((entry) => entry.id === intakeId);
     if (item && item.status !== 'IMPORTED') { configure(item); setOpenedFromSearch(true); }
   }, [queue, openedFromSearch]);
+  const topicMutation = useMutation({
+    mutationFn: () => {
+      if (!form.gradeCodes.length || !form.subjectId || !form.topicLabel?.trim()) throw new Error('Select a grade, subject and topic name first');
+      return createLearningCurriculumTopic({gradeCode:form.gradeCodes[0],subjectId:form.subjectId,name:form.topicLabel.trim(),chapterTitle:form.chapterLabel || '',academicYear,evidenceUrl:syllabusUrl});
+    },
+    onSuccess: async response => { await optionsQuery.refetch(); update('conceptIds',[...(form.conceptIds || []),response.data.data.id]); toast.success('Curriculum topic saved and mapped. Academic review is still required.'); },
+    onError: error => toast.error(apiErrorText(error,'Could not add curriculum topic')),
+  });
+  const publicationBlockers = [!form.titleHi?.trim() && 'Hindi title',!form.summary?.trim() && 'English summary',!form.summaryHi?.trim() && 'Hindi summary',!form.gradeCodes.length && 'Grade',!form.boardCodes.length && 'Board',form.category === 'ACADEMIC' && !form.subjectId && 'Subject',form.category === 'ACADEMIC' && !form.topicLabel?.trim() && 'Topic',form.category === 'ACADEMIC' && !form.difficulty && 'Difficulty',form.category === 'ACADEMIC' && !form.conceptIds?.length && 'Curriculum mapping',form.mediaKind === 'ARTICLE' && !form.bodyMarkdown?.trim() && 'English article',form.mediaKind === 'ARTICLE' && !form.bodyMarkdownHi?.trim() && 'Hindi article'].filter(Boolean);
   const filteredQueue = queue.filter((item) => `${item.title} ${item.source_name} ${item.status}`.toLowerCase().includes(queueSearch.toLowerCase()));
 
   return (
@@ -216,6 +236,7 @@ export default function LearningContentPipelinePage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Link href="/admin/learning/factory" style={secondary}>Source search</Link><Link href="/admin/learning/practice" style={secondary}>Q&amp;A / practice tests</Link><Link href="/admin/learning/creator" style={secondary}>AI lesson &amp; question drafts</Link><Link href="/admin/learning" style={secondary}>Content Library</Link></div>
       </div>
 
+      <div className="admin-panel-muted" style={{padding:12,marginBottom:12}}><strong>Publication checklist:</strong> {publicationBlockers.length ? `Complete ${publicationBlockers.join(', ')}. You can save a draft first.` : 'Metadata complete. Library academic, language, safety, accessibility and rights reviews still apply.'}</div>
       <div className="admin-warning-note" style={{ padding: 13, marginBottom: 16 }}><strong>Rights boundary:</strong> this module never downloads or bypasses a source login. External items remain link/embed-first until an administrator verifies item-level licence, attribution and evidence. Only explicitly uploaded/owned or licensed assets may be rehosted.</div>
       {editingResourceId && <p className="admin-warning-note">Draft corrections create a revision and reset quality reviews. Archive published content, then restore it to Draft in Library before editing. Source and media delivery cannot be changed here.</p>}
       {resourceQuery.isError && <p role="alert">Could not load the draft.</p>}
@@ -249,15 +270,17 @@ export default function LearningContentPipelinePage() {
         {form.category === 'ACADEMIC' && <div style={{ marginTop: 12 }}>
           <label className="admin-label">Curriculum concepts (required before publication)<select className="admin-select" multiple size={4} value={form.conceptIds || []} onChange={(event) => update('conceptIds', Array.from(event.target.selectedOptions).map((item) => item.value))}>{options?.concepts.filter((item) => form.gradeCodes.includes(item.grade_code) && (!form.subjectId || item.subject_id === form.subjectId)).map((item) => <option key={item.id} value={item.id}>{item.grade_code} · {item.chapter_title} · {item.name}</option>)}</select></label>
           <label className="admin-label">Learning journey stage<select className="admin-select" value={form.journeyStage || 'UNDERSTAND'} onChange={(event) => update('journeyStage', event.target.value as FormState['journeyStage'])}>{['SEE','UNDERSTAND','DO','PRACTISE','APPLY','REVISE'].map((stage) => <option key={stage}>{stage}</option>)}</select></label>
-          {!options?.concepts.some((item) => form.gradeCodes.includes(item.grade_code) && (!form.subjectId || item.subject_id === form.subjectId)) && <p className="admin-warning-note">No matching curriculum concepts exist yet. You can save a draft; add the curriculum mapping before academic approval.</p>}
+          {!options?.concepts.some((item) => form.gradeCodes.includes(item.grade_code) && (!form.subjectId || item.subject_id === form.subjectId)) && <p className="admin-warning-note">No matching curriculum topics exist. Select a grade and subject, enter the topic above, then add it with syllabus evidence below.</p>}
         </div>}
+        {form.category === 'ACADEMIC' && <details style={{marginTop:12}}><summary>Add curriculum topic from a reviewed syllabus</summary><p className="admin-muted">Uses the first selected grade, selected subject, chapter and topic. This creates a curriculum draft, not a certified syllabus or published lesson.</p><label className="admin-label">Academic year<input className="admin-input" value={academicYear} onChange={e=>setAcademicYear(e.target.value)} /></label><label className="admin-label">Exact syllabus / curriculum evidence URL<input className="admin-input" type="url" value={syllabusUrl} onChange={e=>setSyllabusUrl(e.target.value)} /></label><button type="button" style={secondary} disabled={topicMutation.isPending || !form.subjectId || !form.gradeCodes.length || !form.topicLabel || !syllabusUrl} onClick={()=>topicMutation.mutate()}>Add and map curriculum topic</button></details>}
         {!editingResourceId && form.deliveryMode !== 'VIDYASETU_ORIGINAL' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12, marginTop: 12 }}>
           <label className="admin-label">Original source URL<input className="admin-input" value={fieldValue(form.sourceUrl)} onChange={(event) => update('sourceUrl', event.target.value)} placeholder="https://diksha.gov.in/..." /></label>
           <label className="admin-label">Official embed URL {form.deliveryMode === 'OFFICIAL_EMBED' && <span className="admin-muted">(provider-approved)</span>}<input className="admin-input" value={fieldValue(form.embedUrl)} onChange={(event) => update('embedUrl', event.target.value)} placeholder="https://.../embed/..." /></label>
         </div>}
 
+        {binaryNeedsFile && form.deliveryMode === 'LICENSED_REHOST' && <div className="admin-panel-muted" style={{padding:14,marginTop:12}}><strong>Import a permitted media file into VidyaSetu</strong><p>Enter the actual MP4/audio/image/PDF URL on an approved provider host, or upload a licensed file below. A provider lesson page or protected stream cannot be imported. Imports are bounded in size and time; large files use the upload path.</p><label className="admin-label">Direct media file URL<input className="admin-input" type="url" value={assetUrl} onChange={e=>{setAssetUrl(e.target.value);setPermissionConfirmed(false);}} /></label><label><input type="checkbox" checked={permissionConfirmed} onChange={e=>setPermissionConfirmed(e.target.checked)} /> I reviewed the specific asset's licence and permission to copy/distribute it, and recorded attribution and evidence below.</label></div>}
         {binaryNeedsFile && <label className="admin-label" style={{ marginTop: 12 }}>Upload an original or explicitly licensed file<input className="admin-input" type="file" accept=".mp4,.webm,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.webp,.pdf,.docx,.txt" onChange={(event) => update('file', event.target.files?.[0] || null)} />{form.file && <span className="admin-muted">{form.file.name} · {(form.file.size / (1024 * 1024)).toFixed(1)} MB</span>}</label>}
-        {(form.mediaKind === 'ARTICLE' || form.deliveryMode === 'VIDYASETU_ORIGINAL') && <>
+        {form.mediaKind === 'ARTICLE' && <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 12, marginTop: 12 }}>
             <label className="admin-label">English text / Markdown<textarea className="admin-textarea" style={{ minHeight: 160 }} value={fieldValue(form.bodyMarkdown)} onChange={(event) => update('bodyMarkdown', event.target.value)} placeholder={'# Lesson heading\n\nWrite a paragraph, then use - for a list item.'} /></label>
             <label className="admin-label">Hindi text / Markdown<textarea className="admin-textarea" style={{ minHeight: 160 }} value={fieldValue(form.bodyMarkdownHi)} onChange={(event) => update('bodyMarkdownHi', event.target.value)} placeholder={'# पाठ का शीर्षक\n\nअनुच्छेद लिखें और सूची के लिए - का उपयोग करें।'} /></label>
@@ -287,7 +310,7 @@ export default function LearningContentPipelinePage() {
           <label className="admin-label">Access requirement<select className="admin-select" value={form.accessRequirement} onChange={(event) => updateAccess(event.target.value as PipelineAccess)}><option value="PUBLIC">Public/free</option><option value="REGISTERED">Login required</option><option value="SUBSCRIBER">Subscriber</option></select></label>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12, marginTop: 12 }}><label className="admin-label">Licence URL<input className="admin-input" value={fieldValue(form.licenceUrl)} onChange={(event) => update('licenceUrl', event.target.value)} placeholder="https://creativecommons.org/..." /></label><label className="admin-label">Attribution text<input className="admin-input" value={fieldValue(form.attributionText)} onChange={(event) => update('attributionText', event.target.value)} placeholder="Creator, publisher and licence credit" /></label><label className="admin-label">Rights evidence URL<input className="admin-input" value={fieldValue(form.rightsEvidenceUrl)} onChange={(event) => update('rightsEvidenceUrl', event.target.value)} placeholder="Exact item/licence evidence" /></label></div>
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><button type="button" style={primary} disabled={stageMutation.isPending || !form.title.trim()} onClick={() => stageMutation.mutate()}>{stageMutation.isPending ? 'Uploading & staging…' : editingResourceId ? 'Save draft correction' : editingId ? 'Save details for review' : 'Stage content for review'}</button><span className="admin-muted">Staging does not publish. The next section records rights verification and approval.</span></div>
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><button type="button" style={primary} disabled={stageMutation.isPending || !form.title.trim()} onClick={() => stageMutation.mutate()}>{stageMutation.isPending ? 'Acquiring & staging…' : editingResourceId ? 'Save draft correction' : assetUrl && form.deliveryMode === 'LICENSED_REHOST' && !form.file ? 'Import licensed file & stage' : editingId ? 'Save details for review' : 'Stage content for review'}</button><span className="admin-muted">Staging does not publish. The next section records rights verification and approval.</span></div>
       </section>
 
       <section className="admin-panel" style={{ ...panel }}>
@@ -298,7 +321,7 @@ export default function LearningContentPipelinePage() {
             const rights = rightsFor(item);
             return <article key={item.id} className="admin-panel-muted" style={{ padding: 16, borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><strong>{item.title}</strong><div className="admin-muted" style={{ marginTop: 4 }}>{item.source_name} · {MEDIA_LABELS[item.media_kind]} · {label(item.category)} · {label(item.delivery_mode)} · {label(item.status)}</div></div><span className="admin-chip">Rights: {label(item.rights_status)}</span></div>
-              <div style={{ marginTop: 8, fontSize: 12, color: '#475467' }}>{item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer">Open original source ↗</a>}{item.storage_key ? ` · Hosted file ${item.processing_status || 'registered'}` : ''}{item.imported_resource_id ? ` · Resource ${item.imported_resource_id}` : ''}</div>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#475467' }}>{item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer">Inspect original source / rights ↗</a>}{item.storage_key ? ` · In-platform media ${item.processing_status || 'registered'}` : ''}{item.imported_resource_id && <Link href="/admin/learning"> · Open Library to preview &amp; publish</Link>}</div>
               {item.status !== 'IMPORTED' && <>
                 <button type="button" style={secondary} onClick={() => configure(item)}>{item.asset_id ? 'Edit details / delivery' : 'Complete details / choose delivery'}</button>
                 {!item.asset_id && <p className="admin-warning-note">This search result needs grade, board and delivery details before rights review.</p>}

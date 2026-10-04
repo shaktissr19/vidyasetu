@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { PGlite } = require('@electric-sql/pglite');
 const root = path.resolve(__dirname, '../..');
-let db, pipeline, factory, quality, admin, discovery, learner, publicLearning;
+let db, pipeline, factory, quality, admin, discovery, learner, publicLearning, acquisition;
+let scanCode=0, downloads=0, stored=[], deleted=[], responseBytes=Buffer.from("%PDF-1.7\nfixture"), responseMime="application/pdf";
 const adminId = '00000000-0000-0000-0000-000000000001';
 const migrations = [
  '014_student_identity_enrollment.sql','020_learning_platform_foundation.sql','021_learning_original_academic_starter.sql',
@@ -36,7 +37,12 @@ before(async () => {
    query,transaction: (fn) => db.transaction((tx) => fn({ query: (sql,params=[]) => tx.query(sql,params) })),
  }};
  const s3Module = require.resolve('../dist/config/s3');
- require.cache[s3Module] = {id:s3Module,filename:s3Module,loaded:true,exports:{getDownloadUrl: async (key) => `https://signed.invalid/${key}`}};
+ require.cache[s3Module] = {id:s3Module,filename:s3Module,loaded:true,exports:{getDownloadUrl: async (key) => `https://signed.invalid/${key}`,BUCKET:'test-private',s3:{putObject:params=>({promise:async()=>{stored.push(params);}})},deleteObject:async key=>{deleted.push(key);}}};
+ // Mock only external IO: all pipeline SQL and authorization use the disposable database.
+ require('axios').default.get=async (_url,options)=>{downloads++;assert.equal(options.maxRedirects,0);assert.equal(options.proxy,false);assert.equal(options.timeout,60000);return {data:responseBytes,headers:{'content-type':responseMime}};};
+ require('dns/promises').lookup=async()=>[{address:'8.8.8.8',family:4}];
+ require('child_process').spawn=()=>{const child=new(require('events').EventEmitter)();child.stdin=new(require('events').EventEmitter)();child.stdin.end=()=>setImmediate(()=>child.emit('close',scanCode));child.kill=()=>{};return child;};
+ acquisition=require('../dist/services/learningSourceAcquisition.service');
  pipeline = require('../dist/services/learningContentPipeline.service');
  factory = require('../dist/services/adminContentFactory.service');
  quality = require('../dist/services/learningQuality.service');
@@ -151,6 +157,56 @@ test('configuration binds an existing intake even when its URL is not normalised
  const row=(await db.query("INSERT INTO learning_source_intake(source_id,title,source_url,created_by) VALUES($1,'CBSE reference','https://cbseacademic.nic.in',$2) RETURNING id",[source.id,adminId])).rows[0];
  const staged=await pipeline.stageContent({...base,intakeId:row.id,sourceCode:'CBSE_ACADEMIC',sourceUrl:'https://cbseacademic.nic.in',deliveryMode:'EXTERNAL_LINK',mediaKind:'EXTERNAL_LINK',licenceCandidate:'EXTERNAL_LINK_ONLY'},adminId);
  assert.equal(staged.intakeId,row.id);
+});
+test('acquisition rejects unsafe URLs, addresses, disguises and unsupported deliveries',async()=>{
+ for(const url of ['http://obj.diksha.gov.in/a','https://obj.diksha.gov.in.evil.test/a','https://user:pass@obj.diksha.gov.in/a','https://127.0.0.1/a','https://obj.diksha.gov.in/a?token=secret']) assert.throws(()=>acquisition.approvedAssetUrl(url));
+ for(const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.0.1','::1','::ffff:127.0.0.1','100.64.0.1']) assert.equal(acquisition.publicAddress(ip),false);
+ assert.equal(acquisition.publicAddress('8.8.8.8'),true);
+ assert.throws(()=>acquisition.inspectImportedBytes(Buffer.from('<html>login</html>'),'PDF','application/pdf'),/bytes do not match/);
+ assert.equal(acquisition.deliveryCapability({embed_url:'https://obj.diksha.gov.in/video.mp4'}).code,'REFERENCE');
+ assert.equal(acquisition.deliveryCapability({embed_url:'https://www.youtube.com/embed/abc123'}).code,'EMBED');
+ assert.equal(acquisition.deliveryCapability({metadata:{artifactUrl:'https://obj.diksha.gov.in/file.pdf'}}).code,'IMPORT');
+ assert.equal(acquisition.deliveryCapability({resource_id:'existing'}).code,'LIBRARY');
+});
+test('licensed acquisition scans, persists evidence atomically, blocks replacement and stays a draft',async()=>{
+ const payload={...base,sourceCode:'DIKSHA',sourceUrl:'https://diksha.gov.in/acquisition-fixture',mediaKind:'PDF',deliveryMode:'LICENSED_REHOST',licenceCandidate:'CC_BY',licenceUrl:'https://creativecommons.org/licenses/by/4.0/',rightsEvidenceUrl:'https://diksha.gov.in/acquisition-fixture',attributionText:'Fixture author · CC BY 4.0',assetUrl:'https://obj.diksha.gov.in/fixture.pdf',permissionConfirmed:true};
+ const start=downloads;
+ await assert.rejects(acquisition.acquireContent({...payload,permissionConfirmed:false},adminId),/Confirm/);
+ await assert.rejects(acquisition.acquireContent({...payload,licenceCandidate:'CC_BY_NC',accessRequirement:'SUBSCRIBER'},adminId),/commercial|subscriber/i);
+ assert.equal(downloads,start);
+ const before=stored.length;
+ scanCode=1;await assert.rejects(acquisition.acquireContent(payload,adminId),/scan failed/);assert.equal(stored.length,before);scanCode=0;
+ responseBytes=Buffer.from('<html>login</html>');await assert.rejects(acquisition.acquireContent(payload,adminId),/bytes do not match/);assert.equal(stored.length,before);responseBytes=Buffer.from('%PDF-1.7\nfixture');
+ const staged=await acquisition.acquireContent(payload,adminId);
+ const asset=(await db.query('SELECT * FROM learning_content_assets WHERE id=$1',[staged.assetId])).rows[0];
+ assert.equal(asset.processing_status,'READY');assert.notEqual(asset.rights_status,'VERIFIED');assert.equal(asset.metadata.acquisition.url,payload.assetUrl);assert.equal(asset.metadata.acquisition.permissionConfirmed,true);assert.equal(asset.checksum_sha256.length,64);
+ const cleanupBefore=deleted.length;
+ await assert.rejects(acquisition.acquireContent({...payload,intakeId:staged.intakeId},adminId),/already has a hosted asset/);assert.equal(deleted.length,cleanupBefore+1);
+ assert.equal((await db.query('SELECT storage_key FROM learning_content_assets WHERE id=$1',[staged.assetId])).rows[0].storage_key,asset.storage_key);
+ await pipeline.verifyRights(staged.intakeId,{licenceCandidate:'CC_BY',rightsEvidenceUrl:payload.rightsEvidenceUrl,attributionText:payload.attributionText},adminId);
+ await pipeline.approveIntake(staged.intakeId,adminId);
+ const materialised=await pipeline.materialiseIntake(staged.intakeId,adminId);
+ const row=(await db.query('SELECT * FROM learning_resources WHERE id=$1',[materialised.resourceId])).rows[0];assert.equal(row.review_status,'DRAFT');assert.equal(row.file_key,asset.storage_key);
+ await assert.rejects(publicLearning.getPublicLearningResource(row.public_slug),/not found/);
+ const downloadBefore=downloads;await assert.rejects(acquisition.acquireContent({...payload,intakeId:staged.intakeId},adminId),/already in Library/);assert.equal(downloads,downloadBefore);
+});
+test('curriculum topic creation is auditable, deduplicated and remains a curriculum draft',async()=>{
+ const subject=(await db.query('SELECT id FROM subjects LIMIT 1')).rows[0];
+ const input={gradeCode:'CLASS_5',subjectId:subject.id,name:'Verified fixture topic',chapterTitle:'Fixture chapter',academicYear:'2026-27',evidenceUrl:'https://cbseacademic.nic.in/curriculum.html'};
+ const first=await pipeline.createCurriculumTopic(input,adminId);const second=await pipeline.createCurriculumTopic(input,adminId);assert.equal(first.id,second.id);
+ const row=(await db.query('SELECT * FROM learning_concepts WHERE id=$1',[first.id])).rows[0];assert.equal(row.registry_status,'DRAFT_FOR_ACADEMIC_REVIEW');assert.equal(row.registry_source,input.evidenceUrl);
+ const audit=await db.query("SELECT * FROM audit_log WHERE entity_type='learning_concept' AND entity_id=$1",[first.id]);assert.equal(audit.rows.length,1);
+ await assert.rejects(pipeline.createCurriculumTopic({...input,gradeCode:'INVALID'},adminId),/valid grade/);
+});
+test('search curriculum and media details follow a candidate into the prepare queue',async()=>{
+ const subject=(await db.query('SELECT id FROM subjects LIMIT 1')).rows[0];
+ const found=await discovery.discoverSources({provider:'LOCAL',query:'Unique UKG searchable',gradeCode:'UKG',boardCode:'COMMON',subjectId:subject.id,chapterLabel:'Counting',topicLabel:'Objects',language:'hi'},adminId);
+ // Use a local discovery fixture to avoid making real provider requests.
+ const candidate=found.candidates[0];assert.ok(candidate);
+ await db.query("UPDATE learning_source_discovery_candidates SET resource_id=NULL,provider='DIKSHA',source_code='DIKSHA',source_url='https://diksha.gov.in/context-fixture',source_item_id='context-fixture',media_kind='VIDEO',metadata=$2::jsonb WHERE id=$1",[candidate.id,JSON.stringify({artifactUrl:'https://obj.diksha.gov.in/context.mp4'})]);
+ const staged=await discovery.stageDiscoveryCandidate(candidate.id,adminId);
+ const queue=await pipeline.listPipelineQueue();const item=queue.find(row=>row.id===staged.intakeId);assert.ok(item);
+ assert.equal(item.discovered_asset_url,'https://obj.diksha.gov.in/context.mp4');assert.equal(item.discovery_context.subjectId,subject.id);assert.equal(item.discovery_context.chapterLabel,'Counting');assert.equal(item.discovery_context.topicLabel,'Objects');assert.equal(item.discovered_language,'hi');
 });
 test('older Library schemas reject incomplete publication with a validation error',async () => {
  // Older regression jobs intentionally stop before migration 049; optional metadata must not cause SQL 500s.
