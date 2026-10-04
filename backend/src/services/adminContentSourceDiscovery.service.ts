@@ -19,6 +19,7 @@ export type DiscoveryProvider =
 export type DiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
 
 export interface DiscoverSourcesInput {
+  conceptIds?:string[]; academicYear?:string|null;
   provider?: DiscoveryProvider;
   providers?: DiscoveryProvider[];
   query: string;
@@ -322,7 +323,7 @@ async function createRun(input: DiscoverSourcesInput, provider: DiscoveryProvide
         mediaKinds: input.mediaKinds || [],
         gradeCode: input.gradeCode || (input.classNumber ? `CLASS_${input.classNumber}` : null),
         boardCode: input.boardCode || null,
-        subjectId:input.subjectId || null,chapterLabel:input.chapterLabel || null,topicLabel:input.topicLabel || null,
+        conceptIds:input.conceptIds || [],academicYear:input.academicYear || null,subjectId:input.subjectId || null,chapterLabel:input.chapterLabel || null,topicLabel:input.topicLabel || null,
         publisher: input.publisher?.trim() || null,
         maxDurationMinutes: input.maxDurationMinutes || null,
         onlyCommercialSafe: Boolean(input.onlyCommercialSafe),

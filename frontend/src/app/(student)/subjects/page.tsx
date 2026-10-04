@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
@@ -99,6 +100,7 @@ export default function SubjectsPage() {
     <div className="animate-fade-up">
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <div>
+          <Link href="/syllabus" className="btn-primary inline-block mb-3">📋 {t('मेरा पाठ्यक्रम और प्रगति', 'My Syllabus & Progress')}</Link>
           <h1 className="font-display font-extrabold text-2xl" style={{ color: 'var(--navy)' }}>📚 {t('मेरे विषय', 'My Subjects')}</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--slate)' }}>
             {learner.gradeLabel} · {learner.boardName} · {subjects.length} {t('विषय', 'subjects')}

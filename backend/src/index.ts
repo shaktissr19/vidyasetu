@@ -1,3 +1,4 @@
+import {adminSyllabusRoutes,studentSyllabusRoutes} from './routes/syllabus.routes';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -109,6 +110,8 @@ app.use(`${API}/parent`, parentWorkflowRoutes);
 app.use(`${API}/parent`, parentRoutes);
 app.use(`${API}/admin`, adminRegistrationRoutes);
 app.use(`${API}/admin/grievances`, adminGrievanceRoutes);
+app.use(`${API}/admin/syllabus`, adminSyllabusRoutes);
+app.use(`${API}/student/syllabus`, studentSyllabusRoutes);
 app.use(`${API}/admin/learning/factory`, adminContentFactoryRoutes);
 app.use(`${API}/admin/learning/pipeline`, learningContentPipelineRoutes);
 app.use(`${API}/admin/learning/creator`, adminContentCreatorRoutes);

@@ -161,6 +161,7 @@ export default function LearningSection(props: StudentSectionProps) {
       <div className={styles.sectionHeader}>
         <div>
           <h1 className={styles.title}>📚 Learning Home</h1>
+          <Link href="/syllabus" className={styles.secondary}>📋 My Syllabus & Progress</Link>
           <div className={styles.subtitle}>
             {home ? `Class ${home.learner.className} · ${home.learner.boardName}` : `Class ${props.student?.classLabel || props.student?.gradeLevel || '—'} · personalised learning, practice and growth`}
           </div>

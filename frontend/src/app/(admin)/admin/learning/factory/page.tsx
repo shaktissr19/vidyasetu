@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import LearningAsset from '@/components/learning/LearningAsset';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -48,6 +48,8 @@ function normalizedText(value?: string | null) {
 
 export default function ContentFactoryPage() {
   const queryClient = useQueryClient();
+  const [syllabusConcept,setSyllabusConcept] = useState('');
+  const [syllabusYear,setSyllabusYear] = useState('');
   const [gradeCode,setGradeCode] = useState('CLASS_5');
   const [classNumber,setClassNumber] = useState(5);
   const [boardCode,setBoardCode] = useState('COMMON');
@@ -71,6 +73,15 @@ export default function ContentFactoryPage() {
   const [webAttribution,setWebAttribution] = useState('');
   const [lastWebIntakeId,setLastWebIntakeId] = useState('');
 
+  useEffect(()=>{
+    const p=new URLSearchParams(window.location.search);
+    if(p.get('grade')){setGradeCode(p.get('grade')!);setClassNumber(Number(p.get('grade')?.replace('CLASS_','')) || 1);}
+    if(p.get('board'))setBoardCode(p.get('board')!);
+    if(p.get('subject'))setSubjectId(p.get('subject')!);
+    if(p.get('chapter'))setChapterText(p.get('chapter')!);
+    if(p.get('topic'))setTopicText(p.get('topic')!);
+    setSyllabusConcept(p.get('concept')||'');setSyllabusYear(p.get('year')||'');
+  },[]);
   const factoryQuery = useQuery({ queryKey: ['content-factory-options'],queryFn: () => getContentFactoryOptions().then((r) => r.data.data) });
   const creatorOptionsQuery = useQuery({ queryKey: ['content-creator-options'],queryFn: () => getContentCreatorOptions().then((r) => r.data.data) });
   const queueQuery = useQuery({ queryKey: ['content-factory-queue-counts'],queryFn: () => getContentFactoryQueueCounts().then((r) => r.data.data),refetchInterval: 30000 });
@@ -110,7 +121,7 @@ export default function ContentFactoryPage() {
     mutationFn: () => discoverContentCreatorSources({
       providers,
       query: searchText,
-      gradeCode,boardCode,subjectId:subjectId || null,chapterLabel:chapterText || null,topicLabel:topicText || null,
+      gradeCode,boardCode,conceptIds:syllabusConcept && factoryQuery.data?.concepts.some(c=>c.id===syllabusConcept && c.grade_code===gradeCode && c.subject_id===subjectId && normalizedText(c.name)===normalizedText(topicText))?[syllabusConcept]:[],academicYear:syllabusYear||null,subjectId:subjectId || null,chapterLabel:chapterText || null,topicLabel:topicText || null,
       classNumber: gradeCode.startsWith('CLASS_') ? classNumber : null,
       subject: subject || null,
       language: language === 'Bilingual' ? null : language,

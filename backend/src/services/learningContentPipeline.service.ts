@@ -369,6 +369,14 @@ export async function listPipelineQueue() {
   return rows;
 }
 
+async function assertSyllabusBoardScope(client:PoolClient,concepts:string[],boards:{id:string;code:string}[]) {
+  if (!concepts.length || boards.some(b=>b.code==='COMMON')) return;
+  const {rows:[schema]}=await client.query("SELECT to_regclass('public.curriculum_topic_concepts') IS NOT NULL AS ready");
+  if (!schema.ready) return;
+  const invalid=await client.query(`SELECT lc.id FROM learning_concepts lc WHERE lc.id=ANY($1::uuid[]) AND lc.code LIKE 'SYLLABUS_%' AND NOT EXISTS(SELECT 1 FROM curriculum_topic_concepts ctc JOIN curriculum_topics ct ON ct.id=ctc.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id WHERE ctc.concept_id=lc.id AND cv.board_id=ANY($2::uuid[]))`,[concepts,boards.map(b=>b.id)]);
+  if(invalid.rows.length) throw appError('Syllabus topics must match the selected board or reviewed common-board delivery');
+}
+
 export async function stageContent(input: StagePipelineInput, adminId: UUID, acquisition?: { url:string; actorId:string; acquiredAt:string; permissionConfirmed:true }) {
   await assertPipelineSchema();
   return transaction(async (client) => {
@@ -402,6 +410,7 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID, acq
       const mapped = await client.query(`SELECT lc.id FROM learning_concepts lc JOIN education_grade_levels egl ON egl.id=lc.grade_id WHERE lc.id=ANY($1::uuid[]) AND lc.is_active=TRUE AND egl.code=ANY($2::varchar[]) AND ($3::uuid IS NULL OR lc.subject_id=$3::uuid)`, [conceptIds,scope.grades,input.subjectId || null]);
       if (mapped.rows.length !== conceptIds.length) throw appError('Curriculum concepts must match the selected grades and subject');
     }
+    await assertSyllabusBoardScope(client,conceptIds,scope.boards);
     const metadata = {
       ...(acquisition ? { acquisition } : {}),
       titleHi: nullable(input.titleHi), difficulty: input.difficulty || null, conceptIds,
@@ -647,6 +656,7 @@ export async function updateDraftDetails(resourceId: UUID, input: StagePipelineI
       const mapped = await client.query(`SELECT lc.id FROM learning_concepts lc JOIN education_grade_levels egl ON egl.id=lc.grade_id WHERE lc.id=ANY($1::uuid[]) AND lc.is_active=TRUE AND egl.code=ANY($2::varchar[]) AND ($3::uuid IS NULL OR lc.subject_id=$3::uuid)`,[concepts,scope.grades,input.subjectId || null]);
       if (mapped.rows.length !== concepts.length) throw appError('Curriculum concepts must match the selected grades and subject');
     }
+    await assertSyllabusBoardScope(client,concepts,scope.boards);
     const grades = scope.grades.filter((code) => /^CLASS_\d+$/.test(code)).map((code) => Number(code.slice(6)));
     const { rows: [relations] } = await client.query(`SELECT (SELECT jsonb_agg(rg) FROM learning_resource_grades rg WHERE rg.resource_id=$1::uuid) AS grades,(SELECT jsonb_agg(rb) FROM learning_resource_boards rb WHERE rb.resource_id=$1::uuid) AS boards,(SELECT jsonb_agg(rc) FROM learning_resource_concepts rc WHERE rc.resource_id=$1::uuid) AS concepts`,[resourceId]);
     await client.query(`INSERT INTO learning_resource_revisions(resource_id,actor_id,snapshot) VALUES($1::uuid,$2::uuid,$3::jsonb)`,[resourceId,adminId,JSON.stringify({resource,relations})]);

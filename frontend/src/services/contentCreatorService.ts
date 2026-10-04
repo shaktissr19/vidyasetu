@@ -255,6 +255,7 @@ export interface CreatorLearningSubmissionResult {
 }
 
 export interface CreatorDiscoveryInput {
+  conceptIds?:string[]; academicYear?:string|null;
   gradeCode?: string | null; subjectId?:string | null; chapterLabel?:string | null; topicLabel?:string | null; boardCode?: string | null;
   provider?: CreatorDiscoveryProvider;
   providers?: CreatorDiscoveryProvider[];
