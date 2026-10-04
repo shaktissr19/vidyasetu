@@ -9,6 +9,8 @@ const ALLOWED_CONTENT_TYPES = new Set([
   'audio/wav',
   'audio/ogg',
   'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
   'image/png',
   'image/jpeg',
   'image/webp',
@@ -25,7 +27,7 @@ function safeExtension(fileName: string): string {
 
 export async function createLearningUploadUrl(fileName: string, contentType: string) {
   if (!ALLOWED_CONTENT_TYPES.has(contentType.toLowerCase())) {
-    throw appError('Unsupported learning media type. Use MP4, MP3/M4A/WAV, PDF, PNG, JPEG or WebP.');
+    throw appError('Unsupported learning media type. Use MP4, MP3/M4A/WAV, PDF, DOCX, TXT, PNG, JPEG or WebP.');
   }
   const extension = safeExtension(fileName);
   const now = new Date();

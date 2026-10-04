@@ -10,9 +10,9 @@ router.use(authorize('SUPER_ADMIN'));
 
 const licenceSchema = z.enum([
   'VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND',
-  'PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER',
+  'PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','PERMISSION_GRANTED','OTHER',
 ]);
-const mediaSchema = z.enum(['ARTICLE','VIDEO','AUDIO','IMAGE','INTERACTIVE','PDF','WORKSHEET','QUESTION_PAPER','EXTERNAL_LINK']);
+const mediaSchema = z.enum(['ARTICLE','VIDEO','AUDIO','IMAGE','INTERACTIVE','PDF','WORKSHEET','QUESTION_PAPER','DOCUMENT','EXTERNAL_LINK']);
 const deliverySchema = z.enum(['EXTERNAL_LINK','OFFICIAL_EMBED','LICENSED_REHOST','VIDYASETU_ORIGINAL']);
 const visibilitySchema = z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']);
 const accessSchema = z.enum(['PUBLIC','REGISTERED','SUBSCRIBER']);
@@ -22,8 +22,15 @@ const categorySchema = z.enum([
 ]);
 
 const stageSchema = z.object({
+  intakeId: z.string().uuid().optional(),
   sourceCode: z.string().trim().min(2).max(40),
   title: z.string().trim().min(2).max(500),
+  titleHi: z.string().trim().max(500).nullable().optional(),
+  difficulty: z.enum(['EASY','MODERATE','ADVANCED']).nullable().optional(),
+  conceptIds: z.array(z.string().uuid()).max(50).optional(),
+  journeyStage: z.enum(['SEE','UNDERSTAND','DO','PRACTISE','APPLY','REVISE']).optional(),
+  transcript: z.string().max(100_000).nullable().optional(),
+  altText: z.string().trim().max(2000).nullable().optional(),
   mediaKind: mediaSchema,
   deliveryMode: deliverySchema,
   sourceUrl: z.string().url().max(2000).nullable().optional(),
@@ -70,6 +77,7 @@ const verifySchema = z.object({
   reviewerNote: z.string().trim().max(3000).nullable().optional(),
 });
 
+router.patch('/resources/:resourceId/details', validate(stageSchema), ctrl.updateDraft);
 router.get('/options', ctrl.options);
 router.get('/queue', ctrl.queue);
 router.post('/stage', validate(stageSchema), ctrl.stage);

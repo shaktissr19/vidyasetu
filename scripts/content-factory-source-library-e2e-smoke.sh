@@ -67,8 +67,15 @@ expect_status 400 "$TMP_DIR/unverified-approval.json" -X PATCH "$API_BASE/admin/
 [[ "$(psqlq "SELECT status::text FROM learning_source_intake WHERE id='$INTAKE_ID';")" == "DISCOVERED" ]] || fail "Unverified source status changed unexpectedly"
 [[ -z "$(psqlq "SELECT COALESCE(licence_verified_at::text,'') FROM learning_source_intake WHERE id='$INTAKE_ID';")" ]] || fail "Discovery metadata incorrectly counted as explicit verification"
 
+# Discovery records are configured through the canonical Pipeline before rights review.
+configure_intake(){
+  local intake_id="$1" source_url="$2"
+  curl -fsS -X POST "$API_BASE/admin/learning/pipeline/stage" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg id "$intake_id" --arg url "$source_url" --arg sid "$SUBJECT_ID" '{intakeId:$id,sourceCode:"EXTERNAL_WEB",sourceUrl:$url,title:"CI governed external source",mediaKind:"EXTERNAL_LINK",deliveryMode:"EXTERNAL_LINK",category:"ACADEMIC",gradeCodes:["CLASS_8"],boardCodes:["COMMON"],subjectId:$sid,subjectLabel:"Science",chapterLabel:"Force and Pressure",topicLabel:"Pressure in daily life",language:"en",difficulty:"EASY",visibility:"CLASS_ONLY",accessRequirement:"REGISTERED",licenceCandidate:"EXTERNAL_LINK_ONLY"}')" >/dev/null
+}
+configure_intake "$INTAKE_ID" "$SOURCE_URL"
+
 log "Platform Admin explicitly verifies licence and attribution evidence"
-VERIFIED="$(curl -fsS -X PATCH "$API_BASE/admin/learning/creator/discovery/intake/$INTAKE_ID/evidence" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"licenceCandidate":"EXTERNAL_LINK_ONLY","attributionText":"Example Education · CI reference","reviewerNote":"CI verified link-only rights and attribution."}')"
+VERIFIED="$(curl -fsS -X PATCH "$API_BASE/admin/learning/creator/discovery/intake/$INTAKE_ID/evidence" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg url "$SOURCE_URL" '{licenceCandidate:"EXTERNAL_LINK_ONLY",attributionText:"Example Education · CI reference",rightsEvidenceUrl:$url,reviewerNote:"CI verifies link-only delivery."}')")"
 jq -e '.data.licence_candidate=="EXTERNAL_LINK_ONLY" and (.data.licence_verified_at|length)>0' <<<"$VERIFIED" >/dev/null || fail "Explicit licence verification was not recorded"
 [[ -n "$(psqlq "SELECT COALESCE(licence_verified_at::text,'') FROM learning_source_intake WHERE id='$INTAKE_ID';")" ]] || fail "Verification timestamp missing in DB"
 
@@ -107,7 +114,8 @@ log "Access policy validation rejects unsafe Public/Private mismatch"
 SOURCE_URL_2="https://example.com/vidyasetu-ci/$UNIQUE-public-policy"
 STAGED_2="$(curl -fsS -X POST "$API_BASE/admin/learning/factory/external-web-source" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg url "$SOURCE_URL_2" '{title:"CI policy source",sourceUrl:$url,licenceCandidate:"EXTERNAL_LINK_ONLY",attributionText:"Example Education · CI policy",classNumber:8,subject:"Science",boardCode:"COMMON"}')")"
 INTAKE_ID_2="$(jq -er '.data.intakeId' <<<"$STAGED_2")"
-curl -fsS -X PATCH "$API_BASE/admin/learning/creator/discovery/intake/$INTAKE_ID_2/evidence" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"licenceCandidate":"EXTERNAL_LINK_ONLY","attributionText":"Example Education · CI policy","reviewerNote":"CI verified."}' >/dev/null
+configure_intake "$INTAKE_ID_2" "$SOURCE_URL_2"
+curl -fsS -X PATCH "$API_BASE/admin/learning/creator/discovery/intake/$INTAKE_ID_2/evidence" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$(jq -nc --arg url "$SOURCE_URL_2" '{licenceCandidate:"EXTERNAL_LINK_ONLY",attributionText:"Example Education · CI reference",rightsEvidenceUrl:$url,reviewerNote:"CI verifies link-only delivery."}')" >/dev/null
 curl -fsS -X PATCH "$API_BASE/admin/learning/intake/$INTAKE_ID_2/status" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"status":"APPROVED"}' >/dev/null
 BAD_PAYLOAD="$(jq -nc --arg sid "$SUBJECT_ID" '{classNumber:8,boardCode:"COMMON",subjectId:$sid,subjectName:"Science",language:"en",visibility:"PUBLIC",accessRequirement:"REGISTERED"}')"
 expect_status 400 "$TMP_DIR/bad-access.json" -X POST "$API_BASE/admin/learning/factory/intake/$INTAKE_ID_2/add-to-library" "${AUTH[@]}" -H 'Content-Type: application/json' -d "$BAD_PAYLOAD"

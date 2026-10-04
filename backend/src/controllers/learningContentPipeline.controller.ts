@@ -56,3 +56,8 @@ export async function materialise(
     return R.created(res, await pipeline.materialiseIntake(req.params.intakeId, req.user.userId));
   } catch (error: unknown) { next(error); }
 }
+
+export async function updateDraft(req: Request<{ resourceId: UUID },unknown,pipeline.StagePipelineInput>,res: Response,next: NextFunction): Promise<Response | void> {
+  try { if (!req.user) return R.unauthorized(res); return R.ok(res,await pipeline.updateDraftDetails(req.params.resourceId,req.body,req.user.userId)); }
+  catch (error: unknown) { next(error); }
+}

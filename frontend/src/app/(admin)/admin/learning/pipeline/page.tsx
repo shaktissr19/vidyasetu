@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { apiErrorText } from '@/utils/errors';
+import { getLearningResourcePreview } from '@/services/adminLearningService';
+import LearningAsset from '@/components/learning/LearningAsset';
+import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import {
   approveLearningPipelineIntake,
   getLearningPipelineOptions,
@@ -12,6 +15,7 @@ import {
   materialiseLearningPipelineIntake,
   stageLearningPipelineContent,
   uploadLearningPipelineFile,
+  updateLearningPipelineDraft,
   verifyLearningPipelineRights,
   type PipelineAccess,
   type PipelineCategory,
@@ -27,10 +31,10 @@ import {
 const panel = { padding: 20, borderRadius: 16 } as const;
 const primary = { padding: '10px 16px', borderRadius: 10, border: 0, background: '#FF6B00', color: '#fff', fontWeight: 900, cursor: 'pointer' } as const;
 const secondary = { padding: '9px 14px', borderRadius: 10, border: '1px solid #CBD5E1', background: '#fff', color: '#14213D', fontWeight: 800, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' } as const;
-const LICENCES: PipelineLicence[] = ['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER'];
+const LICENCES: PipelineLicence[] = ['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','PERMISSION_GRANTED','OTHER'];
 const MEDIA_LABELS: Record<PipelineMediaKind, string> = {
   ARTICLE: 'Text / article', VIDEO: 'Video', AUDIO: 'Audio', IMAGE: 'Image / pictorial', INTERACTIVE: 'Interactive',
-  PDF: 'PDF', WORKSHEET: 'Worksheet', QUESTION_PAPER: 'Question paper', EXTERNAL_LINK: 'External link',
+  DOCUMENT: 'Document (DOCX / TXT)', PDF: 'PDF', WORKSHEET: 'Worksheet', QUESTION_PAPER: 'Question paper', EXTERNAL_LINK: 'External link',
 };
 
 type FormState = StagePipelinePayload & { file: File | null };
@@ -39,9 +43,9 @@ const INITIAL_FORM: FormState = {
   sourceCode: 'VIDYASETU_ORIGINAL', title: '', mediaKind: 'ARTICLE', deliveryMode: 'VIDYASETU_ORIGINAL',
   sourceUrl: '', sourceItemId: '', embedUrl: '', storageKey: '', mimeType: '', byteSize: null,
   licenceCandidate: 'VIDYASETU_ORIGINAL', licenceUrl: '', attributionText: '', rightsEvidenceUrl: '',
-  category: 'ACADEMIC', gradeCodes: ['UKG'], boardCodes: ['COMMON'], subjectLabel: '', chapterLabel: '', topicLabel: '', language: 'en',
-  visibility: 'PUBLIC', accessRequirement: 'PUBLIC', bodyMarkdown: '', bodyMarkdownHi: '', summary: '', summaryHi: '',
-  thumbnailUrl: '', durationSecs: null, file: null,
+  category: 'ACADEMIC', gradeCodes: [], boardCodes: ['COMMON'], subjectLabel: '', chapterLabel: '', topicLabel: '', language: 'en',
+  visibility: 'REGISTERED', accessRequirement: 'REGISTERED', bodyMarkdown: '', bodyMarkdownHi: '', summary: '', summaryHi: '',
+  thumbnailUrl: '', durationSecs: null, file: null, titleHi: '', difficulty: null, conceptIds: [], journeyStage: 'UNDERSTAND', transcript: '', altText: '',
 };
 
 function label(value: string): string { return value.replaceAll('_', ' '); }
@@ -50,12 +54,40 @@ function fieldValue(value: string | null | undefined): string { return value || 
 export default function LearningContentPipelinePage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [editingResourceId, setEditingResourceId] = useState('');
+  const [resourceLoaded, setResourceLoaded] = useState(false);
+  const [editingId, setEditingId] = useState('');
+  const [queueSearch, setQueueSearch] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [openedFromSearch, setOpenedFromSearch] = useState(false);
   const [rightsDrafts, setRightsDrafts] = useState<Record<string, { licenceCandidate: PipelineLicence; attributionText: string; licenceUrl: string; rightsEvidenceUrl: string; reviewerNote: string }>>({});
 
+  useEffect(() => { setEditingResourceId(new URLSearchParams(window.location.search).get('resource') || ''); }, []);
+  const resourceQuery = useQuery({ queryKey: ['pipeline-draft-editor',editingResourceId], enabled: Boolean(editingResourceId), queryFn: () => getLearningResourcePreview(editingResourceId).then((response) => response.data.data) });
+  useEffect(() => {
+    const item = resourceQuery.data;
+    if (!item || resourceLoaded) return;
+    setForm({ ...INITIAL_FORM, title: item.title, titleHi: item.title_hi, mediaKind: item.resource_type as PipelineMediaKind,
+      sourceCode: item.source_code, sourceUrl: item.source_url, deliveryMode: item.delivery_mode as PipelineDeliveryMode,
+      category: item.category as PipelineCategory, gradeCodes: item.grade_codes || [], boardCodes: item.board_codes || ['COMMON'],
+      subjectId: item.subject_id, subjectLabel: item.subject_label, chapterLabel: item.chapter_label, topicLabel: item.topic_label,
+      bodyMarkdown: item.body_markdown, bodyMarkdownHi: item.body_markdown_hi, summary: item.summary, summaryHi: item.summary_hi,
+      language: item.language, difficulty: item.difficulty, conceptIds: item.concept_ids || [], transcript: item.transcript, altText: item.alt_text,
+      visibility: item.visibility as PipelineVisibility, accessRequirement: item.access_requirement,
+      licenceCandidate: item.licence as PipelineLicence, licenceUrl: item.licence_url, rightsEvidenceUrl: item.rights_evidence_url, attributionText: item.attribution_text,
+    });
+    setResourceLoaded(true);
+  }, [resourceQuery.data,resourceLoaded]);
   const optionsQuery = useQuery({ queryKey: ['learning-pipeline-options'], queryFn: () => getLearningPipelineOptions().then((response) => response.data.data) });
   const queueQuery = useQuery({ queryKey: ['learning-pipeline-queue'], queryFn: () => getLearningPipelineQueue().then((response) => response.data.data || []), refetchInterval: 30000 });
   const options = optionsQuery.data as PipelineOptions | undefined;
   const queue = queueQuery.data || [];
+
+  useEffect(() => {
+    if (!form.file) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(form.file); setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [form.file]);
 
   useEffect(() => {
     if (!options) return;
@@ -67,13 +99,13 @@ export default function LearningContentPipelinePage() {
         ...current,
         sourceCode: sourceExists ? current.sourceCode : (options.sources[0]?.code || 'VIDYASETU_ORIGINAL'),
         licenceCandidate: sourceExists ? current.licenceCandidate : ((options.sources[0]?.default_license || 'OTHER') as PipelineLicence),
-        gradeCodes: gradeCodes.length ? gradeCodes : (options.grades[0] ? [options.grades[0].code] : []),
+        gradeCodes,
         boardCodes: boardCodes.length ? boardCodes : (options.boards.find((item) => item.code === 'COMMON') ? ['COMMON'] : options.boards[0] ? [options.boards[0].code] : []),
       };
     });
   }, [options]);
 
-  const binaryNeedsFile = ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER'].includes(form.mediaKind)
+  const binaryNeedsFile = !editingResourceId && ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER','DOCUMENT'].includes(form.mediaKind)
     && ['LICENSED_REHOST','VIDYASETU_ORIGINAL'].includes(form.deliveryMode);
 
   const refresh = async () => {
@@ -85,13 +117,13 @@ export default function LearningContentPipelinePage() {
       if (!form.title.trim()) throw new Error('Enter a title');
       if (!form.gradeCodes.length || !form.boardCodes.length) throw new Error('Select at least one grade and board');
       let uploaded = { key: form.storageKey || null, contentType: form.mimeType || null, byteSize: form.byteSize || null };
-      if (form.file) {
+      if (form.file && !editingResourceId) {
         const result = await uploadLearningPipelineFile(form.file);
         uploaded = { key: result.key, contentType: result.contentType, byteSize: result.byteSize };
       }
       const { file: _file, ...rest } = form;
-      return stageLearningPipelineContent({
-        ...rest,
+      const payload: StagePipelinePayload = {
+        ...rest, intakeId: editingId || undefined,
         title: form.title.trim(),
         sourceUrl: form.sourceUrl?.trim() || null,
         sourceItemId: form.sourceItemId?.trim() || null,
@@ -111,9 +143,10 @@ export default function LearningContentPipelinePage() {
         bodyMarkdownHi: form.bodyMarkdownHi?.trim() || null,
         thumbnailUrl: form.thumbnailUrl?.trim() || null,
         durationSecs: form.durationSecs || null,
-      });
+      };
+      return editingResourceId ? updateLearningPipelineDraft(editingResourceId,payload) : stageLearningPipelineContent(payload);
     },
-    onSuccess: async () => { toast.success('Staged. Verify rights before approval.'); setForm((current) => ({ ...INITIAL_FORM, gradeCodes: current.gradeCodes, boardCodes: current.boardCodes })); await refresh(); },
+    onSuccess: async () => { if (editingResourceId) { toast.success('Draft corrected; repeat Library quality review.'); await resourceQuery.refetch(); return; } toast.success('Staged. Verify rights before approval.'); setEditingId(''); setForm((current) => ({ ...INITIAL_FORM, gradeCodes: current.gradeCodes, boardCodes: current.boardCodes })); await refresh(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not stage content')),
   });
 
@@ -129,7 +162,7 @@ export default function LearningContentPipelinePage() {
   });
   const materialiseMutation = useMutation({
     mutationFn: (intakeId: string) => materialiseLearningPipelineIntake(intakeId),
-    onSuccess: async () => { toast.success('Created a DRAFT in Content Library.'); await refresh(); },
+    onSuccess: async () => { toast.success('Created a DRAFT in Content Library. Review and publish it there.'); await refresh(); },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not create Learning draft')),
   });
 
@@ -149,73 +182,129 @@ export default function LearningContentPipelinePage() {
     };
   }
 
+  function configure(item: PipelineQueueItem) {
+    const metadata = item.metadata || {};
+    const inferredGrade = item.grade_code || (options?.grades.some((grade) => grade.code === item.class_hint) ? item.class_hint : '') || (/Class\s*(\d+)/i.exec(item.class_hint || '')?.[1] ? `CLASS_${/Class\s*(\d+)/i.exec(item.class_hint || '')![1]}` : '');
+    const discoveredKind = item.discovered_media_kind;
+    const mediaKind = (item.asset_id ? item.media_kind : discoveredKind && !['LINK','COURSE','ARTICLE'].includes(discoveredKind) ? discoveredKind : 'EXTERNAL_LINK') as PipelineMediaKind;
+    setEditingId(item.id);
+    setForm({ ...INITIAL_FORM, ...metadata, file: null, title: item.title, sourceCode: item.source_code,
+      sourceUrl: item.source_url, sourceItemId: item.source_item_id, mediaKind,
+      deliveryMode: item.delivery_mode, embedUrl: item.embed_url || '', storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
+      licenceCandidate: item.licence_candidate || 'OTHER', attributionText: item.attribution_text || '', licenceUrl: item.licence_url || '', rightsEvidenceUrl: item.rights_evidence_url || '',
+      gradeCodes: metadata.gradeCodes || (inferredGrade ? [inferredGrade] : []), boardCodes: metadata.boardCodes || [item.board_hint || 'COMMON'],
+      subjectLabel: metadata.subjectLabel || item.subject_hint || '', thumbnailUrl: metadata.thumbnailUrl || item.discovered_thumbnail_url || '',
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  useEffect(() => {
+    if (openedFromSearch || !queue.length) return;
+    const intakeId = new URLSearchParams(window.location.search).get('intake');
+    const item = queue.find((entry) => entry.id === intakeId);
+    if (item && item.status !== 'IMPORTED') { configure(item); setOpenedFromSearch(true); }
+  }, [queue, openedFromSearch]);
+  const filteredQueue = queue.filter((item) => `${item.title} ${item.source_name} ${item.status}`.toLowerCase().includes(queueSearch.toLowerCase()));
+
   return (
     <div className="admin-page" style={{ padding: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
         <div>
           <div style={{ color: '#FF6B00', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>CONTENT PIPELINE</div>
-          <h1 style={{ margin: '5px 0', fontSize: 34 }}>Stage video, audio, text & pictorial content</h1>
+          <h1 style={{ margin: '5px 0', fontSize: 34 }}>Prepare content for your Library</h1>
           <p className="admin-muted" style={{ maxWidth: 900, lineHeight: 1.65 }}>Use one workflow for VidyaSetu originals, licensed files and official provider links/embeds. UKG, LKG, nursery and Classes 1–12 are first-class grade choices.</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Link href="/admin/learning/factory" style={secondary}>Source search</Link><Link href="/admin/learning" style={secondary}>Content Library</Link></div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Link href="/admin/learning/factory" style={secondary}>Source search</Link><Link href="/admin/learning/practice" style={secondary}>Q&amp;A / practice tests</Link><Link href="/admin/learning/creator" style={secondary}>AI lesson &amp; question drafts</Link><Link href="/admin/learning" style={secondary}>Content Library</Link></div>
       </div>
 
       <div className="admin-warning-note" style={{ padding: 13, marginBottom: 16 }}><strong>Rights boundary:</strong> this module never downloads or bypasses a source login. External items remain link/embed-first until an administrator verifies item-level licence, attribution and evidence. Only explicitly uploaded/owned or licensed assets may be rehosted.</div>
+      {editingResourceId && <p className="admin-warning-note">Draft corrections create a revision and reset quality reviews. Archive published content, then restore it to Draft in Library before editing. Source and media delivery cannot be changed here.</p>}
+      {resourceQuery.isError && <p role="alert">Could not load the draft.</p>}
       {options?.policy && <div className="admin-success-note" style={{ padding: 13, marginBottom: 16 }}>{options.policy}</div>}
 
       <section className="admin-panel" style={{ ...panel, marginBottom: 18 }}>
-        <h2 style={{ marginTop: 0 }}>1. Stage a content item</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(170px,1fr))', gap: 12 }}>
-          <label className="admin-label">Title<input className="admin-input" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="e.g. Counting objects up to 20" /></label>
-          <label className="admin-label">Content type<select className="admin-select" value={form.mediaKind} onChange={(event) => update('mediaKind', event.target.value as PipelineMediaKind)}>{(options?.mediaKinds || Object.keys(MEDIA_LABELS) as PipelineMediaKind[]).map((kind) => <option key={kind} value={kind}>{MEDIA_LABELS[kind]}</option>)}</select></label>
-          <label className="admin-label">Delivery mode<select className="admin-select" value={form.deliveryMode} onChange={(event) => update('deliveryMode', event.target.value as PipelineDeliveryMode)}>{(options?.deliveryModes || []).map((mode) => <option key={mode.code} value={mode.code}>{mode.label}</option>)}</select></label>
-          <label className="admin-label">Source/provider<select className="admin-select" value={form.sourceCode} onChange={(event) => updateSource(event.target.value)}>{(options?.sources || []).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
+        <h2 style={{ marginTop: 0 }}>{editingResourceId ? '1. Correct Library draft' : editingId ? '1. Complete selected content' : '1. Write or upload content'}</h2><p className="admin-muted">Choose the audience, format and delivery. Academic publication also requires a subject, topic, difficulty and curriculum concept. Saving changes resets intake approval so the final delivery can be reviewed.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
+          <label className="admin-label">English title *<input className="admin-input" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="e.g. Counting objects up to 20" /></label>
+          <label className="admin-label">Hindi title<input className="admin-input" value={fieldValue(form.titleHi)} onChange={(event) => update('titleHi', event.target.value)} /></label>
+          <label className="admin-label">Difficulty<select className="admin-select" value={form.difficulty || ''} onChange={(event) => update('difficulty', (event.target.value || null) as FormState['difficulty'])}><option value="">Select / not applicable</option><option value="EASY">Easy</option><option value="MODERATE">Moderate</option><option value="ADVANCED">Advanced / difficult</option></select></label>
+          <label className="admin-label">Content type<select className="admin-select" value={form.mediaKind} disabled={Boolean(editingResourceId)} onChange={(event) => update('mediaKind', event.target.value as PipelineMediaKind)}>{(options?.mediaKinds || Object.keys(MEDIA_LABELS) as PipelineMediaKind[]).map((kind) => <option key={kind} value={kind}>{MEDIA_LABELS[kind]}</option>)}</select></label>
+          <label className="admin-label">Delivery mode<select className="admin-select" value={form.deliveryMode} disabled={Boolean(editingResourceId)} onChange={(event) => update('deliveryMode', event.target.value as PipelineDeliveryMode)}>{(options?.deliveryModes || []).map((mode) => <option key={mode.code} value={mode.code}>{mode.label}</option>)}</select></label>
+          <label className="admin-label">Source/provider<select className="admin-select" value={form.sourceCode} disabled={Boolean(editingResourceId)} onChange={(event) => updateSource(event.target.value)}>{(options?.sources || []).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
           <label className="admin-label">Language<input className="admin-input" value={fieldValue(form.language)} onChange={(event) => update('language', event.target.value)} placeholder="en, hi or en-hi" /></label>
-          <label className="admin-label">Subject<input className="admin-input" value={fieldValue(form.subjectLabel)} onChange={(event) => update('subjectLabel', event.target.value)} placeholder="Mathematics" /></label>
-          <label className="admin-label">Public learning category<select className="admin-select" value={form.category} onChange={(event) => update('category', event.target.value as PipelineCategory)}>{(options?.categories || []).map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
+          <label className="admin-label">Subject {form.category === 'ACADEMIC' ? '(required for publication)' : '(optional)'}<select className="admin-select" value={form.subjectId || ''} onChange={(event) => setForm((current) => ({ ...current, subjectId: event.target.value || null, subjectLabel: options?.subjects.find((item) => item.id === event.target.value)?.name || '', conceptIds: [] }))}><option value="">Select subject…</option>{options?.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label className="admin-label">Content category *<select className="admin-select" value={form.category} onChange={(event) => update('category', event.target.value as PipelineCategory)}>{(options?.categories || []).map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12, marginTop: 12 }}>
           <label className="admin-label">Grades <span className="admin-muted">(Ctrl/Cmd-click for multiple)</span><select className="admin-select" multiple size={6} value={form.gradeCodes} onChange={(event) => update('gradeCodes', Array.from(event.target.selectedOptions).map((option) => option.value))}>{(options?.grades || []).map((grade) => <option key={grade.code} value={grade.code}>{grade.name} ({grade.code})</option>)}</select></label>
           <label className="admin-label">Boards <span className="admin-muted">(COMMON works across boards)</span><select className="admin-select" multiple size={6} value={form.boardCodes} onChange={(event) => update('boardCodes', Array.from(event.target.selectedOptions).map((option) => option.value))}>{(options?.boards || []).map((board) => <option key={board.code} value={board.code}>{board.short_name || board.name} ({board.code})</option>)}</select></label>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(170px,1fr))', gap: 12, marginTop: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12, marginTop: 12 }}>
           <label className="admin-label">Chapter / unit<input className="admin-input" value={fieldValue(form.chapterLabel)} onChange={(event) => update('chapterLabel', event.target.value)} /></label>
           <label className="admin-label">Topic / learning outcome<input className="admin-input" value={fieldValue(form.topicLabel)} onChange={(event) => update('topicLabel', event.target.value)} /></label>
           <label className="admin-label">Duration (seconds)<input className="admin-input" type="number" min={1} value={form.durationSecs || ''} onChange={(event) => update('durationSecs', event.target.value ? Number(event.target.value) : null)} /></label>
         </div>
 
-        {form.deliveryMode !== 'VIDYASETU_ORIGINAL' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+        {form.category === 'ACADEMIC' && <div style={{ marginTop: 12 }}>
+          <label className="admin-label">Curriculum concepts (required before publication)<select className="admin-select" multiple size={4} value={form.conceptIds || []} onChange={(event) => update('conceptIds', Array.from(event.target.selectedOptions).map((item) => item.value))}>{options?.concepts.filter((item) => form.gradeCodes.includes(item.grade_code) && (!form.subjectId || item.subject_id === form.subjectId)).map((item) => <option key={item.id} value={item.id}>{item.grade_code} · {item.chapter_title} · {item.name}</option>)}</select></label>
+          <label className="admin-label">Learning journey stage<select className="admin-select" value={form.journeyStage || 'UNDERSTAND'} onChange={(event) => update('journeyStage', event.target.value as FormState['journeyStage'])}>{['SEE','UNDERSTAND','DO','PRACTISE','APPLY','REVISE'].map((stage) => <option key={stage}>{stage}</option>)}</select></label>
+          {!options?.concepts.some((item) => form.gradeCodes.includes(item.grade_code) && (!form.subjectId || item.subject_id === form.subjectId)) && <p className="admin-warning-note">No matching curriculum concepts exist yet. You can save a draft; add the curriculum mapping before academic approval.</p>}
+        </div>}
+        {!editingResourceId && form.deliveryMode !== 'VIDYASETU_ORIGINAL' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12, marginTop: 12 }}>
           <label className="admin-label">Original source URL<input className="admin-input" value={fieldValue(form.sourceUrl)} onChange={(event) => update('sourceUrl', event.target.value)} placeholder="https://diksha.gov.in/..." /></label>
           <label className="admin-label">Official embed URL {form.deliveryMode === 'OFFICIAL_EMBED' && <span className="admin-muted">(provider-approved)</span>}<input className="admin-input" value={fieldValue(form.embedUrl)} onChange={(event) => update('embedUrl', event.target.value)} placeholder="https://.../embed/..." /></label>
         </div>}
 
-        {binaryNeedsFile && <label className="admin-label" style={{ marginTop: 12 }}>Upload the explicitly owned/licensed file<input className="admin-input" type="file" accept="video/*,audio/*,image/*,application/pdf" onChange={(event) => update('file', event.target.files?.[0] || null)} />{form.file && <span className="admin-muted">{form.file.name} · {(form.file.size / (1024 * 1024)).toFixed(1)} MB</span>}</label>}
-        {(form.mediaKind === 'ARTICLE' || form.deliveryMode === 'VIDYASETU_ORIGINAL') && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}><label className="admin-label">English text / notes<textarea className="admin-textarea" style={{ minHeight: 130 }} value={fieldValue(form.bodyMarkdown)} onChange={(event) => update('bodyMarkdown', event.target.value)} /></label><label className="admin-label">Hindi text / notes<textarea className="admin-textarea" style={{ minHeight: 130 }} value={fieldValue(form.bodyMarkdownHi)} onChange={(event) => update('bodyMarkdownHi', event.target.value)} /></label></div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}><label className="admin-label">English summary<textarea className="admin-textarea" style={{ minHeight: 70 }} value={fieldValue(form.summary)} onChange={(event) => update('summary', event.target.value)} /></label><label className="admin-label">Hindi summary<textarea className="admin-textarea" style={{ minHeight: 70 }} value={fieldValue(form.summaryHi)} onChange={(event) => update('summaryHi', event.target.value)} /></label></div>
+        {binaryNeedsFile && <label className="admin-label" style={{ marginTop: 12 }}>Upload an original or explicitly licensed file<input className="admin-input" type="file" accept=".mp4,.webm,.mp3,.m4a,.wav,.ogg,.png,.jpg,.jpeg,.webp,.pdf,.docx,.txt" onChange={(event) => update('file', event.target.files?.[0] || null)} />{form.file && <span className="admin-muted">{form.file.name} · {(form.file.size / (1024 * 1024)).toFixed(1)} MB</span>}</label>}
+        {(form.mediaKind === 'ARTICLE' || form.deliveryMode === 'VIDYASETU_ORIGINAL') && <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 12, marginTop: 12 }}>
+            <label className="admin-label">English text / Markdown<textarea className="admin-textarea" style={{ minHeight: 160 }} value={fieldValue(form.bodyMarkdown)} onChange={(event) => update('bodyMarkdown', event.target.value)} placeholder={'# Lesson heading\n\nWrite a paragraph, then use - for a list item.'} /></label>
+            <label className="admin-label">Hindi text / Markdown<textarea className="admin-textarea" style={{ minHeight: 160 }} value={fieldValue(form.bodyMarkdownHi)} onChange={(event) => update('bodyMarkdownHi', event.target.value)} placeholder={'# पाठ का शीर्षक\n\nअनुच्छेद लिखें और सूची के लिए - का उपयोग करें।'} /></label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 12, marginTop: 12 }}>
+            <section className="admin-panel-muted" style={{ padding: 14, borderRadius: 12 }}>
+              <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>English learner preview</h3>
+              {form.bodyMarkdown?.trim() ? <LearningMarkdown body={form.bodyMarkdown} /> : <p className="admin-muted" style={{ margin: 0 }}>Your formatted lesson will appear here as you write.</p>}
+            </section>
+            <section className="admin-panel-muted" style={{ padding: 14, borderRadius: 12 }}>
+              <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>Hindi learner preview</h3>
+              {form.bodyMarkdownHi?.trim() ? <LearningMarkdown body={form.bodyMarkdownHi} /> : <p className="admin-muted" style={{ margin: 0 }}>हिंदी पाठ का पूर्वावलोकन यहाँ दिखेगा।</p>}
+            </section>
+          </div>
+        </>}
+        <div style={{ marginTop: 12 }}>
+          <label className="admin-label">Image description / alt text<input className="admin-input" value={fieldValue(form.altText)} onChange={(event) => update('altText', event.target.value)} /></label>
+          <label className="admin-label">Transcript / accessible text<textarea className="admin-textarea" value={fieldValue(form.transcript)} onChange={(event) => update('transcript', event.target.value)} /></label>
+          {previewUrl && <LearningAsset title={form.title || 'Preview'} kind={form.mediaKind} contentUrl={previewUrl} mimeType={form.file?.type} altText={form.altText} />}
+          {form.deliveryMode === 'OFFICIAL_EMBED' && form.embedUrl && <p className="admin-muted">The approved official player will be previewed in Library after rights verification. Provider login and embedding restrictions still apply.</p>}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12, marginTop: 12 }}><label className="admin-label">English summary<textarea className="admin-textarea" style={{ minHeight: 70 }} value={fieldValue(form.summary)} onChange={(event) => update('summary', event.target.value)} /></label><label className="admin-label">Hindi summary<textarea className="admin-textarea" style={{ minHeight: 70 }} value={fieldValue(form.summaryHi)} onChange={(event) => update('summaryHi', event.target.value)} /></label></div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(170px,1fr))', gap: 12, marginTop: 12 }}>
-          <label className="admin-label">Licence candidate<select className="admin-select" value={form.licenceCandidate || 'OTHER'} onChange={(event) => update('licenceCandidate', event.target.value as PipelineLicence)}>{LICENCES.map((licence) => <option key={licence} value={licence}>{label(licence)}</option>)}</select></label>
-          <label className="admin-label">Visibility<select className="admin-select" value={form.visibility} onChange={(event) => updateVisibility(event.target.value as PipelineVisibility)}><option value="PUBLIC">Public</option><option value="REGISTERED">Registered learners</option><option value="CLASS_ONLY">Class only</option><option value="SCHOOL_ONLY">School only</option></select></label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12, marginTop: 12 }}>
+          <label className="admin-label">Licence candidate<select className="admin-select" value={form.licenceCandidate || 'OTHER'} disabled={Boolean(editingResourceId)} onChange={(event) => update('licenceCandidate', event.target.value as PipelineLicence)}>{LICENCES.map((licence) => <option key={licence} value={licence}>{label(licence)}</option>)}</select></label>
+          <label className="admin-label">Visibility<select className="admin-select" value={form.visibility} onChange={(event) => updateVisibility(event.target.value as PipelineVisibility)}><option value="PUBLIC">Public</option><option value="REGISTERED">Registered learners</option><option value="CLASS_ONLY">Class only</option></select></label>
           <label className="admin-label">Access requirement<select className="admin-select" value={form.accessRequirement} onChange={(event) => updateAccess(event.target.value as PipelineAccess)}><option value="PUBLIC">Public/free</option><option value="REGISTERED">Login required</option><option value="SUBSCRIBER">Subscriber</option></select></label>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}><label className="admin-label">Licence URL<input className="admin-input" value={fieldValue(form.licenceUrl)} onChange={(event) => update('licenceUrl', event.target.value)} placeholder="https://creativecommons.org/..." /></label><label className="admin-label">Attribution text<input className="admin-input" value={fieldValue(form.attributionText)} onChange={(event) => update('attributionText', event.target.value)} placeholder="Creator, publisher and licence credit" /></label><label className="admin-label">Rights evidence URL<input className="admin-input" value={fieldValue(form.rightsEvidenceUrl)} onChange={(event) => update('rightsEvidenceUrl', event.target.value)} placeholder="Exact item/licence evidence" /></label></div>
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><button type="button" style={primary} disabled={stageMutation.isPending || !form.title.trim()} onClick={() => stageMutation.mutate()}>{stageMutation.isPending ? 'Uploading & staging…' : 'Stage content for review'}</button><span className="admin-muted">Staging does not publish. The next section records rights verification and approval.</span></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12, marginTop: 12 }}><label className="admin-label">Licence URL<input className="admin-input" value={fieldValue(form.licenceUrl)} onChange={(event) => update('licenceUrl', event.target.value)} placeholder="https://creativecommons.org/..." /></label><label className="admin-label">Attribution text<input className="admin-input" value={fieldValue(form.attributionText)} onChange={(event) => update('attributionText', event.target.value)} placeholder="Creator, publisher and licence credit" /></label><label className="admin-label">Rights evidence URL<input className="admin-input" value={fieldValue(form.rightsEvidenceUrl)} onChange={(event) => update('rightsEvidenceUrl', event.target.value)} placeholder="Exact item/licence evidence" /></label></div>
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><button type="button" style={primary} disabled={stageMutation.isPending || !form.title.trim()} onClick={() => stageMutation.mutate()}>{stageMutation.isPending ? 'Uploading & staging…' : editingResourceId ? 'Save draft correction' : editingId ? 'Save details for review' : 'Stage content for review'}</button><span className="admin-muted">Staging does not publish. The next section records rights verification and approval.</span></div>
       </section>
 
       <section className="admin-panel" style={{ ...panel }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}><div><h2 style={{ margin: 0 }}>2. Rights review queue</h2><p className="admin-muted" style={{ margin: '5px 0 0' }}>Verify exact item-level evidence, approve the intake, then materialise a normal DRAFT in Content Library.</p></div><button type="button" style={secondary} onClick={() => queueQuery.refetch()}>Refresh</button></div>
         <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
-          {queue.map((item) => {
+          <label className="admin-label">Search review queue<input className="admin-input" value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Title, provider or status" /></label>
+          {filteredQueue.map((item) => {
             const rights = rightsFor(item);
             return <article key={item.id} className="admin-panel-muted" style={{ padding: 16, borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><strong>{item.title}</strong><div className="admin-muted" style={{ marginTop: 4 }}>{item.source_name} · {MEDIA_LABELS[item.media_kind]} · {label(item.category)} · {label(item.delivery_mode)} · {label(item.status)}</div></div><span className="admin-chip">Rights: {label(item.rights_status)}</span></div>
               <div style={{ marginTop: 8, fontSize: 12, color: '#475467' }}>{item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer">Open original source ↗</a>}{item.storage_key ? ` · Hosted file ${item.processing_status || 'registered'}` : ''}{item.imported_resource_id ? ` · Resource ${item.imported_resource_id}` : ''}</div>
               {item.status !== 'IMPORTED' && <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(150px,1fr))', gap: 9, marginTop: 12 }}><label className="admin-label">Licence<select className="admin-select" value={rights.licenceCandidate} onChange={(event) => setRights(item, 'licenceCandidate', event.target.value)}>{LICENCES.map((licence) => <option key={licence} value={licence}>{label(licence)}</option>)}</select></label><label className="admin-label">Attribution<input className="admin-input" value={rights.attributionText} onChange={(event) => setRights(item, 'attributionText', event.target.value)} /></label><label className="admin-label">Licence URL<input className="admin-input" value={rights.licenceUrl} onChange={(event) => setRights(item, 'licenceUrl', event.target.value)} /></label><label className="admin-label">Evidence URL<input className="admin-input" value={rights.rightsEvidenceUrl} onChange={(event) => setRights(item, 'rightsEvidenceUrl', event.target.value)} /></label></div>
+                <button type="button" style={secondary} onClick={() => configure(item)}>{item.asset_id ? 'Edit details / delivery' : 'Complete details / choose delivery'}</button>
+                {!item.asset_id && <p className="admin-warning-note">This search result needs grade, board and delivery details before rights review.</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 9, marginTop: 12 }}><label className="admin-label">Licence<select className="admin-select" value={rights.licenceCandidate} onChange={(event) => setRights(item, 'licenceCandidate', event.target.value)}>{LICENCES.map((licence) => <option key={licence} value={licence}>{label(licence)}</option>)}</select></label><label className="admin-label">Attribution<input className="admin-input" value={rights.attributionText} onChange={(event) => setRights(item, 'attributionText', event.target.value)} /></label><label className="admin-label">Licence URL<input className="admin-input" value={rights.licenceUrl} onChange={(event) => setRights(item, 'licenceUrl', event.target.value)} /></label><label className="admin-label">Evidence URL<input className="admin-input" value={rights.rightsEvidenceUrl} onChange={(event) => setRights(item, 'rightsEvidenceUrl', event.target.value)} /></label></div>
                 <label className="admin-label" style={{ marginTop: 9 }}>Reviewer note<input className="admin-input" value={rights.reviewerNote} onChange={(event) => setRights(item, 'reviewerNote', event.target.value)} /></label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 11 }}><button type="button" style={secondary} disabled={rightsMutation.isPending || !rights.attributionText.trim()} onClick={() => rightsMutation.mutate({ intakeId: item.id, payload: rights })}>Verify rights</button><button type="button" style={secondary} disabled={approveMutation.isPending || item.rights_status !== 'VERIFIED'} onClick={() => approveMutation.mutate(item.id)}>Approve intake</button><button type="button" style={primary} disabled={materialiseMutation.isPending || item.status !== 'APPROVED'} onClick={() => materialiseMutation.mutate(item.id)}>Create Content Library draft</button></div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 11 }}><button type="button" style={secondary} disabled={rightsMutation.isPending || !item.asset_id || !rights.attributionText.trim()} onClick={() => rightsMutation.mutate({ intakeId: item.id, payload: rights })}>Verify rights</button><button type="button" style={secondary} disabled={approveMutation.isPending || item.rights_status !== 'VERIFIED'} onClick={() => approveMutation.mutate(item.id)}>Approve intake</button><button type="button" style={primary} disabled={materialiseMutation.isPending || !item.asset_id || item.rights_status !== 'VERIFIED' || item.status !== 'APPROVED'} onClick={() => materialiseMutation.mutate(item.id)}>Create Content Library draft</button></div>
               </>}
             </article>;
           })}

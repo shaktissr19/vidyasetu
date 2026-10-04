@@ -45,9 +45,10 @@ jobs:
           grep -q "add-to-library" backend/src/routes/adminContentFactory.routes.ts
           grep -q "Search Learning Content" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
           grep -q "Topic / learning need" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
-          grep -q "Sent to Source Review" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
-          grep -q "Add to Content Library" 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'
-          grep -q "Save verification" 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'
+          grep -q "Complete delivery" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "materialiseLearningPipelineIntake" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
+          grep -q "verifyLearningPipelineRights" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
+          grep -q "export { default }" 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'
           grep -q "Content Factory" 'frontend/src/app/(admin)/layout.tsx'
           grep -q "pending" 'frontend/src/app/(admin)/layout.tsx'
           test -s docs/content-factory-2-design.md
@@ -96,7 +97,7 @@ jobs:
           pg_isready -h 127.0.0.1 -U postgres
           redis-cli ping | grep -q PONG
 
-      - name: Build disposable database through migration 049
+      - name: Build disposable database through migration 052
         env:
           PGPASSWORD: postgres
         run: |
@@ -121,7 +122,8 @@ jobs:
             048_learning_content_factory_foundation.sql \
             049_learning_source_library_handoff.sql \
             050_unified_registration_role_linking.sql \
-            051_learning_content_pipeline.sql; do
+            051_learning_content_pipeline.sql \
+            052_learning_content_integration.sql; do
               echo "Applying $migration"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
@@ -129,6 +131,10 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/049_learning_source_library_handoff.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/050_unified_registration_role_linking.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/051_learning_content_pipeline.sql
+
+      - name: Content Pipeline integration tests
+        working-directory: backend
+        run: npm run test:content-pipeline
 
       - name: Validate Content Factory database invariants
         env:

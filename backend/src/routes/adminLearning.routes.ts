@@ -178,6 +178,7 @@ router.put('/quality/:entityType/:entityId/:gateCode', validate(qualityGateSchem
 router.post('/media/upload-url', validate(mediaUploadSchema), mediaCtrl.uploadUrl);
 
 router.get('/resources', ctrl.resources);
+router.get('/resources/:resourceId/preview', ctrl.resourcePreview);
 router.get('/review-packs', ctrl.reviewPacks);
 router.get('/review/pressure-v1', ctrl.pressureReview);
 router.get('/review/:packKey', ctrl.contentPackReview);

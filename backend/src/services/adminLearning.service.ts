@@ -1,5 +1,7 @@
+import { assertLearningRightsPolicy, assertOfficialEmbedUrl } from './learningDeliveryPolicy';
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
+import { getDownloadUrl } from '../config/s3';
 import { query, transaction } from '../config/db';
 import { getResourceReadiness } from './learningQuality.service';
 import { resolveLearningAccessPolicy, type LearningAccessRequirement } from './learningAccessPolicy';
@@ -198,6 +200,7 @@ export async function listLearningConcepts(classNumber?: number | null, subjectC
 export async function listLearningResources() {
   const { rows } = await query(
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,lr.summary_hi,
+            to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
             lr.resource_type, lr.category, lr.visibility, lr.access_requirement, lr.review_status,
             lr.language, lr.class_min, lr.class_max, lr.licence,
             lr.source_url, lr.external_url, lr.attribution_text,
@@ -312,12 +315,26 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
   });
 }
 
+async function assertResourceDeliveryPolicy(resourceId: UUID, accessRequirement?: string) {
+  const { rows: [row] } = await query(`SELECT lr.*,lcs.code AS source_code FROM learning_resources lr JOIN learning_content_sources lcs ON lcs.id=lr.source_id WHERE lr.id=$1::uuid`,[resourceId]);
+  if (!row) throw Object.assign(new Error('Learning resource not found'),{ statusCode: 404 });
+  try {
+    if (row.source_code !== 'VIDYASETU_ORIGINAL' || row.asset_id) {
+      if (row.rights_status !== 'VERIFIED') throw new Error('Verify item-level delivery rights before publishing or changing access');
+      assertLearningRightsPolicy({ deliveryMode: row.delivery_mode || 'EXTERNAL_LINK', licence: row.licence, sourceCode: row.source_code, embedUrl: row.external_url, attribution: row.attribution_text, evidenceUrl: row.rights_evidence_url, accessRequirement: accessRequirement || row.access_requirement });
+      if (row.delivery_mode === 'OFFICIAL_EMBED') assertOfficialEmbedUrl(row.external_url || '');
+    }
+  } catch (error) { throw badRequest((error as Error).message); }
+}
+
 export async function updateLearningResourceAccessPolicy(
   resourceId: UUID,
   visibility: string,
   accessRequirement: string,
 ) {
   const access = resolveLearningAccessPolicy(visibility, accessRequirement);
+  if (access.visibility === 'SCHOOL_ONLY') throw badRequest('School-specific delivery is not integrated');
+  await assertResourceDeliveryPolicy(resourceId,access.accessRequirement);
   const { rows: [updated] } = await query(
     `UPDATE learning_resources
      SET visibility=$2::learning_visibility,
@@ -339,6 +356,7 @@ export async function updateLearningResourceStatus(
   note?: string | null,
 ) {
   const normalizedNextStatus = normalizeReviewStatus(nextStatus);
+  if (['APPROVED','PUBLISHED'].includes(normalizedNextStatus)) await assertResourceDeliveryPolicy(resourceId);
 
   const readiness = ['APPROVED', 'PUBLISHED'].includes(normalizedNextStatus)
     ? await getResourceReadiness(resourceId)
@@ -381,4 +399,17 @@ export async function updateLearningResourceStatus(
 
     return updated;
   });
+}
+
+/** Super-admin only preview uses the same media delivery as learner pages, before publication. */
+export async function getLearningResourcePreview(resourceId: UUID) {
+  const { rows: [row] } = await query(`SELECT lr.*,(SELECT array_agg(g.code) FROM learning_resource_grades rg JOIN education_grade_levels g ON g.id=rg.grade_id WHERE rg.resource_id=lr.id) AS grade_codes,(SELECT array_agg(b.code) FROM learning_resource_boards rb JOIN education_boards b ON b.id=rb.board_id WHERE rb.resource_id=lr.id) AS board_codes,(SELECT array_agg(rc.concept_id) FROM learning_resource_concepts rc WHERE rc.resource_id=lr.id) AS concept_ids,lcs.code AS source_code FROM learning_resources lr JOIN learning_content_sources lcs ON lcs.id=lr.source_id WHERE lr.id=$1::uuid`,[resourceId]);
+  if (!row) throw Object.assign(new Error('Learning resource not found'),{ statusCode: 404 });
+  let embedUrl: string | null = null;
+  if (row.delivery_mode === 'OFFICIAL_EMBED' && row.rights_status === 'VERIFIED') {
+    try { embedUrl = assertOfficialEmbedUrl(row.external_url || ''); } catch { /* Failed policy is shown by review gate, never executed. */ }
+  }
+  const contentUrl = row.file_key ? await getDownloadUrl(row.file_key,300) : null;
+  const { file_key: _key,...safe } = row;
+  return { ...safe,content_url: contentUrl,embed_url: embedUrl };
 }

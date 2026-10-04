@@ -73,6 +73,7 @@ export interface FactoryReadiness {
 }
 
 export interface ContentFactoryOptions {
+  grades: Array<{ code: string; name: string; class_number?: number | null }>;
   boards: FactoryBoardOption[];
   subjects: FactorySubjectOption[];
   curriculumSubjects: FactoryCurriculumSubjectOption[];

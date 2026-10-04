@@ -261,3 +261,8 @@ export async function commitImport(req: Request<{ batchId: UUID }>, res: Respons
     return R.ok(res, await importService.commitImportBatch(req.params.batchId, req.user.userId));
   } catch (error: unknown) { next(error); }
 }
+
+export async function resourcePreview(req: Request<{ resourceId: UUID }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res,await learningService.getLearningResourcePreview(req.params.resourceId)); }
+  catch (error: unknown) { next(error); }
+}

@@ -1,8 +1,10 @@
+import * as pipeline from './learningContentPipeline.service';
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query } from '../config/db';
 
 export interface UpdateIntakeEvidenceInput {
+  rightsEvidenceUrl?: string | null; licenceUrl?: string | null;
   licenceCandidate: string;
   attributionText: string;
   reviewerNote?: string | null;
@@ -33,6 +35,8 @@ async function hasExplicitVerificationColumns(): Promise<boolean> {
 }
 
 export async function updateIntakeEvidence(intakeId: UUID, input: UpdateIntakeEvidenceInput, adminId: UUID) {
+  const integrated = await query(`SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='difficulty') AS ready`);
+  if (integrated.rows[0]?.ready) return pipeline.verifyRights(intakeId,{ licenceCandidate: input.licenceCandidate as pipeline.PipelineLicence,attributionText: input.attributionText,licenceUrl: input.licenceUrl,rightsEvidenceUrl: input.rightsEvidenceUrl,reviewerNote: input.reviewerNote },adminId);
   const licence = String(input.licenceCandidate || '').trim().toUpperCase();
   if (!ALLOWED_LICENCES.has(licence)) throw appError('Unsupported OER licence candidate');
   const attribution = String(input.attributionText || '').trim();

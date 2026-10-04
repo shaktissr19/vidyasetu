@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import LearningAsset from '@/components/learning/LearningAsset';
+import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import { getCanonicalLearningResource } from '@/services/canonicalLearningService';
 import {
   bookmarkLearningResource,
@@ -13,18 +15,6 @@ import {
 } from '@/services/studentService';
 import useLanguageStore from '@/store/languageStore';
 import { CardSkeleton, EmptyState, ProgressBar } from '@/components/ui/index';
-
-function renderBody(body?: string | null) {
-  if (!body) return null;
-  return body.split('\n').map((raw, index) => {
-    const line = raw.trim();
-    if (!line) return <div key={`sp-${index}`} style={{ height: 8 }} />;
-    if (line.startsWith('## ')) return <h2 key={`h2-${index}`} className="font-display font-bold text-xl mt-6 mb-2" style={{ color: 'var(--navy)' }}>{line.slice(3)}</h2>;
-    if (line.startsWith('# ')) return <h2 key={`h1-${index}`} className="font-display font-bold text-xl mt-6 mb-2" style={{ color: 'var(--navy)' }}>{line.slice(2)}</h2>;
-    if (line.startsWith('- ')) return <p key={`li-${index}`} className="text-sm ml-4 my-1" style={{ color: 'var(--slate)' }}>• {line.slice(2)}</p>;
-    return <p key={`p-${index}`} className="text-sm leading-7 my-2" style={{ color: 'var(--slate)' }}>{line}</p>;
-  });
-}
 
 export default function StudentLearningResourcePage() {
   const { resourceId } = useParams<{ resourceId: string }>();
@@ -129,49 +119,11 @@ export default function StudentLearningResourcePage() {
       </section>
 
       <section className="card mt-4" style={{ padding: 24 }}>
-        {mediaUrl && resource.resource_type === 'VIDEO' && (
-          <div className="mb-6">
-            <video controls preload="metadata" style={{ width: '100%', borderRadius: 14, background: '#071126' }} src={mediaUrl}>
-              {t('आपका ब्राउज़र वीडियो चला नहीं सकता।', 'Your browser cannot play this video.')}
-            </video>
-          </div>
-        )}
-
-        {mediaUrl && resource.resource_type === 'AUDIO' && (
-          <div className="mb-6 rounded-xl p-4" style={{ background: '#f6f7f9' }}>
-            <audio controls preload="metadata" style={{ width: '100%' }} src={mediaUrl}>
-              {t('आपका ब्राउज़र ऑडियो चला नहीं सकता।', 'Your browser cannot play this audio.')}
-            </audio>
-          </div>
-        )}
-
-        {resource.delivery_mode === 'OFFICIAL_EMBED' && externalUrl && (
-          <div className="mb-6">
-            <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', overflow: 'hidden', borderRadius: 14, background: '#071126' }}>
-              <iframe title={`${title} official player`} src={externalUrl} style={{ width: '100%', height: '100%', border: 0 }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
-            </div>
-            <p className="text-xs mt-2" style={{ color: 'var(--slate)' }}>Official provider player; VidyaSetu does not copy or proxy this stream.</p>
-          </div>
-        )}
-
-        {mediaUrl && resource.resource_type === 'IMAGE' && (
-          <div className="mb-6"><img src={mediaUrl} alt={title} style={{ width: '100%', maxHeight: 620, objectFit: 'contain', borderRadius: 14, background: '#f6f7f9' }} /></div>
-        )}
-
-        {mediaUrl && ['PDF', 'WORKSHEET', 'QUESTION_PAPER'].includes(resource.resource_type) && (
-          <div className="mb-6">
-            <a className="btn-primary inline-block" href={mediaUrl} target="_blank" rel="noopener noreferrer">
-              {resource.resource_type === 'PDF' ? t('PDF खोलें', 'Open PDF') : t('दस्तावेज़ खोलें', 'Open document')} ↗
-            </a>
-            <p className="text-xs mt-2" style={{ color: 'var(--slate)' }}>
-              {t('लिंक सीमित समय के लिए सुरक्षित रूप से साइन किया गया है।', 'The link is securely signed for a limited time.')}
-            </p>
-          </div>
-        )}
-
+        <LearningAsset title={title} kind={resource.resource_type} contentUrl={mediaUrl} embedUrl={resource.delivery_mode === 'OFFICIAL_EMBED' ? externalUrl : null} transcript={resource.transcript} altText={resource.alt_text} />
+        {resource.difficulty && <p className="text-sm mb-4">Difficulty: {resource.difficulty === 'ADVANCED' ? 'Advanced / difficult' : resource.difficulty === 'MODERATE' ? 'Moderate' : 'Easy'}</p>}
         {body ? (
-          <div>{renderBody(body)}</div>
-        ) : mediaUrl ? (
+          <LearningMarkdown body={body} />
+        ) : (mediaUrl || resource.delivery_mode === 'OFFICIAL_EMBED') ? (
           <p className="text-sm" style={{ color: 'var(--slate)' }}>
             {t('ऊपर दिया गया मीडिया इस पाठ का मुख्य लर्निंग संसाधन है।', 'The media above is the primary learning resource for this lesson.')}
           </p>

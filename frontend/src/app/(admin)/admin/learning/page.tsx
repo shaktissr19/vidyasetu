@@ -1,5 +1,7 @@
 'use client';
 
+import LearningAsset from '@/components/learning/LearningAsset';
+import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +12,7 @@ import {
   getLearningStudioConcepts,
   getLearningStudioOptions,
   getLearningStudioResources,
+  getLearningResourcePreview,
   updateLearningStudioResourceAccess,
   updateLearningStudioStatus,
   type LearningAccessRequirement,
@@ -61,7 +64,9 @@ function accessLabel(value: LearningAccessRequirement): string { return ACCESS_O
 
 export default function AdminContentLibraryPage() {
   const queryClient = useQueryClient();
+  const [librarySearch, setLibrarySearch] = useState('');
   const [selectedResource, setSelectedResource] = useState<LearningStudioResource | null>(null);
+  const previewQuery = useQuery({ queryKey: ['learning-admin-preview',selectedResource?.id],enabled: Boolean(selectedResource?.id),queryFn: () => getLearningResourcePreview(selectedResource!.id).then((response) => response.data.data) });
   const [form, setForm] = useState<StudioForm>(INITIAL);
   const [file, setFile] = useState<File | null>(null);
 
@@ -112,7 +117,7 @@ export default function AdminContentLibraryPage() {
     mutationFn: ({ id, status }: { id: string; status: LearningReviewStatus }) => updateLearningStudioStatus(id, status),
     onSuccess: async (response, variables) => {
       toast.success(`Moved to ${statusLabel(variables.status)}`);
-      if (selectedResource?.id === variables.id && response.data.data) setSelectedResource(response.data.data);
+      if (selectedResource?.id === variables.id && response.data.data) setSelectedResource((current) => current ? { ...current,...response.data.data } : current);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['learning-studio-resources'] }),
         queryClient.invalidateQueries({ queryKey: ['learning-readiness', 'RESOURCE', variables.id] }),
@@ -125,7 +130,7 @@ export default function AdminContentLibraryPage() {
     mutationFn: ({ id, visibility, accessRequirement }: { id: string; visibility: LearningVisibility; accessRequirement: LearningAccessRequirement }) => updateLearningStudioResourceAccess(id, { visibility, accessRequirement }),
     onSuccess: async (response, variables) => {
       toast.success(`Access updated to ${accessLabel(variables.accessRequirement)}`);
-      if (selectedResource?.id === variables.id && response.data.data) setSelectedResource(response.data.data);
+      if (selectedResource?.id === variables.id && response.data.data) setSelectedResource((current) => current ? { ...current,...response.data.data } : current);
       await queryClient.invalidateQueries({ queryKey: ['learning-studio-resources'] });
     },
     onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not update access')),
@@ -172,10 +177,10 @@ export default function AdminContentLibraryPage() {
       </div>
 
       <section className="admin-panel" style={{ padding: 20, marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><div><h2 style={{ margin: 0 }}>Review & Publish</h2><p className="admin-muted" style={{ marginTop: 4 }}>Select a resource. The system only shows valid next states, so the audited DRAFT → SUBMITTED → ACADEMIC REVIEW → APPROVED → PUBLISHED flow stays intact.</p></div></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(330px,.8fr) minmax(480px,1.2fr)', gap: 16, marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><div><h2 style={{ margin: 0 }}>Review & Publish</h2><label className="admin-label">Search Library<input className="admin-input" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} placeholder="Title, format, difficulty or status" /></label><p className="admin-muted" style={{ marginTop: 4 }}>Select a resource. The system only shows valid next states, so the audited DRAFT → SUBMITTED → ACADEMIC REVIEW → APPROVED → PUBLISHED flow stays intact.</p></div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,360px),1fr))', gap: 16, marginTop: 14 }}>
           <div style={{ maxHeight: 650, overflowY: 'auto', display: 'grid', gap: 8 }}>
-            {resources.map((resource) => <button key={resource.id} type="button" className={`admin-source-card ${selectedResource?.id === resource.id ? 'selected' : ''}`} onClick={() => setSelectedResource(resource)} style={{ padding: 13, textAlign: 'left', cursor: 'pointer' }}>
+            {resources.filter((item) => `${item.title} ${item.source_name} ${item.resource_type} ${item.review_status} ${item.difficulty || ''}`.toLowerCase().includes(librarySearch.toLowerCase())).map((resource) => <button key={resource.id} type="button" className={`admin-source-card ${selectedResource?.id === resource.id ? 'selected' : ''}`} onClick={() => setSelectedResource(resource)} style={{ padding: 13, textAlign: 'left', cursor: 'pointer' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><strong>{resource.title}</strong><span style={{ color: resource.review_status === 'PUBLISHED' ? '#147D4A' : '#B26A00', fontSize: 11, fontWeight: 900 }}>{statusLabel(resource.review_status)}</span></div>
               <div style={{ color: '#667085', fontSize: 11, marginTop: 5 }}>{resource.source_name} · {resource.category} · {resource.resource_type}</div>
               <div style={{ color: '#475467', fontSize: 11, marginTop: 3 }}>{resource.visibility} · {accessLabel(resource.access_requirement)}{resource.concept_count != null ? ` · ${resource.concept_count} concept(s)` : ''}</div>
@@ -188,10 +193,17 @@ export default function AdminContentLibraryPage() {
               <div className="admin-panel-muted" style={{ padding: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}><div><h2 style={{ margin: 0 }}>{selectedResource.title}</h2><div style={{ color: '#667085', fontSize: 12, marginTop: 5 }}>{selectedResource.source_name} · {selectedResource.resource_type} · {selectedResource.licence}</div></div><span style={{ background: '#FFF1E6', color: '#9A3B00', borderRadius: 999, padding: '5px 9px', fontSize: 11, fontWeight: 900 }}>{statusLabel(selectedResource.review_status)}</span></div>
                 {selectedResource.summary && <p style={{ color: '#475467', lineHeight: 1.55, marginTop: 10 }}>{selectedResource.summary}</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}><label className="admin-label">Audience<select className="admin-select" value={selectedResource.visibility} onChange={(e) => updateResourceVisibility(selectedResource, e.target.value as LearningVisibility)}><option value="PUBLIC">Public</option><option value="REGISTERED">Registered learners</option><option value="CLASS_ONLY">Class only</option><option value="SCHOOL_ONLY">School only</option></select></label><label className="admin-label">Learning access<select className="admin-select" value={selectedResource.access_requirement} onChange={(e) => updateResourceAccess(selectedResource, e.target.value as LearningAccessRequirement)}>{ACCESS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}><label className="admin-label">Audience<select className="admin-select" value={selectedResource.visibility} onChange={(e) => updateResourceVisibility(selectedResource, e.target.value as LearningVisibility)}><option value="PUBLIC">Public</option><option value="REGISTERED">Registered learners</option><option value="CLASS_ONLY">Class only</option></select></label><label className="admin-label">Learning access<select className="admin-select" value={selectedResource.access_requirement} onChange={(e) => updateResourceAccess(selectedResource, e.target.value as LearningAccessRequirement)}>{ACCESS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div>
                 <div style={{ marginTop: 13 }}><div className="admin-label" style={{ marginBottom: 6 }}>Next step</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{REVIEW_TRANSITIONS[selectedResource.review_status].map((status) => <button key={status} type="button" className={status === 'PUBLISHED' ? 'btn-primary' : 'admin-chip'} disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: selectedResource.id, status })}>{status === 'PUBLISHED' ? 'Publish' : statusLabel(status)}</button>)}</div></div>
                 {selectedResource.public_slug && selectedResource.review_status === 'PUBLISHED' && <div style={{ marginTop: 10 }}><Link href={`/learn/${selectedResource.public_slug}`} target="_blank" style={{ color: '#C2410C', fontWeight: 900 }}>Preview published resource ↗</Link></div>}
               </div>
+              <section className="admin-panel-muted" style={{ padding: 16 }}><h3>Learner preview</h3><Link href={`/admin/learning/pipeline?resource=${selectedResource.id}`} style={{ color: '#C2410C', fontWeight: 800 }}>Edit draft details / curriculum mapping</Link>
+                {previewQuery.isLoading ? <p>Loading preview…</p> : previewQuery.isError ? <p role="alert">Preview could not be loaded. Check media storage and retry before publication.</p> : previewQuery.data && <>
+                  <LearningAsset title={previewQuery.data.title} kind={previewQuery.data.resource_type} contentUrl={previewQuery.data.content_url} embedUrl={previewQuery.data.embed_url} transcript={previewQuery.data.transcript} altText={previewQuery.data.alt_text} />
+                  <LearningMarkdown body={previewQuery.data.body_markdown} />
+                  {previewQuery.data.body_markdown_hi && <><h4>Hindi preview</h4><LearningMarkdown body={previewQuery.data.body_markdown_hi} /></>}
+                </>}
+              </section>
               <LearningQualityPanel entityType="RESOURCE" entityId={selectedResource.id} />
             </div>}
           </div>
@@ -212,7 +224,7 @@ export default function AdminContentLibraryPage() {
           <label className="admin-label">Curriculum concept<select className="admin-select" value={form.selectedConceptId} onChange={(e) => setForm((v) => ({ ...v, selectedConceptId: e.target.value }))}><option value="">No concept mapping</option>{(conceptsQuery.data || []).map((concept) => <option key={concept.id} value={concept.id}>{concept.subject_name || concept.subject_code} · {concept.chapter_title || 'Concept'} · {concept.name}</option>)}</select></label>
           <label className="admin-label">Source<select className="admin-select" value={form.sourceCode} onChange={(e) => changeSource(e.target.value)}>{(optionsQuery.data?.sources || []).map((source) => <option key={source.code} value={source.code}>{source.name}</option>)}</select></label>
           <label className="admin-label">Licence<input className="admin-input" value={form.licence} readOnly /></label>
-          <label className="admin-label">Visibility<select className="admin-select" value={form.visibility} onChange={(e) => changeFormVisibility(e.target.value as LearningVisibility)}><option value="PUBLIC">Public</option><option value="REGISTERED">Registered</option><option value="CLASS_ONLY">Class only</option><option value="SCHOOL_ONLY">School only</option></select></label>
+          <label className="admin-label">Visibility<select className="admin-select" value={form.visibility} onChange={(e) => changeFormVisibility(e.target.value as LearningVisibility)}><option value="PUBLIC">Public</option><option value="REGISTERED">Registered</option><option value="CLASS_ONLY">Class only</option></select></label>
           <label className="admin-label">Access<select className="admin-select" value={form.accessRequirement || 'PUBLIC'} onChange={(e) => changeFormAccess(e.target.value as LearningAccessRequirement)}>{ACCESS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
         </div>
         {form.resourceType === 'ARTICLE' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}><label className="admin-label">English lesson body<textarea className="admin-textarea" style={{ minHeight: 160 }} value={form.bodyMarkdown || ''} onChange={(e) => setForm((v) => ({ ...v, bodyMarkdown: e.target.value }))} /></label><label className="admin-label">Hindi lesson body<textarea className="admin-textarea" style={{ minHeight: 160 }} value={form.bodyMarkdownHi || ''} onChange={(e) => setForm((v) => ({ ...v, bodyMarkdownHi: e.target.value }))} /></label></div>}

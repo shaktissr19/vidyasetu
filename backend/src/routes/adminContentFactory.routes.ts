@@ -25,6 +25,12 @@ const externalWebSourceSchema = z.object({
 });
 
 const addToLibrarySchema = z.object({
+  rightsEvidenceUrl: z.string().url().max(2000).nullable().optional(),
+  licenceUrl: z.string().url().max(2000).nullable().optional(),
+  difficulty: z.enum(['EASY','MODERATE','ADVANCED']).nullable().optional(),
+  titleHi: z.string().trim().max(500).nullable().optional(),
+  conceptIds: z.array(z.string().uuid()).max(50).optional(),
+  category: z.enum(['ACADEMIC','MOTIVATION','STUDY_SKILLS','WORK_ETHIC','SOCIAL_RESPONSIBILITY','LIFE_SKILLS','WELLBEING','CAREER_AWARENESS','DIGITAL_CITIZENSHIP']).optional(),
   classNumber: z.number().int().min(1).max(12),
   boardCode: z.string().trim().min(2).max(40),
   subjectId: z.string().uuid().nullable().optional(),
@@ -35,7 +41,7 @@ const addToLibrarySchema = z.object({
   visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY']),
   accessRequirement: z.enum(['PUBLIC','REGISTERED','SUBSCRIBER']),
 }).superRefine((value,ctx) => {
-  if (!value.subjectId && !value.subjectName) {
+  if ((!value.category || value.category === 'ACADEMIC') && !value.subjectId && !value.subjectName) {
     ctx.addIssue({ code: z.ZodIssueCode.custom,path: ['subjectId'],message: 'Choose a VidyaSetu subject' });
   }
   if (value.visibility === 'PUBLIC' && value.accessRequirement !== 'PUBLIC') {

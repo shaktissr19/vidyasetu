@@ -96,8 +96,7 @@ export async function getPublicLearningOverview() {
            FROM generate_series(1,12) AS gs(class_name)
            LEFT JOIN learning_resources lr
              ON ${PUBLIC_WHERE}
-            AND (lr.class_min IS NULL OR lr.class_min <= gs.class_name)
-            AND (lr.class_max IS NULL OR lr.class_max >= gs.class_name)
+            AND (EXISTS (SELECT 1 FROM learning_resource_grades rg JOIN education_grade_levels g ON g.id=rg.grade_id WHERE rg.resource_id=lr.id AND g.class_number=gs.class_name) OR (NOT EXISTS (SELECT 1 FROM learning_resource_grades rg WHERE rg.resource_id=lr.id) AND (lr.class_min IS NULL OR lr.class_min <= gs.class_name) AND (lr.class_max IS NULL OR lr.class_max >= gs.class_name)))
            GROUP BY gs.class_name
          ) c
        ), '[]'::jsonb) AS classes,
@@ -167,7 +166,7 @@ export async function listPublicLearningResources(filters: PublicLearningFilters
   } else if (filters.className) {
     values.push(filters.className);
     const p = values.length;
-    conditions.push(`(lr.class_min IS NULL OR lr.class_min <= $${p}) AND (lr.class_max IS NULL OR lr.class_max >= $${p})`);
+    conditions.push(`(EXISTS (SELECT 1 FROM learning_resource_grades rg JOIN education_grade_levels g ON g.id=rg.grade_id WHERE rg.resource_id=lr.id AND g.class_number=$${p}) OR (NOT EXISTS (SELECT 1 FROM learning_resource_grades rg WHERE rg.resource_id=lr.id) AND (lr.class_min IS NULL OR lr.class_min <= $${p}) AND (lr.class_max IS NULL OR lr.class_max >= $${p})))`);
   }
 
   if (filters.category) {
@@ -195,6 +194,7 @@ export async function listPublicLearningResources(filters: PublicLearningFilters
 
   const { rows } = await query(
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary, lr.summary_hi,
+            to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
             lr.resource_type, lr.category, lr.language, lr.class_min, lr.class_max,
             lr.subject_label,lr.topic_label,
             lr.thumbnail_url, lr.duration_secs, lr.is_featured_public, lr.published_at,
@@ -234,7 +234,8 @@ export async function listPublicLearningResources(filters: PublicLearningFilters
 export async function getPublicLearningResource(publicSlug: string) {
   const { rows: [resource] } = await query(
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary, lr.summary_hi,
-            lr.body_markdown, lr.body_markdown_hi, lr.resource_type, lr.category,
+            lr.body_markdown, lr.body_markdown_hi, to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
+            lr.resource_type, lr.category,
             lr.language, lr.class_min, lr.class_max, lr.subject_label,lr.topic_label,
             lr.thumbnail_url, lr.duration_secs,
             lr.external_url, lr.source_url, lr.file_key, lr.licence, lr.licence_url,
