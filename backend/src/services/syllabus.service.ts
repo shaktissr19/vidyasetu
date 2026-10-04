@@ -102,7 +102,7 @@ export async function studentSyllabus(userId:string) {
  const options=await syllabusOptions();
  const {rows:[version]}=await query("SELECT * FROM curriculum_versions WHERE board_id=(SELECT id FROM education_boards WHERE code=$1) AND academic_year=$2 AND status='ACTIVE' AND verified_at IS NOT NULL",[board,year]);
  const profile={boardCode:board,gradeCode:grade,academicYear:year,language:preference?.language || 'en',schoolLinked:Boolean(student.school_id)};
- const studentOptions={boards:options.boards,grades:options.grades,years:[...new Set([year,...options.versions.filter(v=>v.status==='ACTIVE'&&v.verified_at).map(v=>v.academic_year)])]};
+ const studentOptions={boards:options.boards,grades:options.grades,subjects:options.subjects,years:[...new Set([year,...options.versions.filter(v=>v.status==='ACTIVE'&&v.verified_at).map(v=>v.academic_year)])]};
  if(!version) return {profile,options:studentOptions,version:null,topics:[],summary:null};
  const detail=await syllabusDetail(version.id);
  const topics=detail.topics.filter(t=>t.grade_code===grade && !t.is_retired);

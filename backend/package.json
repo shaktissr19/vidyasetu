@@ -30,6 +30,7 @@
     "aws-sdk": "^2.1490.0",
     "axios": "^1.6.2",
     "node-cron": "^3.0.3",
+    "pdfjs-dist": "5.5.207",
     "uuid": "^9.0.0",
     "winston": "^3.11.0",
     "compression": "^1.7.4"
@@ -54,6 +55,6 @@
     "@electric-sql/pglite": "^0.5.8"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   }
 }

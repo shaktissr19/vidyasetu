@@ -34,3 +34,15 @@ export function uploadSingle(field: string): RequestHandler {
 export function uploadMultiple(field: string, max = 10): RequestHandler {
   return upload.array(field, max);
 }
+
+const syllabusPdf = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, callback) => file.mimetype === 'application/pdf'
+    ? callback(null, true)
+    : callback(Object.assign(new Error('Syllabus documents must be PDF files'), { status: 400 })),
+  limits: { fileSize: 25 * 1024 * 1024, files: 1 },
+});
+
+export function uploadSyllabusPdf(field: string): RequestHandler {
+  return syllabusPdf.single(field);
+}

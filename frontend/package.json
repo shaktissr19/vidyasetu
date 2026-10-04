@@ -11,7 +11,7 @@
     "test:learning-markdown": "tsc --target ES2019 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir node_modules/.cache/learning-markdown-test src/lib/learningMarkdown.ts src/lib/learningMarkdown.test.ts && node node_modules/.cache/learning-markdown-test/learningMarkdown.test.js"
   },
   "dependencies": {
-    "next": "14.2.3",
+    "next": "14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "axios": "^1.6.8",
@@ -33,6 +33,6 @@
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.3"
+    "eslint-config-next": "14.2.35"
   }
 }
