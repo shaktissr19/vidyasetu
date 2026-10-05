@@ -31,10 +31,11 @@ export async function importSyllabus(input:SyllabusImport,actor:string) {
  const {rows:[board]}=await client.query('SELECT id FROM education_boards WHERE code=$1 AND is_active=TRUE',[input.boardCode]);
  if(!board) throw fail('Select an active board');
  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`syllabus:${board.id}:${input.academicYear}`]);
- const {rows:[previous]}=await client.query('SELECT * FROM curriculum_versions WHERE board_id=$1 AND academic_year=$2 FOR UPDATE',[board.id,input.academicYear]);
- if(previous && previous.status!=='DRAFT') throw fail('Return the existing syllabus to draft before correcting it. Published student visibility will pause.',409);
- const {rows:[version]}=await client.query(`INSERT INTO curriculum_versions(board_id,academic_year,title,status,source_url) VALUES($1,$2,$3,'DRAFT',$4)
- ON CONFLICT(board_id,academic_year) DO UPDATE SET title=EXCLUDED.title,source_url=EXCLUDED.source_url,verified_at=NULL,verified_by=NULL RETURNING id`,[board.id,input.academicYear,input.title,input.sourceUrl]);
+ const {rows:[previous]}=await client.query('SELECT * FROM curriculum_versions WHERE board_id=$1 AND academic_year=$2 ORDER BY version_number DESC LIMIT 1 FOR UPDATE',[board.id,input.academicYear]);
+ const versionNumber=previous ? Number(previous.version_number||1)+(previous.publication_status==='PUBLISHED'||previous.status==='ACTIVE'?1:0) : 1;
+ const {rows:[version]}=await client.query(`INSERT INTO curriculum_versions(board_id,academic_year,title,status,source_url,version_number,publication_status,uploaded_by)
+ VALUES($1,$2,$3,'DRAFT',$4,$5,'DRAFT',$6)
+ ON CONFLICT(board_id,academic_year,version_number) DO UPDATE SET title=EXCLUDED.title,source_url=EXCLUDED.source_url,verified_at=NULL,verified_by=NULL,publication_status='DRAFT',uploaded_by=EXCLUDED.uploaded_by RETURNING id`,[board.id,input.academicYear,input.title,input.sourceUrl,versionNumber,actor]);
  for(const [index,row] of input.rows.entries()) {
  const {rows:[grade]}=await client.query('SELECT id,class_number FROM education_grade_levels WHERE code=$1 AND is_active=TRUE',[row.gradeCode]);
  const {rows:[subject]}=await client.query('SELECT id,code,name FROM subjects WHERE id=$1::uuid',[row.subjectId]);
@@ -72,13 +73,16 @@ export async function changeSyllabusStatus(id:string,status:'DRAFT'|'ACTIVE'|'AR
  return transaction(async client=>{
  const {rows:[version]}=await client.query('SELECT * FROM curriculum_versions WHERE id=$1::uuid FOR UPDATE',[id]);
  if(!version) throw fail('Syllabus not found',404);
- if(status==='ACTIVE') {
+ if(status==='ACTIVE' || status==='PUBLISHED') {
  const {rows:[check]}=await client.query(`SELECT COUNT(*)::int AS total,COUNT(*) FILTER(WHERE ct.evidence_url IS NOT NULL AND LENGTH(ct.page_reference)>0 AND LENGTH(ct.learning_outcome)>0 AND ctc.concept_id IS NOT NULL)::int AS ready FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id LEFT JOIN curriculum_topic_concepts ctc ON ctc.topic_id=ct.id WHERE cs.curriculum_version_id=$1 AND cs.is_active=TRUE AND ct.is_retired=FALSE`,[id]);
  if(!version.source_url || !check.total || check.ready!==check.total) throw fail('Every topic needs source/page evidence, learning outcome and a concept mapping before approval');
  }
- await client.query(`UPDATE curriculum_versions SET status=$2::varchar,verified_at=CASE WHEN $2::varchar='ACTIVE' THEN NOW() ELSE NULL END,verified_by=CASE WHEN $2::varchar='ACTIVE' THEN $3::uuid ELSE NULL END,review_note=$4 WHERE id=$1::uuid`,[id,status,actor,note]);
+ const publicationStatus=status==='ACTIVE'||status==='PUBLISHED'?'PUBLISHED':status==='REVIEWED'?'REVIEWED':status==='ARCHIVED'?'ARCHIVED':'DRAFT';
+ const legacyStatus=publicationStatus==='PUBLISHED'?'ACTIVE':publicationStatus==='ARCHIVED'?'ARCHIVED':'DRAFT';
+ if(publicationStatus==='PUBLISHED') await client.query(`UPDATE curriculum_versions SET publication_status='ARCHIVED',status='ARCHIVED' WHERE board_id=$1 AND academic_year=$2 AND medium=$3 AND id<>$4 AND publication_status='PUBLISHED'`,[version.board_id,version.academic_year,version.medium,id]);
+ await client.query(`UPDATE curriculum_versions SET status=$2,publication_status=$3,verified_at=CASE WHEN $3='PUBLISHED' THEN NOW() ELSE verified_at END,verified_by=CASE WHEN $3 IN ('REVIEWED','PUBLISHED') THEN $4::uuid ELSE verified_by END,reviewed_by=CASE WHEN $3='REVIEWED' THEN $4::uuid ELSE reviewed_by END,published_by=CASE WHEN $3='PUBLISHED' THEN $4::uuid ELSE published_by END,published_at=CASE WHEN $3='PUBLISHED' THEN NOW() ELSE published_at END,review_note=$5 WHERE id=$1::uuid`,[id,legacyStatus,publicationStatus,actor,note]);
  await client.query(`UPDATE learning_concepts SET registry_status=$2 WHERE id IN(SELECT ctc.concept_id FROM curriculum_topic_concepts ctc JOIN curriculum_topics ct ON ct.id=ctc.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id WHERE cs.curriculum_version_id=$1 AND ct.is_retired=FALSE)`,[id,status==='ACTIVE'?'ACADEMICALLY_VERIFIED':'DRAFT_FOR_ACADEMIC_REVIEW']);
- await audit(client,actor,id,'UPDATE',{operation:'SYLLABUS_STATUS',from:version.status,to:status,note});
+ await audit(client,actor,id,'UPDATE',{operation:'SYLLABUS_STATUS',from:version.publication_status||version.status,to:publicationStatus,note});
  return {id,status};
  });
 }
@@ -100,7 +104,7 @@ export async function studentSyllabus(userId:string) {
  const year=preference?.academic_year || `${start}-${String(start+1).slice(-2)}`;
  const grade=canonicalGradeCode(student);const board=student.board_code;
  const options=await syllabusOptions();
- const {rows:[version]}=await query("SELECT * FROM curriculum_versions WHERE board_id=(SELECT id FROM education_boards WHERE code=$1) AND academic_year=$2 AND status='ACTIVE' AND verified_at IS NOT NULL",[board,year]);
+ const {rows:[version]}=await query("SELECT * FROM curriculum_versions WHERE board_id=(SELECT id FROM education_boards WHERE code=$1) AND academic_year=$2 AND publication_status='PUBLISHED' AND verified_at IS NOT NULL",[board,year]);
  const profile={boardCode:board,gradeCode:grade,academicYear:year,language:preference?.language || 'en',schoolLinked:Boolean(student.school_id)};
  const studentOptions={boards:options.boards,grades:options.grades,subjects:options.subjects,years:[...new Set([year,...options.versions.filter(v=>v.status==='ACTIVE'&&v.verified_at).map(v=>v.academic_year)])]};
  if(!version) return {profile,options:studentOptions,version:null,topics:[],summary:null};
