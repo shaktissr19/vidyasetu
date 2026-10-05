@@ -26,3 +26,23 @@ export async function enforceStudentContentScope(req:Request,res:Response,next:N
   return next();
  }catch(error){next(error);}
 }
+
+/** The chapter listing endpoint must not be usable to enumerate restricted items. */
+export async function enforceStudentChapterScope(req:Request,res:Response,next:NextFunction){
+ try{
+  if(req.user?.role!=='STUDENT')return next();
+  const ctx=await getStudentContext(req.user.userId);
+  const grade=canonicalGradeCode(ctx);
+  const {rows:[chapter]}=await query(`SELECT ch.class_name FROM chapters ch WHERE ch.id=$1::uuid AND ch.is_active=TRUE`,[req.params.chapterId]);
+  if(!chapter)return R.notFound(res,'Content not found');
+  const {rows:[blocked]}=await query(`SELECT EXISTS(
+    SELECT 1 FROM content_items ci LEFT JOIN education_boards b ON b.id=ci.board_id
+    WHERE ci.chapter_id=$1::uuid AND ci.status='PUBLISHED' AND (
+      (ci.visibility='CLASS_RESTRICTED' AND (ci.grade_code<>$2 OR b.code IS DISTINCT FROM $3))
+      OR (ci.visibility='SCHOOL_PRIVATE' AND ci.school_id IS DISTINCT FROM $4::uuid)
+    )
+  ) AS blocked`,[req.params.chapterId,grade,ctx.board_code,ctx.school_id]);
+  if(blocked?.blocked)return R.notFound(res,'Content not found');
+  return next();
+ }catch(error){next(error);}
+}
