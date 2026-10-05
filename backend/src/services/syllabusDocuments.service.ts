@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import { query } from '../config/db';
 import { s3, BUCKET, getDownloadUrl, deleteObject } from '../config/s3';
 import { downloadLicensedAsset, scanImportedAsset } from './learningSourceAcquisition.service';
+import { getStudentContext, canonicalGradeCode } from './studentCanonicalLearning.service';
 
 const fail=(message:string,statusCode=400)=>Object.assign(new Error(message),{statusCode});
 const maxBytes=25*1024*1024;
@@ -64,19 +65,21 @@ export async function importSyllabusPdf(meta:any,actor:string){
  if(asset.mime!=='application/pdf')throw fail('The official link did not return a PDF file. Paste a direct PDF link.');
  return save({...meta,sourceUrl:meta.pdfUrl,bytes:asset.bytes,actor});
 }
-export async function listSyllabusDocuments(filters:{boardCode?:string;gradeCode?:string;subjectId?:string;academicYear?:string;query?:string},student=false){
+export async function listSyllabusDocuments(filters:{boardCode?:string;gradeCode?:string;subjectId?:string;academicYear?:string;query?:string},student=false,studentUserId?:string){
+ if(student){if(!studentUserId)throw fail('Student identity is required.',403);const context=await getStudentContext(studentUserId);if(!context.board_code)return [];filters={...filters,boardCode:context.board_code,gradeCode:canonicalGradeCode(context)};}
  const {rows}=await query(`SELECT d.id,eb.code AS board_code,eb.name AS board_name,d.academic_year,d.grade_code,g.name AS grade_name,d.subject_id,s.name AS subject_name,d.title,d.language,d.source_url,d.source_publisher,d.source_published_at,d.page_count,
  CASE WHEN $5::text IS NULL THEN '[]'::jsonb ELSE (SELECT COALESCE(jsonb_agg(hit.item),'[]'::jsonb) FROM (SELECT item FROM jsonb_array_elements(d.outline) AS e(item) WHERE item->>'text' ILIKE '%'||$5||'%' LIMIT 3) hit) END AS outline,
  d.status,d.redistribution_allowed,d.created_at
  FROM syllabus_documents d JOIN education_boards eb ON eb.id=d.board_id LEFT JOIN education_grade_levels g ON g.code=d.grade_code LEFT JOIN subjects s ON s.id=d.subject_id
- WHERE ($1::text IS NULL OR eb.code=$1) AND ($2::text IS NULL OR d.grade_code=$2) AND ($3::uuid IS NULL OR d.subject_id=$3) AND ($4::text IS NULL OR d.academic_year=$4) AND ($5::text IS NULL OR d.extracted_text ILIKE '%'||$5||'%' OR d.title ILIKE '%'||$5||'%') AND (NOT $6 OR d.status='APPROVED') AND d.status<>'REJECTED'
+ WHERE ($1::text IS NULL OR eb.code=$1) AND ($2::text IS NULL OR d.grade_code IS NULL OR d.grade_code=$2) AND ($3::uuid IS NULL OR d.subject_id=$3) AND ($4::text IS NULL OR d.academic_year=$4) AND ($5::text IS NULL OR d.extracted_text ILIKE '%'||$5||'%' OR d.title ILIKE '%'||$5||'%') AND (NOT $6 OR d.status='APPROVED') AND d.status<>'REJECTED'
  ORDER BY eb.sort_order,d.academic_year DESC,d.grade_code NULLS FIRST,s.name NULLS FIRST,d.title LIMIT 500`,[filters.boardCode||null,filters.gradeCode||null,filters.subjectId||null,filters.academicYear||null,filters.query?.slice(0,160)||null,student]);
  return rows;
 }
-export async function syllabusDocumentDetail(id:string,admin=false){
+export async function syllabusDocumentDetail(id:string,admin=false,studentUserId?:string){
  const {rows:[doc]}=await query('SELECT d.id,d.board_id,eb.code AS board_code,d.academic_year,d.grade_code,d.subject_id,d.title,d.language,d.source_url,d.source_publisher,d.page_count,d.outline,d.status,d.redistribution_allowed,d.redistribution_evidence_url,d.review_note,d.storage_key FROM syllabus_documents d JOIN education_boards eb ON eb.id=d.board_id WHERE d.id=$1::uuid',[id]);
  if(!doc)throw fail('Syllabus document not found.',404);
  if(!admin&&doc.status!=='APPROVED')throw fail('Syllabus document not found.',404);
+ if(!admin){if(!studentUserId)throw fail('Student identity is required.',403);const context=await getStudentContext(studentUserId);if(!context.board_code||doc.board_code!==context.board_code||(doc.grade_code&&doc.grade_code!==canonicalGradeCode(context)))throw fail('Syllabus document not found.',404);}
  const {storage_key,...safeDoc}=doc;
  return {...safeDoc,downloadUrl:admin||doc.redistribution_allowed?await getDownloadUrl(storage_key,admin?600:300):null};
 }
