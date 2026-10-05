@@ -27,7 +27,7 @@ adminSyllabusRoutes.get('/:id',validate(z.object({id:z.string().uuid()}),'params
 adminSyllabusRoutes.patch('/:id/status',validate(z.object({id:z.string().uuid()}),'params'),validate(z.object({status:z.enum(['DRAFT','ACTIVE','ARCHIVED']),note:z.string().trim().min(10).max(2000)})),route(req=>service.changeSyllabusStatus(req.params.id,req.body.status,req.body.note,req.user!.userId)));
 export const studentSyllabusRoutes=Router();
 studentSyllabusRoutes.use(authenticate,authorize('STUDENT'));
-studentSyllabusRoutes.get('/documents',route(req=>documents.listSyllabusDocuments({boardCode:String(req.query.boardCode||'')||undefined,gradeCode:String(req.query.gradeCode||'')||undefined,subjectId:String(req.query.subjectId||'')||undefined,academicYear:String(req.query.academicYear||'')||undefined,query:String(req.query.query||'')||undefined},true)));
-studentSyllabusRoutes.get('/documents/:id',validate(z.object({id:z.string().uuid()}),'params'),route(req=>documents.syllabusDocumentDetail(req.params.id,false)));
+studentSyllabusRoutes.get('/documents',route(req=>documents.listSyllabusDocuments({boardCode:String(req.query.boardCode||'')||undefined,gradeCode:String(req.query.gradeCode||'')||undefined,subjectId:String(req.query.subjectId||'')||undefined,academicYear:String(req.query.academicYear||'')||undefined,query:String(req.query.query||'')||undefined},true,req.user!.userId)));
+studentSyllabusRoutes.get('/documents/:id',validate(z.object({id:z.string().uuid()}),'params'),route(req=>documents.syllabusDocumentDetail(req.params.id,false,req.user!.userId)));
 studentSyllabusRoutes.get('/',route(req=>service.studentSyllabus(req.user!.userId)));
 studentSyllabusRoutes.put('/profile',validate(z.object({boardCode:z.string().min(2).max(30),gradeCode:grade,academicYear:year,language:z.enum(['en','hi'])})),route(req=>service.saveLearningPreference(req.user!.userId,req.body)));
