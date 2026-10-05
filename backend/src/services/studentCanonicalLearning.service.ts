@@ -63,11 +63,25 @@ export async function getStudentContext(userId: UUID): Promise<StudentContextRow
   const { rows: [student] } = await query<StudentContextRow>(
     `SELECT s.id AS student_id, s.grade_level, s.grade_code, sc.class_name,
             s.school_id, sch.name AS school_name,
-            eb.code AS board_code, eb.name AS board_name
+            eb.board_code, eb.board_name
      FROM students s
      LEFT JOIN school_classes sc ON sc.id=s.class_id
      LEFT JOIN schools sch ON sch.id=s.school_id
-     LEFT JOIN education_boards eb ON eb.id=sch.board_id
+     LEFT JOIN LATERAL (
+       SELECT candidate.code AS board_code, candidate.name AS board_name
+       FROM education_boards candidate
+       WHERE candidate.id=sch.board_id
+          OR (sch.board_id IS NULL AND (
+            regexp_replace(lower(trim(COALESCE(sch.board,''))), '[^a-z0-9]', '', 'g') IN (
+              regexp_replace(lower(candidate.code), '[^a-z0-9]', '', 'g'),
+              regexp_replace(lower(candidate.short_name), '[^a-z0-9]', '', 'g'),
+              regexp_replace(lower(candidate.name), '[^a-z0-9]', '', 'g')
+            )
+            OR (candidate.code='CISCE' AND regexp_replace(lower(trim(COALESCE(sch.board,''))), '[^a-z0-9]', '', 'g') IN ('icse','isc'))
+          ))
+       ORDER BY CASE WHEN candidate.id=sch.board_id THEN 0 ELSE 1 END
+       LIMIT 1
+     ) eb ON TRUE
      WHERE s.user_id=$1::uuid AND s.status='ACTIVE'`,
     [userId],
   );
