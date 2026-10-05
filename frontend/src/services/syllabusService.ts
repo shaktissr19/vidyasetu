@@ -1,7 +1,7 @@
 import api from './api';
 import type { ApiEnvelope } from '@/types/api';
 export interface SyllabusRow {gradeCode:string;subjectId:string;chapter:string;topic:string;topicHi?:string;learningOutcome:string;evidenceUrl:string;pageReference:string;}
-export interface SyllabusVersion {id:string;board_code?:string;academic_year:string;title:string;status?:string;source_url:string;verified_at?:string|null;}
+export interface SyllabusVersion {id:string;board_code?:string;academic_year:string;title:string;status?:string;publication_status?:'DRAFT'|'REVIEWED'|'PUBLISHED'|'ARCHIVED';version_number?:number;source_url:string;verified_at?:string|null;}
 export interface SyllabusTopic {is_retired?:boolean;coverage?:{published_count:number;formats:string[];difficulties:string[]};id:string;title:string;title_hi?:string;chapter:string;subject:string;subject_id:string;grade_code:string;concept_id:string;learning_outcome:string;evidence_url:string;page_reference:string;resources?:{id:string;title:string;title_hi?:string;resource_type:string;difficulty?:string;locked:boolean;completed:boolean}[];availableResources?:number;completedResources?:number;learningComplete?:boolean;mastered?:boolean;masteryPct?:number|null;}
 export interface SyllabusOptions {drafts:{id:string;title:string;subject_id:string;grade_codes:string[]}[];boards:{id:string;code:string;name:string}[];grades:{id:string;code:string;name:string}[];subjects:{id:string;code:string;name:string}[];versions:SyllabusVersion[];}
 export interface StudentSyllabus {profile:{boardCode:string|null;gradeCode:string;academicYear:string;language:string;schoolLinked:boolean};options:{boards:SyllabusOptions['boards'];grades:SyllabusOptions['grades'];subjects:SyllabusOptions['subjects'];years:string[]};version:SyllabusVersion|null;topics:SyllabusTopic[];summary:{totalTopics:number;coveredTopics:number;completedTopics:number;masteredTopics:number}|null;}
@@ -23,3 +23,7 @@ export const getSyllabusSources=()=>api.get<ApiEnvelope<{boardCode:string;name:s
 export const uploadSyllabusDocument=(form:FormData)=>api.post('/admin/syllabus/documents/upload',form,{headers:{'Content-Type':'multipart/form-data'}});
 export const importSyllabusDocument=(input:Record<string,string>)=>api.post('/admin/syllabus/documents/import',input);
 export const reviewSyllabusDocument=(id:string,input:{status:'APPROVED'|'REJECTED';note:string;redistributionAllowed:boolean;redistributionEvidenceUrl?:string})=>api.patch(`/admin/syllabus/documents/${id}/review`,input);
+
+export type SyllabusProgressStatus='NOT_STARTED'|'IN_PROGRESS'|'COMPLETED'|'REVISED';
+export const getSyllabusProgress=()=>api.get<ApiEnvelope<{topic_id:string;student_status:SyllabusProgressStatus;updated_at:string}[]>>('/student/syllabus/progress');
+export const updateSyllabusProgress=(topicId:string,status:SyllabusProgressStatus)=>api.put('/student/syllabus/topics/'+topicId+'/progress',{status});
