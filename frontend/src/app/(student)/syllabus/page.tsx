@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getMySyllabus, saveSyllabusProfile, getSyllabusDocuments, getSyllabusDocument, type SyllabusDocument } from '@/services/syllabusService';
+import { getMySyllabus, saveSyllabusProfile, getSyllabusDocuments, getSyllabusDocument, getSyllabusProgress, updateSyllabusProgress, type SyllabusDocument, type SyllabusProgressStatus } from '@/services/syllabusService';
 
 export default function MySyllabus() {
   const client = useQueryClient();
@@ -15,6 +15,8 @@ export default function MySyllabus() {
   const [yearChoice, setYearChoice] = useState('');
   const syllabusQuery = useQuery({ queryKey: ['my-syllabus'], queryFn: () => getMySyllabus().then(r => r.data.data) });
   const data = syllabusQuery.data;
+  const progressQuery = useQuery({ queryKey: ['syllabus-progress'], queryFn: () => getSyllabusProgress().then(r => r.data.data) });
+  const progressMutation = useMutation({ mutationFn: ({ topicId, status }: { topicId: string; status: SyllabusProgressStatus }) => updateSyllabusProgress(topicId, status), onSuccess: () => client.invalidateQueries({ queryKey: ['syllabus-progress'] }) });
   const profile = data?.profile;
   const boardCode = profile?.boardCode || '';
   const gradeCode = profile?.gradeCode || '';
@@ -93,7 +95,7 @@ export default function MySyllabus() {
           <h3 className="text-lg font-bold">{chapter}</h3>
           <div className="mt-2 divide-y">{selectedSubject.topics.filter(topic => topic.chapter === chapter).map(topic => <article className="py-3" key={topic.id}>
             <h4 className="font-semibold">{topic.title}</h4>
-            {topic.learning_outcome && <p className="mt-1 text-sm">{topic.learning_outcome}</p>}
+            {topic.learning_outcome && <p className="mt-1 text-sm">{topic.learning_outcome}</p>}\n            <label className="mt-2 inline-flex items-center gap-2 text-sm">My progress<select className="input" value={progressQuery.data?.find(item => item.topic_id === topic.id)?.student_status || 'NOT_STARTED'} disabled={progressMutation.isPending} onChange={event => progressMutation.mutate({ topicId: topic.id, status: event.target.value as SyllabusProgressStatus })}><option value="NOT_STARTED">Not started</option><option value="IN_PROGRESS">In progress</option><option value="COMPLETED">Completed</option><option value="REVISED">Revised</option></select></label>
             {topic.evidence_url && <a className="mt-1 inline-block text-sm underline" href={topic.evidence_url} target="_blank" rel="noopener noreferrer">Official source · {topic.page_reference || 'view document'} ↗</a>}
             <div className="mt-2"><Link className="underline" href={'/learn/library?q=' + encodeURIComponent(topic.title) + '&board=' + encodeURIComponent(boardCode) + '&grade=' + encodeURIComponent(gradeCode)}>Find lessons for this topic →</Link></div>
             {topic.resources?.length ? <ul className="mt-2 list-inside list-disc">{topic.resources.map(resource => <li key={resource.id}>{resource.locked ? <span>🔒 {resource.title} · Subscription required</span> : <Link className="underline" href={'/subjects/resource/' + resource.id}>{resource.title} · {resource.resource_type}{resource.completed ? ' · Completed' : ''}</Link>}</li>)}</ul> : <p className="mt-2 text-sm text-slate-600">Learning content is not available for this topic yet.</p>}
