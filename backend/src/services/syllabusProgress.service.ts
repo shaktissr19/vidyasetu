@@ -2,6 +2,7 @@ import { query } from '../config/db';
 import { getStudentContext, canonicalGradeCode } from './studentCanonicalLearning.service';
 
 const fail=(message:string,statusCode=400)=>Object.assign(new Error(message),{statusCode});
+const academicYear=()=>{const d=new Date();const start=d.getUTCMonth()<3?d.getUTCFullYear()-1:d.getUTCFullYear();return start+'-'+String(start+1).slice(-2);};
 const statuses=['NOT_STARTED','IN_PROGRESS','COMPLETED','REVISED'] as const;
 
 export async function markTopicProgress(userId:string,topicId:string,status:string){
@@ -16,6 +17,6 @@ export async function markTopicProgress(userId:string,topicId:string,status:stri
 }
 export async function getTopicProgress(userId:string){
  const student=await getStudentContext(userId);
- const {rows}=await query(`SELECT p.topic_id,p.student_status,p.updated_at FROM student_syllabus_progress p JOIN curriculum_topics ct ON ct.id=p.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id JOIN education_boards eb ON eb.id=cv.board_id WHERE p.student_id=$1 AND cv.publication_status='PUBLISHED' AND eb.code=$2 AND cs.class_name=$3`,[student.student_id,student.board_code,canonicalGradeCode(student)]);
+ const {rows}=await query(`SELECT p.topic_id,p.student_status,p.updated_at FROM student_syllabus_progress p JOIN curriculum_topics ct ON ct.id=p.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id JOIN education_boards eb ON eb.id=cv.board_id WHERE p.student_id=$1 AND cv.publication_status='PUBLISHED' AND eb.code=$2 AND cs.class_name=$3 AND cv.academic_year=$4`,[student.student_id,student.board_code,canonicalGradeCode(student),academicYear()]);
  return rows;
 }
