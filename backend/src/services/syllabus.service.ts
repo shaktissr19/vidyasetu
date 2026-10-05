@@ -32,7 +32,7 @@ export async function importSyllabus(input:SyllabusImport,actor:string) {
  if(!board) throw fail('Select an active board');
  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`syllabus:${board.id}:${input.academicYear}`]);
  const {rows:[previous]}=await client.query('SELECT * FROM curriculum_versions WHERE board_id=$1 AND academic_year=$2 ORDER BY version_number DESC LIMIT 1 FOR UPDATE',[board.id,input.academicYear]);
- const versionNumber=previous ? Number(previous.version_number||1)+(previous.publication_status==='PUBLISHED'||previous.status==='ACTIVE'?1:0) : 1;
+ const versionNumber=previous ? Number(previous.version_number||1)+((previous.publication_status||previous.status)!=='DRAFT'?1:0) : 1;
  const {rows:[version]}=await client.query(`INSERT INTO curriculum_versions(board_id,academic_year,title,status,source_url,version_number,publication_status,uploaded_by)
  VALUES($1,$2,$3,'DRAFT',$4,$5,'DRAFT',$6)
  ON CONFLICT(board_id,academic_year,version_number) DO UPDATE SET title=EXCLUDED.title,source_url=EXCLUDED.source_url,verified_at=NULL,verified_by=NULL,publication_status='DRAFT',uploaded_by=EXCLUDED.uploaded_by RETURNING id`,[board.id,input.academicYear,input.title,input.sourceUrl,versionNumber,actor]);
@@ -78,6 +78,9 @@ export async function changeSyllabusStatus(id:string,status:'DRAFT'|'ACTIVE'|'AR
  if(!version.source_url || !check.total || check.ready!==check.total) throw fail('Every topic needs source/page evidence, learning outcome and a concept mapping before approval');
  }
  const publicationStatus=status==='ACTIVE'||status==='PUBLISHED'?'PUBLISHED':status==='REVIEWED'?'REVIEWED':status==='ARCHIVED'?'ARCHIVED':'DRAFT';
+ const currentStatus=version.publication_status|| (version.status==='ACTIVE'?'PUBLISHED':version.status);
+ if(publicationStatus==='REVIEWED' && !['DRAFT','REVIEWED'].includes(currentStatus)) throw fail('Only draft syllabi can enter review',409);
+ if(publicationStatus==='PUBLISHED' && !['REVIEWED','PUBLISHED'].includes(currentStatus)) throw fail('A syllabus must be reviewed before publication',409);
  const legacyStatus=publicationStatus==='PUBLISHED'?'ACTIVE':publicationStatus==='ARCHIVED'?'ARCHIVED':'DRAFT';
  if(publicationStatus==='PUBLISHED') await client.query(`UPDATE curriculum_versions SET publication_status='ARCHIVED',status='ARCHIVED' WHERE board_id=$1 AND academic_year=$2 AND medium=$3 AND id<>$4 AND publication_status='PUBLISHED'`,[version.board_id,version.academic_year,version.medium,id]);
  await client.query(`UPDATE curriculum_versions SET status=$2,publication_status=$3,verified_at=CASE WHEN $3='PUBLISHED' THEN NOW() ELSE verified_at END,verified_by=CASE WHEN $3 IN ('REVIEWED','PUBLISHED') THEN $4::uuid ELSE verified_by END,reviewed_by=CASE WHEN $3='REVIEWED' THEN $4::uuid ELSE reviewed_by END,published_by=CASE WHEN $3='PUBLISHED' THEN $4::uuid ELSE published_by END,published_at=CASE WHEN $3='PUBLISHED' THEN NOW() ELSE published_at END,review_note=$5 WHERE id=$1::uuid`,[id,legacyStatus,publicationStatus,actor,note]);
