@@ -1547,10 +1547,13 @@ ALTER TABLE content_items
   ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
   ADD COLUMN IF NOT EXISTS syllabus_topic_id UUID REFERENCES curriculum_topics(id) ON DELETE SET NULL;
-ALTER TABLE content_items ADD CONSTRAINT content_items_restricted_scope_check
-  CHECK ((visibility='PUBLIC') OR
-    (visibility='CLASS_RESTRICTED' AND board_id IS NOT NULL AND grade_code IS NOT NULL AND subject_id IS NOT NULL) OR
-    (visibility='SCHOOL_PRIVATE' AND school_id IS NOT NULL));
+DO $ BEGIN
+  ALTER TABLE content_items ADD CONSTRAINT content_items_restricted_scope_check
+    CHECK ((visibility='PUBLIC') OR
+      (visibility='CLASS_RESTRICTED' AND board_id IS NOT NULL AND grade_code IS NOT NULL AND subject_id IS NOT NULL) OR
+      (visibility='SCHOOL_PRIVATE' AND school_id IS NOT NULL));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $;
 CREATE INDEX IF NOT EXISTS idx_content_items_visibility_scope
   ON content_items(visibility,board_id,grade_code,subject_id,school_id,status);
 
