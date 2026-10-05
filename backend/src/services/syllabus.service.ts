@@ -68,16 +68,16 @@ export async function syllabusDetail(versionId:string) {
  const {rows:history}=await query("SELECT action,created_at,new_value->>'operation' AS operation FROM audit_log WHERE entity_type='curriculum_version' AND entity_id=$1::uuid ORDER BY created_at DESC LIMIT 20",[versionId]);
  return {version,topics:topics.map(t=>({...t,coverage:counts.find(c=>c.topic_id===t.id)||{published_count:0,formats:[],difficulties:[]}})),history};
 }
-export async function changeSyllabusStatus(id:string,status:'DRAFT'|'ACTIVE'|'ARCHIVED',note:string,actor:string) {
+export async function changeSyllabusStatus(id:string,status:'DRAFT'|'REVIEWED'|'ACTIVE'|'ARCHIVED',note:string,actor:string) {
  await syllabusReady();
  return transaction(async client=>{
  const {rows:[version]}=await client.query('SELECT * FROM curriculum_versions WHERE id=$1::uuid FOR UPDATE',[id]);
  if(!version) throw fail('Syllabus not found',404);
- if(status==='ACTIVE' || status==='PUBLISHED') {
+ if(status==='ACTIVE') {
  const {rows:[check]}=await client.query(`SELECT COUNT(*)::int AS total,COUNT(*) FILTER(WHERE ct.evidence_url IS NOT NULL AND LENGTH(ct.page_reference)>0 AND LENGTH(ct.learning_outcome)>0 AND ctc.concept_id IS NOT NULL)::int AS ready FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id LEFT JOIN curriculum_topic_concepts ctc ON ctc.topic_id=ct.id WHERE cs.curriculum_version_id=$1 AND cs.is_active=TRUE AND ct.is_retired=FALSE`,[id]);
  if(!version.source_url || !check.total || check.ready!==check.total) throw fail('Every topic needs source/page evidence, learning outcome and a concept mapping before approval');
  }
- const publicationStatus=status==='ACTIVE'||status==='PUBLISHED'?'PUBLISHED':status==='REVIEWED'?'REVIEWED':status==='ARCHIVED'?'ARCHIVED':'DRAFT';
+ const publicationStatus=status==='ACTIVE'?'PUBLISHED':status==='REVIEWED'?'REVIEWED':status==='ARCHIVED'?'ARCHIVED':'DRAFT';
  const currentStatus=version.publication_status|| (version.status==='ACTIVE'?'PUBLISHED':version.status);
  if(publicationStatus==='REVIEWED' && !['DRAFT','REVIEWED'].includes(currentStatus)) throw fail('Only draft syllabi can enter review',409);
  if(publicationStatus==='PUBLISHED' && !['REVIEWED','PUBLISHED'].includes(currentStatus)) throw fail('A syllabus must be reviewed before publication',409);
