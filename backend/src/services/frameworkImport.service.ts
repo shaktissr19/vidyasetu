@@ -75,7 +75,7 @@ export async function frameworkCoverage() {
   SELECT sc.board_code,sc.academic_year,sc.medium,sc.grade_code,sc.subject_code,
          COUNT(DISTINCT cu.id)::int AS unit_count,COUNT(DISTINCT cc.id)::int AS chapter_count,
          COUNT(DISTINCT ct.id) FILTER(WHERE ct.is_retired=FALSE)::int AS topic_count,
-         COALESCE(cv.publication_status,'MISSING') AS publication_status
+         CASE WHEN cs.id IS NULL THEN 'MISSING' ELSE cv.publication_status END AS publication_status
   FROM scopes sc
   LEFT JOIN curriculum_versions cv ON cv.board_id=sc.board_id AND cv.academic_year=sc.academic_year AND cv.medium=sc.medium
   LEFT JOIN curriculum_subjects cs ON cs.curriculum_version_id=cv.id AND cs.class_name=sc.grade_code AND cs.subject_code=sc.subject_code AND cs.is_active=TRUE
