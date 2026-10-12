@@ -30,6 +30,10 @@ WHERE ct.chapter_id IS NULL
   AND cc.curriculum_unit_id=ct.curriculum_unit_id
   AND cc.title=(SELECT cu.title FROM curriculum_units cu WHERE cu.id=ct.curriculum_unit_id);
 
+DROP INDEX IF EXISTS uq_curriculum_versions_year_version;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_curriculum_versions_year_medium_version
+  ON curriculum_versions(board_id,academic_year,medium,version_number);
+
 ALTER TABLE curriculum_versions
   ADD COLUMN IF NOT EXISTS source_hash VARCHAR(64)
     CHECK (source_hash IS NULL OR source_hash ~ '^[a-f0-9]{64}$');
