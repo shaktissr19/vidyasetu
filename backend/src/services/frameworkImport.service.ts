@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { query } from '../config/db';
+import { query, transaction } from '../config/db';
 import { importSyllabus, type SyllabusRow } from './syllabus.service';
 
 export interface FrameworkCsvRow {
@@ -55,7 +55,6 @@ export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string)
   const syllabusRows:SyllabusRow[]=rows.map(r=>({gradeCode:r.gradeCode,subjectId:byCode.get(r.subjectCode)!,unit:r.unit,chapter:r.chapter,topic:r.topic,topicHi:r.topicHi,learningOutcome:r.learningOutcome,evidenceUrl:r.sourceUrl,pageReference:r.pageReference}));
   const hash=createHash('sha256').update(JSON.stringify(rows)).digest('hex');
   const result=await importSyllabus({boardCode:rows[0].boardCode,academicYear:rows[0].academicYear,title:`${rows[0].boardCode} ${rows[0].academicYear} curriculum framework`,sourceUrl:rows[0].sourceUrl,sourceHash:hash,medium:rows[0].medium,rows:syllabusRows},actor);
-  await query('UPDATE curriculum_versions SET medium=$2,source_hash=$3 WHERE id=$1::uuid',[result.id,rows[0].medium,hash]);
   return {...result,sourceHash:hash,importedRows:rows.length};
 }
 
@@ -75,4 +74,20 @@ export async function frameworkCoverage() {
   )
   SELECT * FROM curriculum ORDER BY board_code,academic_year DESC,grade_code,subject_code`);
   return rows;
+}
+
+export async function attachFrameworkEvidence(versionId:string,documentId:string,actor:string) {
+  return transaction(async client=>{
+    const {rows:[version]}=await client.query('SELECT id,board_id,academic_year FROM curriculum_versions WHERE id=$1::uuid FOR UPDATE',[versionId]);
+    if(!version) throw problem('Curriculum framework version not found.',404);
+    const {rows:[document]}=await client.query('SELECT id,board_id,academic_year,status FROM syllabus_documents WHERE id=$1::uuid FOR SHARE',[documentId]);
+    if(!document) throw problem('Syllabus PDF document not found.',404);
+    if(document.board_id!==version.board_id||document.academic_year!==version.academic_year) throw problem('Evidence PDF must match the framework board and academic year.');
+    if(document.status!=='APPROVED') throw problem('Review and approve the PDF in the syllabus document library before attaching it as official evidence.',409);
+    await client.query(`INSERT INTO curriculum_version_evidence(curriculum_version_id,syllabus_document_id,attached_by)
+      VALUES($1::uuid,$2::uuid,$3::uuid) ON CONFLICT(curriculum_version_id,syllabus_document_id) DO NOTHING`,[versionId,documentId,actor]);
+    await client.query(`INSERT INTO audit_log(actor_id,action,entity_type,entity_id,new_value)
+      VALUES($1::uuid,'UPDATE','curriculum_version',$2::uuid,$3::jsonb)`,[actor,versionId,JSON.stringify({operation:'ATTACH_OFFICIAL_EVIDENCE',documentId})]);
+    return {versionId,documentId,attached:true};
+  });
 }
