@@ -52,7 +52,7 @@ export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string)
   if(!preview.valid) throw problem('Framework import has validation errors. Correct the preview before saving.');
   const {rows:subjects}=await query<{code:string;id:string}>('SELECT code,id FROM subjects WHERE code=ANY($1::text[])',[[...new Set(rows.map(r=>r.subjectCode))]]);
   const byCode=new Map(subjects.map(s=>[s.code,s.id]));
-  const syllabusRows:SyllabusRow[]=rows.map(r=>({gradeCode:r.gradeCode,subjectId:byCode.get(r.subjectCode)!,unit:r.unit,chapter:r.chapter,topic:r.topic,topicHi:r.topicHi,learningOutcome:r.learningOutcome,evidenceUrl:r.sourceUrl,pageReference:r.pageReference}));
+  const syllabusRows:SyllabusRow[]=rows.map(r=>({gradeCode:r.gradeCode,subjectId:byCode.get(r.subjectCode)!,unit:r.unit,chapter:r.chapter,sortOrder:r.sortOrder,topic:r.topic,topicHi:r.topicHi,learningOutcome:r.learningOutcome,evidenceUrl:r.sourceUrl,pageReference:r.pageReference}));
   const hash=createHash('sha256').update(JSON.stringify(rows)).digest('hex');
   const result=await importSyllabus({boardCode:rows[0].boardCode,academicYear:rows[0].academicYear,title:`${rows[0].boardCode} ${rows[0].academicYear} curriculum framework`,sourceUrl:rows[0].sourceUrl,sourceHash:hash,medium:rows[0].medium,rows:syllabusRows},actor);
   return {...result,sourceHash:hash,importedRows:rows.length};
