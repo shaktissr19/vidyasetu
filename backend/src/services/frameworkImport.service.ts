@@ -45,7 +45,8 @@ export async function previewFrameworkImport(rows:FrameworkCsvRow[]) {
     if(!subjectMap.has(r.subjectCode)) errors.push({row:n,message:`Unknown or inactive subject code: ${r.subjectCode}`});
     if(!r.unit?.trim()||!r.chapter?.trim()||!r.topic?.trim()) errors.push({row:n,message:'Unit, chapter and topic are required.'});
     if(!r.learningOutcome?.trim()) errors.push({row:n,message:'Learning outcome is required.'});
-    if(!https(r.sourceUrl)) errors.push({row:n,message:'Source URL must be HTTPS.'});\n    else if(!officialHost(r.sourceUrl)) errors.push({row:n,message:'Source domain is not on the syllabus official-source allow-list. Configure SYLLABUS_IMPORT_ALLOWED_HOSTS for another board domain.'});
+    if(!https(r.sourceUrl)) errors.push({row:n,message:'Source URL must be HTTPS.'});
+    else if(!officialHost(r.sourceUrl)) errors.push({row:n,message:'Source domain is not on the syllabus official-source allow-list. Configure SYLLABUS_IMPORT_ALLOWED_HOSTS for another board domain.'});
     if(!r.pageReference?.trim()) errors.push({row:n,message:'Page or section reference is required.'});
     const key=[r.gradeCode,r.subjectCode,r.unit,r.chapter,r.topic].map(x=>x.trim().toLocaleLowerCase()).join('|');
     if(seen.has(key)) errors.push({row:n,message:'Duplicate class/subject/unit/chapter/topic row.'});
