@@ -59,20 +59,31 @@ export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string)
 }
 
 export async function frameworkCoverage() {
-  const {rows}=await query(`WITH curriculum AS (
-    SELECT eb.code AS board_code,cv.academic_year,cv.medium,cs.class_name AS grade_code,cs.subject_code,
-           COUNT(DISTINCT cu.id)::int AS unit_count,COUNT(DISTINCT cc.id)::int AS chapter_count,
-           COUNT(DISTINCT ct.id) FILTER(WHERE ct.is_retired=FALSE)::int AS topic_count,
-           cv.publication_status
-    FROM curriculum_versions cv
-    JOIN education_boards eb ON eb.id=cv.board_id
-    JOIN curriculum_subjects cs ON cs.curriculum_version_id=cv.id AND cs.is_active=TRUE
-    LEFT JOIN curriculum_units cu ON cu.curriculum_subject_id=cs.id
-    LEFT JOIN curriculum_chapters cc ON cc.curriculum_unit_id=cu.id
-    LEFT JOIN curriculum_topics ct ON ct.curriculum_unit_id=cu.id
-    GROUP BY eb.code,cv.academic_year,cv.medium,cs.class_name,cs.subject_code,cv.publication_status
+  const {rows}=await query(`WITH academic_year AS (
+    SELECT CASE WHEN EXTRACT(MONTH FROM CURRENT_DATE)<4
+      THEN (EXTRACT(YEAR FROM CURRENT_DATE)::int-1)::text||'-'||RIGHT((EXTRACT(YEAR FROM CURRENT_DATE)::int)::text,2)
+      ELSE EXTRACT(YEAR FROM CURRENT_DATE)::int::text||'-'||RIGHT((EXTRACT(YEAR FROM CURRENT_DATE)::int+1)::text,2)
+    END AS year
+  ), media AS (SELECT unnest(ARRAY['en','hi']::text[]) AS medium),
+  scopes AS (
+    SELECT b.id AS board_id,b.code AS board_code,ay.year AS academic_year,m.medium,
+           g.code AS grade_code,s.id AS subject_id,s.code AS subject_code
+    FROM education_boards b CROSS JOIN academic_year ay CROSS JOIN media m
+    CROSS JOIN education_grade_levels g CROSS JOIN subjects s
+    WHERE b.is_active=TRUE AND g.is_active=TRUE AND s.is_active=TRUE
   )
-  SELECT * FROM curriculum ORDER BY board_code,academic_year DESC,grade_code,subject_code`);
+  SELECT sc.board_code,sc.academic_year,sc.medium,sc.grade_code,sc.subject_code,
+         COUNT(DISTINCT cu.id)::int AS unit_count,COUNT(DISTINCT cc.id)::int AS chapter_count,
+         COUNT(DISTINCT ct.id) FILTER(WHERE ct.is_retired=FALSE)::int AS topic_count,
+         COALESCE(cv.publication_status,'MISSING') AS publication_status
+  FROM scopes sc
+  LEFT JOIN curriculum_versions cv ON cv.board_id=sc.board_id AND cv.academic_year=sc.academic_year AND cv.medium=sc.medium
+  LEFT JOIN curriculum_subjects cs ON cs.curriculum_version_id=cv.id AND cs.class_name=sc.grade_code AND cs.subject_code=sc.subject_code AND cs.is_active=TRUE
+  LEFT JOIN curriculum_units cu ON cu.curriculum_subject_id=cs.id
+  LEFT JOIN curriculum_chapters cc ON cc.curriculum_unit_id=cu.id
+  LEFT JOIN curriculum_topics ct ON ct.curriculum_unit_id=cu.id
+  GROUP BY sc.board_code,sc.academic_year,sc.medium,sc.grade_code,sc.subject_code,cv.publication_status
+  ORDER BY sc.board_code,sc.grade_code,sc.subject_code,sc.medium`);
   return rows;
 }
 
