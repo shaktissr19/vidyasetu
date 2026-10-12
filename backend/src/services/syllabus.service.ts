@@ -5,7 +5,7 @@ import { query, transaction } from '../config/db';
 import { getStudentContext, canonicalGradeCode, resourceScopeSql } from './studentCanonicalLearning.service';
 import { getLearningAccessContext } from './learningEntitlement.service';
 const fail = (message:string,statusCode=400) => Object.assign(new Error(message),{statusCode});
-interface TopicRow extends QueryResultRow {is_retired:boolean;id:string;concept_id:string;grade_code:string;title:string;chapter:string;subject_id:string;learning_outcome:string;}
+interface TopicRow extends QueryResultRow {is_retired:boolean;id:string;concept_id:string;grade_code:string;title:string;chapter:string;unit?:string;subject_id:string;learning_outcome:string;}
 interface ResourceRow extends QueryResultRow {concept_id:string;id:string;title:string;title_hi:string|null;resource_type:string;difficulty:string|null;access_requirement:string;completed:boolean;}
 export interface SyllabusRow { gradeCode:string; subjectId:string; chapter:string; unit?:string; topic:string; topicHi?:string; learningOutcome:string; evidenceUrl:string; pageReference:string; }
 export interface SyllabusImport { boardCode:string; academicYear:string; title:string; sourceUrl:string; sourceHash?:string; medium?:'en'|'hi'; rows:SyllabusRow[]; }
@@ -31,7 +31,7 @@ export async function importSyllabus(input:SyllabusImport,actor:string) {
  return transaction(async client=>{
  const {rows:[board]}=await client.query('SELECT id FROM education_boards WHERE code=$1 AND is_active=TRUE',[input.boardCode]);
  if(!board) throw fail('Select an active board');
- await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`syllabus:${board.id}:${input.academicYear}`]);
+ await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`syllabus:${board.id}:${input.academicYear}:${input.medium || 'en'}`]);
  const {rows:[previous]}=await client.query('SELECT * FROM curriculum_versions WHERE board_id=$1 AND academic_year=$2 AND medium=$3 ORDER BY version_number DESC LIMIT 1 FOR UPDATE',[board.id,input.academicYear,input.medium || 'en']);
  const versionNumber=previous ? Number(previous.version_number||1)+((previous.publication_status||previous.status)!=='DRAFT'?1:0) : 1;
  const sourceHash=input.sourceHash || createHash('sha256').update(JSON.stringify(input.rows)).digest('hex');
