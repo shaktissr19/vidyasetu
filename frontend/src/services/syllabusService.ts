@@ -34,3 +34,5 @@ export const previewFrameworkImport=(rows:FrameworkImportRow[])=>api.post<ApiEnv
 export const commitFrameworkImport=(rows:FrameworkImportRow[])=>api.post('/admin/syllabus/framework/import',{rows});
 export interface FrameworkCoverageRow {board_code:string;academic_year:string;medium:string;grade_code:string;subject_code:string;unit_count:number;chapter_count:number;topic_count:number;publication_status:string;}
 export const getFrameworkCoverage=()=>api.get<ApiEnvelope<FrameworkCoverageRow[]>>('/admin/syllabus/framework/coverage');
+
+export const attachFrameworkEvidence=(versionId:string,documentId:string)=>api.post('/admin/syllabus/framework/'+versionId+'/evidence',{documentId});
