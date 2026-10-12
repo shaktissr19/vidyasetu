@@ -35,9 +35,9 @@ export async function importSyllabus(input:SyllabusImport,actor:string) {
  const {rows:[previous]}=await client.query('SELECT * FROM curriculum_versions WHERE board_id=$1 AND academic_year=$2 ORDER BY version_number DESC LIMIT 1 FOR UPDATE',[board.id,input.academicYear]);
  const versionNumber=previous ? Number(previous.version_number||1)+((previous.publication_status||previous.status)!=='DRAFT'?1:0) : 1;
  const sourceHash=input.sourceHash || createHash('sha256').update(JSON.stringify(input.rows)).digest('hex');
- const {rows:[version]}=await client.query(`INSERT INTO curriculum_versions(board_id,academic_year,title,status,source_url,version_number,publication_status,uploaded_by,source_hash)
- VALUES($1,$2,$3,'DRAFT',$4,$5,'DRAFT',$6,$7)
- ON CONFLICT(board_id,academic_year,version_number) DO UPDATE SET title=EXCLUDED.title,source_url=EXCLUDED.source_url,source_hash=COALESCE(EXCLUDED.source_hash,curriculum_versions.source_hash),verified_at=NULL,verified_by=NULL,publication_status='DRAFT',uploaded_by=EXCLUDED.uploaded_by RETURNING id`,[board.id,input.academicYear,input.title,input.sourceUrl,versionNumber,actor,sourceHash]);
+ const {rows:[version]}=await client.query(`INSERT INTO curriculum_versions(board_id,academic_year,title,status,source_url,version_number,publication_status,uploaded_by,source_hash,medium)
+ VALUES($1,$2,$3,'DRAFT',$4,$5,'DRAFT',$6,$7,$8)
+ ON CONFLICT(board_id,academic_year,version_number) DO UPDATE SET title=EXCLUDED.title,source_url=EXCLUDED.source_url,source_hash=COALESCE(EXCLUDED.source_hash,curriculum_versions.source_hash),medium=EXCLUDED.medium,verified_at=NULL,verified_by=NULL,publication_status='DRAFT',uploaded_by=EXCLUDED.uploaded_by RETURNING id`,[board.id,input.academicYear,input.title,input.sourceUrl,versionNumber,actor,sourceHash,input.medium || 'en']);
  for(const [index,row] of input.rows.entries()) {
  const {rows:[grade]}=await client.query('SELECT id,class_number FROM education_grade_levels WHERE code=$1 AND is_active=TRUE',[row.gradeCode]);
  const {rows:[subject]}=await client.query('SELECT id,code,name FROM subjects WHERE id=$1::uuid',[row.subjectId]);
