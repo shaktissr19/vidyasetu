@@ -15,7 +15,7 @@ const route=(fn:(req:Request)=>Promise<unknown>):RequestHandler=>async(req,res,n
 export const adminSyllabusRoutes=Router();
 adminSyllabusRoutes.use(authenticate,authorize('SUPER_ADMIN'));
 adminSyllabusRoutes.get('/options',route(()=>service.syllabusOptions()));
-const frameworkRow=z.object({boardCode:z.string().min(2).max(30),medium:z.enum(['en','hi']),academicYear:year,gradeCode:grade,subjectCode:z.string().min(1).max(40),unit:z.string().trim().min(1).max(220),chapter:z.string().trim().min(1).max(220),topic:z.string().trim().min(1).max(220),topicHi:z.string().trim().max(220).optional(),learningOutcome:z.string().trim().min(3).max(2000),sourceUrl:httpsUrl,pageReference:z.string().trim().min(1).max(100),sortOrder:z.number().int().min(0)});
+const frameworkRow=z.object({boardCode:z.string().max(30),medium:z.string().max(12),academicYear:z.string().max(10),gradeCode:z.string().max(24),subjectCode:z.string().max(40),unit:z.string().max(220),chapter:z.string().max(220),topic:z.string().max(220),topicHi:z.string().max(220).optional(),learningOutcome:z.string().max(2000),sourceUrl:z.string().max(2000),pageReference:z.string().max(100),sortOrder:z.union([z.number(),z.string().max(20)])});
 const frameworkRows=z.object({rows:z.array(frameworkRow).min(1).max(10000)});
 adminSyllabusRoutes.get('/framework/coverage',route(()=>framework.frameworkCoverage()));
 adminSyllabusRoutes.post('/framework/:versionId/evidence',validate(z.object({versionId:z.string().uuid()}),'params'),validate(z.object({documentId:z.string().uuid()})),route(req=>framework.attachFrameworkEvidence(req.params.versionId,req.body.documentId,req.user!.userId)));
