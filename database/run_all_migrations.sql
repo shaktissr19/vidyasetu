@@ -2465,6 +2465,10 @@ DROP INDEX IF EXISTS uq_curriculum_versions_year_version;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_curriculum_versions_year_medium_version
   ON curriculum_versions(board_id,academic_year,medium,version_number);
 
+UPDATE syllabus_documents
+SET medium=CASE WHEN language ILIKE 'hi%' THEN 'hi' WHEN language ILIKE 'en%' THEN 'en' ELSE medium END
+WHERE language ILIKE 'hi%' OR language ILIKE 'en%';
+
 ALTER TABLE curriculum_versions
   ADD COLUMN IF NOT EXISTS source_hash VARCHAR(64)
     CHECK (source_hash IS NULL OR source_hash ~ '^[a-f0-9]{64}$');
@@ -2485,4 +2489,3 @@ COMMENT ON COLUMN curriculum_versions.source_hash IS
 COMMENT ON TABLE curriculum_version_evidence IS
   'Official source PDFs attached as evidence to a curriculum version; source PDF rights remain governed by syllabus_documents.';
 COMMIT;
-
