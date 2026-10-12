@@ -14,7 +14,7 @@ function parseCsv(input:string):string[][] {
 }
 function decodeCsv(input:string):FrameworkImportRow[] {
  const matrix=parseCsv(input);if(matrix.length<2)throw Error('Add a header and at least one topic row.');
- const found=matrix[0].map(h=>h.trim().toLowerCase());const missing=headers.filter(h=>!found.includes(h));if(missing.length)throw Error('Missing columns: '+missing.join(', '));
+ const found=matrix[0].map(h=>h.replace(/^\\uFEFF/,'').trim().toLowerCase());const missing=headers.filter(h=>!found.includes(h));if(missing.length)throw Error('Missing columns: '+missing.join(', '));
  return matrix.slice(1).map((values,index)=>{const get=(key:string)=>values[found.indexOf(key)]?.trim()||'';return {
   boardCode:get('board_code'),medium:get('medium') as 'en'|'hi',academicYear:get('academic_year'),gradeCode:get('class_code'),subjectCode:get('subject_code'),
   unit:get('unit'),chapter:get('chapter'),topic:get('topic'),topicHi:get('topic_hi')||undefined,learningOutcome:get('learning_outcome'),sourceUrl:get('source_url'),pageReference:get('page_reference'),sortOrder:Number(get('sort_order')||index+1)
