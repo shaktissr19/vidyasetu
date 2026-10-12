@@ -51,7 +51,8 @@ export async function previewFrameworkImport(rows:FrameworkCsvRow[]) {
     const key=[r.gradeCode,r.subjectCode,r.unit,r.chapter,r.topic].map(x=>x.trim().toLocaleLowerCase()).join('|');
     if(seen.has(key)) errors.push({row:n,message:'Duplicate class/subject/unit/chapter/topic row.'});
     seen.add(key);
-    const sortOrder=Number(r.sortOrder);\n    if(!Number.isInteger(sortOrder)||sortOrder<0) errors.push({row:n,message:'sort_order must be a non-negative integer.'});
+    const sortOrder=Number(r.sortOrder);
+    if(!Number.isInteger(sortOrder)||sortOrder<0) errors.push({row:n,message:'sort_order must be a non-negative integer.'});
   });
   const scopes=[...new Map(rows.map(r=>[`${r.gradeCode}|${r.subjectCode}`,{gradeCode:r.gradeCode,subjectCode:r.subjectCode}])).values()];
   return {valid:errors.length===0,rowCount:rows.length,boardCode:first.boardCode,medium:first.medium,academicYear:first.academicYear,classes:[...new Set(rows.map(r=>r.gradeCode))].sort(),subjectScopes:scopes.length,errors};
