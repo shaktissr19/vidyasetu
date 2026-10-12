@@ -1,0 +1,46 @@
+'use client';
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { getFrameworkCoverage, getSyllabusOptions, previewFrameworkImport, commitFrameworkImport, type FrameworkImportRow } from '@/services/syllabusService';
+
+const headers=['board_code','medium','academic_year','class_code','subject_code','unit','chapter','topic','topic_hi','learning_outcome','source_url','page_reference','sort_order'];
+function parseCsv(input:string):string[][] {
+ const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
+ for(let i=0;i<input.length;i++){const ch=input[i];if(quoted){if(ch==='"'&&input[i+1]==='"'){cell+='"';i++;}else if(ch==='"')quoted=false;else cell+=ch;}
+ else if(ch==='"')quoted=true;else if(ch===','){row.push(cell);cell='';}else if(ch==='\n'){row.push(cell);rows.push(row);row=[];cell='';}else if(ch!=='\r')cell+=ch;}
+ if(quoted)throw Error('CSV contains an unclosed quoted field.');if(cell.length||row.length){row.push(cell);rows.push(row);}return rows.filter(r=>r.some(v=>v.trim()));
+}
+function decodeCsv(input:string):FrameworkImportRow[] {
+ const matrix=parseCsv(input);if(matrix.length<2)throw Error('Add a header and at least one topic row.');
+ const found=matrix[0].map(h=>h.trim().toLowerCase());const missing=headers.filter(h=>!found.includes(h));if(missing.length)throw Error('Missing columns: '+missing.join(', '));
+ return matrix.slice(1).map((values,index)=>{const get=(key:string)=>values[found.indexOf(key)]?.trim()||'';return {
+  boardCode:get('board_code'),medium:get('medium') as 'en'|'hi',academicYear:get('academic_year'),gradeCode:get('class_code'),subjectCode:get('subject_code'),
+  unit:get('unit'),chapter:get('chapter'),topic:get('topic'),topicHi:get('topic_hi')||undefined,learningOutcome:get('learning_outcome'),sourceUrl:get('source_url'),pageReference:get('page_reference'),sortOrder:Number(get('sort_order')||index+1)
+ };});
+}
+function downloadTemplate(){const csv=headers.join(',')+'\n';const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='curriculum-framework.csv';a.click();URL.revokeObjectURL(url);}
+export default function FrameworkManager(){
+ const [fileName,setFileName]=useState('');const [rows,setRows]=useState<FrameworkImportRow[]>([]);const [filterBoard,setFilterBoard]=useState('');const [filterClass,setFilterClass]=useState('');const queryClient=useQueryClient();
+ const options=useQuery({queryKey:['syllabus-options'],queryFn:()=>getSyllabusOptions().then(r=>r.data.data)});
+ const coverage=useQuery({queryKey:['framework-coverage'],queryFn:()=>getFrameworkCoverage().then(r=>r.data.data)});
+ const preview=useMutation({mutationFn:()=>previewFrameworkImport(rows).then(r=>r.data.data),onError:(e:any)=>toast.error(e?.response?.data?.error?.message||'Could not validate import.')});
+ const save=useMutation({mutationFn:()=>commitFrameworkImport(rows),onSuccess:async()=>{toast.success('Framework saved as Draft. Continue with the existing syllabus review and publish workflow.');setRows([]);setFileName('');preview.reset();await queryClient.invalidateQueries({queryKey:['framework-coverage']});await queryClient.invalidateQueries({queryKey:['syllabus-options']});},onError:(e:any)=>toast.error(e?.response?.data?.error?.message||'Framework import failed.')});
+ const shown=useMemo(()=>coverage.data?.filter(r=>(!filterBoard||r.board_code===filterBoard)&&(!filterClass||r.grade_code===filterClass))||[],[coverage.data,filterBoard,filterClass]);
+ async function load(file?:File){if(!file)return;try{setRows(decodeCsv(await file.text()));setFileName(file.name);preview.reset();}catch(e){toast.error(e instanceof Error?e.message:'Could not read CSV.');setRows([]);}}
+ return <main className="mx-auto max-w-7xl space-y-5 p-5 md:p-8">
+  <header className="admin-panel p-5"><Link className="underline" href="/admin/learning/syllabus">← Syllabus Manager</Link><h1 className="mt-3 text-3xl font-bold">Framework Manager</h1><p className="mt-2">Import the board curriculum spine in one file for all classes. Imports are drafts; existing syllabus review and publishing controls remain in charge.</p></header>
+  <section className="admin-panel space-y-4 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Bulk framework import</h2><p>One topic per row. Repeat board, medium, year, class and subject values where needed.</p></div><button className="btn-secondary" onClick={downloadTemplate}>Download CSV template</button></div>
+   <p className="text-sm">The CSV template opens in Excel. Include unit, chapter, topic, learning outcome, official source URL and page/section reference. XLSX workbook upload is not supported in this phase.</p>
+   <input type="file" accept=".csv,text/csv" onChange={e=>load(e.target.files?.[0])}/>{fileName&&<p>Selected: <strong>{fileName}</strong> · {rows.length} topic rows</p>}
+   {rows.length>0&&<div className="flex flex-wrap gap-2"><button className="btn-primary" disabled={preview.isPending} onClick={()=>preview.mutate()}>{preview.isPending?'Validating…':'Preview and validate'}</button><button className="btn-secondary" onClick={()=>{setRows([]);setFileName('');preview.reset();}}>Clear</button></div>}
+   {preview.data&&<div className="rounded-lg border p-4"><h3 className="font-semibold">{preview.data.valid?'Ready to save as Draft':'Fix these validation errors'}</h3><p>{preview.data.boardCode} · {preview.data.medium} · {preview.data.academicYear} · {preview.data.rowCount} topics · {preview.data.classes.length} classes · {preview.data.subjectScopes} class/subject scopes</p>{preview.data.errors.length>0&&<ul className="mt-2 max-h-60 list-disc overflow-auto pl-6">{preview.data.errors.map((e,i)=><li key={i}>{e.row?'Row '+e.row+': ':''}{e.message}</li>)}</ul>}<button className="btn-primary mt-3" disabled={!preview.data.valid||save.isPending} onClick={()=>save.mutate()}>{save.isPending?'Saving…':'Save complete framework as Draft'}</button></div>}
+   {rows.length>0&&<details><summary className="cursor-pointer font-semibold">Framework tree preview (first 100 topics)</summary><div className="mt-3 max-h-96 overflow-auto">{rows.slice(0,100).map((r,i)=><div className="border-b py-2" key={i}><strong>{r.gradeCode} · {r.subjectCode}</strong><div>{r.unit} › {r.chapter} › {r.topic}{r.topicHi?' / '+r.topicHi:''}</div><small>{r.learningOutcome} · {r.pageReference}</small></div>)}</div></details>}
+  </section>
+  <section className="admin-panel space-y-4 p-5"><div><h2 className="text-xl font-semibold">Framework coverage</h2><p>Shows class/subject scopes already present in a framework version. Missing scopes have no imported syllabus yet.</p></div>
+   <div className="flex gap-3"><label>Board<select className="admin-select ml-2" value={filterBoard} onChange={e=>setFilterBoard(e.target.value)}><option value="">All boards</option>{options.data?.boards.map(b=><option key={b.code} value={b.code}>{b.name}</option>)}</select></label><label>Class<select className="admin-select ml-2" value={filterClass} onChange={e=>setFilterClass(e.target.value)}><option value="">All classes</option>{options.data?.grades.map(g=><option key={g.code} value={g.code}>{g.name}</option>)}</select></label></div>
+   {coverage.isLoading?<p>Loading coverage…</p>:coverage.isError?<p role="alert">Coverage is unavailable. Check that migration 056 is applied.</p>:shown.length===0?<p>No imported framework scopes yet.</p>:<div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Board</th><th className="p-2">Year</th><th className="p-2">Medium</th><th className="p-2">Class</th><th className="p-2">Subject</th><th className="p-2">Units</th><th className="p-2">Chapters</th><th className="p-2">Topics</th><th className="p-2">Status</th></tr></thead><tbody>{shown.map((r,i)=><tr className="border-t" key={i}><td className="p-2">{r.board_code}</td><td className="p-2">{r.academic_year}</td><td className="p-2">{r.medium}</td><td className="p-2">{r.grade_code}</td><td className="p-2">{r.subject_code}</td><td className="p-2">{r.unit_count}</td><td className="p-2">{r.chapter_count}</td><td className="p-2">{r.topic_count}</td><td className="p-2">{r.publication_status}</td></tr>)}</tbody></table></div>}
+  </section>
+ </main>;
+}
