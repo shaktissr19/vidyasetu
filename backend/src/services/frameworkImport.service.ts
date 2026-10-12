@@ -4,7 +4,7 @@ import { importSyllabus, type SyllabusRow } from './syllabus.service';
 
 export interface FrameworkCsvRow {
   boardCode:string; medium:'en'|'hi'; academicYear:string; gradeCode:string; subjectCode:string;
-  unit:string; chapter:string; topic:string; topicHi?:string; learningOutcome:string; sourceUrl:string; pageReference:string; sortOrder:number;
+  unit:string; chapter:string; topic:string; topicHi?:string; learningOutcome:string; sourceUrl:string; pageReference:string; sortOrder:number|string;
 }
 const problem=(message:string,statusCode=400)=>Object.assign(new Error(message),{statusCode});
 const https=(value:string)=>{try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}};
@@ -51,7 +51,7 @@ export async function previewFrameworkImport(rows:FrameworkCsvRow[]) {
     const key=[r.gradeCode,r.subjectCode,r.unit,r.chapter,r.topic].map(x=>x.trim().toLocaleLowerCase()).join('|');
     if(seen.has(key)) errors.push({row:n,message:'Duplicate class/subject/unit/chapter/topic row.'});
     seen.add(key);
-    if(!Number.isInteger(r.sortOrder)||r.sortOrder<0) errors.push({row:n,message:'sort_order must be a non-negative integer.'});
+    const sortOrder=Number(r.sortOrder);\n    if(!Number.isInteger(sortOrder)||sortOrder<0) errors.push({row:n,message:'sort_order must be a non-negative integer.'});
   });
   const scopes=[...new Map(rows.map(r=>[`${r.gradeCode}|${r.subjectCode}`,{gradeCode:r.gradeCode,subjectCode:r.subjectCode}])).values()];
   return {valid:errors.length===0,rowCount:rows.length,boardCode:first.boardCode,medium:first.medium,academicYear:first.academicYear,classes:[...new Set(rows.map(r=>r.gradeCode))].sort(),subjectScopes:scopes.length,errors};
@@ -62,7 +62,7 @@ export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string)
   if(!preview.valid) throw problem('Framework import has validation errors. Correct the preview before saving.');
   const {rows:subjects}=await query<{code:string;id:string}>('SELECT code,id FROM subjects WHERE code=ANY($1::text[])',[[...new Set(rows.map(r=>r.subjectCode))]]);
   const byCode=new Map(subjects.map(s=>[s.code,s.id]));
-  const syllabusRows:SyllabusRow[]=rows.map(r=>({gradeCode:r.gradeCode,subjectId:byCode.get(r.subjectCode)!,unit:r.unit,chapter:r.chapter,sortOrder:r.sortOrder,topic:r.topic,topicHi:r.topicHi,learningOutcome:r.learningOutcome,evidenceUrl:r.sourceUrl,pageReference:r.pageReference}));
+  const syllabusRows:SyllabusRow[]=rows.map(r=>({gradeCode:r.gradeCode,subjectId:byCode.get(r.subjectCode)!,unit:r.unit,chapter:r.chapter,sortOrder:Number(r.sortOrder),topic:r.topic,topicHi:r.topicHi,learningOutcome:r.learningOutcome,evidenceUrl:r.sourceUrl,pageReference:r.pageReference}));
   const hash=createHash('sha256').update(JSON.stringify(rows)).digest('hex');
   const result=await importSyllabus({boardCode:rows[0].boardCode,academicYear:rows[0].academicYear,title:`${rows[0].boardCode} ${rows[0].academicYear} curriculum framework`,sourceUrl:rows[0].sourceUrl,sourceHash:hash,medium:rows[0].medium,rows:syllabusRows},actor);
   return {...result,sourceHash:hash,importedRows:rows.length};
