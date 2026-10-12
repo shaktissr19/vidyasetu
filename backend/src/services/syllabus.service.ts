@@ -65,8 +65,8 @@ export async function syllabusDetail(versionId:string) {
  await syllabusReady();
  const {rows:[version]}=await query('SELECT cv.*,eb.code AS board_code FROM curriculum_versions cv JOIN education_boards eb ON eb.id=cv.board_id WHERE cv.id=$1::uuid',[versionId]);
  if(!version) throw fail('Syllabus not found',404);
- const {rows:topics}=await query<TopicRow>(`SELECT ct.*,cu.title AS chapter,cs.subject_id,cs.display_name AS subject,cs.class_name AS grade_code,ctc.concept_id
- FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
+ const {rows:topics}=await query<TopicRow>(`SELECT ct.*,COALESCE(cc.title,cu.title) AS chapter,cu.title AS unit,cs.subject_id,cs.display_name AS subject,cs.class_name AS grade_code,ctc.concept_id
+ FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id LEFT JOIN curriculum_chapters cc ON cc.id=ct.chapter_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
  LEFT JOIN curriculum_topic_concepts ctc ON ctc.topic_id=ct.id WHERE cs.curriculum_version_id=$1 AND cs.is_active=TRUE ORDER BY cs.class_name,cs.sort_order,cu.sort_order,ct.sort_order`,[versionId]);
  const {rows:counts}=await query(`SELECT ctc.topic_id,COUNT(DISTINCT lr.id)::int AS published_count,ARRAY_AGG(DISTINCT lr.resource_type::text) AS formats,ARRAY_AGG(DISTINCT to_jsonb(lr)->>'difficulty') AS difficulties FROM curriculum_topic_concepts ctc JOIN learning_resource_concepts lrc ON lrc.concept_id=ctc.concept_id JOIN learning_resources lr ON lr.id=lrc.resource_id AND lr.review_status='PUBLISHED' WHERE ctc.topic_id=ANY($1::uuid[]) GROUP BY ctc.topic_id`,[topics.map(t=>t.id)]);
  const {rows:history}=await query("SELECT action,created_at,new_value->>'operation' AS operation FROM audit_log WHERE entity_type='curriculum_version' AND entity_id=$1::uuid ORDER BY created_at DESC LIMIT 20",[versionId]);
