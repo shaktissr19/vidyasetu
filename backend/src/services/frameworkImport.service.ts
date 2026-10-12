@@ -58,3 +58,21 @@ export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string)
   await query('UPDATE curriculum_versions SET medium=$2,source_hash=$3 WHERE id=$1::uuid',[result.id,rows[0].medium,hash]);
   return {...result,sourceHash:hash,importedRows:rows.length};
 }
+
+export async function frameworkCoverage() {
+  const {rows}=await query(`WITH curriculum AS (
+    SELECT eb.code AS board_code,cv.academic_year,cv.medium,cs.class_name AS grade_code,cs.subject_code,
+           COUNT(DISTINCT cu.id)::int AS unit_count,COUNT(DISTINCT cc.id)::int AS chapter_count,
+           COUNT(DISTINCT ct.id) FILTER(WHERE ct.is_retired=FALSE)::int AS topic_count,
+           cv.publication_status
+    FROM curriculum_versions cv
+    JOIN education_boards eb ON eb.id=cv.board_id
+    JOIN curriculum_subjects cs ON cs.curriculum_version_id=cv.id AND cs.is_active=TRUE
+    LEFT JOIN curriculum_units cu ON cu.curriculum_subject_id=cs.id
+    LEFT JOIN curriculum_chapters cc ON cc.curriculum_unit_id=cu.id
+    LEFT JOIN curriculum_topics ct ON ct.curriculum_unit_id=cu.id
+    GROUP BY eb.code,cv.academic_year,cv.medium,cs.class_name,cs.subject_code,cv.publication_status
+  )
+  SELECT * FROM curriculum ORDER BY board_code,academic_year DESC,grade_code,subject_code`);
+  return rows;
+}
