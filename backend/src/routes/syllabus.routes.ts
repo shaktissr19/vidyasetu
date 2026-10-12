@@ -7,6 +7,7 @@ import * as documents from '../services/syllabusDocuments.service';
 import { uploadSyllabusPdf as parseSyllabusPdfUpload } from '../middleware/upload.middleware';
 import * as R from '../utils/response';
 import * as progress from '../services/syllabusProgress.service';
+import * as framework from '../services/frameworkImport.service';
 const httpsUrl=z.string().url().max(2000).refine(v=>{try {const u=new URL(v);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}},'Use an HTTPS evidence URL');
 const year=z.string().regex(/^20\d{2}-\d{2}$/).refine(v=>Number(v.slice(5))===(Number(v.slice(0,4))+1)%100,'Academic year must be consecutive, such as 2026-27');
 const grade=z.string().regex(/^(PRE_NURSERY|NURSERY|LKG|UKG|CLASS_([1-9]|1[0-2]))$/);
@@ -14,6 +15,10 @@ const route=(fn:(req:Request)=>Promise<unknown>):RequestHandler=>async(req,res,n
 export const adminSyllabusRoutes=Router();
 adminSyllabusRoutes.use(authenticate,authorize('SUPER_ADMIN'));
 adminSyllabusRoutes.get('/options',route(()=>service.syllabusOptions()));
+const frameworkRow=z.object({boardCode:z.string().min(2).max(30),medium:z.enum(['en','hi']),academicYear:year,gradeCode:grade,subjectCode:z.string().min(1).max(40),unit:z.string().trim().min(1).max(220),chapter:z.string().trim().min(1).max(220),topic:z.string().trim().min(1).max(220),topicHi:z.string().trim().max(220).optional(),learningOutcome:z.string().trim().min(3).max(2000),sourceUrl:httpsUrl,pageReference:z.string().trim().min(1).max(100),sortOrder:z.number().int().min(0)});
+const frameworkRows=z.object({rows:z.array(frameworkRow).min(1).max(10000)});
+adminSyllabusRoutes.post('/framework/preview',validate(frameworkRows),route(req=>framework.previewFrameworkImport(req.body.rows)));
+adminSyllabusRoutes.post('/framework/import',validate(frameworkRows),route(req=>framework.commitFrameworkImport(req.body.rows,req.user!.userId)));
 const documentMeta=z.object({boardCode:z.string().min(2).max(30),academicYear:year,gradeCode:z.preprocess(v=>v===''?null:v,grade.nullable().optional()),subjectId:z.preprocess(v=>v===''?null:v,z.string().uuid().nullable().optional()),title:z.string().trim().min(3).max(240),language:z.string().trim().min(2).max(12).default('en'),sourceUrl:httpsUrl,sourcePublisher:z.string().trim().max(220).nullable().optional()});
 adminSyllabusRoutes.get('/documents/sources',route(()=>Promise.resolve(documents.syllabusSourceDirectory())));
 adminSyllabusRoutes.get('/documents',route(req=>documents.listSyllabusDocuments({boardCode:String(req.query.boardCode||'')||undefined,gradeCode:String(req.query.gradeCode||'')||undefined,subjectId:String(req.query.subjectId||'')||undefined,academicYear:String(req.query.academicYear||'')||undefined,query:String(req.query.query||'')||undefined})));
