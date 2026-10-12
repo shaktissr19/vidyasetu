@@ -26,6 +26,9 @@ SELECT
   AND to_regclass('public.learning_content_assets') IS NOT NULL
   AND to_regclass('public.learning_content_pipeline_events') IS NOT NULL
   AND to_regclass('public.syllabus_documents') IS NOT NULL
+  AND to_regclass('public.curriculum_chapters') IS NOT NULL
+  AND to_regclass('public.curriculum_version_evidence') IS NOT NULL
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='source_hash')
   AND (SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public'
       AND table_name IN ('learning_resources','learning_assessments')
