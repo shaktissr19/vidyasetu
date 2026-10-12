@@ -46,9 +46,9 @@ async function save(input:{boardCode:string;academicYear:string;gradeCode?:strin
  const key=`syllabus/documents/${randomUUID()}.pdf`;
  await s3.putObject({Bucket:BUCKET,Key:key,Body:input.bytes,ContentType:'application/pdf',Metadata:{sha256:checksum}}).promise();
  try{
-  const {rows:[row]}=await query(`INSERT INTO syllabus_documents(board_id,academic_year,grade_code,subject_id,title,language,source_url,source_publisher,source_checked_at,storage_key,checksum_sha256,byte_size,page_count,extracted_text,outline,redistribution_allowed,redistribution_evidence_url,rights_reviewed_by,rights_reviewed_at,uploaded_by)
-  VALUES($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9,$10,$11,$12,$13,$14::jsonb,FALSE,NULL,NULL,NULL,$15)
-  ON CONFLICT(board_id,academic_year,checksum_sha256) DO NOTHING RETURNING id,status,page_count,created_at`,[board.id,input.academicYear,input.gradeCode||null,input.subjectId||null,input.title,input.language,input.sourceUrl,input.sourcePublisher||null,key,checksum,input.bytes.length,parsed.pageCount,parsed.text,JSON.stringify(parsed.outline),input.actor]);
+  const {rows:[row]}=await query(`INSERT INTO syllabus_documents(board_id,academic_year,grade_code,subject_id,title,language,medium,source_url,source_publisher,source_checked_at,storage_key,checksum_sha256,byte_size,page_count,extracted_text,outline,redistribution_allowed,redistribution_evidence_url,rights_reviewed_by,rights_reviewed_at,uploaded_by)
+  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11,$12,$13,$14,$15::jsonb,FALSE,NULL,NULL,NULL,$16)
+  ON CONFLICT(board_id,academic_year,checksum_sha256) DO NOTHING RETURNING id,status,page_count,created_at`,[board.id,input.academicYear,input.gradeCode||null,input.subjectId||null,input.title,input.language,input.language.toLowerCase().startsWith('hi')?'hi':'en',input.sourceUrl,input.sourcePublisher||null,key,checksum,input.bytes.length,parsed.pageCount,parsed.text,JSON.stringify(parsed.outline),input.actor]);
   if(!row){await deleteObject(key).catch(()=>undefined);throw fail('This exact document is already in the library for this board and year.',409);}
   return {...row,outline:parsed.outline,extractedCharacters:parsed.text.length,redistributionAllowed:false};
  }catch(e){await deleteObject(key).catch(()=>undefined);throw e;}
