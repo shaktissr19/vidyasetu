@@ -111,7 +111,7 @@ export async function studentSyllabus(userId:string) {
  const year=preference?.academic_year || `${start}-${String(start+1).slice(-2)}`;
  const grade=canonicalGradeCode(student);const board=student.board_code;
  const options=await syllabusOptions();
- const {rows:[version]}=await query("SELECT * FROM curriculum_versions WHERE board_id=(SELECT id FROM education_boards WHERE code=$1) AND academic_year=$2 AND publication_status='PUBLISHED' AND verified_at IS NOT NULL",[board,year]);
+ const {rows:[version]}=await query("SELECT * FROM curriculum_versions WHERE board_id=(SELECT id FROM education_boards WHERE code=$1) AND academic_year=$2 AND medium=$3 AND publication_status='PUBLISHED' AND verified_at IS NOT NULL",[board,year,preference?.language || 'en']);
  const profile={boardCode:board,gradeCode:grade,academicYear:year,language:preference?.language || 'en',schoolLinked:Boolean(student.school_id)};
  const studentOptions={boards:options.boards,grades:options.grades,subjects:options.subjects,years:[...new Set([year,...options.versions.filter(v=>v.status==='ACTIVE'&&v.verified_at).map(v=>v.academic_year)])]};
  if(!version) return {profile,options:studentOptions,version:null,topics:[],summary:null};
