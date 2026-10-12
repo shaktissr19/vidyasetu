@@ -28,7 +28,7 @@ export type SyllabusProgressStatus='NOT_STARTED'|'IN_PROGRESS'|'COMPLETED'|'REVI
 export const getSyllabusProgress=()=>api.get<ApiEnvelope<{topic_id:string;student_status:SyllabusProgressStatus;updated_at:string}[]>>('/student/syllabus/progress');
 export const updateSyllabusProgress=(topicId:string,status:SyllabusProgressStatus)=>api.put('/student/syllabus/topics/'+topicId+'/progress',{status});
 
-export interface FrameworkImportRow {boardCode:string;medium:'en'|'hi';academicYear:string;gradeCode:string;subjectCode:string;unit:string;chapter:string;topic:string;topicHi?:string;learningOutcome:string;sourceUrl:string;pageReference:string;sortOrder:number;}
+export interface FrameworkImportRow {boardCode:string;medium:'en'|'hi';academicYear:string;gradeCode:string;subjectCode:string;unit:string;chapter:string;topic:string;topicHi?:string;learningOutcome:string;sourceUrl:string;pageReference:string;sortOrder:number|string;}
 export interface FrameworkPreview {valid:boolean;rowCount:number;boardCode:string;medium:string;academicYear:string;classes:string[];subjectScopes:number;errors:{row:number;message:string}[];}
 export const previewFrameworkImport=(rows:FrameworkImportRow[])=>api.post<ApiEnvelope<FrameworkPreview>>('/admin/syllabus/framework/preview',{rows});
 export const commitFrameworkImport=(rows:FrameworkImportRow[])=>api.post('/admin/syllabus/framework/import',{rows});
