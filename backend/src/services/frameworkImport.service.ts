@@ -91,9 +91,9 @@ export async function attachFrameworkEvidence(versionId:string,documentId:string
   return transaction(async client=>{
     const {rows:[version]}=await client.query('SELECT id,board_id,academic_year FROM curriculum_versions WHERE id=$1::uuid FOR UPDATE',[versionId]);
     if(!version) throw problem('Curriculum framework version not found.',404);
-    const {rows:[document]}=await client.query('SELECT id,board_id,academic_year,status FROM syllabus_documents WHERE id=$1::uuid FOR SHARE',[documentId]);
+    const {rows:[document]}=await client.query('SELECT id,board_id,academic_year,medium,status FROM syllabus_documents WHERE id=$1::uuid FOR SHARE',[documentId]);
     if(!document) throw problem('Syllabus PDF document not found.',404);
-    if(document.board_id!==version.board_id||document.academic_year!==version.academic_year) throw problem('Evidence PDF must match the framework board and academic year.');
+    if(document.board_id!==version.board_id||document.academic_year!==version.academic_year||document.medium!==version.medium) throw problem('Evidence PDF must match the framework board, academic year and medium.');
     if(document.status!=='APPROVED') throw problem('Review and approve the PDF in the syllabus document library before attaching it as official evidence.',409);
     await client.query(`INSERT INTO curriculum_version_evidence(curriculum_version_id,syllabus_document_id,attached_by)
       VALUES($1::uuid,$2::uuid,$3::uuid) ON CONFLICT(curriculum_version_id,syllabus_document_id) DO NOTHING`,[versionId,documentId,actor]);
