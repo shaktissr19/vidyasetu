@@ -17,7 +17,7 @@ function decodeCsv(input:string):FrameworkImportRow[] {
  const found=matrix[0].map(h=>h.replace(/^\uFEFF/,'').trim().toLowerCase());const missing=headers.filter(h=>!found.includes(h));if(missing.length)throw Error('Missing columns: '+missing.join(', '));
  return matrix.slice(1).map((values,index)=>{const get=(key:string)=>values[found.indexOf(key)]?.trim()||'';return {
   boardCode:get('board_code'),medium:get('medium') as 'en'|'hi',academicYear:get('academic_year'),gradeCode:get('class_code'),subjectCode:get('subject_code'),
-  unit:get('unit'),chapter:get('chapter'),topic:get('topic'),topicHi:get('topic_hi')||undefined,learningOutcome:get('learning_outcome'),sourceUrl:get('source_url'),pageReference:get('page_reference'),sortOrder:Number(get('sort_order')||index+1)
+  unit:get('unit'),chapter:get('chapter'),topic:get('topic'),topicHi:get('topic_hi')||undefined,learningOutcome:get('learning_outcome'),sourceUrl:get('source_url'),pageReference:get('page_reference'),sortOrder:get('sort_order')||String(index+1)
  };});
 }
 function downloadTemplate(){const csv=headers.join(',')+'\n';const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='curriculum-framework.csv';a.click();URL.revokeObjectURL(url);}
