@@ -28,7 +28,7 @@ export default function AdminSyllabus(){
  const field=(key:keyof SyllabusRow,value:string)=>setRow(old=>({...old,[key]:value}));
  return <div style={{padding:24,color:'#14213D',background:'#F3F6FB'}}>
  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
-  <div><Link className="underline" href="/admin">← Back to Admin dashboard</Link><h1 style={{marginTop:12}}>Syllabus Manager</h1><p>Upload a syllabus PDF or import it from an official board link. Students see approved documents under their assigned board and class.</p></div>
+  <div><Link className="underline" href="/admin">← Back to Admin dashboard</Link><h1 style={{marginTop:12}}>Syllabus Manager</h1><p>Upload a syllabus PDF or import it from an official board link. Students see approved documents under their assigned board and class.</p><Link className="btn-secondary" style={{display:'inline-flex',marginTop:12}} href="/admin/learning/framework">Open Framework Manager →</Link></div>
  </div>
  <section className="admin-panel" style={{padding:20,marginTop:20}}>
   <h2>Add or import a syllabus</h2>
