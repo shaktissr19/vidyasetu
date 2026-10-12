@@ -7,7 +7,7 @@ import { getLearningAccessContext } from './learningEntitlement.service';
 const fail = (message:string,statusCode=400) => Object.assign(new Error(message),{statusCode});
 interface TopicRow extends QueryResultRow {is_retired:boolean;id:string;concept_id:string;grade_code:string;title:string;chapter:string;unit?:string;subject_id:string;learning_outcome:string;}
 interface ResourceRow extends QueryResultRow {concept_id:string;id:string;title:string;title_hi:string|null;resource_type:string;difficulty:string|null;access_requirement:string;completed:boolean;}
-export interface SyllabusRow { gradeCode:string; subjectId:string; chapter:string; unit?:string; topic:string; topicHi?:string; learningOutcome:string; evidenceUrl:string; pageReference:string; }
+export interface SyllabusRow { gradeCode:string; subjectId:string; chapter:string; unit?:string; sortOrder?:number; topic:string; topicHi?:string; learningOutcome:string; evidenceUrl:string; pageReference:string; }
 export interface SyllabusImport { boardCode:string; academicYear:string; title:string; sourceUrl:string; sourceHash?:string; medium?:'en'|'hi'; rows:SyllabusRow[]; }
 export async function syllabusReady() {
  const {rows:[r]}=await query("SELECT to_regclass('public.curriculum_topic_concepts') IS NOT NULL AS ready");
@@ -44,16 +44,17 @@ export async function importSyllabus(input:SyllabusImport,actor:string) {
  if(!grade || !subject) throw fail(`Row ${index+1}: invalid grade or subject`);
  const {rows:[cs]}=await client.query(`INSERT INTO curriculum_subjects(curriculum_version_id,subject_id,class_name,display_name,subject_code) VALUES($1,$2,$3,$4,$5)
  ON CONFLICT(curriculum_version_id,class_name,display_name) DO UPDATE SET subject_id=EXCLUDED.subject_id RETURNING id`,[version.id,subject.id,row.gradeCode,subject.name,subject.code]);
+ const order=row.sortOrder ?? index;
  const unitTitle=row.unit?.trim() || row.chapter;
- const {rows:[unit]}=await client.query(`INSERT INTO curriculum_units(curriculum_subject_id,title,sort_order) VALUES($1,$2,$3) ON CONFLICT(curriculum_subject_id,title) DO UPDATE SET title=EXCLUDED.title RETURNING id`,[cs.id,unitTitle,index]);
- const {rows:[chapter]}=await client.query(`INSERT INTO curriculum_chapters(curriculum_unit_id,title,sort_order) VALUES($1,$2,$3) ON CONFLICT(curriculum_unit_id,title) DO UPDATE SET sort_order=EXCLUDED.sort_order RETURNING id`,[unit.id,row.chapter,index]);
+ const {rows:[unit]}=await client.query(`INSERT INTO curriculum_units(curriculum_subject_id,title,sort_order) VALUES($1,$2,$3) ON CONFLICT(curriculum_subject_id,title) DO UPDATE SET title=EXCLUDED.title RETURNING id`,[cs.id,unitTitle,order]);
+ const {rows:[chapter]}=await client.query(`INSERT INTO curriculum_chapters(curriculum_unit_id,title,sort_order) VALUES($1,$2,$3) ON CONFLICT(curriculum_unit_id,title) DO UPDATE SET sort_order=EXCLUDED.sort_order RETURNING id`,[unit.id,row.chapter,order]);
  const {rows:[oldTopic]}=await client.query('SELECT learning_outcome FROM curriculum_topics WHERE curriculum_unit_id=$1 AND title=$2',[unit.id,row.topic]);
  const {rows:[topic]}=await client.query(`INSERT INTO curriculum_topics(curriculum_unit_id,chapter_id,title,title_hi,learning_outcome,evidence_url,page_reference,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
- ON CONFLICT(curriculum_unit_id,title) DO UPDATE SET chapter_id=EXCLUDED.chapter_id,title_hi=EXCLUDED.title_hi,learning_outcome=EXCLUDED.learning_outcome,evidence_url=EXCLUDED.evidence_url,page_reference=EXCLUDED.page_reference RETURNING id`,[unit.id,chapter.id,row.topic,row.topicHi || null,row.learningOutcome,row.evidenceUrl,row.pageReference,index]);
+ ON CONFLICT(curriculum_unit_id,title) DO UPDATE SET chapter_id=EXCLUDED.chapter_id,title_hi=EXCLUDED.title_hi,learning_outcome=EXCLUDED.learning_outcome,evidence_url=EXCLUDED.evidence_url,page_reference=EXCLUDED.page_reference,sort_order=EXCLUDED.sort_order RETURNING id`,[unit.id,chapter.id,row.topic,row.topicHi || null,row.learningOutcome,row.evidenceUrl,row.pageReference,order]);
  const {rows:[mapped]}=await client.query('SELECT concept_id FROM curriculum_topic_concepts WHERE topic_id=$1',[topic.id]);
  if(!mapped || (oldTopic && oldTopic.learning_outcome!==row.learningOutcome)) {
  if(mapped) await client.query('DELETE FROM curriculum_topic_concepts WHERE topic_id=$1',[topic.id]);
- const {rows:[concept]}=await client.query(`INSERT INTO learning_concepts(code,name,name_hi,academic_year,grade_id,subject_id,subject_code,chapter_title,registry_source,registry_status,sequence) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'DRAFT_FOR_ACADEMIC_REVIEW',$10) RETURNING id`,[`SYLLABUS_${randomUUID()}`,row.topic,row.topicHi || null,input.academicYear,grade.id,subject.id,subject.code,row.chapter,row.evidenceUrl.slice(0,220),index]);
+ const {rows:[concept]}=await client.query(`INSERT INTO learning_concepts(code,name,name_hi,academic_year,grade_id,subject_id,subject_code,chapter_title,registry_source,registry_status,sequence) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'DRAFT_FOR_ACADEMIC_REVIEW',$10) RETURNING id`,[`SYLLABUS_${randomUUID()}`,row.topic,row.topicHi || null,input.academicYear,grade.id,subject.id,subject.code,row.chapter,row.evidenceUrl.slice(0,220),order]);
  await client.query('INSERT INTO curriculum_topic_concepts(topic_id,concept_id) VALUES($1,$2)',[topic.id,concept.id]);
  } else await client.query("UPDATE learning_concepts SET name=$2,name_hi=$3,registry_status='DRAFT_FOR_ACADEMIC_REVIEW' WHERE id=$1",[mapped.concept_id,row.topic,row.topicHi || null]);
  }
