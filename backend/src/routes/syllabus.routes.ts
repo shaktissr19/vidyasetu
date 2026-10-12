@@ -17,6 +17,7 @@ adminSyllabusRoutes.use(authenticate,authorize('SUPER_ADMIN'));
 adminSyllabusRoutes.get('/options',route(()=>service.syllabusOptions()));
 const frameworkRow=z.object({boardCode:z.string().min(2).max(30),medium:z.enum(['en','hi']),academicYear:year,gradeCode:grade,subjectCode:z.string().min(1).max(40),unit:z.string().trim().min(1).max(220),chapter:z.string().trim().min(1).max(220),topic:z.string().trim().min(1).max(220),topicHi:z.string().trim().max(220).optional(),learningOutcome:z.string().trim().min(3).max(2000),sourceUrl:httpsUrl,pageReference:z.string().trim().min(1).max(100),sortOrder:z.number().int().min(0)});
 const frameworkRows=z.object({rows:z.array(frameworkRow).min(1).max(10000)});
+adminSyllabusRoutes.get('/framework/coverage',route(()=>framework.frameworkCoverage()));
 adminSyllabusRoutes.post('/framework/preview',validate(frameworkRows),route(req=>framework.previewFrameworkImport(req.body.rows)));
 adminSyllabusRoutes.post('/framework/import',validate(frameworkRows),route(req=>framework.commitFrameworkImport(req.body.rows,req.user!.userId)));
 const documentMeta=z.object({boardCode:z.string().min(2).max(30),academicYear:year,gradeCode:z.preprocess(v=>v===''?null:v,grade.nullable().optional()),subjectId:z.preprocess(v=>v===''?null:v,z.string().uuid().nullable().optional()),title:z.string().trim().min(3).max(240),language:z.string().trim().min(2).max(12).default('en'),sourceUrl:httpsUrl,sourcePublisher:z.string().trim().max(220).nullable().optional()});
