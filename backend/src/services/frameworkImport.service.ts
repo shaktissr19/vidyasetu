@@ -30,7 +30,7 @@ export async function previewFrameworkImport(rows:FrameworkCsvRow[]) {
   const {rows:activeBoards}=await query<{code:string}>('SELECT code FROM education_boards WHERE is_active=TRUE');
   const boardSet=new Set(activeBoards.map(x=>x.code));
   if(!boardSet.has(first.boardCode)) errors.push({row:1,message:'Board code is not active or does not exist.'});
-  if(!/^20\\d{2}-\\d{2}$/.test(first.academicYear)||Number(first.academicYear.slice(5))!==(Number(first.academicYear.slice(0,4))+1)%100) errors.push({row:1,message:'Academic year must be consecutive, such as 2026-27.'});
+  if(!/^20\d{2}-\d{2}$/.test(first.academicYear)||Number(first.academicYear.slice(5))!==(Number(first.academicYear.slice(0,4))+1)%100) errors.push({row:1,message:'Academic year must be consecutive, such as 2026-27.'});
   if(!['en','hi'].includes(first.medium)) errors.push({row:1,message:'Medium must be en or hi.'});
   const gradeCodes=[...new Set(rows.map(r=>r.gradeCode))], subjectCodes=[...new Set(rows.map(r=>r.subjectCode))];
   const [grades,subjects]=await Promise.all([
