@@ -41,6 +41,7 @@ export interface PipelineQueueItem {
 
 export interface StagePipelinePayload {
   intakeId?: string;
+  originalFileName?: string | null;
   titleHi?: string | null; difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null; conceptIds?: string[];
   journeyStage?: 'SEE' | 'UNDERSTAND' | 'DO' | 'PRACTISE' | 'APPLY' | 'REVISE';
   transcript?: string | null; altText?: string | null;

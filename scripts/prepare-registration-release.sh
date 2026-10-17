@@ -56,6 +56,9 @@ apply_if_missing 053_verified_syllabus_workspace.sql "SELECT to_regclass('public
 apply_if_missing 054_syllabus_document_library.sql "SELECT to_regclass('public.syllabus_documents') IS NOT NULL AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='syllabus_documents' AND column_name IN ('outline','redistribution_allowed','source_url'))=3;"
 apply_if_missing 055_syllabus_publication_progress.sql "SELECT to_regclass('public.student_syllabus_progress') IS NOT NULL AND to_regclass('public.syllabus_class_coverage') IS NOT NULL AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='publication_status');"
 apply_if_missing 056_curriculum_framework_manager.sql "SELECT to_regclass('public.curriculum_chapters') IS NOT NULL AND to_regclass('public.curriculum_version_evidence') IS NOT NULL AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='source_hash');"
+apply_if_missing 057_curriculum_topic_assets.sql "SELECT to_regclass('public.learning_asset_nodes') IS NOT NULL AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_content_assets' AND column_name='original_file_name');"
+apply_if_missing 058_learning_asset_governance_analytics.sql "SELECT to_regclass('public.learning_asset_review_assignments') IS NOT NULL AND to_regclass('public.learning_asset_usage_events') IS NOT NULL AND to_regclass('public.learning_asset_moderation') IS NOT NULL AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='doubts' AND column_name='curriculum_topic_id');"
 "${PSQL[@]}" -f scripts/verify-curriculum-framework.sql
+"${PSQL[@]}" -f scripts/verify-curriculum-assets.sql
 unset PGPASSWORD
-echo 'Registration and Content Pipeline database preparation passed. Deploy using scripts/deploy-main-native.sh.'
+echo 'Curriculum Framework and topic asset governance database preparation passed. Deploy using scripts/deploy-main-native.sh.'

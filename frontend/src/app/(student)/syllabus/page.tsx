@@ -91,14 +91,29 @@ export default function MySyllabus() {
       <h2 className="text-2xl font-bold">{selectedSubject.name}</h2>
       <p className="mt-1">{boardName} · {gradeName} · {academicYear}</p>
       {selectedSubject.topics.length > 0 ? <div className="mt-5 space-y-4">
+        <p className="text-sm font-semibold">Subject progress: {data.subjectProgress?.[selectedSubject.id]?.percent||0}%</p>
         {[...new Set(selectedSubject.topics.map(topic => topic.chapter))].map(chapter => <section key={chapter} className="rounded-xl border p-4">
           <h3 className="text-lg font-bold">{chapter}</h3>
           <div className="mt-2 divide-y">{selectedSubject.topics.filter(topic => topic.chapter === chapter).map(topic => <article className="py-3" key={topic.id}>
             <h4 className="font-semibold">{topic.title}</h4>
-            {topic.learning_outcome && <p className="mt-1 text-sm">{topic.learning_outcome}</p>}\n            <label className="mt-2 inline-flex items-center gap-2 text-sm">My progress<select className="input" value={progressQuery.data?.find(item => item.topic_id === topic.id)?.student_status || 'NOT_STARTED'} disabled={progressMutation.isPending} onChange={event => progressMutation.mutate({ topicId: topic.id, status: event.target.value as SyllabusProgressStatus })}><option value="NOT_STARTED">Not started</option><option value="IN_PROGRESS">In progress</option><option value="COMPLETED">Completed</option><option value="REVISED">Revised</option></select></label>
+            <p className="text-xs text-slate-600">Student progress: {topic.studentStatus?.replaceAll('_',' ')||'NOT STARTED'} · Class coverage: {topic.teacherStatus?.replaceAll('_',' ')||'NOT COVERED'}</p>
+            {topic.learning_outcome && <p className="mt-1 text-sm">{topic.learning_outcome}</p>}
+            <label className="mt-2 inline-flex items-center gap-2 text-sm">My progress<select className="input" value={progressQuery.data?.find(item => item.topic_id === topic.id)?.student_status || 'NOT_STARTED'} disabled={progressMutation.isPending} onChange={event => progressMutation.mutate({ topicId: topic.id, status: event.target.value as SyllabusProgressStatus })}><option value="NOT_STARTED">Not started</option><option value="IN_PROGRESS">In progress</option><option value="COMPLETED">Completed</option><option value="REVISED">Revised</option></select></label>
             {topic.evidence_url && <a className="mt-1 inline-block text-sm underline" href={topic.evidence_url} target="_blank" rel="noopener noreferrer">Official source · {topic.page_reference || 'view document'} ↗</a>}
             <div className="mt-2"><Link className="underline" href={'/learn/library?q=' + encodeURIComponent(topic.title) + '&board=' + encodeURIComponent(boardCode) + '&grade=' + encodeURIComponent(gradeCode)}>Find lessons for this topic →</Link></div>
-            {topic.resources?.length ? <ul className="mt-2 list-inside list-disc">{topic.resources.map(resource => <li key={resource.id}>{resource.locked ? <span>🔒 {resource.title} · Subscription required</span> : <Link className="underline" href={'/subjects/resource/' + resource.id}>{resource.title} · {resource.resource_type}{resource.completed ? ' · Completed' : ''}</Link>}</li>)}</ul> : <p className="mt-2 text-sm text-slate-600">Learning content is not available for this topic yet.</p>}
+            {(['VIDEO','AUDIO','READ','PRACTICE','INTERACTIVE','IMAGE'] as const).map(format=>{
+              const matches=format==='READ'?topic.assets?.filter(a=>['ARTICLE','PDF','DOCUMENT','WORKSHEET','QUESTION_PAPER'].includes(a.asset_kind)):format==='PRACTICE'?[]:topic.assets?.filter(a=>a.asset_kind===format);
+              const tests=format==='PRACTICE'?topic.assessments:undefined;
+              return <div className="mt-3 rounded-lg bg-slate-50 p-3" key={format}><h5 className="font-semibold">{format==='READ'?'Read':format==='AUDIO'?'Listen':format==='VIDEO'?'Watch':format==='PRACTICE'?'Practice':format==='IMAGE'?'Explore':'Interact'}</h5>
+                {tests?.length ? (
+                  tests.map(test => <p key={test.id} className="mt-1">{test.locked ? <span>🔒 {test.title} · Subscription required</span> : test.public_slug ? <Link className="underline" href={'/learn/practice/' + test.public_slug}>{test.title} →</Link> : <span>{test.title}</span>}</p>)
+                ) : matches?.length ? (
+                  matches.map(asset => <p className="mt-1" key={asset.asset_id}><Link className="underline" href={'/subjects/resource/' + asset.id}>{asset.locked ? '🔒 ' : ''}{asset.title} →</Link>{asset.locked && ' Subscription required'}{asset.source_name && <span className="ml-2 text-xs text-slate-600">Source: {asset.source_name}</span>}{asset.reviewed_by_name && <span className="ml-2 text-xs text-slate-600">Reviewed by {asset.reviewed_by_name}{asset.reviewed_at ? ` on ${new Date(asset.reviewed_at).toLocaleDateString()}` : ''}</span>}</p>)
+                ) : <p className="mt-1 text-sm text-slate-600">Coming soon</p>}
+              </div>;
+            })}
+            {(!topic.assets?.length)&&topic.resources?.length? <ul className="mt-2 list-inside list-disc">{topic.resources.map(resource=><li key={resource.id}>{resource.locked?<span>🔒 {resource.title} · Subscription required</span>:<Link className="underline" href={'/subjects/resource/'+resource.id}>{resource.title} · {resource.resource_type}{resource.completed?' · Completed':''}</Link>}</li>)}</ul>:null}
+            <Link className="mt-3 inline-flex rounded-lg border px-3 py-2 text-sm font-semibold" href={`/student?section=doubts&topicId=${encodeURIComponent(topic.id)}&topicTitle=${encodeURIComponent(topic.title)}`}>Ask a doubt about this topic</Link>
           </article>)}</div>
         </section>)}
       </div> : <p className="mt-4 rounded-lg bg-slate-50 p-4">No verified topic list has been published for this subject yet.</p>}
@@ -119,7 +134,7 @@ export default function MySyllabus() {
         {documentsQuery.isError && <p className="mt-4 text-red-700" role="alert">Syllabus documents could not be loaded. Try again shortly.</p>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{subjects.map(subject => <button key={subject.id} type="button" className="card p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => setSelectedSubjectId(subject.id)}>
           <span className="text-lg font-bold">{subject.name}</span>
-          <span className="mt-2 block text-sm text-slate-600">{subject.topics.length} verified topics · {subject.documents.length} source documents</span>
+          <span className="mt-2 block text-sm text-slate-600">{subject.topics.length} verified topics · {subject.documents.length} source documents · {data.subjectProgress?.[subject.id]?.percent||0}% complete</span>
           <span className="mt-3 block font-semibold text-orange-700">{subject.topics.length || subject.documents.length ? 'Open syllabus →' : 'Syllabus not published yet →'}</span>
         </button>)}</div>
         {boardWideDocuments.length > 0 && <div className="mt-6 rounded-xl bg-slate-50 p-4"><h3 className="font-bold">Board-wide documents</h3><ul className="mt-2 list-inside list-disc">{boardWideDocuments.map(doc => <li key={doc.id}><a className="underline" href={doc.source_url} target="_blank" rel="noopener noreferrer">{doc.title} · {doc.academic_year} ↗</a></li>)}</ul></div>}

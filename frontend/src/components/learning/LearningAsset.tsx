@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** Shared learner/admin preview. Documents stay passive; uploaded HTML/JS is never executed. */
-export default function LearningAsset({ title, kind, contentUrl, embedUrl, mimeType, altText, transcript }: {
+export default function LearningAsset({ title, kind, contentUrl, embedUrl, mimeType, altText, transcript, onEvent }: {
   title: string; kind: string; contentUrl?: string | null; embedUrl?: string | null;
   mimeType?: string | null; altText?: string | null; transcript?: string | null;
+  onEvent?: (event: 'PLAY_START'|'WATCH_PROGRESS'|'COMPLETED'|'AUDIO_PLAY', durationSecs?: number) => void;
 }) {
+  const lastProgress=useRef(0);
   const safeEmbed = embedUrl && /^https:\/\//i.test(embedUrl) ? embedUrl : null;
   const [playerLoaded,setPlayerLoaded] = useState(false);
   useEffect(() => { setPlayerLoaded(false); },[safeEmbed]);
@@ -19,8 +21,8 @@ export default function LearningAsset({ title, kind, contentUrl, embedUrl, mimeT
       sandbox="allow-scripts allow-same-origin allow-presentation" referrerPolicy="strict-origin-when-cross-origin"
       allow="fullscreen; picture-in-picture; encrypted-media" allowFullScreen
       style={{ width: '100%', minHeight: 200, aspectRatio: '16 / 9', border: 0, borderRadius: 14, background: '#0F172A' }} />}
-    {contentUrl && kind === 'VIDEO' && <video aria-label={title} controls preload="metadata" src={contentUrl} style={{ width: '100%', borderRadius: 14 }} />}
-    {contentUrl && kind === 'AUDIO' && <audio aria-label={title} controls preload="metadata" src={contentUrl} style={{ width: '100%' }} />}
+    {contentUrl && kind === 'VIDEO' && <video aria-label={title} controls preload="metadata" src={contentUrl} onPlay={()=>onEvent?.('PLAY_START')} onEnded={()=>onEvent?.('COMPLETED')} onTimeUpdate={event=>{const time=Math.floor(event.currentTarget.currentTime);if(time-lastProgress.current>=30){lastProgress.current=time;onEvent?.('WATCH_PROGRESS',30);}}} style={{ width: '100%', borderRadius: 14 }} />}
+    {contentUrl && kind === 'AUDIO' && <audio aria-label={title} controls preload="metadata" src={contentUrl} onPlay={()=>onEvent?.('AUDIO_PLAY')} onEnded={()=>onEvent?.('COMPLETED')} onTimeUpdate={event=>{const time=Math.floor(event.currentTarget.currentTime);if(time-lastProgress.current>=30){lastProgress.current=time;onEvent?.('WATCH_PROGRESS',30);}}} style={{ width: '100%' }} />}
     {contentUrl && kind === 'IMAGE' && <img src={contentUrl} alt={altText || title} style={{ width: '100%', maxHeight: 620, objectFit: 'contain' }} />}
     {contentUrl && ['PDF','WORKSHEET','QUESTION_PAPER'].includes(kind) && <object aria-label={title} data={contentUrl} type="application/pdf" width="100%" height="680">
       <p>Your browser cannot preview this document. <a href={contentUrl} target="_blank" rel="noopener noreferrer">Open the PDF</a></p>

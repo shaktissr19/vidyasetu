@@ -1,268 +1,66 @@
-import type { NextFunction, Request, Response } from 'express';
-import type { UUID } from '@vidyasetu/contracts';
-import * as learningService from '../services/adminLearning.service';
-import * as practiceService from '../services/adminLearningPractice.service';
-import * as importService from '../services/adminLearningImport.service';
-import * as reviewService from '../services/adminLearningReview.service';
-import * as qualityService from '../services/learningQuality.service';
-import * as R from '../utils/response';
-
-export async function options(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await learningService.getLearningStudioOptions()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function concepts(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try {
-    const parsedClass = typeof req.query.class === 'string' ? Number.parseInt(req.query.class, 10) : null;
-    const classNumber = Number.isFinite(parsedClass) ? parsedClass : null;
-    const subjectCode = typeof req.query.subject === 'string' ? req.query.subject : null;
-    return R.ok(res, await learningService.listLearningConcepts(classNumber, subjectCode));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function coverage(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try {
-    const parsedClass = typeof req.query.class === 'string' ? Number.parseInt(req.query.class, 10) : null;
-    const classNumber = Number.isFinite(parsedClass) ? parsedClass : null;
-    const subjectCode = typeof req.query.subject === 'string' ? req.query.subject : null;
-    return R.ok(res, await qualityService.getCoverageSummary({ classNumber, subjectCode }));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function readiness(
-  req: Request<{ entityType: string; entityId: UUID }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try { return R.ok(res, await qualityService.getEntityReadiness(req.params.entityType, req.params.entityId)); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function setQualityGate(
-  req: Request<{ entityType: string; entityId: UUID; gateCode: string }, unknown, { status: string; note?: string | null }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await qualityService.setQualityGate(
-      req.params.entityType,
-      req.params.entityId,
-      req.params.gateCode,
-      req.body.status,
-      req.user.userId,
-      req.body.note,
-    ));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function resources(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await learningService.listLearningResources()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function reviewPacks(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, reviewService.listSupportedContentPacks()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function contentPackReview(
-  req: Request<{ packKey: string }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try { return R.ok(res, await reviewService.getContentPackReview(req.params.packKey)); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function pressureReview(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await reviewService.getPressurePackReview()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function createResource(
-  req: Request<Record<string, string>, unknown, learningService.SaveLearningResourceInput>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.created(res, await learningService.createLearningResource(req.body, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function updateResourceAccess(
-  req: Request<{ resourceId: UUID }, unknown, { visibility: string; accessRequirement: string }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await learningService.updateLearningResourceAccessPolicy(
-      req.params.resourceId,
-      req.body.visibility,
-      req.body.accessRequirement,
-    ));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function updateStatus(
-  req: Request<{ resourceId: UUID }, unknown, { status: string; note?: string | null }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await learningService.updateLearningResourceStatus(req.params.resourceId, req.body.status, req.user.userId, req.body.note));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function questions(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await practiceService.listQuestions()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function createQuestion(
-  req: Request<Record<string, string>, unknown, practiceService.SaveQuestionInput>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.created(res, await practiceService.createQuestion(req.body, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function updateQuestionStatus(
-  req: Request<{ questionId: UUID }, unknown, { status: string }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await practiceService.updateQuestionStatus(req.params.questionId, req.body.status, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function assessments(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await practiceService.listAssessments()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function createAssessment(
-  req: Request<Record<string, string>, unknown, practiceService.SaveAssessmentInput>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.created(res, await practiceService.createAssessment(req.body, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function updateAssessmentAccess(
-  req: Request<{ assessmentId: UUID }, unknown, { visibility: string; accessRequirement: string }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await practiceService.updateAssessmentAccessPolicy(
-      req.params.assessmentId,
-      req.body.visibility,
-      req.body.accessRequirement,
-    ));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function updateAssessmentStatus(
-  req: Request<{ assessmentId: UUID }, unknown, { status: string }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await practiceService.updateAssessmentStatus(req.params.assessmentId, req.body.status, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function intake(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await practiceService.listIntake()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function createIntake(
-  req: Request<Record<string, string>, unknown, practiceService.SaveIntakeInput>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.created(res, await practiceService.createIntake(req.body, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function updateIntakeStatus(
-  req: Request<{ intakeId: UUID }, unknown, { status: string; note?: string | null }>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await practiceService.updateIntakeStatus(req.params.intakeId, req.body.status, req.user.userId, req.body.note));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function importOptions(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await importService.getImportOptions()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function importTemplate(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try {
-    const format = String(req.query.format || 'csv').toUpperCase() === 'JSON' ? 'JSON' : 'CSV';
-    const requestedSample = String(req.query.sample || 'BLANK').toUpperCase();
-    const sample = (['CLASS_5','CLASS_8','EARLY_YEARS','BLANK'].includes(requestedSample) ? requestedSample : 'BLANK') as 'CLASS_5' | 'CLASS_8' | 'EARLY_YEARS' | 'BLANK';
-    const fileName = `vidyasetu-learning-import-${sample.toLowerCase()}.${format.toLowerCase()}`;
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.type(format === 'JSON' ? 'application/json' : 'text/csv');
-    return res.send(format === 'JSON' ? importService.getJsonTemplate(sample) : importService.getCsvTemplate(sample));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function importBatches(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await importService.listImportBatches()); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function importBatch(req: Request<{ batchId: UUID }>, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await importService.getImportBatch(req.params.batchId)); }
-  catch (error: unknown) { next(error); }
-}
-
-export async function stageImport(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    if (!req.file) return R.validationError(res, 'CSV or JSON file is required');
-    const extension = req.file.originalname.toLowerCase().endsWith('.json') ? 'JSON' : req.file.originalname.toLowerCase().endsWith('.csv') ? 'CSV' : null;
-    if (!extension) return R.validationError(res, 'Only .csv and .json files are supported');
-    return R.created(res, await importService.stageImport({
-      fileName: req.file.originalname,
-      format: extension,
-      content: req.file.buffer.toString('utf8'),
-    }, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function commitImport(req: Request<{ batchId: UUID }>, res: Response, next: NextFunction): Promise<Response | void> {
-  try {
-    if (!req.user) return R.unauthorized(res);
-    return R.ok(res, await importService.commitImportBatch(req.params.batchId, req.user.userId));
-  } catch (error: unknown) { next(error); }
-}
-
-export async function resourcePreview(req: Request<{ resourceId: UUID }>, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res,await learningService.getLearningResourcePreview(req.params.resourceId)); }
-  catch (error: unknown) { next(error); }
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíßÏ|N‹Z–‹­¦ëeŠw¬Õ¥µÁ½ÉĞÑåÁ”ì9•áÑÕ¹Ñ¥½¸°I•ÅÕ•ÍĞ°I•ÍÁ½¹Í”ô™É½´€•áÁÉ•ÍÌœì)¥µÁ½ÉĞÑåÁ”ìUU%ô™É½´€Ù¥‘å…Í•ÑÔ½½¹ÑÉ…ÑÌœì)¥µÁ½ÉĞ€¨…Ì±•…É¹¥¹M•ÉÙ¥”™É½´€œ¸¸½Í•ÉÙ¥•Ì½…‘µ¥¹1•…É¹¥¹œ¹Í•ÉÙ¥”œì)¥µÁ½ÉĞ€¨…Ì…ÍÍ•Ñ½Ù•É¹…¹”™É½´€œ¸¸½Í•ÉÙ¥•Ì½±•…É¹¥¹ÍÍ•Ñ½Ù•É¹…¹”¹Í•ÉÙ¥”œì)¥µÁ½ÉĞ€¨…ÌÁÉ…Ñ¥•M•ÉÙ¥”™É½´€œ¸¸½Í•ÉÙ¥•Ì½…‘µ¥¹1•…É¹¥¹AÉ…Ñ¥”¹Í•ÉÙ¥”œì)¥µÁ½ÉĞ€¨…Ì¥µÁ½ÉÑM•ÉÙ¥”™É½´€œ¸¸½Í•ÉÙ¥•Ì½…‘µ¥¹1•…É¹¥¹%µÁ½ÉĞ¹Í•ÉÙ¥”œì)¥µÁ½ÉĞ€¨…ÌÉ•Ù¥•İM•ÉÙ¥”™É½´€œ¸¸½Í•ÉÙ¥•Ì½…‘µ¥¹1•…É¹¥¹I•Ù¥•Ü¹Í•ÉÙ¥”œì)¥µÁ½ÉĞ€¨…ÌÅÕ…±¥ÑåM•ÉÙ¥”™É½´€œ¸¸½Í•ÉÙ¥•Ì½±•…É¹¥¹EÕ…±¥Ñä¹Í•ÉÙ¥”œì)¥µÁ½ÉĞ€¨…ÌH™É½´€œ¸¸½ÕÑ¥±Ì½É•ÍÁ½¹Í”œì()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸½ÁÑ¥½¹Ì¡}É•ÄèI•ÅÕ•ÍĞ°É•ÌèI•ÍÁ½¹Í”°¹•áĞè9•áÑÕ¹Ñ¥½¸¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäìÉ•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥Ğ±•…É¹¥¹M•ÉÙ¥”¹•Ñ1•…É¹¥¹MÑÕ‘¥½=ÁÑ¥½¹Ì ¤¤ìô(€…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸½¹•ÁÑÌ¡É•ÄèI•ÅÕ•ÍĞ°É•ÌèI•ÍÁ½¹Í”°¹•áĞè9•áÑÕ¹Ñ¥½¸¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäì(€€€½¹ÍĞÁ…ÉÍ•‘±…ÍÌ€ôÑåÁ•½˜É•Ä¹ÅÕ•Éä¹±…ÍÌ€ôôô€ÍÑÉ¥¹œœ€ü9Õµ‰•È¹Á…ÉÍ•%¹Ğ¡É•Ä¹ÅÕ•Éä¹±…ÍÌ°€ÄÀ¤€è¹Õ±°ì(€€€½¹ÍĞ±…ÍÍ9Õµ‰•È€ô9Õµ‰•È¹¥Í¥¹¥Ñ”¡Á…ÉÍ•‘±…ÍÌ¤€üÁ…ÉÍ•‘±…ÍÌ€è¹Õ±°ì(€€€½¹ÍĞÍÕ‰©•Ñ½‘”€ôÑåÁ•½˜É•Ä¹ÅÕ•Éä¹ÍÕ‰©•Ğ€ôôô€ÍÑÉ¥¹œœ€üÉ•Ä¹ÅÕ•Éä¹ÍÕ‰©•Ğ€è¹Õ±°ì(€€€É•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥Ğ±•…É¹¥¹M•ÉÙ¥”¹±¥ÍÑ1•…É¹¥¹½¹•ÁÑÌ¡±…ÍÍ9Õµ‰•È°ÍÕ‰©•Ñ½‘”¤¤ì(€ô…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸½Ù•É…”¡É•ÄèI•ÅÕ•ÍĞ°É•ÌèI•ÍÁ½¹Í”°¹•áĞè9•áÑÕ¹Ñ¥½¸¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäì(€€€½¹ÍĞÁ…ÉÍ•‘±…ÍÌ€ôÑåÁ•½˜É•Ä¹ÅÕ•Éä¹±…ÍÌ€ôôô€ÍÑÉ¥¹œœ€ü9Õµ‰•È¹Á…ÉÍ•%¹Ğ¡É•Ä¹ÅÕ•Éä¹±…ÍÌ°€ÄÀ¤€è¹Õ±°ì(€€€½¹ÍĞ±…ÍÍ9Õµ‰•È€ô9Õµ‰•È¹¥Í¥¹¥Ñ”¡Á…ÉÍ•‘±…ÍÌ¤€üÁ…ÉÍ•‘±…ÍÌ€è¹Õ±°ì(€€€½¹ÍĞÍÕ‰©•Ñ½‘”€ôÑåÁ•½˜É•Ä¹ÅÕ•Éä¹ÍÕ‰©•Ğ€ôôô€ÍÑÉ¥¹œœ€üÉ•Ä¹ÅÕ•Éä¹ÍÕ‰©•Ğ€è¹Õ±°ì(€€€É•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥ĞÅÕ…±¥ÑåM•ÉÙ¥”¹•Ñ½Ù•É…•MÕµµ…Éä¡ì±…ÍÍ9Õµ‰•È°ÍÕ‰©•Ñ½‘”ô¤¤ì(€ô…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸É•…‘¥¹•ÍÌ (€É•ÄèI•ÅÕ•ÍĞñì•¹Ñ¥ÑåQåÁ”èÍÑÉ¥¹œì•¹Ñ¥Ñå%èUU%ôø°(€É•ÌèI•ÍÁ½¹Í”°(€¹•áĞè9•áÑÕ¹Ñ¥½¸°(¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäìÉ•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥ĞÅÕ…±¥ÑåM•ÉÙ¥”¹•Ñ¹Ñ¥ÑåI•…‘¥¹•ÍÌ¡É•Ä¹Á…É…µÌ¹•¹Ñ¥ÑåQåÁ”°É•Ä¹Á…É…µÌ¹•¹Ñ¥Ñå%¤¤ìô(€…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸Í•ÑEÕ…±¥Ñå…Ñ” (€É•ÄèI•ÅÕ•ÍĞñì•¹Ñ¥ÑåQåÁ”èÍÑÉ¥¹œì•¹Ñ¥Ñå%èUU%ì…Ñ•½‘”èÍÑÉ¥¹œô°Õ¹­¹½İ¸°ìÍÑ…ÑÕÌèÍÑÉ¥¹œì¹½Ñ”üèÍÑÉ¥¹œğ¹Õ±°ôø°(€É•ÌèI•ÍÁ½¹Í”°(€¹•áĞè9•áÑÕ¹Ñ¥½¸°(¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäì(€€€¥˜€ …É•Ä¹ÕÍ•È¤É•ÑÕÉ¸H¹Õ¹…ÕÑ¡½É¥é•¡É•Ì¤ì(€€€É•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥ĞÅÕ…±¥ÑåM•ÉÙ¥”¹Í•ÑEÕ…±¥Ñå…Ñ” (€€€€€É•Ä¹Á…É…µÌ¹•¹Ñ¥ÑåQåÁ”°(€€€€€É•Ä¹Á…É…µÌ¹•¹Ñ¥Ñå%°(€€€€€É•Ä¹Á…É…µÌ¹…Ñ•½‘”°(€€€€€É•Ä¹‰½‘ä¹ÍÑ…ÑÕÌ°(€€€€€É•Ä¹ÕÍ•È¹ÕÍ•É%°(€€€€€É•Ä¹‰½‘ä¹¹½Ñ”°(€€€€¤¤ì(€ô…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸É•Í½ÕÉ•Ì¡}É•ÄèI•ÅÕ•ÍĞ°É•ÌèI•ÍÁ½¹Í”°¹•áĞè9•áÑÕ¹Ñ¥½¸¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäìÉ•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥Ğ±•…É¹¥¹M•ÉÙ¥”¹±¥ÍÑ1•…É¹¥¹I•Í½ÕÉ•Ì ¤¤ìô(€…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸É•Ù¥•İA…­Ì¡}É•ÄèI•ÅÕ•ÍĞ°É•ÌèI•ÍÁ½¹Í”°¹•áĞè9•áÑÕ¹Ñ¥½¸¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäìÉ•ÑÕÉ¸H¹½¬¡É•Ì°É•Ù¥•İM•ÉÙ¥”¹±¥ÍÑMÕÁÁ½ÉÑ•‘½¹Ñ•¹ÑA…­Ì ¤¤ìô(€…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸½¹Ñ•¹ÑA…­I•Ù¥•Ü (€É•ÄèI•ÅÕ•ÍĞñìÁ…­-•äèÍÑÉ¥¹œôø°(€É•ÌèI•ÍÁ½¹Í”°(€¹•áĞè9•áÑÕ¹Ñ¥½¸°(¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäìÉ•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥ĞÉ•Ù¥•İM•ÉÙ¥”¹•Ñ½¹Ñ•¹ÑA…­I•Ù¥•Ü¡É•Ä¹Á…É…µÌ¹Á…­-•ä¤¤ìô(€…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸ÁÉ•ÍÍÕÉ•I•Ù¥•Ü¡}É•ÄèI•ÅÕ•ÍĞ°É•ÌèI•ÍÁ½¹Í”°¹•áĞè9•áÑÕ¹Ñ¥½¸¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäìÉ•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥ĞÉ•Ù¥•İM•ÉÙ¥”¹•ÑAÉ•ÍÍÕÉ•A…­I•Ù¥•Ü ¤¤ìô(€…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸É•…Ñ•I•Í½ÕÉ” (€É•ÄèI•ÅÕ•ÍĞñI•½ÉñÍÑÉ¥¹œ°ÍÑÉ¥¹œø°Õ¹­¹½İ¸°±•…É¹¥¹M•ÉÙ¥”¹M…Ù•1•…É¹¥¹I•Í½ÕÉ•%¹ÁÕĞø°(€É•ÌèI•ÍÁ½¹Í”°(€¹•áĞè9•áÑÕ¹Ñ¥½¸°(¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäì(€€€¥˜€ …É•Ä¹ÕÍ•È¤É•ÑÕÉ¸H¹Õ¹…ÕÑ¡½É¥é•¡É•Ì¤ì(€€€É•ÑÕÉ¸H¹É•…Ñ•¡É•Ì°…İ…¥Ğ±•…É¹¥¹M•ÉÙ¥”¹É•…Ñ•1•…É¹¥¹I•Í½ÕÉ”¡É•Ä¹‰½‘ä°É•Ä¹ÕÍ•È¹ÕÍ•É%¤¤ì(€ô…Ñ €¡•ÉÉ½ÈèÕ¹­¹½İ¸¤ì¹•áĞ¡•ÉÉ½È¤ìô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸ÕÁ‘…Ñ•I•Í½ÕÉ••ÍÌ (€É•ÄèI•ÅÕ•ÍĞñìÉ•Í½ÕÉ•%èUU%ô°Õ¹­¹½İ¸°ìÙ¥Í¥‰¥±¥ÑäèÍÑÉ¥¹œì…•ÍÍI•ÅÕ¥É•µ•¹ĞèÍÑÉ¥¹œôø°(€É•ÌèI•ÍÁ½¹Í”°(€¹•áĞè9•áÑÕ¹Ñ¥½¸°(¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ğÙ½¥øì(€ÑÉäì(€€€¥˜€ …É•Ä¹ÕÍ•È¤É•ÑÕÉ¸H¹Õ¹…ÕÑ¡½É¥é•¡É•Ì¤ì(€€€É•ÑÕÉ¸H¹½¬¡É•Ì°…İ…¥Ğ±•…É¹¥¹M•ÉÙ¥”¹ÕÁ‘…Ñ•1•…É¹¥¹I•Í½ÕÉ••ÍÍA½±¥ä (€€€€€É•Ä¹Á…É…µÌ¹É•Í½ÕÉ•%“Ï|¶‰ËkºwµçK˜›ÙKš\ÚXš[]Kˆ™\K˜›ÙK˜XØÙ\ÜÔ™\]Z\™[Y[ˆ
+JNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ\]P\ÜÙ\ÜÛY[İ]\Êˆ™\Nˆ™\]Y\İÈ\ÜÙ\ÜÛY[YˆURQK[šÛ›İÛ‹Èİ]\Îˆİš[™ÈO‹ˆ™\Îˆ™\ÜÛœÙKˆ™^ˆ™^[˜İ[Û‹ŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÂˆYˆ
+\™\K\Ù\ŠH™]\›ˆ‹[˜]]Üš^™Y
+™\ÊNÂˆ™]\›ˆ‹›ÚÊ™\Ë]ØZ]˜XİXÙTÙ\šXÙK\]P\ÜÙ\ÜÛY[İ]\Ê™\Kœ\˜[\Ë˜\ÜÙ\ÜÛY[Y™\K˜›ÙKœİ]\Ë™\K\Ù\‹\Ù\’Y
+JNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ[ZÙJÜ™\Nˆ™\]Y\İ™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÈ™]\›ˆ‹›ÚÊ™\Ë]ØZ]˜XİXÙTÙ\šXÙK›\İ[ZÙJ
+JNÈBˆØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[ÛˆÜ™X]R[ZÙJˆ™\Nˆ™\]Y\İ™XÛÜ™İš[™Ëİš[™Ï‹[šÛ›İÛ‹˜XİXÙTÙ\šXÙK”Ø]™R[ZÙR[œ]‹ˆ™\Îˆ™\ÜÛœÙKˆ™^ˆ™^[˜İ[Û‹ŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÂˆYˆ
+\™\K\Ù\ŠH™]\›ˆ‹[˜]]Üš^™Y
+™\ÊNÂˆ™]\›ˆ‹˜Ü™X]Y
+™\Ë]ØZ]˜XİXÙTÙ\šXÙK˜Ü™X]R[ZÙJ™\K˜›ÙK™\K\Ù\‹\Ù\’Y
+JNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ\]R[ZÙTİ]\Êˆ™\Nˆ™\]Y\İÈ[ZÙRYˆURQK[šÛ›İÛ‹Èİ]\Îˆİš[™ÎÈ›İOÎˆİš[™È[O‹ˆ™\Îˆ™\ÜÛœÙKˆ™^ˆ™^[˜İ[Û‹ŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÂˆYˆ
+\™\K\Ù\ŠH™]\›ˆ‹[˜]]Üš^™Y
+™\ÊNÂˆ™]\›ˆ‹›ÚÊ™\Ë]ØZ]˜XİXÙTÙ\šXÙK\]R[ZÙTİ]\Ê™\Kœ\˜[\Ëš[ZÙRY™\K˜›ÙKœİ]\Ë™\K\Ù\‹\Ù\’Y™\K˜›ÙK››İJJNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ[\ÜÜ[ÛœÊÜ™\Nˆ™\]Y\İ™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÈ™]\›ˆ‹›ÚÊ™\Ë]ØZ][\ÜÙ\šXÙK™Ù][\ÜÜ[ÛœÊ
+JNÈBˆØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ[\Ü[\]J™\Nˆ™\]Y\İ™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÂˆÛÛœİ›Ü›X]Hİš[™Ê™\Kœ]Y\K™›Ü›X]	ØÜİ‰ÊKÕ\\Ø\ÙJ
+HOOH	Ò”ÓÓ‰ÈÈ	Ò”ÓÓ‰Èˆ	ĞÔÕ‰ÎÂˆÛÛœİ™\]Y\İYØ[\HHİš[™Ê™\Kœ]Y\KœØ[\H	Ğ“S’ÉÊKÕ\\Ø\ÙJ
+NÂˆÛÛœİØ[\HH
+ÉĞÓTÔ×ÍIË	ĞÓTÔ×Î	Ë	ÑPT“WÖQPT”ÉË	Ğ“S’É×Kš[˜ÛY\Ê™\]Y\İYØ[\JHÈ™\]Y\İYØ[\Hˆ	Ğ“S’ÉÊH\È	ĞÓTÔ×ÍIÈ	ĞÓTÔ×Î	È	ÑPT“WÖQPT”ÉÈ	Ğ“S’ÉÎÂˆÛÛœİš[S˜[YHHšYX\Ù]K[X\›š[™ËZ[\ÜIÜØ[\KÓİÙ\Ø\ÙJ
+_K‰Ù›Ü›X]ÓİÙ\Ø\ÙJ
+_XÂˆ™\ËœÙ]XY\Š	ĞÛÛ[Q\ÜÜÚ][Û‰Ë]XÚY[Èš[[˜[YOH‰Ùš[S˜[Y_H˜
+NÂˆ™\Ë\J›Ü›X]OOH	Ò”ÓÓ‰ÈÈ	Ø\XØ][Û‹ÚœÛÛ‰Èˆ	İ^ØÜİ‰ÊNÂˆ™]\›ˆ™\ËœÙ[™
+›Ü›X]OOH	Ò”ÓÓ‰ÈÈ[\ÜÙ\šXÙK™Ù]œÛÛ•[\]JØ[\JHˆ[\ÜÙ\šXÙK™Ù]Üİ•[\]JØ[\JJNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ[\Ü˜]Ú\ÊÜ™\Nˆ™\]Y\İ™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÈ™]\›ˆ‹›ÚÊ™\Ë]ØZ][\ÜÙ\šXÙK›\İ[\Ü˜]Ú\Ê
+JNÈBˆØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ[\Ü˜]Ú
+™\Nˆ™\]Y\İÈ˜]ÚYˆURQO‹™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÈ™]\›ˆ‹›ÚÊ™\Ë]ØZ][\ÜÙ\šXÙK™Ù][\Ü˜]Ú
+™\Kœ\˜[\Ë˜˜]ÚY
+JNÈBˆØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[ÛˆİYÙR[\Ü
+™\Nˆ™\]Y\İ™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÂˆYˆ
+\™\K\Ù\ŠH™]\›ˆ‹[˜]]Üš^™Y
+™\ÊNÂˆYˆ
+\™\K™š[JH™]\›ˆ‹˜[Y][Û‘\œ›ÜŠ™\Ë	ĞÔÕˆÜˆ”ÓÓˆš[H\È™\]Z\™Y	ÊNÂˆÛÛœİ^[œÚ[ÛˆH™\K™š[K›ÜšYÚ[˜[˜[YKÓİÙ\Ø\ÙJ
+K™[™ÕÚ]
+	ËšœÛÛ‰ÊHÈ	Ò”ÓÓ‰Èˆ™\K™š[K›ÜšYÚ[˜[˜[YKÓİÙ\Ø\ÙJ
+K™[™ÕÚ]
+	Ë˜Üİ‰ÊHÈ	ĞÔÕ‰Èˆ[ÂˆYˆ
+Y^[œÚ[ÛŠH™]\›ˆ‹˜[Y][Û‘\œ›ÜŠ™\Ë	ÓÛ›H˜Üİˆ[™šœÛÛˆš[\È\™Hİ\ÜY	ÊNÂˆ™]\›ˆ‹˜Ü™X]Y
+™\Ë]ØZ][\ÜÙ\šXÙKœİYÙR[\Ü
+Âˆš[S˜[YNˆ™\K™š[K›ÜšYÚ[˜[˜[YKˆ›Ü›X]ˆ^[œÚ[Û‹ˆÛÛ[ˆ™\K™š[K˜Y™™\‹Ôİš[™Ê	İ]	ÊKˆK™\K\Ù\‹\Ù\’Y
+JNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[ÛˆÛÛ[Z][\Ü
+™\Nˆ™\]Y\İÈ˜]ÚYˆURQO‹™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÂˆYˆ
+\™\K\Ù\ŠH™]\›ˆ‹[˜]]Üš^™Y
+™\ÊNÂˆ™]\›ˆ‹›ÚÊ™\Ë]ØZ][\ÜÙ\šXÙK˜ÛÛ[Z][\Ü˜]Ú
+™\Kœ\˜[\Ë˜˜]ÚY™\K\Ù\‹\Ù\’Y
+JNÂˆHØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB‚™^Ü\Ş[˜È[˜İ[Ûˆ™\Ûİ\˜ÙT™]šY]Ê™\Nˆ™\]Y\İÈ™\Ûİ\˜ÙRYˆURQO‹™\Îˆ™\ÜÛœÙK™^ˆ™^[˜İ[ÛŠNˆ›ÛZ\ÙO™\ÜÛœÙH›ÚYˆÂˆHÈ™]\›ˆ‹›ÚÊ™\Ë]ØZ]X\›š[™ÔÙ\šXÙK™Ù]X\›š[™Ô™\Ûİ\˜ÙT™]šY]Ê™\Kœ\˜[\Ëœ™\Ûİ\˜ÙRY
+JNÈBˆØ]Ú
+\œ›Üˆ[šÛ›İÛŠHÈ™^
+\œ›ÜŠNÈBŸB

@@ -137,6 +137,7 @@ export default function LearningContentPipelinePage() {
         storageKey: uploaded.key,
         mimeType: uploaded.contentType,
         byteSize: uploaded.byteSize,
+        originalFileName: form.file?.name || null,
         licenceUrl: form.licenceUrl?.trim() || null,
         attributionText: form.attributionText?.trim() || null,
         rightsEvidenceUrl: form.rightsEvidenceUrl?.trim() || null,

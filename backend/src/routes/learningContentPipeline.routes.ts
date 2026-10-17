@@ -23,6 +23,7 @@ const categorySchema = z.enum([
 
 const stageSchema = z.object({
   intakeId: z.string().uuid().optional(),
+  originalFileName: z.string().trim().min(1).max(240).nullable().optional(),
   sourceCode: z.string().trim().min(2).max(40),
   title: z.string().trim().min(2).max(500),
   titleHi: z.string().trim().max(500).nullable().optional(),

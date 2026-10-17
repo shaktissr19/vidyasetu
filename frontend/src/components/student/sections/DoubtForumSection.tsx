@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   listDoubts,
@@ -72,9 +72,11 @@ export default function DoubtForumSection({ dashboard, notify, refreshDashboard 
   const [mine, setMine] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [newDoubt, setNewDoubt] = useState({ title: '', body: '', subjectCode: '' });
+  const [newDoubt, setNewDoubt] = useState<{title:string;body:string;subjectCode:string;curriculumTopicId:string|null}>({ title: '', body: '', subjectCode: '', curriculumTopicId:null });
   const [answerText, setAnswerText] = useState('');
   const activeSelectedId = selectedId || '';
+
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);const topicId=params.get('topicId');if(topicId){setNewDoubt(value=>({...value,curriculumTopicId:topicId,title:`Question about ${params.get('topicTitle')||'this syllabus topic'}`}));setShowCreate(true);}},[]);
 
   const listQuery = useQuery<PortalDoubt[]>({
     queryKey: ['doubts', subjectCode, mine],
@@ -96,7 +98,7 @@ export default function DoubtForumSection({ dashboard, notify, refreshDashboard 
     onSuccess: async response => {
       const created = response.data.data;
       setShowCreate(false);
-      setNewDoubt({ title: '', body: '', subjectCode: '' });
+      setNewDoubt({ title: '', body: '', subjectCode: '', curriculumTopicId:null });
       notify('💬 Your doubt has been posted.');
       await refreshDoubts();
       if (created?.id) setSelectedId(created.id);

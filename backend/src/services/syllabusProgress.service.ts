@@ -20,3 +20,20 @@ export async function getTopicProgress(userId:string){
  const {rows}=await query(`SELECT p.topic_id,p.student_status,p.updated_at FROM student_syllabus_progress p JOIN curriculum_topics ct ON ct.id=p.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id JOIN education_boards eb ON eb.id=cv.board_id WHERE p.student_id=$1 AND cv.publication_status='PUBLISHED' AND eb.code=$2 AND cs.class_name=$3 AND cv.academic_year=$4`,[student.student_id,student.board_code,canonicalGradeCode(student),academicYear()]);
  return rows;
 }
+
+export async function getParentSubjectProgress(parentUserId:string,studentId:string){
+ const {rows:[student]}=await query(`SELECT s.id,s.user_id FROM parent_student_links psl JOIN students s ON s.id=psl.student_id
+   WHERE psl.parent_user_id=$1::uuid AND s.id=$2::uuid AND s.status='ACTIVE'`,[parentUserId,studentId]);
+ if(!student)throw fail('Access denied to this student',403);
+ const context=await getStudentContext(student.user_id);const grade=canonicalGradeCode(context);
+ if(!context.board_code)return {studentId,boardCode:null,gradeCode:grade,subjects:[]};
+ const {rows}=await query(`SELECT cs.subject_id,cs.display_name AS subject,COUNT(ct.id)::int AS total_topics,
+   COUNT(*) FILTER(WHERE p.student_status IN('COMPLETED','REVISED'))::int AS completed_topics,
+   ROUND(100.0*COUNT(*) FILTER(WHERE p.student_status IN('COMPLETED','REVISED'))/NULLIF(COUNT(ct.id),0),1) AS progress_pct
+   FROM curriculum_versions cv JOIN curriculum_subjects cs ON cs.curriculum_version_id=cv.id
+   JOIN curriculum_units cu ON cu.curriculum_subject_id=cs.id JOIN curriculum_topics ct ON ct.curriculum_unit_id=cu.id AND ct.is_retired=FALSE
+   JOIN education_boards eb ON eb.id=cv.board_id LEFT JOIN student_syllabus_progress p ON p.topic_id=ct.id AND p.student_id=$4::uuid
+   WHERE eb.code=$1 AND cv.academic_year=$2 AND cs.class_name=$3 AND cv.publication_status='PUBLISHED'
+   GROUP BY cs.id,cs.display_name ORDER BY cs.sort_order,cs.display_name`,[context.board_code,academicYear(),grade,student.id]);
+ return {studentId,boardCode:context.board_code,gradeCode:grade,academicYear:academicYear(),subjects:rows};
+}

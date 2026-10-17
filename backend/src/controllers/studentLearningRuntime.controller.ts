@@ -13,6 +13,7 @@ import {
   getLearningAccessContext,
 } from '../services/learningEntitlement.service';
 import logger = require('../utils/logger');
+import * as assetGovernance from '../services/learningAssetGovernance.service';
 import * as R from '../utils/response';
 
 export async function getLearningHome(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
@@ -194,6 +195,8 @@ export async function submitLearningAssessment(req: Request, res: Response, next
       req.body.answers || [],
       req.body.timeSpentSecs,
     );
+    try { await assetGovernance.recordAssessmentResults(result.assessment_id,Number(result.percentage)); }
+    catch (analyticsError: unknown) { logger.error('Topic quiz analytics capture failed', { attemptId:req.params.attemptId,error:analyticsError instanceof Error?analyticsError.message:String(analyticsError) }); }
 
     // Grading is the primary learner transaction. Diagnostic evidence is
     // idempotently repairable, so a transient intelligence-write failure must
@@ -214,5 +217,12 @@ export async function submitLearningAssessment(req: Request, res: Response, next
 
     await studentConceptMasteryService.reconcileStudentConceptProgress(user.userId);
     return R.ok(res, result);
+  } catch (err: unknown) { next(err); }
+}
+
+export async function recordLearningAssetEvent(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await assetGovernance.recordAssetEvent(req.user.userId,req.params.resourceId,req.body.eventCode,req.body.durationSecs ?? null));
   } catch (err: unknown) { next(err); }
 }

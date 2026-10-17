@@ -14,6 +14,7 @@ const doubtSchema = z.object({
   subjectCode: z.string().max(20).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),
+  curriculumTopicId: z.string().uuid().optional(),
   contentItemId: z.string().uuid().optional(),
   imageUrl: z.string().url().optional(),
 });

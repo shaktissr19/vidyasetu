@@ -17,6 +17,7 @@ interface StudentContextRow extends QueryResultRow {
   school_name: string | null;
   board_code: string | null;
   board_name: string | null;
+  language: string;
 }
 
 interface ResourceAccessRow extends QueryResultRow {
@@ -62,9 +63,10 @@ function gradeLabel(gradeCode: string): string {
 export async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
     `SELECT s.id AS student_id, s.grade_level, s.grade_code, sc.class_name,
-            s.school_id, sch.name AS school_name,
+            s.school_id, sch.name AS school_name,u.language,
             eb.board_code, eb.board_name
      FROM students s
+     JOIN users u ON u.id=s.user_id
      LEFT JOIN school_classes sc ON sc.id=s.class_id
      LEFT JOIN schools sch ON sch.id=s.school_id
      LEFT JOIN LATERAL (
@@ -72,12 +74,12 @@ export async function getStudentContext(userId: UUID): Promise<StudentContextRow
        FROM education_boards candidate
        WHERE candidate.id=sch.board_id
           OR (sch.board_id IS NULL AND (
-            regexp_replace(lower(trim(COALESCE(sch.board,''))), '[^a-z0-9]', '', 'g') IN (
+            regexp_replace(lower(trim(COALESCE(to_jsonb(sch)->>'board',''))), '[^a-z0-9]', '', 'g') IN (
               regexp_replace(lower(candidate.code), '[^a-z0-9]', '', 'g'),
               regexp_replace(lower(candidate.short_name), '[^a-z0-9]', '', 'g'),
               regexp_replace(lower(candidate.name), '[^a-z0-9]', '', 'g')
             )
-            OR (candidate.code='CISCE' AND regexp_replace(lower(trim(COALESCE(sch.board,''))), '[^a-z0-9]', '', 'g') IN ('icse','isc'))
+            OR (candidate.code='CISCE' AND regexp_replace(lower(trim(COALESCE(to_jsonb(sch)->>'board',''))), '[^a-z0-9]', '', 'g') IN ('icse','isc'))
           ))
        ORDER BY CASE WHEN candidate.id=sch.board_id THEN 0 ELSE 1 END
        LIMIT 1
@@ -89,7 +91,7 @@ export async function getStudentContext(userId: UUID): Promise<StudentContextRow
   if (!student.school_id) {
     const schema = await query("SELECT to_regclass('public.student_learning_preferences') IS NOT NULL AS ready");
     if (schema.rows[0]?.ready) {
-      const { rows:[preference] } = await query(`SELECT eb.code AS board_code,eb.name AS board_name,egl.code AS grade_code FROM student_learning_preferences p JOIN education_boards eb ON eb.id=p.board_id JOIN education_grade_levels egl ON egl.id=p.grade_id WHERE p.student_id=$1 AND eb.is_active=TRUE AND egl.is_active=TRUE`,[student.student_id]);
+      const { rows:[preference] } = await query(`SELECT eb.code AS board_code,eb.name AS board_name,egl.code AS grade_code,p.language FROM student_learning_preferences p JOIN education_boards eb ON eb.id=p.board_id JOIN education_grade_levels egl ON egl.id=p.grade_id WHERE p.student_id=$1 AND eb.is_active=TRUE AND egl.is_active=TRUE`,[student.student_id]);
       if (preference) Object.assign(student,preference);
     }
   }
@@ -282,9 +284,28 @@ async function assertResourceForLearner(userId: UUID, resourceId: UUID) {
      FROM learning_resources lr
      WHERE lr.id=$1::uuid
        AND lr.review_status='PUBLISHED'
+       AND NOT EXISTS (SELECT 1 FROM learning_asset_moderation m WHERE m.asset_id=lr.asset_id AND m.state='TAKEN_DOWN')
        AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
-       AND ${resourceScopeSql(2, 3, 4)}`,
-    [resourceId, board, gradeCode, grade],
+       AND ${resourceScopeSql(2, 3, 4)}
+       AND (
+         NOT EXISTS (SELECT 1 FROM learning_asset_nodes scoped_node JOIN learning_content_assets scoped_asset ON scoped_asset.id=scoped_node.asset_id WHERE scoped_asset.resource_id=lr.id)
+         OR EXISTS (
+           SELECT 1 FROM learning_asset_nodes scoped_node
+           JOIN learning_content_assets scoped_asset ON scoped_asset.id=scoped_node.asset_id
+           WHERE scoped_asset.resource_id=lr.id AND (
+             scoped_node.visibility='PUBLIC'
+             OR (scoped_node.board_id=(SELECT id FROM education_boards WHERE code=$2)
+                 AND scoped_node.grade_code=$3
+                 AND scoped_node.medium=CASE WHEN $5='hi' THEN 'hi' ELSE 'en' END
+                 AND scoped_node.visibility='CLASS_RESTRICTED')
+             OR (scoped_node.board_id=(SELECT id FROM education_boards WHERE code=$2)
+                 AND scoped_node.grade_code=$3
+                 AND scoped_node.medium=CASE WHEN $5='hi' THEN 'hi' ELSE 'en' END
+                 AND scoped_node.visibility='SCHOOL_PRIVATE' AND scoped_node.school_id=$6::uuid)
+           )
+         )
+       )`,
+    [resourceId, board, gradeCode, grade, student.language, student.school_id],
   );
   if (!resource) throw appError('Learning resource not found for this learner', 404);
   if (!canAccessLearningRequirement(resource.access_requirement, access)) {
@@ -328,6 +349,7 @@ export async function getCanonicalLearningResource(userId: UUID, resourceId: UUI
      LEFT JOIN learning_resource_concepts lrc ON lrc.resource_id=lr.id
      LEFT JOIN learning_concepts lc ON lc.id=lrc.concept_id
      WHERE lr.id=$1::uuid
+       AND NOT EXISTS (SELECT 1 FROM learning_asset_moderation m WHERE m.asset_id=lr.asset_id AND m.state='TAKEN_DOWN')
      GROUP BY lr.id, sub.id, lcs.id, slrp.student_id, slrp.resource_id`,
     [resourceId, student.student_id],
   );

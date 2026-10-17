@@ -5,6 +5,8 @@ import { query } from '../config/db';
 import * as aiService from '../services/ai.service';
 import { getPagination, paginationMeta } from '../utils/paginate';
 import * as R from '../utils/response';
+import { getStudentContext, canonicalGradeCode } from '../services/studentCanonicalLearning.service';
+import * as assetGovernance from '../services/learningAssetGovernance.service';
 
 interface UserSchoolContext {
   student_id?: UUID;
@@ -48,6 +50,7 @@ interface CreateDoubtBody {
   chapterId?: UUID | null;
   contentItemId?: UUID | null;
   imageUrl?: string | null;
+  curriculumTopicId?: UUID | null;
 }
 interface AnswerBody { body: string; imageUrl?: string | null; }
 interface ResolveBody { bestAnswerId?: UUID | null; }
@@ -175,6 +178,8 @@ export async function create(
   next: NextFunction,
 ): Promise<Response | void> {
   try {
+    const user=req.user;
+    if(!user) return R.unauthorized(res);
     const ctx = await getUserSchoolContext(req);
     if (!ctx.student_id) return R.notFound(res, 'Student profile not found');
     let subjectCode = req.body.subjectCode || null;
@@ -183,6 +188,16 @@ export async function create(
       subjectCode = subject?.code || null;
     }
     const forumSchoolId = ctx.school_link_status === 'APPROVED' ? ctx.school_id : null;
+    if (req.body.curriculumTopicId) {
+      const student = await getStudentContext(user.userId);
+      const gradeCode = canonicalGradeCode(student);
+      const { rows:[topic] } = await query(`SELECT 1 FROM curriculum_topics ct
+        JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
+        JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id JOIN education_boards eb ON eb.id=cv.board_id
+        WHERE ct.id=$1::uuid AND ct.is_retired=FALSE AND cv.publication_status='PUBLISHED' AND eb.code=$2 AND cs.class_name=$3`,
+      [req.body.curriculumTopicId,student.board_code,gradeCode]);
+      if (!topic) return R.forbidden(res,'This syllabus topic is not available to your board and class');
+    }
     const enhanced = await aiService.supportsGroundedDoubts();
     const values = [ctx.student_id, forumSchoolId, subjectCode, req.body.chapterId || null,
       req.body.contentItemId || null, req.body.title, req.body.body, req.body.imageUrl || null];
@@ -202,6 +217,12 @@ export async function create(
           values,
         );
     const doubt = result.rows[0];
+    if (req.body.curriculumTopicId) {
+      await query('UPDATE doubts SET curriculum_topic_id=$2::uuid WHERE id=$1::uuid',[doubt.id,req.body.curriculumTopicId]);
+      try { await assetGovernance.recordTopicDoubt(req.body.curriculumTopicId); }
+      catch (analyticsError: unknown) { console.error('Topic doubt analytics capture failed',analyticsError); }
+      doubt.curriculum_topic_id=req.body.curriculumTopicId;
+    }
     return R.created(res, enhanced ? doubt : { ...doubt, origin: 'FORUM', learning_concept_id: null });
   } catch (err: unknown) { next(err); }
 }
