@@ -42,6 +42,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/users', icon: '👥', label: 'Users' },
     { href: '/admin/learning/syllabus', icon: '📋', label: 'Syllabus', exact: true },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
+    { href: '/admin/learning/governance', icon: '🧩', label: 'Topic Assets', exact: true },
     { href: '/admin/learning', icon: '📚', label: menuLabel('Content Library · pending',contentLibraryCount), exact: true },
     { href: '/admin/learning/coverage', icon: '🎯', label: 'Coverage' },
     { href: '/admin/learning/practice', icon: '🧠', label: 'Question Bank' },

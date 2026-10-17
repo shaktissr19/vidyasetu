@@ -10,6 +10,7 @@ export interface CreateDoubtPayload {
   body: string;
   subjectId?: string | null;
   subjectCode?: string | null;
+  curriculumTopicId?: string | null;
 }
 
 export interface AnswerDoubtPayload {

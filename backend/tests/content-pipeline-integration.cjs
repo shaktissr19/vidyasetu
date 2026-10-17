@@ -5,7 +5,7 @@ const path = require('node:path');
 const { PGlite } = require('@electric-sql/pglite');
 const root = path.resolve(__dirname, '../..');
 let syllabusStudentId;
-let db, pipeline, factory, quality, admin, discovery, learner, publicLearning, acquisition, syllabus;
+let db, pipeline, factory, quality, admin, discovery, learner, publicLearning, acquisition, syllabus, governance;
 let scanCode=0, downloads=0, stored=[], deleted=[], responseBytes=Buffer.from("%PDF-1.7\nfixture"), responseMime="application/pdf";
 const adminId = '00000000-0000-0000-0000-000000000001';
 const migrations = [
@@ -16,6 +16,7 @@ const migrations = [
  '045_learning_ai_content_creator.sql','046_learning_creator_source_discovery.sql','047_learning_source_registry_video_discovery.sql',
  '048_learning_content_factory_foundation.sql','049_learning_source_library_handoff.sql','050_unified_registration_role_linking.sql',
  '051_learning_content_pipeline.sql','052_learning_content_integration.sql','053_verified_syllabus_workspace.sql',
+ '057_curriculum_topic_assets.sql','058_learning_asset_governance_analytics.sql',
 ];
 async function sqlFile(file) {
  let sql = fs.readFileSync(path.join(root, file),'utf8').replace(/^\\.*$/gm,'').replace(/CREATE EXTENSION IF NOT EXISTS[^;]+;/g,'');
@@ -33,6 +34,8 @@ before(async () => {
  for (const migration of migrations) await sqlFile(`database/migrations/${migration}`);
  await sqlFile('database/migrations/052_learning_content_integration.sql'); // idempotency
  await sqlFile('database/migrations/053_verified_syllabus_workspace.sql');
+ await sqlFile('database/migrations/057_curriculum_topic_assets.sql'); // idempotency
+ await sqlFile('database/migrations/058_learning_asset_governance_analytics.sql');
  const query = (sql, params=[]) => db.query(sql,params);
  const dbModule = require.resolve('../dist/config/db');
  require.cache[dbModule] = { id: dbModule,filename: dbModule,loaded: true,exports: {
@@ -46,6 +49,7 @@ before(async () => {
  require('child_process').spawn=()=>{const child=new(require('events').EventEmitter)();child.stdin=new(require('events').EventEmitter)();child.stdin.end=()=>setImmediate(()=>child.emit('close',scanCode));child.kill=()=>{};return child;};
  acquisition=require('../dist/services/learningSourceAcquisition.service');
  syllabus=require('../dist/services/syllabus.service');
+ governance=require('../dist/services/learningAssetGovernance.service');
  pipeline = require('../dist/services/learningContentPipeline.service');
  factory = require('../dist/services/adminContentFactory.service');
  quality = require('../dist/services/learningQuality.service');
@@ -215,31 +219,31 @@ test('verified syllabus is hidden until approval, preserves gaps and protects sc
  const subject=(await db.query('SELECT id FROM subjects LIMIT 1')).rows[0];
  const student=(await db.query("SELECT id,user_id,school_id FROM students WHERE status='ACTIVE' LIMIT 1")).rows[0];syllabusStudentId=student.id;
  await db.query("UPDATE students SET school_id=NULL,grade_code='CLASS_6',grade_level='6' WHERE id=$1",[student.id]);
- const input={boardCode:'CBSE',academicYear:'2026-27',title:'Fixture Class 6 syllabus scope',sourceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',rows:[{gradeCode:'CLASS_6',subjectId:subject.id,chapter:'Fixture unit',topic:'Fixture verified topic',learningOutcome:'Explain the fixture concept',evidenceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',pageReference:'Unit 1'}]};
+ const input={boardCode:'CBSE',academicYear:'2026-27',medium:'hi',title:'Fixture Class 6 syllabus scope',sourceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',rows:[{gradeCode:'CLASS_6',subjectId:subject.id,chapter:'Fixture unit',topic:'Fixture verified topic',learningOutcome:'Explain the fixture concept',evidenceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',pageReference:'Unit 1'}]};
  const imported=await syllabus.importSyllabus(input,adminId);
  await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});
  assert.equal((await syllabus.studentSyllabus(student.user_id)).version,null);
- await syllabus.changeSyllabusStatus(imported.id,'ACTIVE','Reviewed fixture topic against source',adminId);
+ await syllabus.changeSyllabusStatus(imported.id,'REVIEWED','Reviewed fixture topic against source',adminId);await syllabus.changeSyllabusStatus(imported.id,'ACTIVE','Publish reviewed fixture topic',adminId);
  const factoryOptions=await factory.getFactoryOptions();assert.equal(factoryOptions.curriculumSubjects.find(cs=>cs.curriculum_version_id===imported.id).academic_year,'2026-27');
  const view=await syllabus.studentSyllabus(student.user_id);assert.equal(view.topics.length,1);assert.equal(view.summary.totalTopics,1);assert.equal(view.summary.coveredTopics,0);assert.equal(view.summary.completedTopics,0);assert.equal(view.summary.masteredTopics,0);assert.equal(view.profile.language,'hi');
  assert.equal('review_note' in view.version,false);
- await assert.rejects(syllabus.importSyllabus(input,adminId),/Return the existing syllabus to draft/);
+ const replacement=await syllabus.importSyllabus(input,adminId);assert.notEqual(replacement.id,imported.id);await syllabus.changeSyllabusStatus(replacement.id,'ARCHIVED','Keep published framework immutable; review a separate draft version',adminId);
  await syllabus.changeSyllabusStatus(imported.id,'DRAFT','Correct the fixture learning outcome',adminId);
  const concept=view.topics[0].concept_id;
  await db.query("INSERT INTO student_concept_progress(student_id,concept_id,state,mastery_attempts,mastery_pct) VALUES($1,$2,'MASTERED',1,90)",[student.id,concept]);
- await syllabus.importSyllabus({...input,rows:[{...input.rows[0],learningOutcome:'A different learning outcome'}]},adminId);
- await syllabus.changeSyllabusStatus(imported.id,'ACTIVE','Verified revised fixture outcome',adminId);
+ const revised=await syllabus.importSyllabus({...input,rows:[{...input.rows[0],learningOutcome:'A different learning outcome'}]},adminId);
+ await syllabus.changeSyllabusStatus(revised.id,'REVIEWED','Verified revised fixture outcome',adminId);await syllabus.changeSyllabusStatus(revised.id,'ACTIVE','Publish revised fixture outcome',adminId);
  const corrected=await syllabus.studentSyllabus(student.user_id);assert.notEqual(corrected.topics[0].concept_id,concept);assert.equal(corrected.summary.masteredTopics,0);assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM student_concept_progress WHERE student_id=$1 AND concept_id=$2',[student.id,concept])).rows[0].n,1);
- const second=await syllabus.importSyllabus({...input,academicYear:'2027-28'},adminId);await syllabus.changeSyllabusStatus(second.id,'ACTIVE','Reviewed new academic year fixture',adminId);
- await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2027-28',language:'en'});
+ const second=await syllabus.importSyllabus({...input,academicYear:'2027-28'},adminId);await syllabus.changeSyllabusStatus(second.id,'REVIEWED','Review new academic year fixture',adminId);await syllabus.changeSyllabusStatus(second.id,'ACTIVE','Publish new academic year fixture',adminId);
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2027-28',language:'hi'});
  assert.equal((await syllabus.studentSyllabus(student.user_id)).summary.masteredTopics,0);
  const school=(await db.query('SELECT id FROM schools LIMIT 1')).rows[0];await db.query("UPDATE schools SET board_id=(SELECT id FROM education_boards WHERE code='CBSE') WHERE id=$1",[school.id]);await db.query('UPDATE students SET school_id=$2 WHERE id=$1',[student.id,school.id]);
- await assert.rejects(syllabus.saveLearningPreference(student.user_id,{boardCode:'CISCE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'en'}),e=>e.statusCode===403);
+ await assert.rejects(syllabus.saveLearningPreference(student.user_id,{boardCode:'CISCE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'}),e=>e.statusCode===403);
  await syllabus.changeSyllabusStatus(second.id,'ARCHIVED','Archive superseded fixture syllabus',adminId);assert.equal((await syllabus.studentSyllabus(student.user_id)).version,null);
 });
 test('syllabus-linked content respects subscriptions and completion never implies mastery',async()=>{
  const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];await db.query('UPDATE students SET school_id=NULL WHERE id=$1',[student.id]);
- await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'en'});
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});
  const view=await syllabus.studentSyllabus(student.user_id);const topic=view.topics[0];assert.ok(topic);
  await assert.rejects(pipeline.stageContent({...base,title:'Wrong syllabus board fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CISCE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id]},adminId),/Syllabus topics must match/);
  const staged=await pipeline.stageContent({...base,title:'Syllabus subscriber fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CBSE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id],visibility:'REGISTERED',accessRequirement:'SUBSCRIBER'},adminId);await pipeline.approveIntake(staged.intakeId,adminId);const resource=await pipeline.materialiseIntake(staged.intakeId,adminId);
@@ -257,16 +261,46 @@ test('syllabus-linked content respects subscriptions and completion never implie
  assert.equal((await syllabus.studentSyllabus(student.user_id)).summary.masteredTopics,1);
  await assert.rejects(syllabus.linkTopicResource(topic.id,resource.resourceId,adminId),/Return published content to DRAFT/);
 });
+test('Class 7 cannot fetch a Class 8 restricted asset by guessing its ID',async()=>{
+ const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];
+ await db.query('UPDATE students SET school_id=NULL WHERE id=$1',[student.id]);
+ const subject=(await db.query('SELECT id FROM subjects LIMIT 1')).rows[0];
+ const source='https://cbseacademic.nic.in/curriculum_2029.html';
+ const imported=await syllabus.importSyllabus({boardCode:'CBSE',academicYear:'2028-29',medium:'hi',title:'Class 8 security fixture',sourceUrl:source,rows:[{gradeCode:'CLASS_8',subjectId:subject.id,chapter:'Fixture unit',topic:'Class 8 restricted topic',learningOutcome:'Explain the class 8 fixture concept',evidenceUrl:source,pageReference:'Unit 1'}]},adminId);
+ await syllabus.changeSyllabusStatus(imported.id,'REVIEWED','Review class 8 security fixture',adminId);await syllabus.changeSyllabusStatus(imported.id,'ACTIVE','Publish class 8 security fixture',adminId);
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_8',academicYear:'2028-29',language:'hi'});
+ const topic=(await syllabus.studentSyllabus(student.user_id)).topics[0];
+ const staged=await pipeline.stageContent({...base,title:'Class 8 restricted topic asset',category:'ACADEMIC',gradeCodes:['CLASS_7','CLASS_8'],boardCodes:['CBSE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id],visibility:'REGISTERED',accessRequirement:'REGISTERED'},adminId);
+ await pipeline.approveIntake(staged.intakeId,adminId);const resource=await pipeline.materialiseIntake(staged.intakeId,adminId);
+ await db.query("UPDATE learning_resources SET review_status='PUBLISHED' WHERE id=$1",[resource.resourceId]);
+ const asset=(await db.query('SELECT id FROM learning_content_assets WHERE resource_id=$1',[resource.resourceId])).rows[0];
+ const board=(await db.query("SELECT id FROM education_boards WHERE code='CBSE'")).rows[0];
+ const curriculumSubject=(await db.query('SELECT cs.subject_id FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id WHERE ct.id=$1',[topic.id])).rows[0];
+ await db.query("INSERT INTO learning_asset_nodes(asset_id,topic_id,board_id,grade_code,subject_id,medium,visibility,created_by) VALUES($1,$2,$3,'CLASS_8',$4,'hi','CLASS_RESTRICTED',$5)",[asset.id,topic.id,board.id,curriculumSubject.subject_id,adminId]);
+ await assert.rejects(governance.assertReadyForAcademicReview(resource.resourceId),/Complete all five/);
+ for(const gate of ['ACADEMIC_ACCURACY','AGE_APPROPRIATENESS','ACCESSIBILITY','TECHNICAL_READINESS','SAFETY']) await governance.setChecklist(asset.id,gate,'PASS','Reviewed in integration test',adminId,true);
+ await governance.assertReadyForAcademicReview(resource.resourceId);
+ await governance.snapshotAsset(asset.id,adminId);assert.equal((await governance.assetHistory(asset.id)).versions.length,1);
+ await learner.getCanonicalLearningResource(student.user_id,resource.resourceId);
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_7',academicYear:'2028-29',language:'hi'});
+ await assert.rejects(learner.getCanonicalLearningResource(student.user_id,resource.resourceId),error=>error.statusCode===404);
+ await governance.setTakedown(asset.id,'TAKEN_DOWN','Integration test takedown',adminId);
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_8',academicYear:'2028-29',language:'hi'});
+ await assert.rejects(learner.getCanonicalLearningResource(student.user_id,resource.resourceId),error=>error.statusCode===404);
+ await governance.setTakedown(asset.id,'ACTIVE','Integration test restore',adminId);
+ await learner.getCanonicalLearningResource(student.user_id,resource.resourceId);
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});
+});
 test('topic retirement retains historical progress and approval excludes retired topics',async()=>{
  const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];
  const before=await syllabus.studentSyllabus(student.user_id);const version=before.version;const topic=before.topics[0];
  await assert.rejects(syllabus.retireSyllabusTopic(topic.id,true,'Retire reviewed fixture topic',adminId),e=>e.statusCode===409);
  await syllabus.changeSyllabusStatus(version.id,'DRAFT','Review retirement and source applicability',adminId);
  await syllabus.retireSyllabusTopic(topic.id,true,'Retire reviewed fixture topic',adminId);
- await assert.rejects(syllabus.changeSyllabusStatus(version.id,'ACTIVE','Approve an empty active topic list',adminId),/Every topic/);
+ await syllabus.changeSyllabusStatus(version.id,'REVIEWED','Review topic retirement',adminId);await assert.rejects(syllabus.changeSyllabusStatus(version.id,'ACTIVE','Approve an empty active topic list',adminId),/Every topic/);
  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM student_learning_resource_progress WHERE student_id=$1',[student.id])).rows[0].n>0,true);
  await syllabus.retireSyllabusTopic(topic.id,false,'Restore reviewed fixture topic',adminId);
- await syllabus.changeSyllabusStatus(version.id,'ACTIVE','Re-approve restored fixture topic',adminId);
+ await syllabus.changeSyllabusStatus(version.id,'REVIEWED','Review restored fixture topic',adminId);await syllabus.changeSyllabusStatus(version.id,'ACTIVE','Re-approve restored fixture topic',adminId);
  assert.equal((await syllabus.studentSyllabus(student.user_id)).topics.length,1);
 });
 test('syllabus endpoints enforce real JWT roles and validated input',async()=>{

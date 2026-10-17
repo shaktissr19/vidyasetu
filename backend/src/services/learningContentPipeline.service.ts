@@ -47,6 +47,7 @@ export type PipelineAccess = 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
 
 export interface StagePipelineInput {
   intakeId?: UUID;
+  originalFileName?: string | null;
   sourceCode: string;
   title: string;
   titleHi?: string | null;
@@ -480,6 +481,16 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID, acq
       [intake.id,input.mediaKind,input.deliveryMode,source.code,policy.sourceUrl,policy.embedUrl,policy.storageKey,nullable(input.mimeType),input.byteSize || null,nullable(input.checksumSha256),policy.storageKey ? 'READY' : 'METADATA_ONLY',policy.rightsStatus,policy.licence,licenceUrl,attributionText,rightsEvidenceUrl,licenceAllowsAdaptation(policy.licence),licenceAllowsCommercialUse(policy.licence),policy.rightsStatus === 'VERIFIED' ? adminId : null,policy.rightsStatus === 'VERIFIED' ? new Date() : null,JSON.stringify(metadata),adminId],
     );
     if (!asset) throw appError('Could not register the pipeline asset', 409);
+    await client.query(`UPDATE learning_content_assets SET
+        original_file_name=COALESCE($2,original_file_name),language=COALESCE($3,language),
+        duration_secs=COALESCE($4,duration_secs),difficulty=COALESCE($5,difficulty),
+        transcript=COALESCE($6,transcript),author_id=COALESCE(author_id,$7::uuid),
+        reviewer_id=CASE WHEN $8='VERIFIED' THEN $7::uuid ELSE reviewer_id END,updated_at=NOW()
+      WHERE id=$1::uuid`,[
+      asset.id,input.originalFileName?.replace(/[\\/\0-\x1f]/g,'_').slice(0,240)||null,
+      input.language||null,input.durationSecs||null,
+      input.difficulty==='MODERATE'?'MEDIUM':input.difficulty==='ADVANCED'?'HARD':input.difficulty||null,
+      input.transcript||null,adminId,policy.rightsStatus]);
 
     await client.query(`UPDATE learning_source_intake SET asset_id=$2::uuid,updated_at=NOW() WHERE id=$1::uuid`, [intake.id,asset.id]);
     await client.query(
@@ -530,7 +541,7 @@ export async function verifyRights(intakeId: UUID, input: VerifyPipelineRightsIn
       `UPDATE learning_content_assets
        SET rights_status='VERIFIED'::learning_rights_status,licence=$2::learning_license_code,licence_url=$3,
            attribution_text=$4,rights_evidence_url=$5,adaptation_allowed=$6,commercial_use_allowed=$7,
-           verified_by=$8::uuid,verified_at=NOW(),updated_at=NOW()
+           verified_by=$8::uuid,verified_at=NOW(),reviewer_id=$8::uuid,updated_at=NOW()
        WHERE id=(SELECT asset_id FROM learning_source_intake WHERE id=$1::uuid)`,
       [intakeId,licence,licenceUrl,attribution,rightsEvidenceUrl,licenceAllowsAdaptation(licence),licenceAllowsCommercialUse(licence),adminId],
     );

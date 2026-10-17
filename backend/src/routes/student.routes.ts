@@ -35,6 +35,7 @@ const parentInvitationSchema = z.object({
 
 const relationshipDecisionSchema = z.object({ action: z.enum(['APPROVE', 'REJECT']) });
 const learningProgressSchema = z.object({ progressPct: z.number().min(0).max(100) });
+const assetEventSchema = z.object({eventCode:z.enum(['PLAY_START','WATCH_PROGRESS','COMPLETED','AUDIO_PLAY']),durationSecs:z.number().int().min(0).max(86400).nullable().optional()});
 const learningSubmitSchema = z.object({
   answers: z.array(z.object({ questionId: z.string().uuid(), answer: z.unknown() })).max(200),
   timeSpentSecs: z.number().int().min(0).max(86400).nullable().optional(),
@@ -72,6 +73,7 @@ router.get('/learning/journey/preferences', learningRuntimeCtrl.getPersonalizedP
 router.patch('/learning/journey/preferences', validate(personalizedPreferenceSchema), learningRuntimeCtrl.updatePersonalizedPreferences);
 router.post('/learning/journey/items/:itemId/skip', learningRuntimeCtrl.skipPersonalizedJourneyItem);
 router.patch('/learning/resources/:resourceId/progress', validate(learningProgressSchema), learningRuntimeCtrl.updateLearningResourceProgress);
+router.post('/learning/resources/:resourceId/events',validate(z.object({resourceId:z.string().uuid()}),'params'),validate(assetEventSchema),learningRuntimeCtrl.recordLearningAssetEvent);
 router.post('/learning/resources/:resourceId/bookmark', ctrl.addLearningBookmark);
 router.delete('/learning/resources/:resourceId/bookmark', ctrl.removeLearningBookmark);
 router.get('/learning/assessments', ctrl.getLearningAssessments);

@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { randomUUID } from 'crypto';
 import { query, transaction } from '../config/db';
 import { getStudentContext, canonicalGradeCode, resourceScopeSql } from './studentCanonicalLearning.service';
-import { getLearningAccessContext } from './learningEntitlement.service';
+import { getLearningAccessContext, accessibleLearningAssessmentIds } from './learningEntitlement.service';
 const fail = (message:string,statusCode=400) => Object.assign(new Error(message),{statusCode});
 interface TopicRow extends QueryResultRow {is_retired:boolean;id:string;concept_id:string;grade_code:string;title:string;chapter:string;unit?:string;subject_id:string;learning_outcome:string;}
 interface ResourceRow extends QueryResultRow {concept_id:string;id:string;title:string;title_hi:string|null;resource_type:string;difficulty:string|null;access_requirement:string;completed:boolean;}
@@ -88,7 +88,7 @@ export async function changeSyllabusStatus(id:string,status:'DRAFT'|'REVIEWED'|'
  if(publicationStatus==='PUBLISHED' && !['REVIEWED','PUBLISHED'].includes(currentStatus)) throw fail('A syllabus must be reviewed before publication',409);
  const legacyStatus=publicationStatus==='PUBLISHED'?'ACTIVE':publicationStatus==='ARCHIVED'?'ARCHIVED':'DRAFT';
  if(publicationStatus==='PUBLISHED') await client.query(`UPDATE curriculum_versions SET publication_status='ARCHIVED',status='ARCHIVED' WHERE board_id=$1 AND academic_year=$2 AND medium=$3 AND id<>$4 AND publication_status='PUBLISHED'`,[version.board_id,version.academic_year,version.medium,id]);
- await client.query(`UPDATE curriculum_versions SET status=$2,publication_status=$3,verified_at=CASE WHEN $3='PUBLISHED' THEN NOW() ELSE verified_at END,verified_by=CASE WHEN $3 IN ('REVIEWED','PUBLISHED') THEN $4::uuid ELSE verified_by END,reviewed_by=CASE WHEN $3='REVIEWED' THEN $4::uuid ELSE reviewed_by END,published_by=CASE WHEN $3='PUBLISHED' THEN $4::uuid ELSE published_by END,published_at=CASE WHEN $3='PUBLISHED' THEN NOW() ELSE published_at END,review_note=$5 WHERE id=$1::uuid`,[id,legacyStatus,publicationStatus,actor,note]);
+ await client.query(`UPDATE curriculum_versions SET status=$2,publication_status=$3::varchar,verified_at=CASE WHEN $3::varchar='PUBLISHED' THEN NOW() ELSE verified_at END,verified_by=CASE WHEN $3::varchar IN ('REVIEWED','PUBLISHED') THEN $4::uuid ELSE verified_by END,reviewed_by=CASE WHEN $3::varchar='REVIEWED' THEN $4::uuid ELSE reviewed_by END,published_by=CASE WHEN $3::varchar='PUBLISHED' THEN $4::uuid ELSE published_by END,published_at=CASE WHEN $3::varchar='PUBLISHED' THEN NOW() ELSE published_at END,review_note=$5 WHERE id=$1::uuid`,[id,legacyStatus,publicationStatus,actor,note]);
  await client.query(`UPDATE learning_concepts SET registry_status=$2 WHERE id IN(SELECT ctc.concept_id FROM curriculum_topic_concepts ctc JOIN curriculum_topics ct ON ct.id=ctc.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id WHERE cs.curriculum_version_id=$1 AND ct.is_retired=FALSE)`,[id,status==='ACTIVE'?'ACADEMICALLY_VERIFIED':'DRAFT_FOR_ACADEMIC_REVIEW']);
  await audit(client,actor,id,'UPDATE',{operation:'SYLLABUS_STATUS',from:version.publication_status||version.status,to:publicationStatus,note});
  return {id,status};
@@ -119,15 +119,47 @@ export async function studentSyllabus(userId:string) {
  const detail=await syllabusDetail(version.id);
  const topics=detail.topics.filter(t=>t.grade_code===grade && !t.is_retired);
  const ids=topics.map(t=>t.concept_id).filter(Boolean);
- const {rows:resources}=ids.length?await query<ResourceRow>(`SELECT lrc.concept_id,lr.id,lr.title,lr.title_hi,lr.resource_type,to_jsonb(lr)->>'difficulty' AS difficulty,lr.access_requirement,COALESCE(p.is_completed,FALSE) AS completed FROM learning_resource_concepts lrc JOIN learning_resources lr ON lr.id=lrc.resource_id LEFT JOIN student_learning_resource_progress p ON p.resource_id=lr.id AND p.student_id=$1 WHERE lrc.concept_id=ANY($2::uuid[]) AND lr.review_status='PUBLISHED' AND lr.visibility IN('PUBLIC','REGISTERED','CLASS_ONLY') AND ${resourceScopeSql(3,4,5)}`,[student.student_id,ids,board,grade,/^CLASS_/.test(grade)?Number(grade.slice(6)):null]):{rows:[]};
+ const {rows:resources}=ids.length?await query<ResourceRow>(`SELECT lrc.concept_id,lr.id,lr.title,lr.title_hi,lr.resource_type,to_jsonb(lr)->>'difficulty' AS difficulty,lr.access_requirement,COALESCE(p.is_completed,FALSE) AS completed FROM learning_resource_concepts lrc JOIN learning_resources lr ON lr.id=lrc.resource_id LEFT JOIN student_learning_resource_progress p ON p.resource_id=lr.id AND p.student_id=$1 WHERE lrc.concept_id=ANY($2::uuid[]) AND lr.review_status='PUBLISHED' AND lr.visibility IN('PUBLIC','REGISTERED','CLASS_ONLY') AND NOT EXISTS(SELECT 1 FROM learning_asset_moderation m WHERE m.asset_id=lr.asset_id AND m.state='TAKEN_DOWN') AND ${resourceScopeSql(3,4,5)}`,[student.student_id,ids,board,grade,/^CLASS_/.test(grade)?Number(grade.slice(6)):null]):{rows:[]};
+ const {rows:mappedAssets}=topics.length?await query(`SELECT n.topic_id,a.id AS asset_id,lr.id,lr.title,lr.title_hi,lr.resource_type,
+   a.asset_kind,a.language,a.duration_secs,a.difficulty,a.transcript,a.captions_url,a.ai_generated,a.version_number,
+   a.rights_status,lr.access_requirement,lr.is_offline_ready,lr.source_url,lcs.name AS source_name,
+   reviewer.name AS reviewed_by_name,lr.reviewed_at,COALESCE(p.is_completed,FALSE) AS completed,
+   CASE WHEN lr.access_requirement='SUBSCRIBER' AND NOT $7::boolean THEN TRUE ELSE FALSE END AS locked
+   FROM learning_asset_nodes n JOIN learning_content_assets a ON a.id=n.asset_id
+   JOIN learning_resources lr ON lr.asset_id=a.id AND lr.review_status='PUBLISHED'
+   LEFT JOIN learning_content_sources lcs ON lcs.id=lr.source_id
+   LEFT JOIN users reviewer ON reviewer.id=lr.reviewed_by
+   LEFT JOIN student_learning_resource_progress p ON p.resource_id=lr.id AND p.student_id=$1::uuid
+   WHERE n.topic_id=ANY($2::uuid[]) AND n.board_id=(SELECT id FROM education_boards WHERE code=$3)
+     AND n.grade_code=$4 AND n.medium=$5 AND a.rights_status='VERIFIED'
+     AND (n.visibility='PUBLIC' OR n.visibility='CLASS_RESTRICTED' OR (n.visibility='SCHOOL_PRIVATE' AND n.school_id=$6::uuid))
+     AND COALESCE((SELECT state FROM learning_asset_moderation WHERE asset_id=a.id),'ACTIVE')='ACTIVE'
+   ORDER BY n.sort_order,lr.title`,[student.student_id,topics.map(t=>t.id),board,grade,preference?.language||'en',student.school_id,access.subscriberAccess]):{rows:[]};
  const {rows:mastery}=ids.length?await query('SELECT concept_id,state,mastery_attempts,mastery_pct FROM student_concept_progress WHERE student_id=$1 AND concept_id=ANY($2::uuid[])',[student.student_id,ids]):{rows:[]};
+ const {rows:topicProgress}=topics.length?await query('SELECT topic_id,student_status,updated_at FROM student_syllabus_progress WHERE student_id=$1::uuid AND topic_id=ANY($2::uuid[])',[student.student_id,topics.map(t=>t.id)]):{rows:[]};
+ const {rows:teacherCoverage}=student.school_id&&topics.length?await query(`SELECT topic_id,CASE WHEN BOOL_OR(status='COVERED') THEN 'COVERED' WHEN BOOL_OR(status='IN_PROGRESS') THEN 'IN_PROGRESS' ELSE 'NOT_COVERED' END AS teacher_status,MAX(updated_at) AS teacher_updated_at
+   FROM syllabus_class_coverage WHERE school_id=$1::uuid AND class_name=$2 AND topic_id=ANY($3::uuid[]) GROUP BY topic_id`,[student.school_id,grade,topics.map(t=>t.id)]):{rows:[]};
+ const classNo=/^CLASS_/.test(grade)?Number(grade.slice(6)):null;
+ const {rows:assessmentRows}=ids.length?await query<{concept_id:string;id:string;public_slug:string|null;title:string;assessment_type:string;access_requirement:string}>(`SELECT lac.concept_id,la.id,la.public_slug,la.title,la.assessment_type,la.access_requirement
+   FROM learning_assessment_concepts lac JOIN learning_assessments la ON la.id=lac.assessment_id
+   JOIN learning_assessment_boards lab ON lab.assessment_id=la.id JOIN education_boards eb ON eb.id=lab.board_id
+   WHERE lac.concept_id=ANY($1::uuid[]) AND la.review_status='PUBLISHED' AND eb.code=$2
+     AND (la.class_min IS NULL OR $3::int IS NULL OR la.class_min<=$3)
+     AND (la.class_max IS NULL OR $3::int IS NULL OR la.class_max>=$3)`,[ids,board,classNo]):{rows:[]};
+ const allowedAssessments=await accessibleLearningAssessmentIds(assessmentRows.map(item=>item.id),access);
  const result=topics.map(t=>{
  const material=resources.filter(r=>r.concept_id===t.concept_id).map(r=>({...r,locked:r.access_requirement==='SUBSCRIBER'&&!access.subscriberAccess}));
  const available=material.filter(r=>!r.locked);const completed=available.filter(r=>r.completed).length;
  const evidence=mastery.find(m=>m.concept_id===t.concept_id);
- return {...t,resources:material,completedResources:completed,availableResources:available.length,learningComplete:available.length>0&&completed===available.length,mastered:evidence?.state==='MASTERED'&&evidence.mastery_attempts>0,masteryPct:evidence && evidence.mastery_attempts>0?evidence.mastery_pct:null};
+ const topicAssets=(mappedAssets as Array<Record<string,unknown>>).filter(asset=>asset.topic_id===t.id);
+ const combined=[...material,...topicAssets.filter(asset=>!material.some(r=>r.id===asset.id))];
+ const topicAssessments=assessmentRows.filter(a=>a.concept_id===t.concept_id).map(a=>({...a,locked:!allowedAssessments.has(a.id)}));
+ const progress=topicProgress.find(p=>p.topic_id===t.id);
+ const teacher=teacherCoverage.find(p=>p.topic_id===t.id);
+ return {...t,resources:combined,assets:topicAssets,assessments:topicAssessments,studentStatus:progress?.student_status||'NOT_STARTED',teacherStatus:teacher?.teacher_status||'NOT_COVERED',completedResources:completed,availableResources:available.length,learningComplete:available.length>0&&completed===available.length,mastered:evidence?.state==='MASTERED'&&evidence.mastery_attempts>0,masteryPct:evidence && evidence.mastery_attempts>0?evidence.mastery_pct:null};
  });
- return {profile,options:studentOptions,version:{id:version.id,title:version.title,academic_year:version.academic_year,source_url:version.source_url},topics:result,summary:{totalTopics:result.length,coveredTopics:result.filter(t=>t.resources.length>0).length,completedTopics:result.filter(t=>t.learningComplete).length,masteredTopics:result.filter(t=>t.mastered).length}};
+ const subjectProgress=result.reduce((map:Record<string,{total:number;completed:number;percent:number}>,topic)=>{const value=map[topic.subject_id]||{total:0,completed:0,percent:0};value.total++;if(topic.studentStatus==='COMPLETED'||topic.studentStatus==='REVISED')value.completed++;value.percent=Math.round(100*value.completed/value.total);map[topic.subject_id]=value;return map;},{});
+ return {profile,options:studentOptions,version:{id:version.id,title:version.title,academic_year:version.academic_year,source_url:version.source_url},topics:result,subjectProgress,summary:{totalTopics:result.length,coveredTopics:result.filter(t=>t.resources.length>0).length,completedTopics:result.filter(t=>t.learningComplete).length,masteredTopics:result.filter(t=>t.mastered).length}};
 }
 
 export async function linkTopicResource(topicId:string,resourceId:string,actor:string) {

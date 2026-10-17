@@ -8,6 +8,7 @@ import { useParentChildContext } from '@/hooks/useParentChildContext';
 import { SectionHeader } from '@/components/ui/index';
 import useLanguageStore from '@/store/languageStore';
 import { apiErrorText } from '@/utils/errors';
+import { getParentSyllabusProgress } from '@/services/syllabusService';
 
 const TREND_LABEL: Record<ParentSubjectPerformance['trend'], { label: string; color: string }> = {
   IMPROVING: { label: '↑ Improving', color: 'var(--forest)' },
@@ -51,6 +52,7 @@ export default function ParentPerformancePage() {
     enabled: !!selectedChildId,
     staleTime: 20_000,
   });
+  const syllabusQ=useQuery({queryKey:['parent-syllabus-progress',selectedChildId],queryFn:()=>getParentSyllabusProgress(selectedChildId!).then(r=>r.data.data),enabled:Boolean(selectedChildId)});
 
   return (
     <div className="animate-fade-up">
@@ -111,6 +113,8 @@ export default function ParentPerformancePage() {
       )}
 
       {selectedChildId ? <div className="mt-5"><ParentDiagnosticPanel studentId={selectedChildId} /></div> : null}
+
+      {syllabusQ.data?.subjects?.length ? <section className="card mt-5"><h2 className="font-display font-bold text-lg">Syllabus progress · {syllabusQ.data.boardCode} · {syllabusQ.data.gradeCode}</h2><div className="mt-3 grid gap-3 sm:grid-cols-2">{syllabusQ.data.subjects.map(item=><div className="rounded-xl border p-3" key={item.subject}><div className="flex justify-between gap-2"><strong>{item.subject}</strong><span>{Math.round(Number(item.progress_pct||0))}%</span></div><progress className="mt-2 w-full" max={100} value={Number(item.progress_pct||0)} /><p className="mt-1 text-xs text-slate-600">{item.completed_topics}/{item.total_topics} topics completed</p></div>)}</div></section>:null}
 
       <div className="mt-5">
         {learningQ.isLoading ? (

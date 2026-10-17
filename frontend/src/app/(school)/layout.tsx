@@ -40,6 +40,7 @@ const TEACHER_MENU = (t: Translate) => [
   { href: '/school/staff', icon: '🧑‍💼', label: t('मेरी उपस्थिति और छुट्टी', 'My Attendance & Leave') },
   { href: '/school/academic-workspace', icon: '🎯', label: t('अकादमिक वर्कस्पेस', 'Academic Workspace') },
   { href: '/school/learning-insights', icon: '🧭', label: t('लर्निंग इनसाइट्स', 'Learning Insights') },
+  { href: '/school/learning-reviews', icon: '📚', label: t('लर्निंग समीक्षा', 'Learning Reviews') },
   { href: '/school/ptm', icon: '📅', label: t('PTM और हस्तक्षेप', 'PTM & Interventions') },
   { href: '/school/attendance', icon: '📅', label: t('उपस्थिति', 'Attendance') },
   { href: '/school/absence', icon: '🩺', label: t('छुट्टी और कैलेंडर', 'Leave & Calendar') },

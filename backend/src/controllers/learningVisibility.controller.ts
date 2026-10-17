@@ -3,6 +3,7 @@ import type { UUID } from '@vidyasetu/contracts';
 import * as learningVisibility from '../services/learningVisibility.service';
 import * as diagnosticVisibility from '../services/diagnosticVisibility.service';
 import * as R from '../utils/response';
+import * as syllabusProgress from '../services/syllabusProgress.service';
 
 function authenticated(req: Request, res: Response) {
   if (!req.user) {
@@ -68,6 +69,13 @@ export async function parentInsight(req: Request, res: Response, next: NextFunct
     const user = authenticated(req, res); if (!user) return;
     return R.ok(res, await learningVisibility.getParentLearningInsight(user.userId, req.params.studentId as UUID));
   } catch (err: unknown) { next(err); }
+}
+
+export async function parentSyllabusProgress(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user=authenticated(req,res);if(!user)return;
+    return R.ok(res,await syllabusProgress.getParentSubjectProgress(user.userId,req.params.studentId));
+  } catch(err:unknown){next(err);}
 }
 
 export async function parentDiagnostics(req: Request, res: Response, next: NextFunction): Promise<Response | void> {

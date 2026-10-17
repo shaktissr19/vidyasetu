@@ -22,7 +22,8 @@ interface OverviewRow extends QueryResultRow {
   grades: Array<Record<string, unknown>>;
 }
 
-const PUBLIC_WHERE = `lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED'`;
+const PUBLIC_WHERE = `lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED'
+  AND NOT EXISTS (SELECT 1 FROM learning_content_assets a JOIN learning_asset_moderation m ON m.asset_id=a.id WHERE a.id=lr.asset_id AND m.state='TAKEN_DOWN')`;
 
 /**
  * Public Learning overview is intentionally executed as ONE PostgreSQL query.

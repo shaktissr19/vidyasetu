@@ -1,13 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import LearningAsset from '@/components/learning/LearningAsset';
 import LearningMarkdown from '@/components/learning/LearningMarkdown';
-import { getCanonicalLearningResource } from '@/services/canonicalLearningService';
+import { getCanonicalLearningResource, recordLearningMediaEvent } from '@/services/canonicalLearningService';
+import { cacheLearningAsset, hasCachedLearningAsset } from '@/lib/offlineLearning';
 import {
   bookmarkLearningResource,
   removeLearningResourceBookmark,
@@ -21,6 +22,8 @@ export default function StudentLearningResourcePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { lang, t } = useLanguageStore();
+  const [audioSavedOffline,setAudioSavedOffline]=useState(false);
+  const [savingAudio,setSavingAudio]=useState(false);
 
   const resourceQuery = useQuery({
     queryKey: ['canonical-learning-resource', resourceId],
@@ -73,6 +76,8 @@ export default function StudentLearningResourcePage() {
   const summary = lang === 'hi' && resource.summary_hi ? resource.summary_hi : resource.summary;
   const externalUrl = resource.external_url || resource.source_url;
   const mediaUrl = resource.content_url;
+  useEffect(()=>{if(resource?.resource_type==='AUDIO'&&resource.is_offline_ready&&mediaUrl) void hasCachedLearningAsset(mediaUrl).then(setAudioSavedOffline).catch(()=>setAudioSavedOffline(false));},[resource?.resource_type,resource?.is_offline_ready,mediaUrl]);
+  async function saveAudioOffline(){if(!mediaUrl)return;setSavingAudio(true);try{await cacheLearningAsset(mediaUrl);setAudioSavedOffline(true);toast.success('Audio saved on this device for offline listening.');}catch{toast.error('Could not save this audio for offline listening.');}finally{setSavingAudio(false);}}
   const progress = Math.round(Number(resource.progress_pct || 0));
 
   return (
@@ -119,7 +124,8 @@ export default function StudentLearningResourcePage() {
       </section>
 
       <section className="card mt-4" style={{ padding: 24 }}>
-        <LearningAsset title={title} kind={resource.resource_type} contentUrl={mediaUrl} embedUrl={resource.delivery_mode === 'OFFICIAL_EMBED' ? externalUrl : null} transcript={resource.transcript} altText={resource.alt_text} />
+        <LearningAsset title={title} kind={resource.resource_type} contentUrl={mediaUrl} embedUrl={resource.delivery_mode === 'OFFICIAL_EMBED' ? externalUrl : null} transcript={resource.transcript} altText={resource.alt_text} onEvent={(event,durationSecs)=>{void recordLearningMediaEvent(resourceId,event,durationSecs).catch(()=>undefined);}} />
+        {resource.resource_type==='AUDIO'&&resource.is_offline_ready&&<button className="btn-secondary mb-4" type="button" disabled={savingAudio||audioSavedOffline} onClick={()=>void saveAudioOffline()}>{audioSavedOffline?'Saved for offline listening':savingAudio?'Saving audio…':'Save audio for offline listening'}</button>}
         {resource.difficulty && <p className="text-sm mb-4">Difficulty: {resource.difficulty === 'ADVANCED' ? 'Advanced / difficult' : resource.difficulty === 'MODERATE' ? 'Moderate' : 'Easy'}</p>}
         {body ? (
           <LearningMarkdown body={body} />

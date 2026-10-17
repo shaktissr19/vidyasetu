@@ -107,3 +107,6 @@ export const getCanonicalSubjectResources = (subjectId: string) =>
 
 export const getCanonicalLearningResource = (resourceId: string) =>
   api.get<ApiEnvelope<CanonicalLearningResource>>(`/student/learning/resources/${encodeURIComponent(resourceId)}`);
+
+export const recordLearningMediaEvent = (resourceId:string,eventCode:'PLAY_START'|'WATCH_PROGRESS'|'COMPLETED'|'AUDIO_PLAY',durationSecs?:number) =>
+  api.post(`/student/learning/resources/${encodeURIComponent(resourceId)}/events`,{eventCode,durationSecs:durationSecs??null});

@@ -1,0 +1,10 @@
+BEGIN;
+DROP INDEX IF EXISTS idx_doubts_curriculum_topic;
+ALTER TABLE doubts DROP COLUMN IF EXISTS curriculum_topic_id;
+DROP TABLE IF EXISTS learning_asset_governance_audit;
+DROP TABLE IF EXISTS learning_asset_usage_events;
+DROP TABLE IF EXISTS learning_asset_moderation;
+DROP TABLE IF EXISTS learning_asset_versions;
+DROP TABLE IF EXISTS learning_asset_checklist;
+DROP TABLE IF EXISTS learning_asset_review_assignments;
+COMMIT;
