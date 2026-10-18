@@ -631,9 +631,13 @@ function AppContent() {
       <Modal
         visible={menuOpen}
         animationType="slide"
+        transparent
+        statusBarTranslucent
         onRequestClose={() => setMenuOpen(false)}
       >
-        <SafeAreaView style={styles.menuScreen}>
+        <View style={styles.drawerOverlay}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close navigation menu" onPress={() => setMenuOpen(false)} style={styles.drawerScrim} />
+          <SafeAreaView style={styles.menuScreen} edges={["top", "left", "bottom"]}>
           <View style={styles.menuHeader}>
             <View>
               {nativeUser ? (
@@ -703,7 +707,8 @@ function AppContent() {
               </Text>
             }
           />
-        </SafeAreaView>
+          </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -801,7 +806,9 @@ const styles = StyleSheet.create({
   tabIcon: { color: "#FFFFFF", fontSize: 18, lineHeight: 22 },
   tabLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "700", textAlign: "center" },
   activeTabText: { color: "#8F3607", fontWeight: "900" },
-  menuScreen: { flex: 1, backgroundColor: "#F5F8F9" },
+  drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(13,27,62,0.48)" },
+  drawerScrim: { ...StyleSheet.absoluteFill },
+  menuScreen: { flex: 1, maxWidth: 400, width: "86%", backgroundColor: "#F5F8F9", elevation: 18, shadowColor: "#000000", shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 4, height: 0 } },
   menuHeader: {
     padding: 20,
     backgroundColor: "#FFFFFF",
