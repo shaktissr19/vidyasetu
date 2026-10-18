@@ -13,6 +13,7 @@ export function useParentChildContext() {
   const childrenQuery = useQuery({
     queryKey: ['parent-children'],
     queryFn: () => getChildren().then((response) => response.data.data),
+    retry: 0,
   });
 
   const children = childrenQuery.data || [];

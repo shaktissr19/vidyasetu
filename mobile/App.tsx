@@ -261,15 +261,39 @@ const APP_LAYOUT_SCRIPT = `(function(){
 
 function AppContent() {
   const webView = useRef<WebView>(null);
+  const loadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentUrl, setCurrentUrl] = useState(SITE_URL);
   const [canGoBack, setCanGoBack] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [loadError, setLoadError] = useState("Check your internet connection, then try again.");
   const [menuOpen, setMenuOpen] = useState(false);
   const [nativeUser, setNativeUser] = useState<NativeUser | null>(null);
 
   const tabs = nativeUser ? ROLE_TABS[nativeUser.role] : PUBLIC_TABS;
   const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : PUBLIC_MORE_PAGES;
+
+  const finishLoading = () => {
+    if (loadTimeout.current) clearTimeout(loadTimeout.current);
+    loadTimeout.current = null;
+    setLoading(false);
+  };
+
+  const beginLoading = () => {
+    if (loadTimeout.current) clearTimeout(loadTimeout.current);
+    setFailed(false);
+    setLoading(true);
+    loadTimeout.current = setTimeout(() => {
+      loadTimeout.current = null;
+      setLoading(false);
+      setLoadError("This page did not finish loading. Check your connection and try again.");
+      setFailed(true);
+    }, 25000);
+  };
+
+  useEffect(() => () => {
+    if (loadTimeout.current) clearTimeout(loadTimeout.current);
+  }, []);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -295,8 +319,7 @@ function AppContent() {
   const openPage = (page: Page) => {
     const destination = new URL(page.path, SITE_URL).toString();
     setMenuOpen(false);
-    setFailed(false);
-    setLoading(true);
+    beginLoading();
     webView.current?.injectJavaScript(
       `window.location.href = ${JSON.stringify(destination)}; true;`,
     );
@@ -325,17 +348,32 @@ function AppContent() {
           pullToRefreshEnabled
           injectedJavaScriptBeforeContentLoaded={APP_LAYOUT_SCRIPT}
           injectedJavaScript={APP_LAYOUT_SCRIPT}
-          startInLoadingState
-          onLoadStart={() => {
-            setLoading(true);
-            setFailed(false);
+          onLoadStart={beginLoading}
+          onLoadEnd={() => {
+            finishLoading();
           }}
-          onLoadEnd={() => setLoading(false)}
-          onError={() => {
-            setLoading(false);
+          onLoad={() => setFailed(false)}
+          onLoadProgress={({ nativeEvent }) => {
+            if (nativeEvent.progress >= 1) finishLoading();
+          }}
+          onError={({ nativeEvent }) => {
+            finishLoading();
+            setLoadError(nativeEvent.description || "VidyaSetu could not load this page. Check your connection and retry.");
             setFailed(true);
           }}
-          onNavigationStateChange={onNavigationStateChange}
+          onHttpError={({ nativeEvent }) => {
+            if (nativeEvent.url === currentUrl) {
+              finishLoading();
+              setLoadError(`The page returned an HTTP ${nativeEvent.statusCode} error. Try again in a moment.`);
+              setFailed(true);
+            }
+          }}
+          onNavigationStateChange={(navigation) => {
+            onNavigationStateChange(navigation);
+            if (navigation.loading === false) {
+              finishLoading();
+            }
+          }}
           onMessage={(event) => {
             try {
               const message = JSON.parse(event.nativeEvent.data) as {
@@ -356,12 +394,6 @@ function AppContent() {
               // Ignore unrelated messages from website content.
             }
           }}
-          renderLoading={() => (
-            <View style={styles.loading}>
-              <ActivityIndicator size="large" color="#FF6B00" />
-              <Text style={styles.loadingText}>Opening VidyaSetu…</Text>
-            </View>
-          )}
         />
         {loading && (
           <View pointerEvents="none" style={styles.loadingOverlay}>
@@ -371,13 +403,16 @@ function AppContent() {
         )}
         {failed && (
           <View style={styles.errorOverlay}>
-            <Text style={styles.errorTitle}>Could not load VidyaSetu</Text>
+            <Text style={styles.errorTitle}>Could not load this page</Text>
             <Text style={styles.errorText}>
-              Check your internet connection, then try again.
+              {loadError}
             </Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => webView.current?.reload()}
+              onPress={() => {
+                beginLoading();
+                webView.current?.reload();
+              }}
               style={styles.retryButton}
             >
               <Text style={styles.retryText}>Try again</Text>
@@ -502,13 +537,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   webContainer: { flex: 1, backgroundColor: "#FFFFFF" },
   webView: { flex: 1, backgroundColor: "#FFFFFF" },
-  loading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    backgroundColor: "#FFFFFF",
-  },
   loadingOverlay: {
     position: "absolute",
     top: 0,
@@ -518,7 +546,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.76)",
   },
   loadingText: { color: "#536872", fontSize: 15 },
   errorOverlay: {
