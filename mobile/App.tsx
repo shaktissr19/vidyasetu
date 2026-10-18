@@ -5,6 +5,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -28,20 +29,109 @@ const QUICK_PAGES: Page[] = [
   { label: "Home", path: "/", icon: "⌂" },
   { label: "Learn", path: "/learn", icon: "▤" },
   { label: "Students", path: "/for-students", icon: "◉" },
+  { label: "Schools", path: "/for-schools", icon: "▦" },
+  { label: "Parents", path: "/for-parents", icon: "♡" },
   { label: "Login", path: "/login", icon: "→" },
 ];
 
 const MORE_PAGES: Page[] = [
-  ...QUICK_PAGES.slice(0, 3),
+  ...QUICK_PAGES.slice(0, 5),
   { label: "Learning library", path: "/learn/library", icon: "▦" },
-  { label: "For schools", path: "/for-schools", icon: "⌂" },
-  { label: "For parents", path: "/for-parents", icon: "♡" },
   { label: "Competitions", path: "/competition", icon: "☆" },
   { label: "Communities", path: "/communities", icon: "◎" },
   { label: "Platform administration", path: "/platform-admin", icon: "⚙" },
-  { label: "Login", path: "/login", icon: "→" },
+  QUICK_PAGES[5],
   { label: "Create account", path: "/register", icon: "+" },
 ];
+
+// The website remains the source of truth for page content and behavior. These
+// styles adapt its shared chrome and common layouts only inside the native app.
+const APP_LAYOUT_CSS = `
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden !important; }
+  img, video, canvas, iframe { max-width: 100%; }
+  table { max-width: 100%; }
+  header[style*="min-height: 66px"] {
+    box-sizing: border-box !important; width: 100% !important; max-width: 100vw !important;
+    padding-left: 12px !important; padding-right: 12px !important; gap: 8px !important;
+    overflow: hidden !important;
+  }
+  header[style*="min-height: 66px"] > nav {
+    min-width: 0 !important; flex: 1 1 0 !important; justify-content: flex-start !important;
+    overflow-x: auto !important; overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important; touch-action: pan-x !important;
+    scrollbar-width: thin !important;
+  }
+  @media (max-width: 680px) {
+    header[style*="min-height: 66px"] {
+      min-height: 56px !important; height: 56px !important; flex-wrap: nowrap !important;
+    }
+    header[style*="min-height: 66px"] > nav { display: none !important; }
+    header[style*="min-height: 66px"] > div > button:not(:first-child) { display: none !important; }
+    header[style*="min-height: 66px"] > a > div:first-child {
+      width: 34px !important; height: 34px !important; font-size: 17px !important;
+    }
+    header[style*="min-height: 66px"] > a > div:last-child {
+      font-size: 23px !important; white-space: nowrap !important;
+    }
+    header[style*="min-height: 66px"] > div { margin-left: auto !important; }
+    header[style*="min-height: 66px"] > div > button:first-child {
+      min-height: 36px !important; padding: 6px 10px !important;
+    }
+    input, select, textarea { max-width: 100% !important; font-size: 16px !important; }
+    button, a { overflow-wrap: anywhere; }
+    [class*="heroActions"], [class*="actions"] {
+      flex-direction: column !important; align-items: stretch !important;
+    }
+    [class*="heroActions"] > a, [class*="heroActions"] > button,
+    [class*="actions"] > a, [class*="actions"] > button {
+      width: 100% !important; min-width: 0 !important; min-height: 48px !important;
+      flex: 1 1 auto !important; white-space: normal !important; text-align: center !important;
+    }
+    [class*="heroTitle"] { font-size: clamp(34px, 9vw, 44px) !important; line-height: 1.08 !important; }
+    [class*="homeHero"] h1, [class*="compactHero"] h1 { font-size: 35px !important; line-height: 1.08 !important; }
+    .dash-layout {
+      height: auto !important; min-height: calc(100dvh - 118px) !important;
+      flex-direction: column !important; overflow: visible !important;
+    }
+    .dash-sidebar {
+      position: sticky !important; top: 56px !important; z-index: 80 !important;
+      display: block !important; width: 100% !important; height: 54px !important;
+      max-height: 54px !important; flex: 0 0 54px !important; padding: 4px !important;
+      overflow-x: auto !important; overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+    .dash-sidebar > div:first-child, .dash-sidebar > div:last-child { display: none !important; }
+    .dash-sidebar > nav {
+      display: flex !important; width: max-content !important; gap: 4px !important;
+      margin: 0 !important; padding: 0 !important;
+    }
+    .dash-sidebar .sidebar-link {
+      min-height: 44px !important; padding: 8px 12px !important;
+      border-left: 0 !important; border-bottom: 2px solid transparent !important;
+      white-space: nowrap !important;
+    }
+    .dash-sidebar .sidebar-link.active { border-bottom-color: var(--saffron) !important; }
+    .dash-main {
+      min-width: 0 !important; overflow: visible !important; padding: 14px !important;
+    }
+    table { display: block !important; width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+  }
+`;
+
+const APP_LAYOUT_SCRIPT = `(function(){
+  var id='vidyasetu-native-layout';
+  function apply(){
+    if(!document.head){ document.addEventListener('DOMContentLoaded',apply,{once:true}); return; }
+    var style=document.getElementById(id);
+    if(!style){ style=document.createElement('style'); style.id=id; document.head.appendChild(style); }
+    var css=${JSON.stringify(APP_LAYOUT_CSS)};
+    if(style.textContent!==css) style.textContent=css;
+    document.documentElement.classList.add('vidyasetu-native-app');
+  }
+  apply();
+  true;
+})();`;
 
 function AppContent() {
   const webView = useRef<WebView>(null);
@@ -91,33 +181,8 @@ function AppContent() {
   })();
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <View style={styles.appHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go to VidyaSetu home"
-          onPress={() => openPage(MORE_PAGES[0])}
-          style={styles.brand}
-        >
-          <View style={styles.brandMark}>
-            <Text style={styles.brandMarkText}>व</Text>
-          </View>
-          <Text style={styles.brandName}>
-            vidya<Text style={styles.brandAccent}>setu</Text>
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open app navigation"
-          onPress={() => setMenuOpen(true)}
-          style={styles.menuButton}
-        >
-          <Text style={styles.menuButtonText}>☰</Text>
-          <Text style={styles.menuLabel}>Menu</Text>
-        </Pressable>
-      </View>
-
       <View style={styles.webContainer}>
         <WebView
           ref={webView}
@@ -128,6 +193,8 @@ function AppContent() {
           sharedCookiesEnabled
           thirdPartyCookiesEnabled
           pullToRefreshEnabled
+          injectedJavaScriptBeforeContentLoaded={APP_LAYOUT_SCRIPT}
+          injectedJavaScript={APP_LAYOUT_SCRIPT}
           startInLoadingState
           onLoadStart={() => {
             setLoading(true);
@@ -169,32 +236,41 @@ function AppContent() {
         )}
       </View>
 
-      <View style={styles.tabBar}>
-        {QUICK_PAGES.map((page) => {
-          const active =
-            page.path === "/"
-              ? activePath === "/"
-              : activePath === page.path ||
-                activePath.startsWith(`${page.path}/`);
-          return (
-            <Pressable
-              key={page.path}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => openPage(page)}
-              style={styles.tab}
-            >
-              <Text style={[styles.tabIcon, active && styles.activeTabText]}>
-                {page.icon}
-              </Text>
-              <Text style={[styles.tabLabel, active && styles.activeTabText]}>
-                {page.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.tabBarScroller}>
+        <ScrollView
+          horizontal
+          style={styles.tabScroll}
+          contentContainerStyle={styles.tabBar}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {QUICK_PAGES.map((page) => {
+            const active =
+              page.path === "/"
+                ? activePath === "/"
+                : activePath === page.path ||
+                  activePath.startsWith(`${page.path}/`);
+            return (
+              <Pressable
+                key={page.path}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => openPage(page)}
+                style={styles.tab}
+              >
+                <Text style={[styles.tabIcon, active && styles.activeTabText]}>
+                  {page.icon}
+                </Text>
+                <Text style={[styles.tabLabel, active && styles.activeTabText]}>
+                  {page.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Open more pages"
           onPress={() => setMenuOpen(true)}
           style={styles.tab}
         >
@@ -263,39 +339,6 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
-  appHeader: {
-    height: 58,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E4EBEE",
-    backgroundColor: "#FFFFFF",
-  },
-  brand: { flexDirection: "row", alignItems: "center", gap: 9 },
-  brandMark: {
-    width: 31,
-    height: 31,
-    borderRadius: 10,
-    backgroundColor: "#087E78",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brandMarkText: { color: "#FFFFFF", fontSize: 19, fontWeight: "700" },
-  brandName: { color: "#172D3D", fontSize: 18, fontWeight: "700" },
-  brandAccent: { color: "#087E78" },
-  menuButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: "#F2F7F7",
-  },
-  menuButtonText: { color: "#087E78", fontSize: 18 },
-  menuLabel: { color: "#172D3D", fontSize: 13, fontWeight: "600" },
   webContainer: { flex: 1, backgroundColor: "#FFFFFF" },
   webView: { flex: 1, backgroundColor: "#FFFFFF" },
   loading: {
@@ -348,17 +391,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#087E78",
   },
   retryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
-  tabBar: {
-    minHeight: 60,
-    paddingTop: 6,
+  tabBarScroller: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
+    minHeight: 62,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#E4EBEE",
     backgroundColor: "#FFFFFF",
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  tabScroll: { flex: 1 },
+  tabBar: {
+    minHeight: 62,
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  tab: { width: 76, minHeight: 50, alignItems: "center", justifyContent: "center", gap: 2 },
   tabIcon: { color: "#69808A", fontSize: 18, lineHeight: 22 },
   tabLabel: { color: "#69808A", fontSize: 10, fontWeight: "600" },
   activeTabText: { color: "#087E78" },
