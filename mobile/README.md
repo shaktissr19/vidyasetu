@@ -15,7 +15,7 @@ The app starts at the public VidyaSetu home page. Native navigation links provid
 
 The website continues to provide the content and behavior for each route. This is a web-backed app prototype, not a separate native rewrite of every screen. Native versions of high-use student workflows can be added progressively while reusing the existing backend.
 
-The app uses the website's orange brand header once, with app-native bottom navigation. On phones, bottom destinations scroll sideways and **More** stays visible; on tablets, the website's top links can scroll horizontally. The app applies responsive layout rules inside its WebView, so it does not change the public website or its APIs.
+The app uses the website's orange brand header once, with app-native bottom navigation. On phones, hero photos appear before their copy, call-to-action buttons stack at a comfortable touch size, and both Login and Create Account remain visible. Bottom destinations scroll sideways while **More** stays visible. On tablets, the website's top links can scroll horizontally. These app-only layout rules do not change the public website or its APIs.
 
 ## Test with Expo Go
 
