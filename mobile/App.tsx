@@ -25,24 +25,93 @@ type Page = {
   icon: string;
 };
 
-const QUICK_PAGES: Page[] = [
+type UserRole = "STUDENT" | "PARENT" | "TEACHER" | "SCHOOL_ADMIN" | "SUPER_ADMIN";
+type NativeUser = { role: UserRole; name?: string };
+
+const PUBLIC_TABS: Page[] = [
   { label: "Home", path: "/", icon: "⌂" },
   { label: "Learn", path: "/learn", icon: "▤" },
-  { label: "Students", path: "/for-students", icon: "◉" },
-  { label: "Schools", path: "/for-schools", icon: "▦" },
-  { label: "Parents", path: "/for-parents", icon: "♡" },
   { label: "Login", path: "/login", icon: "→" },
 ];
 
-const MORE_PAGES: Page[] = [
-  ...QUICK_PAGES.slice(0, 5),
+const PUBLIC_MORE_PAGES: Page[] = [
+  { label: "For students", path: "/for-students", icon: "◉" },
+  { label: "For schools", path: "/for-schools", icon: "▦" },
+  { label: "For parents", path: "/for-parents", icon: "♡" },
   { label: "Learning library", path: "/learn/library", icon: "▦" },
   { label: "Competitions", path: "/competition", icon: "☆" },
   { label: "Communities", path: "/communities", icon: "◎" },
-  { label: "Platform administration", path: "/platform-admin", icon: "⚙" },
-  QUICK_PAGES[5],
+  { label: "About platform administration", path: "/platform-admin", icon: "⚙" },
+  { label: "Login", path: "/login", icon: "→" },
   { label: "Create account", path: "/register", icon: "+" },
 ];
+
+const ROLE_TABS: Record<UserRole, Page[]> = {
+  STUDENT: [
+    { label: "Dashboard", path: "/student", icon: "⌂" },
+    { label: "Learn", path: "/learn", icon: "▤" },
+    { label: "Syllabus", path: "/syllabus", icon: "▣" },
+  ],
+  PARENT: [
+    { label: "Overview", path: "/parent/dashboard", icon: "⌂" },
+    { label: "Messages", path: "/parent/messages", icon: "✉" },
+    { label: "Alerts", path: "/parent/notifications", icon: "♢" },
+  ],
+  TEACHER: [
+    { label: "Overview", path: "/school/overview", icon: "⌂" },
+    { label: "Attendance", path: "/school/attendance", icon: "✓" },
+    { label: "Homework", path: "/school/homework", icon: "▤" },
+  ],
+  SCHOOL_ADMIN: [
+    { label: "Overview", path: "/school/overview", icon: "⌂" },
+    { label: "Students", path: "/school/students", icon: "◉" },
+    { label: "Classes", path: "/school/classes", icon: "▦" },
+  ],
+  SUPER_ADMIN: [
+    { label: "Analytics", path: "/admin/analytics", icon: "▥" },
+    { label: "Schools", path: "/admin/schools", icon: "▦" },
+    { label: "Content", path: "/admin/learning", icon: "▤" },
+  ],
+};
+
+const ROLE_MORE_PAGES: Record<UserRole, Page[]> = {
+  STUDENT: [
+    { label: "Homework", path: "/student/homework", icon: "✎" },
+    { label: "Subjects", path: "/subjects", icon: "▣" },
+    { label: "Exams", path: "/exams", icon: "✓" },
+    { label: "Doubts", path: "/doubts", icon: "?" },
+    { label: "Notifications", path: "/student/notifications", icon: "♢" },
+    ...PUBLIC_MORE_PAGES.slice(0, 6),
+  ],
+  PARENT: [
+    { label: "Homework", path: "/parent/homework", icon: "✎" },
+    { label: "Learning support", path: "/parent/learning-support", icon: "♡" },
+    { label: "Performance", path: "/parent/performance", icon: "▥" },
+    { label: "Attendance", path: "/parent/attendance", icon: "✓" },
+    ...PUBLIC_MORE_PAGES.slice(0, 6),
+  ],
+  TEACHER: [
+    { label: "Students", path: "/school/students", icon: "◉" },
+    { label: "Academic workspace", path: "/school/academic-workspace", icon: "▤" },
+    { label: "Timetable", path: "/school/timetable", icon: "▦" },
+    { label: "Announcements", path: "/school/announcements", icon: "♢" },
+    ...PUBLIC_MORE_PAGES.slice(0, 6),
+  ],
+  SCHOOL_ADMIN: [
+    { label: "Teachers", path: "/school/teachers", icon: "◉" },
+    { label: "Enrollments", path: "/school/enrollments", icon: "✓" },
+    { label: "Attendance", path: "/school/attendance", icon: "▥" },
+    { label: "Homework", path: "/school/homework", icon: "✎" },
+    ...PUBLIC_MORE_PAGES.slice(0, 6),
+  ],
+  SUPER_ADMIN: [
+    { label: "Users", path: "/admin/users", icon: "◉" },
+    { label: "Syllabus", path: "/admin/learning/syllabus", icon: "▣" },
+    { label: "Content Factory", path: "/admin/learning/factory", icon: "⚙" },
+    { label: "Competitions", path: "/admin/competitions", icon: "☆" },
+    ...PUBLIC_MORE_PAGES.slice(0, 6),
+  ],
+};
 
 // The website remains the source of truth for page content and behavior. These
 // styles adapt its shared chrome and common layouts only inside the native app.
@@ -172,6 +241,19 @@ const APP_LAYOUT_SCRIPT = `(function(){
     var css=${JSON.stringify(APP_LAYOUT_CSS)};
     if(style.textContent!==css) style.textContent=css;
     document.documentElement.classList.add('vidyasetu-native-app');
+    if(location.origin==='https://vidyasetu.sbs' && window.ReactNativeWebView){
+      if(window.__vidyasetuNativeAuthTimer) clearInterval(window.__vidyasetuNativeAuthTimer);
+      var last='';
+      var sendAuth=function(){
+        try{
+          var saved=JSON.parse(localStorage.getItem('vidyasetu-auth')||'{}');
+          var state=saved.state||{}; var user=state.user||null;
+          var value=JSON.stringify({type:'vidyasetu-auth',origin:location.origin,isLoggedIn:!!state.isLoggedIn,role:user&&user.role,name:user&&user.name||null});
+          if(value!==last){last=value;window.ReactNativeWebView.postMessage(value);}
+        }catch(_e){}
+      };
+      sendAuth(); window.__vidyasetuNativeAuthTimer=setInterval(sendAuth,1200);
+    }
   }
   apply();
   true;
@@ -184,6 +266,10 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [nativeUser, setNativeUser] = useState<NativeUser | null>(null);
+
+  const tabs = nativeUser ? ROLE_TABS[nativeUser.role] : PUBLIC_TABS;
+  const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : PUBLIC_MORE_PAGES;
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -250,16 +336,36 @@ function AppContent() {
             setFailed(true);
           }}
           onNavigationStateChange={onNavigationStateChange}
+          onMessage={(event) => {
+            try {
+              const message = JSON.parse(event.nativeEvent.data) as {
+                type?: string;
+                origin?: string;
+                isLoggedIn?: boolean;
+                role?: string;
+                name?: string | null;
+              };
+              const roles: UserRole[] = ["STUDENT", "PARENT", "TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"];
+              if (message.type !== "vidyasetu-auth" || message.origin !== SITE_URL || new URL(currentUrl).origin !== SITE_URL) return;
+              if (!message.isLoggedIn || !roles.includes(message.role as UserRole)) {
+                setNativeUser(null);
+                return;
+              }
+              setNativeUser({ role: message.role as UserRole, name: message.name || undefined });
+            } catch {
+              // Ignore unrelated messages from website content.
+            }
+          }}
           renderLoading={() => (
             <View style={styles.loading}>
-              <ActivityIndicator size="large" color="#087E78" />
+              <ActivityIndicator size="large" color="#FF6B00" />
               <Text style={styles.loadingText}>Opening VidyaSetu…</Text>
             </View>
           )}
         />
         {loading && (
           <View pointerEvents="none" style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#087E78" />
+            <ActivityIndicator size="large" color="#FF6B00" />
             <Text style={styles.loadingText}>Opening VidyaSetu…</Text>
           </View>
         )}
@@ -290,27 +396,17 @@ function AppContent() {
           accessibilityLabel="Primary app navigation"
           accessibilityHint="Swipe left or right to view all page shortcuts. More stays on the right."
         >
-          {QUICK_PAGES.map((page) => {
-            const rolePath = page.path === "/for-students"
-              ? activePath === "/student" || activePath.startsWith("/student/")
-              : page.path === "/for-schools"
-                ? activePath.startsWith("/school/")
-                : page.path === "/for-parents"
-                  ? activePath.startsWith("/parent/")
-                  : false;
+          {tabs.map((page) => {
             const active =
-              page.path === "/"
-                ? activePath === "/"
-                : activePath === page.path ||
-                activePath.startsWith(`${page.path}/`) || rolePath;
+              page.path === "/" ? activePath === "/" : activePath === page.path || activePath.startsWith(`${page.path}/`);
             return (
               <Pressable
                 key={page.path}
-                accessibilityRole="button"
+                accessibilityRole="tab"
                 accessibilityLabel={page.label}
                 accessibilityState={{ selected: active }}
                 onPress={() => openPage(page)}
-                style={styles.tab}
+                style={[styles.tab, active && styles.activeTab]}
               >
                 <Text style={[styles.tabIcon, active && styles.activeTabText]}>
                   {page.icon}
@@ -341,8 +437,17 @@ function AppContent() {
         <SafeAreaView style={styles.menuScreen}>
           <View style={styles.menuHeader}>
             <View>
-              <Text style={styles.menuEyebrow}>VIDYASETU</Text>
-              <Text style={styles.menuTitle}>Explore the platform</Text>
+              {nativeUser ? (
+                <>
+                  <Text style={styles.menuEyebrow}>{nativeUser.role.replaceAll("_", " ")}</Text>
+                  <Text style={styles.menuTitle}>{nativeUser.name ? `Welcome, ${nativeUser.name.split(" ")[0]}` : "Your workspace"}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.menuEyebrow}>VIDYASETU</Text>
+                  <Text style={styles.menuTitle}>Explore the platform</Text>
+                </>
+              )}
             </View>
             <Pressable
               accessibilityRole="button"
@@ -354,7 +459,7 @@ function AppContent() {
             </Pressable>
           </View>
           <FlatList
-            data={MORE_PAGES}
+            data={menuPages}
             keyExtractor={(page) => page.path}
             contentContainerStyle={styles.menuList}
             renderItem={({ item }) => (
@@ -373,8 +478,9 @@ function AppContent() {
             )}
             ListFooterComponent={
               <Text style={styles.menuFootnote}>
-                Public pages open without signing in. Login and account access
-                use the existing VidyaSetu website.
+                {nativeUser
+                  ? "Workspace pages use your VidyaSetu account permissions. Public learning and information pages remain available here."
+                  : "Explore public pages without signing in. Login and account creation use the existing VidyaSetu website."}
               </Text>
             }
           />
@@ -443,7 +549,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#087E78",
+    backgroundColor: "#FF6B00",
   },
   retryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   tabBarScroller: {
@@ -463,10 +569,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
   },
-  tab: { width: 76, minHeight: 50, alignItems: "center", justifyContent: "center", gap: 2 },
+  tab: { width: 76, minHeight: 50, alignItems: "center", justifyContent: "center", gap: 2, borderRadius: 12 },
+  activeTab: { backgroundColor: "#FFF1E6" },
   tabIcon: { color: "#69808A", fontSize: 18, lineHeight: 22 },
-  tabLabel: { color: "#69808A", fontSize: 10, fontWeight: "600" },
-  activeTabText: { color: "#087E78" },
+  tabLabel: { color: "#536872", fontSize: 11, fontWeight: "600" },
+  activeTabText: { color: "#C84F00", fontWeight: "800" },
   menuScreen: { flex: 1, backgroundColor: "#F5F8F9" },
   menuHeader: {
     padding: 20,
@@ -478,7 +585,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E4EBEE",
   },
   menuEyebrow: {
-    color: "#087E78",
+    color: "#C84F00",
     fontSize: 11,
     letterSpacing: 1.1,
     fontWeight: "700",
@@ -495,7 +602,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F2F7F7",
+    backgroundColor: "#FFF1E6",
   },
   closeText: { color: "#172D3D", fontSize: 26, lineHeight: 28 },
   menuList: { paddingHorizontal: 16, paddingVertical: 12 },
@@ -513,11 +620,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 11,
-    backgroundColor: "#E9F7F5",
+    backgroundColor: "#FFF1E6",
     alignItems: "center",
     justifyContent: "center",
   },
-  menuIcon: { color: "#087E78", fontSize: 18, fontWeight: "700" },
+  menuIcon: { color: "#C84F00", fontSize: 18, fontWeight: "700" },
   menuItemText: { flex: 1, color: "#172D3D", fontSize: 15, fontWeight: "600" },
   menuChevron: { color: "#69808A", fontSize: 24 },
   menuFootnote: {
