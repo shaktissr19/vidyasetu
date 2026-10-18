@@ -64,19 +64,29 @@ const APP_LAYOUT_CSS = `
   }
   @media (max-width: 680px) {
     header[style*="min-height: 66px"] {
-      min-height: 56px !important; height: 56px !important; flex-wrap: nowrap !important;
+      min-height: 0 !important; height: auto !important; flex-direction: column !important;
+      align-items: stretch !important; flex-wrap: nowrap !important; gap: 8px !important;
+      padding-top: 8px !important; padding-bottom: 9px !important; overflow: visible !important;
     }
     header[style*="min-height: 66px"] > nav { display: none !important; }
-    header[style*="min-height: 66px"] > div > button:not(:first-child) { display: none !important; }
     header[style*="min-height: 66px"] > a > div:first-child {
-      width: 34px !important; height: 34px !important; font-size: 17px !important;
+      width: 32px !important; height: 32px !important; font-size: 16px !important;
     }
     header[style*="min-height: 66px"] > a > div:last-child {
-      font-size: 23px !important; white-space: nowrap !important;
+      font-size: 21px !important; white-space: nowrap !important;
     }
-    header[style*="min-height: 66px"] > div { margin-left: auto !important; }
+    header[style*="min-height: 66px"] > div {
+      width: 100% !important; margin-left: 0 !important; justify-content: flex-end !important;
+      gap: 7px !important;
+    }
+    header[style*="min-height: 66px"] > div > button {
+      display: inline-flex !important; align-items: center !important; justify-content: center !important;
+      flex: 1 1 0 !important; min-width: 0 !important; min-height: 44px !important;
+      padding: 8px 10px !important; font-size: 13px !important; line-height: 1.2 !important;
+      white-space: nowrap !important;
+    }
     header[style*="min-height: 66px"] > div > button:first-child {
-      min-height: 36px !important; padding: 6px 10px !important;
+      flex: 0 0 60px !important; min-width: 60px !important;
     }
     input, select, textarea { max-width: 100% !important; font-size: 16px !important; }
     button, a { overflow-wrap: anywhere; }
@@ -88,8 +98,8 @@ const APP_LAYOUT_CSS = `
       width: 100% !important; min-width: 0 !important; min-height: 48px !important;
       flex: 1 1 auto !important; white-space: normal !important; text-align: center !important;
     }
-    [class*="heroTitle"] { font-size: clamp(34px, 9vw, 44px) !important; line-height: 1.08 !important; }
-    [class*="homeHero"] h1, [class*="compactHero"] h1 { font-size: 35px !important; line-height: 1.08 !important; }
+    [class*="heroTitle"] { font-size: clamp(32px, 8.5vw, 38px) !important; line-height: 1.08 !important; }
+    [class*="homeHero"] h1, [class*="compactHero"] h1 { font-size: clamp(32px, 8.5vw, 38px) !important; line-height: 1.08 !important; }
     .dash-layout {
       height: auto !important; min-height: calc(100dvh - 118px) !important;
       flex-direction: column !important; overflow: visible !important;
@@ -116,6 +126,36 @@ const APP_LAYOUT_CSS = `
       min-width: 0 !important; overflow: visible !important; padding: 14px !important;
     }
     table { display: block !important; width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+  }
+  @media (max-width: 760px) {
+    section[class*="hero__"]:has(> [class*="photo"]),
+    section[class*="hero__"]:has(> [class*="heroPhoto"]) {
+      display: grid !important; height: auto !important; min-height: 0 !important;
+      grid-template-rows: clamp(170px, 52vw, 235px) auto !important;
+    }
+    section[class*="hero__"]:has(> [class*="photo"]) > [class*="photo"],
+    section[class*="hero__"]:has(> [class*="heroPhoto"]) > [class*="heroPhoto"] {
+      position: relative !important; inset: auto !important; grid-row: 1 !important;
+      width: 100% !important; height: clamp(170px, 52vw, 235px) !important;
+    }
+    section[class*="hero__"]:has(> [class*="photo"]) > [class*="content"],
+    section[class*="hero__"]:has(> [class*="heroPhoto"]) > [class*="heroShell"] {
+      grid-row: 2 !important; width: 100% !important; max-width: 100% !important;
+      height: auto !important; min-height: 0 !important; padding: 22px 18px 24px !important;
+    }
+    section[class*="hero__"]:has(> [class*="photo"]) > [class*="wash"],
+    section[class*="hero__"]:has(> [class*="heroPhoto"]) > [class*="heroFade"] { display: none !important; }
+    section[class*="hero__"]:has(> [class*="heroPhoto"]) [class*="heroContent"] {
+      width: 100% !important; max-width: none !important;
+    }
+    section[class*="hero__"]:has(> [class*="heroPhoto"]) h1 {
+      font-size: clamp(32px, 8.5vw, 38px) !important; line-height: 1.08 !important;
+    }
+  }
+  @media (max-width: 360px) {
+    header[style*="min-height: 66px"] > div { gap: 5px !important; }
+    header[style*="min-height: 66px"] > div > button { padding-left: 6px !important; padding-right: 6px !important; font-size: 12px !important; }
+    header[style*="min-height: 66px"] > div > button:first-child { flex-basis: 52px !important; min-width: 52px !important; }
   }
 `;
 
@@ -241,15 +281,24 @@ function AppContent() {
           horizontal
           style={styles.tabScroll}
           contentContainerStyle={styles.tabBar}
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator
           keyboardShouldPersistTaps="handled"
+          accessibilityLabel="Primary app navigation"
+          accessibilityHint="Swipe left or right to view all page shortcuts. More stays on the right."
         >
           {QUICK_PAGES.map((page) => {
+            const rolePath = page.path === "/for-students"
+              ? activePath === "/student" || activePath.startsWith("/student/")
+              : page.path === "/for-schools"
+                ? activePath.startsWith("/school/")
+                : page.path === "/for-parents"
+                  ? activePath.startsWith("/parent/")
+                  : false;
             const active =
               page.path === "/"
                 ? activePath === "/"
                 : activePath === page.path ||
-                  activePath.startsWith(`${page.path}/`);
+                activePath.startsWith(`${page.path}/`) || rolePath;
             return (
               <Pressable
                 key={page.path}
