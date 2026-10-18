@@ -195,6 +195,9 @@ const APP_LAYOUT_CSS = `
     padding-left: 12px !important; padding-right: 12px !important; gap: 8px !important;
     overflow: hidden !important;
   }
+  /* Native chrome is rendered by React Native so the website's wide desktop
+     header cannot clip Dashboard/Logout or compete with the app menu. */
+  html.vidyasetu-native-app header[style*="min-height: 66px"] { display: none !important; }
   header[style*="min-height: 66px"] > nav {
     min-width: 0 !important; flex: 1 1 0 !important; justify-content: flex-start !important;
     overflow-x: auto !important; overflow-y: hidden !important;
@@ -433,6 +436,21 @@ function AppContent() {
     );
   };
 
+  const openMenu = () => { setMenuSearch(""); setMenuOpen(true); };
+  const openDashboard = () => {
+    if (nativeUser) openPage(ROLE_TABS[nativeUser.role][0]);
+  };
+  const logoutFromWebsite = () => {
+    // Reuse the website's existing logout flow so the API, persisted auth state,
+    // tracked session, and redirect all stay consistent with the web app.
+    webView.current?.injectJavaScript(`(function(){
+      var button=Array.from(document.querySelectorAll('button')).find(function(item){return item.textContent.trim()==='Logout';});
+      if(button){button.click();return true;}
+      window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'vidyasetu-logout-unavailable'}));
+      return false;
+    })(); true;`);
+  };
+
   const activePath = (() => {
     try {
       return new URL(currentUrl).pathname.replace(/\/$/, "") || "/";
@@ -456,8 +474,38 @@ function AppContent() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <View style={styles.appHeader}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open navigation menu"
+          onPress={openMenu}
+          style={styles.headerMenuButton}
+        >
+          <Text style={styles.headerMenuIcon}>☰</Text>
+        </Pressable>
+        <Pressable accessibilityRole="link" accessibilityLabel="VidyaSetu home" onPress={() => openPage({ label: "Home", path: "/", icon: "⌂" })} style={styles.brand}>
+          <View style={styles.brandMark}><Text style={styles.brandMarkText}>V</Text></View>
+          <Text style={styles.brandText}>Vidya<Text style={styles.brandAccent}>Setu</Text></Text>
+        </Pressable>
+        <View style={styles.headerActions}>
+          {nativeUser ? (
+            <>
+              <Pressable accessibilityRole="button" accessibilityLabel="Open my dashboard" onPress={openDashboard} style={styles.headerActionButton}>
+                <Text style={styles.headerActionText}>Dashboard</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Log out" onPress={logoutFromWebsite} style={[styles.headerActionButton, styles.headerLogoutButton]}>
+                <Text style={[styles.headerActionText, styles.headerLogoutText]}>Log out</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable accessibilityRole="button" accessibilityLabel="Log in" onPress={() => openPage({ label: "Login", path: "/login", icon: "→" })} style={styles.headerActionButton}>
+              <Text style={styles.headerActionText}>Log in</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
       <View style={styles.webContainer}>
         <WebView
           ref={webView}
@@ -544,8 +592,9 @@ function AppContent() {
         )}
       </View>
 
-      <View style={styles.tabBarScroller}>
-        <View style={styles.tabBar} accessibilityLabel="Primary app navigation">
+      <SafeAreaView style={styles.tabBarSafeArea} edges={["bottom"]}>
+        <View style={styles.tabBarScroller}>
+          <View style={styles.tabBar} accessibilityLabel="Primary app navigation">
           {tabs.map((page) => {
             const active = isPageActive(page) || (!page.path.includes("?") && activePath.startsWith(`${page.path}/`));
             return (
@@ -568,15 +617,16 @@ function AppContent() {
           })}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open more pages"
-          onPress={() => { setMenuSearch(""); setMenuOpen(true); }}
-          style={styles.tab}
+          accessibilityLabel="Open all pages"
+          onPress={openMenu}
+          style={[styles.tab, styles.menuTab]}
         >
-          <Text style={styles.tabIcon}>•••</Text>
-          <Text style={styles.tabLabel}>More</Text>
+          <Text style={styles.tabIcon}>☰</Text>
+          <Text style={styles.tabLabel}>Menu</Text>
         </Pressable>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       <Modal
         visible={menuOpen}
@@ -669,6 +719,23 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  tabBarSafeArea: { backgroundColor: "#B54708" },
+  appHeader: {
+    minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 10,
+    gap: 9, backgroundColor: "#FFFFFF", borderBottomWidth: 2, borderBottomColor: "#FF6B00",
+  },
+  headerMenuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "#FFF3E8" },
+  headerMenuIcon: { color: "#A64200", fontSize: 22, fontWeight: "800" },
+  brand: { flexDirection: "row", alignItems: "center", gap: 7, flexShrink: 1, minWidth: 0 },
+  brandMark: { width: 31, height: 31, borderRadius: 9, backgroundColor: "#FF6B00", alignItems: "center", justifyContent: "center" },
+  brandMarkText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900" },
+  brandText: { color: "#0D1B3E", fontSize: 19, fontWeight: "900" },
+  brandAccent: { color: "#FF6B00" },
+  headerActions: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 6 },
+  headerActionButton: { minHeight: 40, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#F5F7FA" },
+  headerActionText: { color: "#0D1B3E", fontSize: 12, fontWeight: "800" },
+  headerLogoutButton: { borderWidth: 1, borderColor: "#FF6B00", backgroundColor: "#FFFFFF" },
+  headerLogoutText: { color: "#B54708" },
   webContainer: { flex: 1, backgroundColor: "#FFFFFF" },
   webView: { flex: 1, backgroundColor: "#FFFFFF" },
   loadingOverlay: {
@@ -729,6 +796,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   tab: { flex: 1, minWidth: 0, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 2 },
+  menuTab: { backgroundColor: "rgba(255,255,255,0.12)" },
   activeTab: { backgroundColor: "#FFFFFF" },
   tabIcon: { color: "#FFFFFF", fontSize: 18, lineHeight: 22 },
   tabLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "700", textAlign: "center" },
