@@ -9,6 +9,7 @@ import { formatDate, gradeFromScore, timeAgo } from '@/utils/formatters';
 import useLanguageStore from '@/store/languageStore';
 import useAuthStore from '@/store/authStore';
 import toast from 'react-hot-toast';
+import { apiErrorText } from '@/utils/errors';
 
 const NOTIF_ICONS: Record<string, string> = {
   ATTENDANCE_ABSENT: '📅', ATTENDANCE_LATE: '⏰', FEE_DUE: '💰', FEE_OVERDUE: '🔴',
@@ -19,15 +20,16 @@ const NOTIF_ICONS: Record<string, string> = {
 export default function ParentDashboard() {
   const { t } = useLanguageStore();
   const { user } = useAuthStore();
-  const { children, selectedChildId, setSelectedChildId, isLoading: childrenLoading } = useParentChildContext();
+  const { children, selectedChildId, setSelectedChildId, isLoading: childrenLoading, isError: childrenError, refetchChildren } = useParentChildContext();
 
-  const { data: dash, isLoading: dashLoading } = useQuery({
+  const { data: dash, isLoading: dashLoading, isError: dashError, error: dashErrorValue, refetch: refetchDash } = useQuery({
     queryKey: ['parent-child-dash', selectedChildId],
     queryFn: async () => {
       if (!selectedChildId) throw new Error('No child selected');
       return getChildDashboard(selectedChildId).then((r) => r.data.data);
     },
     enabled: !!selectedChildId,
+    retry: 0,
   });
 
   const student = dash?.student;
@@ -65,9 +67,19 @@ export default function ParentDashboard() {
 
       <ParentRelationshipRequests />
 
-      {isLoading ? (
+      {childrenError ? (
+        <div role="alert" className="card text-center py-8">
+          <p style={{ color: '#B42318' }}>{t('बच्चों की जानकारी लोड नहीं हो सकी।', 'Could not load linked children.')}</p>
+          <button className="btn-green mt-4" onClick={() => refetchChildren()}>{t('फिर कोशिश करें', 'Try again')}</button>
+        </div>
+      ) : isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[...Array(4)].map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      ) : dashError ? (
+        <div role="alert" className="card text-center py-8">
+          <p style={{ color: '#B42318' }}>{apiErrorText(dashErrorValue, t('डैशबोर्ड लोड नहीं हो सका।', 'Could not load the Parent dashboard.'))}</p>
+          <button className="btn-green mt-4" onClick={() => refetchDash()}>{t('फिर कोशिश करें', 'Try again')}</button>
         </div>
       ) : !dash ? (
         <div className="card text-center py-12" style={{ color: 'var(--slate)' }}>{t('कोई लिंक किया हुआ बच्चा नहीं मिला', 'No linked child found')}</div>

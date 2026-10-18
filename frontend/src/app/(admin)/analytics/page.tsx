@@ -4,6 +4,7 @@ import { getAnalytics, updateSchoolStatus } from '@/services/adminService';
 import { StatCard } from '@/components/ui/index';
 import { formatCurrency } from '@/utils/formatters';
 import toast from 'react-hot-toast';
+import { apiErrorText } from '@/utils/errors';
 
 function csvCell(value: unknown) {
   const text = value == null ? '' : String(value);
@@ -12,10 +13,11 @@ function csvCell(value: unknown) {
 
 export default function AdminAnalytics() {
   const qc = useQueryClient();
-  const { data: analytics, isLoading } = useQuery({
+  const { data: analytics, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-analytics'],
     queryFn: () => getAnalytics().then((r) => r.data.data),
     refetchInterval: 60000,
+    retry: 0,
   });
 
   const approveMut = useMutation({
@@ -42,6 +44,16 @@ export default function AdminAnalytics() {
 
   if (isLoading) return (
     <div><div className="skeleton h-8 w-64 mb-6 rounded" style={{ background: 'rgba(255,255,255,0.1)' }} /><div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-28 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)' }} />)}</div></div>
+  );
+
+  if (isError) return (
+    <div role="alert" className="card-navy" style={{ padding: 24, maxWidth: 640 }}>
+      <h1 className="font-display font-extrabold text-xl text-white">Analytics could not be loaded</h1>
+      <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.72)' }}>
+        {apiErrorText(error, 'The analytics service did not return a successful response. Check your connection and try again.')}
+      </p>
+      <button className="btn-primary mt-4" onClick={() => refetch()}>Try again</button>
+    </div>
   );
 
   const students = analytics?.students || {};
