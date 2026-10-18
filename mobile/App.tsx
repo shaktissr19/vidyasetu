@@ -5,10 +5,10 @@ import {
   FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import {
@@ -23,6 +23,7 @@ type Page = {
   label: string;
   path: string;
   icon: string;
+  section?: string;
 };
 
 type UserRole = "STUDENT" | "PARENT" | "TEACHER" | "SCHOOL_ADMIN" | "SUPER_ADMIN";
@@ -35,21 +36,23 @@ const PUBLIC_TABS: Page[] = [
 ];
 
 const PUBLIC_MORE_PAGES: Page[] = [
-  { label: "For students", path: "/for-students", icon: "◉" },
-  { label: "For schools", path: "/for-schools", icon: "▦" },
-  { label: "For parents", path: "/for-parents", icon: "♡" },
-  { label: "Learning library", path: "/learn/library", icon: "▦" },
-  { label: "Competitions", path: "/competition", icon: "☆" },
-  { label: "Communities", path: "/communities", icon: "◎" },
-  { label: "About platform administration", path: "/platform-admin", icon: "⚙" },
-  { label: "Login", path: "/login", icon: "→" },
-  { label: "Create account", path: "/register", icon: "+" },
+  { section: "Explore VidyaSetu", label: "Learning library", path: "/learn/library", icon: "▤" },
+  { section: "Explore VidyaSetu", label: "For students", path: "/for-students", icon: "◉" },
+  { section: "Explore VidyaSetu", label: "For schools", path: "/for-schools", icon: "▦" },
+  { section: "Explore VidyaSetu", label: "For parents", path: "/for-parents", icon: "♡" },
+  { section: "Explore VidyaSetu", label: "Competitions", path: "/competition", icon: "☆" },
+  { section: "Explore VidyaSetu", label: "Communities", path: "/communities", icon: "◎" },
+  { section: "Explore VidyaSetu", label: "Platform administration", path: "/platform-admin", icon: "⚙" },
+];
+const PUBLIC_ACCOUNT_PAGES: Page[] = [
+  { section: "Account", label: "Login", path: "/login", icon: "→" },
+  { section: "Account", label: "Create account", path: "/register", icon: "+" },
 ];
 
 const ROLE_TABS: Record<UserRole, Page[]> = {
   STUDENT: [
-    { label: "Dashboard", path: "/student", icon: "⌂" },
-    { label: "Learn", path: "/learn", icon: "▤" },
+    { label: "Home", path: "/student?section=dashboard", icon: "⌂" },
+    { label: "Learning", path: "/student?section=subjects", icon: "▤" },
     { label: "Syllabus", path: "/syllabus", icon: "▣" },
   ],
   PARENT: [
@@ -76,40 +79,107 @@ const ROLE_TABS: Record<UserRole, Page[]> = {
 
 const ROLE_MORE_PAGES: Record<UserRole, Page[]> = {
   STUDENT: [
-    { label: "Homework", path: "/student/homework", icon: "✎" },
-    { label: "Subjects", path: "/subjects", icon: "▣" },
-    { label: "Exams", path: "/exams", icon: "✓" },
-    { label: "Doubts", path: "/doubts", icon: "?" },
-    { label: "Notifications", path: "/student/notifications", icon: "♢" },
-    ...PUBLIC_MORE_PAGES.slice(0, 6),
+    { section: "My learning", label: "Dashboard", path: "/student?section=dashboard", icon: "⌂" },
+    { section: "My learning", label: "Learning", path: "/student?section=subjects", icon: "▤" },
+    { section: "My learning", label: "My Syllabus", path: "/syllabus", icon: "▣" },
+    { section: "My learning", label: "Homework", path: "/student?section=homework", icon: "✎" },
+    { section: "My learning", label: "AI Tutor", path: "/student?section=ai", icon: "✦" },
+    { section: "My learning", label: "Doubt Forum", path: "/student?section=doubts", icon: "?" },
+    { section: "My learning", label: "Competitions", path: "/student?section=exams", icon: "☆" },
+    { section: "My learning", label: "Communities", path: "/student?section=groups", icon: "◎" },
+    { section: "My school", label: "Attendance", path: "/student?section=attendance", icon: "✓" },
+    { section: "My school", label: "Leave & calendar", path: "/student?section=leave", icon: "◷" },
+    { section: "My school", label: "Transport & safety", path: "/student?section=transport", icon: "▰" },
+    { section: "My school", label: "Records & certificates", path: "/student?section=documents", icon: "▧" },
+    { section: "My school", label: "My school", path: "/student?section=school", icon: "⌂" },
+    { section: "My account", label: "Report card", path: "/student?section=report", icon: "▤" },
+    { section: "My account", label: "Notifications", path: "/student?section=notifications", icon: "♢" },
+    { section: "My account", label: "Offline mode", path: "/student?section=offline", icon: "⇩" },
+    { section: "My account", label: "Profile & security", path: "/student?section=profile", icon: "◉" },
+    ...PUBLIC_MORE_PAGES,
   ],
   PARENT: [
-    { label: "Homework", path: "/parent/homework", icon: "✎" },
-    { label: "Learning support", path: "/parent/learning-support", icon: "♡" },
-    { label: "Performance", path: "/parent/performance", icon: "▥" },
-    { label: "Attendance", path: "/parent/attendance", icon: "✓" },
-    ...PUBLIC_MORE_PAGES.slice(0, 6),
+    { section: "Child overview", label: "Overview", path: "/parent/dashboard", icon: "⌂" },
+    { section: "Child overview", label: "Homework", path: "/parent/homework", icon: "✎" },
+    { section: "Child overview", label: "Learning support", path: "/parent/learning-support", icon: "♡" },
+    { section: "Child overview", label: "Performance", path: "/parent/performance", icon: "▥" },
+    { section: "Child overview", label: "Competitions & achievements", path: "/parent/achievements", icon: "☆" },
+    { section: "School connection", label: "PTM & follow-up", path: "/parent/ptm", icon: "◷" },
+    { section: "School connection", label: "Attendance", path: "/parent/attendance", icon: "✓" },
+    { section: "School connection", label: "Leave & calendar", path: "/parent/leave", icon: "◷" },
+    { section: "School connection", label: "Transport & safety", path: "/parent/transport", icon: "▰" },
+    { section: "School connection", label: "Records & certificates", path: "/parent/documents", icon: "▧" },
+    { section: "School connection", label: "Fees", path: "/parent/fees", icon: "₹" },
+    { section: "School connection", label: "Report card", path: "/parent/report-card", icon: "▤" },
+    { section: "Communication", label: "Notifications", path: "/parent/notifications", icon: "♢" },
+    { section: "Communication", label: "Messages to teachers", path: "/parent/messages", icon: "✉" },
+    { section: "Communication", label: "Concerns & grievances", path: "/parent/grievances", icon: "⚑" },
+    { section: "Communication", label: "Communities", path: "/parent/groups", icon: "◎" },
+    ...PUBLIC_MORE_PAGES,
   ],
   TEACHER: [
-    { label: "Students", path: "/school/students", icon: "◉" },
-    { label: "Academic workspace", path: "/school/academic-workspace", icon: "▤" },
-    { label: "Timetable", path: "/school/timetable", icon: "▦" },
-    { label: "Announcements", path: "/school/announcements", icon: "♢" },
-    ...PUBLIC_MORE_PAGES.slice(0, 6),
+    { section: "Teaching", label: "Overview", path: "/school/overview", icon: "⌂" },
+    { section: "Teaching", label: "Students", path: "/school/students", icon: "◉" },
+    { section: "Teaching", label: "Academic workspace", path: "/school/academic-workspace", icon: "▤" },
+    { section: "Teaching", label: "Learning insights", path: "/school/learning-insights", icon: "◈" },
+    { section: "Teaching", label: "Learning reviews", path: "/school/learning-reviews", icon: "▣" },
+    { section: "Teaching", label: "Attendance", path: "/school/attendance", icon: "✓" },
+    { section: "Teaching", label: "Homework", path: "/school/homework", icon: "✎" },
+    { section: "Teaching", label: "Results", path: "/school/results", icon: "▥" },
+    { section: "Teaching", label: "PTM & interventions", path: "/school/ptm", icon: "◷" },
+    { section: "School", label: "My attendance & leave", path: "/school/staff", icon: "◷" },
+    { section: "School", label: "Leave & calendar", path: "/school/absence", icon: "▦" },
+    { section: "School", label: "Timetable", path: "/school/timetable", icon: "▦" },
+    { section: "School", label: "Announcements", path: "/school/announcements", icon: "♢" },
+    { section: "School", label: "Communities", path: "/school/groups", icon: "◎" },
+    { section: "School", label: "School profile", path: "/school/profile", icon: "⌂" },
+    ...PUBLIC_MORE_PAGES,
   ],
   SCHOOL_ADMIN: [
-    { label: "Teachers", path: "/school/teachers", icon: "◉" },
-    { label: "Enrollments", path: "/school/enrollments", icon: "✓" },
-    { label: "Attendance", path: "/school/attendance", icon: "▥" },
-    { label: "Homework", path: "/school/homework", icon: "✎" },
-    ...PUBLIC_MORE_PAGES.slice(0, 6),
+    { section: "School management", label: "Overview", path: "/school/overview", icon: "⌂" },
+    { section: "School management", label: "Enrollment requests", path: "/school/enrollments", icon: "✓" },
+    { section: "School management", label: "Students", path: "/school/students", icon: "◉" },
+    { section: "School management", label: "Classes & sections", path: "/school/classes", icon: "▦" },
+    { section: "School management", label: "Teachers", path: "/school/teachers", icon: "◉" },
+    { section: "School management", label: "Staff attendance & leave", path: "/school/staff", icon: "◷" },
+    { section: "School management", label: "School profile", path: "/school/profile", icon: "⌂" },
+    { section: "Academics", label: "Academic workspace", path: "/school/academic-workspace", icon: "▤" },
+    { section: "Academics", label: "Learning insights", path: "/school/learning-insights", icon: "◈" },
+    { section: "Academics", label: "PTM & interventions", path: "/school/ptm", icon: "◷" },
+    { section: "Academics", label: "Attendance", path: "/school/attendance", icon: "✓" },
+    { section: "Academics", label: "Homework", path: "/school/homework", icon: "✎" },
+    { section: "Academics", label: "Exams", path: "/school/exams", icon: "▣" },
+    { section: "Academics", label: "Results", path: "/school/results", icon: "▥" },
+    { section: "School operations", label: "Transport & safety", path: "/school/transport", icon: "▰" },
+    { section: "School operations", label: "Records & certificates", path: "/school/documents", icon: "▧" },
+    { section: "School operations", label: "Leave & calendar", path: "/school/absence", icon: "◷" },
+    { section: "School operations", label: "Fees", path: "/school/fees", icon: "₹" },
+    { section: "School operations", label: "Timetable", path: "/school/timetable", icon: "▦" },
+    { section: "School operations", label: "Announcements", path: "/school/announcements", icon: "♢" },
+    { section: "School operations", label: "Parent concerns", path: "/school/grievances", icon: "⚑" },
+    { section: "School operations", label: "Communities", path: "/school/groups", icon: "◎" },
+    ...PUBLIC_MORE_PAGES,
   ],
   SUPER_ADMIN: [
-    { label: "Users", path: "/admin/users", icon: "◉" },
-    { label: "Syllabus", path: "/admin/learning/syllabus", icon: "▣" },
-    { label: "Content Factory", path: "/admin/learning/factory", icon: "⚙" },
-    { label: "Competitions", path: "/admin/competitions", icon: "☆" },
-    ...PUBLIC_MORE_PAGES.slice(0, 6),
+    { section: "Platform", label: "Analytics", path: "/admin/analytics", icon: "▥" },
+    { section: "Platform", label: "Schools", path: "/admin/schools", icon: "▦" },
+    { section: "Platform", label: "Users", path: "/admin/users", icon: "◉" },
+    { section: "Learning", label: "Syllabus", path: "/admin/learning/syllabus", icon: "▣" },
+    { section: "Learning", label: "Content Factory", path: "/admin/learning/factory", icon: "⚙" },
+    { section: "Learning", label: "Topic Assets", path: "/admin/learning/governance", icon: "✦" },
+    { section: "Learning", label: "Content Library", path: "/admin/learning", icon: "▤" },
+    { section: "Learning", label: "Coverage", path: "/admin/learning/coverage", icon: "◎" },
+    { section: "Learning", label: "Question Bank", path: "/admin/learning/practice", icon: "?" },
+    { section: "Learning", label: "Bulk Import", path: "/admin/learning/imports", icon: "⇩" },
+    { section: "Learning", label: "Diagnostics", path: "/admin/learning/diagnostics", icon: "◈" },
+    { section: "Operations", label: "Competitions", path: "/admin/competitions", icon: "☆" },
+    { section: "Operations", label: "Communities", path: "/admin/groups", icon: "◎" },
+    { section: "Operations", label: "Grievances", path: "/admin/grievances", icon: "⚑" },
+    { section: "Operations", label: "Revenue", path: "/admin/revenue", icon: "₹" },
+    { section: "Operations", label: "Support", path: "/admin/support", icon: "?" },
+    { section: "Operations", label: "Audit trail", path: "/admin/audit", icon: "▧" },
+    { section: "Operations", label: "Settings", path: "/admin/settings", icon: "⚙" },
+    ...PUBLIC_MORE_PAGES,
   ],
 };
 
@@ -230,6 +300,40 @@ const APP_LAYOUT_CSS = `
     header[style*="min-height: 66px"] > div > button:first-child { flex-basis: 52px !important; min-width: 52px !important; width: 52px !important; }
     header[style*="min-height: 66px"] > div > button:nth-child(3) { min-width: 120px !important; }
   }
+  html.vidyasetu-native-app header[style*="min-height: 66px"] > nav { display: none !important; }
+  html.vidyasetu-native-app .dash-layout {
+    display: block !important; height: auto !important; min-height: 0 !important;
+    overflow: visible !important;
+  }
+  html.vidyasetu-native-app .dash-sidebar { display: none !important; }
+  html.vidyasetu-native-app .dash-main {
+    display: block !important; width: 100% !important; max-width: 100% !important;
+    min-width: 0 !important; min-height: 0 !important; margin: 0 !important;
+    overflow: visible !important;
+  }
+  html.vidyasetu-native-app [class*="StudentPortal_sidebar"],
+  html.vidyasetu-native-app [class*="StudentPortal_mobileMenu"] { display: none !important; }
+  html.vidyasetu-native-app [class*="StudentPortal_layout"] { padding-top: 0 !important; }
+  html.vidyasetu-native-app [class*="StudentPortal_main"] {
+    width: 100% !important; margin: 0 !important; padding: 18px 16px 30px !important;
+  }
+  @media (max-width: 1024px) {
+    html.vidyasetu-native-app .dash-main { padding: 20px 18px 32px !important; }
+    html.vidyasetu-native-app h1 { font-size: clamp(30px, 4.5vw, 42px) !important; line-height: 1.14 !important; }
+    html.vidyasetu-native-app h2 { font-size: clamp(24px, 3.2vw, 32px) !important; line-height: 1.2 !important; }
+    html.vidyasetu-native-app h3 { font-size: clamp(20px, 2.8vw, 27px) !important; line-height: 1.25 !important; }
+    html.vidyasetu-native-app .card { padding: 20px !important; }
+  }
+  @media (max-width: 760px) {
+    html.vidyasetu-native-app .dash-main { padding: 18px 16px 30px !important; }
+    html.vidyasetu-native-app h1 { font-size: clamp(27px, 7vw, 34px) !important; line-height: 1.12 !important; }
+    html.vidyasetu-native-app h2 { font-size: clamp(21px, 5.5vw, 27px) !important; line-height: 1.2 !important; }
+    html.vidyasetu-native-app h3 { font-size: clamp(18px, 4.8vw, 22px) !important; line-height: 1.25 !important; }
+    html.vidyasetu-native-app p, html.vidyasetu-native-app li { line-height: 1.55 !important; }
+    html.vidyasetu-native-app .card { padding: 16px !important; border-radius: 14px !important; }
+    html.vidyasetu-native-app [class*="StudentPortal_card"],
+    html.vidyasetu-native-app [class*="StudentPortal_stat"] { padding: 16px !important; }
+  }
 `;
 
 const APP_LAYOUT_SCRIPT = `(function(){
@@ -268,10 +372,14 @@ function AppContent() {
   const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState("Check your internet connection, then try again.");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuSearch, setMenuSearch] = useState("");
   const [nativeUser, setNativeUser] = useState<NativeUser | null>(null);
 
   const tabs = nativeUser ? ROLE_TABS[nativeUser.role] : PUBLIC_TABS;
-  const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : PUBLIC_MORE_PAGES;
+  const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : [...PUBLIC_MORE_PAGES, ...PUBLIC_ACCOUNT_PAGES];
+  const visibleMenuPages = menuPages.filter((page) =>
+    `${page.section || ""} ${page.label}`.toLowerCase().includes(menuSearch.trim().toLowerCase()),
+  );
 
   const finishLoading = () => {
     if (loadTimeout.current) clearTimeout(loadTimeout.current);
@@ -333,6 +441,20 @@ function AppContent() {
     }
   })();
 
+  const isPageActive = (page: Page) => {
+    try {
+      const current = new URL(currentUrl);
+      const target = new URL(page.path, SITE_URL);
+      if (target.pathname !== current.pathname) return false;
+      for (const [key, value] of target.searchParams) {
+        if (current.searchParams.get(key) !== value) return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -346,6 +468,7 @@ function AppContent() {
           sharedCookiesEnabled
           thirdPartyCookiesEnabled
           pullToRefreshEnabled
+          allowsBackForwardNavigationGestures
           injectedJavaScriptBeforeContentLoaded={APP_LAYOUT_SCRIPT}
           injectedJavaScript={APP_LAYOUT_SCRIPT}
           onLoadStart={beginLoading}
@@ -422,18 +545,9 @@ function AppContent() {
       </View>
 
       <View style={styles.tabBarScroller}>
-        <ScrollView
-          horizontal
-          style={styles.tabScroll}
-          contentContainerStyle={styles.tabBar}
-          showsHorizontalScrollIndicator
-          keyboardShouldPersistTaps="handled"
-          accessibilityLabel="Primary app navigation"
-          accessibilityHint="Swipe left or right to view all page shortcuts. More stays on the right."
-        >
+        <View style={styles.tabBar} accessibilityLabel="Primary app navigation">
           {tabs.map((page) => {
-            const active =
-              page.path === "/" ? activePath === "/" : activePath === page.path || activePath.startsWith(`${page.path}/`);
+            const active = isPageActive(page) || (!page.path.includes("?") && activePath.startsWith(`${page.path}/`));
             return (
               <Pressable
                 key={page.path}
@@ -452,16 +566,16 @@ function AppContent() {
               </Pressable>
             );
           })}
-        </ScrollView>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open more pages"
-          onPress={() => setMenuOpen(true)}
+          onPress={() => { setMenuSearch(""); setMenuOpen(true); }}
           style={styles.tab}
         >
           <Text style={styles.tabIcon}>•••</Text>
           <Text style={styles.tabLabel}>More</Text>
         </Pressable>
+        </View>
       </View>
 
       <Modal
@@ -493,24 +607,44 @@ function AppContent() {
               <Text style={styles.closeText}>×</Text>
             </Pressable>
           </View>
+          <View style={styles.menuSearchWrap}>
+            <TextInput
+              accessibilityLabel="Search pages"
+              placeholder={nativeUser ? "Search your workspace" : "Search pages"}
+              placeholderTextColor="#667085"
+              value={menuSearch}
+              onChangeText={setMenuSearch}
+              style={styles.menuSearch}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+          </View>
           <FlatList
-            data={menuPages}
+            data={visibleMenuPages}
             keyExtractor={(page) => page.path}
             contentContainerStyle={styles.menuList}
-            renderItem={({ item }) => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={item.label}
-                onPress={() => openPage(item)}
-                style={styles.menuItem}
-              >
-                <View style={styles.menuIconBox}>
-                  <Text style={styles.menuIcon}>{item.icon}</Text>
-                </View>
-                <Text style={styles.menuItemText}>{item.label}</Text>
-                <Text style={styles.menuChevron}>›</Text>
-              </Pressable>
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item, index }) => (
+              <View>
+                {(index === 0 || visibleMenuPages[index - 1]?.section !== item.section) && !!item.section && (
+                  <Text style={styles.menuSectionTitle}>{item.section}</Text>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  accessibilityState={{ selected: isPageActive(item) }}
+                  onPress={() => openPage(item)}
+                  style={[styles.menuItem, isPageActive(item) && styles.menuItemActive]}
+                >
+                  <View style={styles.menuIconBox}>
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                  </View>
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                  {isPageActive(item) ? <Text style={styles.menuCurrent}>Current</Text> : <Text style={styles.menuChevron}>›</Text>}
+                </Pressable>
+              </View>
             )}
+            ListEmptyComponent={<Text style={styles.menuEmpty}>No pages match “{menuSearch}”.</Text>}
             ListFooterComponent={
               <Text style={styles.menuFootnote}>
                 {nativeUser
@@ -581,27 +715,24 @@ const styles = StyleSheet.create({
   },
   retryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   tabBarScroller: {
+    minHeight: 62,
+    backgroundColor: "#B54708",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#963A06",
+  },
+  tabBar: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 62,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E4EBEE",
-    backgroundColor: "#FFFFFF",
-  },
-  tabScroll: { flex: 1 },
-  tabBar: {
+    justifyContent: "space-around",
     minHeight: 62,
     paddingHorizontal: 4,
-    paddingTop: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
+    paddingTop: 4,
   },
-  tab: { width: 76, minHeight: 50, alignItems: "center", justifyContent: "center", gap: 2, borderRadius: 12 },
-  activeTab: { backgroundColor: "#FFF1E6" },
-  tabIcon: { color: "#69808A", fontSize: 18, lineHeight: 22 },
-  tabLabel: { color: "#536872", fontSize: 11, fontWeight: "600" },
-  activeTabText: { color: "#C84F00", fontWeight: "800" },
+  tab: { flex: 1, minWidth: 0, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 2 },
+  activeTab: { backgroundColor: "#FFFFFF" },
+  tabIcon: { color: "#FFFFFF", fontSize: 18, lineHeight: 22 },
+  tabLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "700", textAlign: "center" },
+  activeTabText: { color: "#8F3607", fontWeight: "900" },
   menuScreen: { flex: 1, backgroundColor: "#F5F8F9" },
   menuHeader: {
     padding: 20,
@@ -612,6 +743,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#E4EBEE",
   },
+  menuSearchWrap: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#FFFFFF" },
+  menuSearch: { minHeight: 46, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: "#D7DEE8", color: "#172D3D", backgroundColor: "#F8FAFC", fontSize: 16 },
+  menuSectionTitle: { marginTop: 15, marginBottom: 7, paddingHorizontal: 4, color: "#8F3607", fontSize: 12, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
   menuEyebrow: {
     color: "#C84F00",
     fontSize: 11,
@@ -644,6 +778,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  menuItemActive: { borderColor: "#EBA36E", backgroundColor: "#FFF4EA" },
+  menuCurrent: { color: "#8F3607", fontSize: 11, fontWeight: "800" },
+  menuEmpty: { padding: 24, textAlign: "center", color: "#536872", fontSize: 15 },
   menuIconBox: {
     width: 36,
     height: 36,
