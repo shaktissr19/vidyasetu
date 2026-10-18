@@ -77,16 +77,19 @@ const APP_LAYOUT_CSS = `
     }
     header[style*="min-height: 66px"] > div {
       width: 100% !important; margin-left: 0 !important; justify-content: flex-end !important;
-      gap: 7px !important;
+      flex-wrap: wrap !important; gap: 7px !important;
     }
     header[style*="min-height: 66px"] > div > button {
       display: inline-flex !important; align-items: center !important; justify-content: center !important;
-      flex: 1 1 0 !important; min-width: 0 !important; min-height: 44px !important;
-      padding: 8px 10px !important; font-size: 13px !important; line-height: 1.2 !important;
-      white-space: nowrap !important;
+      flex: 0 1 auto !important; min-width: 74px !important; min-height: 44px !important;
+      padding: 8px 12px !important; font-size: 13px !important; line-height: 1.2 !important;
+      white-space: normal !important;
     }
     header[style*="min-height: 66px"] > div > button:first-child {
-      flex: 0 0 60px !important; min-width: 60px !important;
+      flex: 0 0 60px !important; min-width: 60px !important; width: 60px !important;
+    }
+    header[style*="min-height: 66px"] > div > button:nth-child(3) {
+      min-width: 128px !important;
     }
     input, select, textarea { max-width: 100% !important; font-size: 16px !important; }
     button, a { overflow-wrap: anywhere; }
@@ -155,7 +158,8 @@ const APP_LAYOUT_CSS = `
   @media (max-width: 360px) {
     header[style*="min-height: 66px"] > div { gap: 5px !important; }
     header[style*="min-height: 66px"] > div > button { padding-left: 6px !important; padding-right: 6px !important; font-size: 12px !important; }
-    header[style*="min-height: 66px"] > div > button:first-child { flex-basis: 52px !important; min-width: 52px !important; }
+    header[style*="min-height: 66px"] > div > button:first-child { flex-basis: 52px !important; min-width: 52px !important; width: 52px !important; }
+    header[style*="min-height: 66px"] > div > button:nth-child(3) { min-width: 120px !important; }
   }
 `;
 
@@ -303,6 +307,7 @@ function AppContent() {
               <Pressable
                 key={page.path}
                 accessibilityRole="button"
+                accessibilityLabel={page.label}
                 accessibilityState={{ selected: active }}
                 onPress={() => openPage(page)}
                 style={styles.tab}
@@ -355,6 +360,7 @@ function AppContent() {
             renderItem={({ item }) => (
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={item.label}
                 onPress={() => openPage(item)}
                 style={styles.menuItem}
               >
