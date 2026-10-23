@@ -62,7 +62,7 @@ function gradeLabel(gradeCode: string): string {
 
 export async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
-    `SELECT s.id AS student_id, s.grade_level, s.grade_code, sc.class_name,
+    `SELECT s.id AS student_id, s.grade_level, to_jsonb(s)->>'grade_code' AS grade_code, sc.class_name,
             s.school_id, sch.name AS school_name,u.language,
             eb.board_code, eb.board_name
      FROM students s

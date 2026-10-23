@@ -3,6 +3,8 @@ name: Student Native CI
 on:
   push:
     branches: [student-e2e-identity, phase1-student-foundation, typescript-migration, main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
