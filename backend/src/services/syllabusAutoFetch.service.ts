@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios';
+import { createHash } from 'crypto';
 import { lookup } from 'dns/promises';
 import { Agent } from 'https';
 import { isIP } from 'net';
@@ -21,6 +22,15 @@ function checkedOfficialUrl(value:string,base?:string,boardCode?:string){
 function cleanTitle(value:string){return value.replace(/\.(pdf|html?)($|\?.*)/i,'').replace(/[+_]/g,' ').replace(/\s+/g,' ').trim().slice(0,240)||'Official curriculum document';}
 function subjectMatches(text:string,subject:string){const normalized=subject.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const aliases:Record<string,string[]>={mathematics:['mathematics','maths','math'],maths:['mathematics','maths','math'],math:['mathematics','maths','math'],'social science':['social science','social sciences','social studies'],'social studies':['social science','social sciences','social studies'],science:['science','general science'],english:['english'],hindi:['hindi']};const terms=aliases[normalized]||[normalized];return terms.some(term=>term&&text.toLowerCase().includes(term));}
 const romanClasses:Record<string,number>={I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12};
+function classCode(value:string|undefined){if(!value)return null;const key=value.toUpperCase();const numeric=romanClasses[key]||Number(key);return Number.isInteger(numeric)&&numeric>=1&&numeric<=12?`CLASS_${numeric}`:null;}
+function inferClass(text:string){
+ const early=text.match(/\b(pre[- ]?nursery|nursery|lkg|ukg)\b/i)?.[1]?.toLowerCase().replace(/\s+/g,'-');
+ if(early)return ({'pre-nursery':'PRE_NURSERY',nursery:'NURSERY',lkg:'LKG',ukg:'UKG'} as Record<string,string>)[early]||null;
+ const match=text.match(/(?:class|grade|standard|std)[\s_()\-–]*(xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|1[0-2]|[1-9])\b/i)
+  || text.match(/(?:secp(?:art)?\d*)[\s_()\-–]*(xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|1[0-2]|[1-9])(?:\b|[_\-.])/i);
+ return classCode(match?.[1]);
+}
+function inferSubject(text:string){const value=text.toLowerCase();const subjects:[string,RegExp][]=[['Mathematics',/\b(mathematics|maths)\b/],['Science',/\bscience\b/],['Social Science',/\b(social science|social studies)\b/],['English',/\benglish\b/],['Hindi',/\bhindi\b/],['Physics',/\bphysics\b/],['Chemistry',/\bchemistry\b/],['Biology',/\bbiology\b/],['Computer Science',/\b(computer science|informatics)\b/],['Economics',/\beconomics\b/],['History',/\bhistory\b/],['Geography',/\bgeography\b/],['Accountancy',/\baccountancy\b/],['Business Studies',/\bbusiness studies\b/]];return subjects.find(([,pattern])=>pattern.test(value))?.[0]||null;}
 
 export interface DiscoveredSyllabusDocument {title:string;url:string;sourceHost:string;classGuess:string|null;subjectGuess:string|null;}
 export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{boardCode:string;classCode?:string;subject?:string}){
@@ -33,25 +43,21 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
   let url:URL;try{url=checkedOfficialUrl(raw,source.toString(),input.boardCode);}catch{continue;}if(url.hostname!==source.hostname&&!url.hostname.endsWith(`.${source.hostname}`))continue;
   const title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'))||cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
-  const text=`${title} ${url.pathname} ${sectionHeading}`.toLowerCase();
-  const classMatch=text.match(/(?:class|grade|standard|std)[\s_-]*(pre[- ]?nursery|nursery|lkg|ukg|xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|[1-9]|1[0-2])\b/i)||text.match(/\b(pre[- ]?nursery|nursery|lkg|ukg)\b/i);
-  const classMap:Record<string,string>={'pre-nursery':'PRE_NURSERY',nursery:'NURSERY',lkg:'LKG',ukg:'UKG'};
-  const classKey=classMatch?.[1].toLowerCase();const classGuess=classKey?(classMap[classKey.replace(/\s+/g,'-')]||`CLASS_${romanClasses[classKey.toUpperCase()]||Number(classKey)}`):null;
-  const subjectGuess=input.subject&&subjectMatches(text,input.subject)?input.subject:null;
-  if(input.classCode&&classGuess&&classGuess!==input.classCode)continue;
+  const text=`${title} ${decodeURIComponent(url.pathname)} ${sectionHeading}`;
+  const guessedClass=inferClass(text);const guessedSubject=inferSubject(text);
+  if(input.classCode&&guessedClass!==input.classCode)continue;
   if(input.subject&&!subjectMatches(text,input.subject))continue;
-  links.set(url.toString(),{title,url:url.toString(),sourceHost:url.hostname,classGuess,subjectGuess});
+  links.set(url.toString(),{title,url:url.toString(),sourceHost:url.hostname,classGuess:guessedClass,subjectGuess:input.subject&&subjectMatches(text,input.subject)?input.subject:guessedSubject});
  }
  const documents=[...links.values()].slice(0,250);
  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents};
 }
 export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string}){
- const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);
- let response;
- try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/1.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
+ const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);let response;
+ try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
  if(typeof response.data!=='string'||!/^text\/html|^application\/xhtml\+xml/i.test(String(response.headers['content-type']||''))) throw fail('The selected source is not an HTML index page. Paste the official index page URL, not a PDF URL.');
  const result=parseOfficialSyllabusIndex(source.toString(),response.data,input);
- if(!result.documents.length)return {...result,message:'No direct PDF links were found on this page. Some board sites render links with scripts; open the official page and use the direct PDF URL or upload the document.'};
+ if(!result.documents.length)return {...result,message:'No PDF matched the selected class and subject. Open the official page to confirm its labels, or upload the PDF directly.'};
  return result;
 }
 
@@ -61,44 +67,79 @@ interface PdfJsPage {getTextContent():Promise<{items:unknown[]}>;}
 interface PdfJsDocument {numPages:number;getPage(pageNumber:number):Promise<PdfJsPage>;}
 interface PdfJsLoadingTask {promise:Promise<PdfJsDocument>;destroy():Promise<void>;}
 interface PdfJsModule {getDocument(options:{data:Uint8Array;useSystemFonts:boolean;isEvalSupported:boolean;enableScripting:boolean}):PdfJsLoadingTask;}
-function pageLines(items:unknown[]){
- const grouped=new Map<number,{y:number;text:string}[]>();
- for(const value of items){if(!value||typeof value!=='object')continue;const item=value as PdfTextItem;if(typeof item.str!=='string'||!item.str.trim())continue;const y=Math.round(Number(item.transform?.[5]||0));const list=grouped.get(y)||[];list.push({y,text:item.str.trim()});grouped.set(y,list);}
- return [...grouped.entries()].sort((a,b)=>b[0]-a[0]).map(([,parts])=>parts.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim()).filter(x=>x.length>2&&x.length<260);
+interface PositionedPart {x:number;text:string;}
+interface LayoutLine {page:number;y:number;parts:PositionedPart[];text:string;}
+function layoutLines(items:unknown[],page:number){
+ const values=(items as PdfTextItem[]).filter(item=>typeof item?.str==='string'&&item.str.trim()).map(item=>({x:Number(item.transform?.[4]||0),y:Number(item.transform?.[5]||0),text:String(item.str).trim()})).sort((a,b)=>b.y-a.y||a.x-b.x);
+ const groups:Array<{y:number;parts:PositionedPart[]}>=[];
+ for(const item of values){let group=groups.find(candidate=>Math.abs(candidate.y-item.y)<=2);if(!group){group={y:item.y,parts:[]};groups.push(group);}group.parts.push({x:item.x,text:item.text});}
+ return groups.sort((a,b)=>b.y-a.y).map(group=>{const parts=group.parts.sort((a,b)=>a.x-b.x);return {page,y:group.y,parts,text:parts.map(item=>item.text).join(' ').replace(/\s+/g,' ').trim()};}).filter(line=>line.text.length>2&&line.text.length<500);
 }
 function stripIndex(line:string){return line.replace(/^\s*(?:(?:unit|chapter|part)\s+[ivxlcdm\d]+\s*[:.\-–)]?\s*|\d+(?:\.\d+)*\s*[.):\-–]?\s*|[A-Z]\s*[.):\-–]\s*)/i,'').trim();}
 export function parseCurriculumOutline(pages:Array<{page:number;lines:string[]}>):ExtractedOutlineRow[]{
  const rows:ExtractedOutlineRow[]=[];let unit='Curriculum';let chapter='Topics';let pendingChapter:{unit:string;chapter:string;pageReference:string}|null=null;let chapterHasTopics=false;
  const flushChapter=()=>{if(pendingChapter&&!chapterHasTopics)rows.push({unit:pendingChapter.unit,chapter:pendingChapter.chapter,topic:pendingChapter.chapter,pageReference:pendingChapter.pageReference,confidence:'review'});pendingChapter=null;chapterHasTopics=false;};
  const seen=new Set<string>();
- for(const page of pages){for(const raw of page.lines){
-  const line=raw.replace(/\s+/g,' ').trim();
-  const unitHeading=/^(unit|part)\s+([ivxlcdm\d]+)\s*[:.\-–)]?\s*(.*)$/i.exec(line);
-  if(unitHeading){flushChapter();unit=`${unitHeading[1][0].toUpperCase()}${unitHeading[1].slice(1)} ${unitHeading[2]}${unitHeading[3]?` · ${unitHeading[3]}`:''}`;chapter=stripIndex(unitHeading[3]||unit);continue;}
-  const chapterHeading=/^(chapter\s+[ivxlcdm\d]+\s*[:.\-–)]?\s*.+|\d+(?:\.\d+)?\s*[.):\-–]\s*[A-Z][^.!?]{2,100})$/i.test(line);
-  const topicHeading=/^(?:topics?\s*[:\-–]|\d+\.\d+\s+|[•●▪◦*-]\s+|[a-z]\)\s+)/i.test(line);
-  const contentsLabel=/^(?:contents|index|syllabus|learning outcomes?|curricular objectives?|course structure)$/i.test(line);
-  if(contentsLabel||line.length>190||/^(?:page\s+\d+|www\.|https?:|©|copyright)/i.test(line))continue;
-  if(chapterHeading){const next=stripIndex(line);if(next.length>2&&next.length<180){if(next.toLowerCase()!==chapter.toLowerCase()){flushChapter();chapter=next;pendingChapter={unit,chapter,pageReference:`Page ${page.page}`};}}continue;}
-  if(topicHeading){const topic=stripIndex(line.replace(/^(?:topics?\s*[:\-–]|[•●▪◦*-]\s+)/i,''));if(topic.length<4)continue;const key=`${unit}|${chapter}|${topic}`.toLowerCase();chapterHasTopics=true;if(!seen.has(key)){rows.push({unit,chapter,topic,pageReference:`Page ${page.page}`,confidence:/^\d/.test(line)?'high':'review'});seen.add(key);} }
- }}
- flushChapter();
- return rows.slice(0,5000);
+ for(const page of pages){for(const raw of page.lines){const line=raw.replace(/\s+/g,' ').trim();const unitHeading=/^(unit|part)\s+([ivxlcdm\d]+)\s*[:.\-–)]?\s*(.*)$/i.exec(line);if(unitHeading){flushChapter();unit=`${unitHeading[1][0].toUpperCase()}${unitHeading[1].slice(1)} ${unitHeading[2]}${unitHeading[3]?` · ${unitHeading[3]}`:''}`;chapter=stripIndex(unitHeading[3]||unit);continue;}const chapterHeading=/^(chapter\s+[ivxlcdm\d]+\s*[:.\-–)]?\s*.+|\d+(?:\.\d+)?\s*[.):\-–]\s*[A-Z][^.!?]{2,100})$/i.test(line);const topicHeading=/^(?:topics?\s*[:\-–]|\d+\.\d+\s+|[•●▪◦*\-]\s+|[a-z]\)\s+)/i.test(line);const contentsLabel=/^(?:contents|index|syllabus|learning outcomes?|curricular objectives?|course structure)$/i.test(line);if(contentsLabel||line.length>190||/^(?:page\s+\d+|www\.|https?:|©|copyright)/i.test(line))continue;if(chapterHeading){const next=stripIndex(line);if(next.length>2&&next.length<180&&next.toLowerCase()!==chapter.toLowerCase()){flushChapter();chapter=next;pendingChapter={unit,chapter,pageReference:`Page ${page.page}`};}continue;}if(topicHeading){const topic=stripIndex(line.replace(/^(?:topics?\s*[:\-–]|[•●▪◦*\-]\s+)/i,''));if(topic.length<4)continue;const key=`${unit}|${chapter}|${topic}`.toLowerCase();chapterHasTopics=true;if(!seen.has(key)){rows.push({unit,chapter,topic,pageReference:`Page ${page.page}`,confidence:/^\d/.test(line)?'high':'review'});seen.add(key);}}}}
+ flushChapter();return rows.slice(0,5000);
 }
-export async function extractOfficialSyllabusOutline(pdfUrl:string,boardCode:string){
- const url=checkedOfficialUrl(pdfUrl,undefined,boardCode);let response;
- try{response=await getOfficial<ArrayBuffer>(url,{timeout:45000,maxContentLength:maxPdfBytes,maxBodyLength:maxPdfBytes,responseType:'arraybuffer',headers:{Accept:'application/pdf','User-Agent':'VidyaSetu-SyllabusImporter/1.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not download the official PDF. It may require a browser session or direct download access.',502);}
- const bytes=Buffer.from(response.data);if(bytes.length<8||bytes.subarray(0,5).toString()!=='%PDF-')throw fail('The official URL did not return a valid PDF.');
- const crypto=await import('crypto');
+function parseKeyConceptTable(lines:LayoutLine[]){
+ const rows:ExtractedOutlineRow[]=[];let unit='Curriculum';let chapter='';let topic='';let topicPage=0;let lastLeftPage=0;let lastLeftY=0;
+ const seen=new Set<string>();
+ const finish=()=>{const clean=topic.replace(/\s+/g,' ').replace(/[.;:]$/,'').trim();if(chapter&&clean.length>=3&&clean.length<=220&&!/^the student will/i.test(clean)){const key=`${unit}|${chapter}|${clean}`.toLowerCase();if(!seen.has(key)){rows.push({unit,chapter:chapter.replace(/\s+/g,' ').trim().slice(0,220),topic:clean,pageReference:`Page ${topicPage}`,confidence:'high'});seen.add(key);}}topic='';};
+ for(const line of lines){
+  const unitMatch=line.text.match(/\bUNIT\s+([IVXLCDM\d]+)\s*:\s*([^|]{2,120})/i);if(unitMatch){finish();unit=`Unit ${unitMatch[1]} · ${unitMatch[2].replace(/No\. of periods.*$/i,'').trim()}`;chapter='';lastLeftPage=0;lastLeftY=0;continue;}
+  if(/Chapter\s*Name/i.test(line.text)&&/Key\s*Concepts/i.test(line.text))continue;
+  const left=line.parts.filter(part=>part.x<110&&!/^[•●▪◦*\-]$/.test(part.text)).map(part=>part.text).join(' ').trim();
+  const bullet=line.parts.find(part=>part.x>=95&&part.x<180&&/^[•●▪◦*\-]$/.test(part.text));
+  const middle=line.parts.filter(part=>part.x>=110&&part.x<276&&!/^[•●▪◦*\-]$/.test(part.text)&&!/^CG-/i.test(part.text)).map(part=>part.text).join(' ').trim();
+  if(left&&!/^(unit|chapter|name|total)$/i.test(left)){
+   const startsNew=!chapter||line.page!==lastLeftPage||Math.abs(lastLeftY-line.y)>35;
+   if(startsNew){finish();chapter=left;}else if(left.length<80)chapter=`${chapter} ${left}`.trim();
+   lastLeftPage=line.page;lastLeftY=line.y;
+  }
+  if(bullet){finish();topic=middle;topicPage=line.page;}
+  else if(topic&&middle&&!/^(CG-|C-\d|No\. of periods)/i.test(middle))topic=`${topic} ${middle}`.trim();
+ }
+ finish();return rows;
+}
+function parseCourseStructure(lines:LayoutLine[]){
+ const chapters:Array<{unit:string;chapter:string}>=[];let active=false;let unit='Curriculum';let chapter='';
+ const finish=()=>{const value=chapter.replace(/\s+/g,' ').replace(/\b([A-Za-z]{3,})\s+s\b/g,'$1s').trim();if(value.length>2)chapters.push({unit,chapter:value});chapter='';};
+ for(const line of lines){if(/COURSE STRUCTURE CLASS/i.test(line.text)){active=true;continue;}if(!active)continue;if(/^Total\b/i.test(line.text)){finish();break;}
+  const roman=line.parts.find(part=>part.x<110&&/^(?:I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)$/.test(part.text));
+  const unitText=line.parts.filter(part=>part.x>=110&&part.x<240).map(part=>part.text).join(' ').trim();
+  if(roman){finish();unit=`Unit ${roman.text}${unitText?` · ${unitText}`:''}`;}else if(unitText&&!line.parts.some(part=>part.x>=220&&part.x<280&&/^[•●▪◦*\-]$/.test(part.text)))unit=`${unit} ${unitText}`.replace(/\s+/g,' ').trim();
+  const bullet=line.parts.find(part=>part.x>=220&&part.x<280&&/^[•●▪◦*\-]$/.test(part.text));const chapterText=line.parts.filter(part=>part.x>=260&&part.x<480&&!/^[•●▪◦*\-]$/.test(part.text)).map(part=>part.text).join(' ').trim();
+  if(bullet){finish();chapter=chapterText;}else if(chapter&&chapterText)chapter=`${chapter} ${chapterText}`;
+ }
+ return chapters;
+}
+function alignChapters(rows:ExtractedOutlineRow[],course:Array<{unit:string;chapter:string}>){
+ const words=(value:string)=>new Set(value.toLowerCase().replace(/[^a-z0-9]+/g,' ').split(/\s+/).filter(word=>word.length>1));const unitKey=(value:string)=>value.match(/\b(?:unit)\s+([ivxlcdm\d]+)/i)?.[1]?.toUpperCase();
+ return rows.map(row=>{const source=words(row.chapter);let best:{unit:string;chapter:string}|undefined;let score=0;for(const candidate of course){if(unitKey(row.unit)&&unitKey(candidate.unit)&&unitKey(row.unit)!==unitKey(candidate.unit))continue;const target=words(candidate.chapter);const overlap=[...source].filter(word=>target.has(word)).length;const value=overlap/Math.max(1,Math.min(source.size,target.size));if(value>score){score=value;best=candidate;}}return best&&score>=0.45?{...row,unit:best.unit,chapter:best.chapter}:row;});
+}
+export interface ParsedSyllabusPdf {title:string;sourceUrl:string|null;sourceHash:string;pageCount:number;rows:ExtractedOutlineRow[];fullText:string;outline:Array<{page:number;text:string}>;detectedGradeCode:string|null;detectedSubject:string|null;reviewRequired:true;notice:string;}
+export async function extractSyllabusPdfBytes(bytes:Buffer,sourceUrl:string|null,displayName='Official curriculum document'):Promise<ParsedSyllabusPdf>{
+ if(bytes.length<8||bytes.subarray(0,5).toString()!=='%PDF-')throw fail('The selected file is not a valid PDF.');
  try{
   const dynamicImport=new Function('specifier','return import(specifier)') as (specifier:string)=>Promise<unknown>;
   const imported=await dynamicImport('pdfjs-dist/legacy/build/pdf.mjs');if(!imported||typeof imported!=='object'||!('getDocument' in imported)||typeof imported.getDocument!=='function')throw new Error('Invalid PDF parser module');
   const pdfjs=imported as PdfJsModule;const task=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true,isEvalSupported:false,enableScripting:false});const pdf=await task.promise;
-  if(pdf.numPages>500){await task.destroy();throw fail('The selected PDF exceeds the 500-page extraction limit.');}
-  const pages:Array<{page:number;lines:string[]}>=[];let chars=0;
-  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){const page=await pdf.getPage(pageNo);const content=await page.getTextContent();const lines=pageLines(content.items);chars+=lines.join('').length;if(chars>2_000_000){await task.destroy();throw fail('Extracted PDF text exceeds the 2 MB review limit.');}pages.push({page:pageNo,lines});}
+  if(pdf.numPages<1||pdf.numPages>500){await task.destroy();throw fail('PDFs must contain 1–500 pages.');}
+  const layout:LayoutLine[]=[];let chars=0;
+  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){const page=await pdf.getPage(pageNo);const content=await page.getTextContent();const lines=layoutLines(content.items,pageNo);chars+=lines.reduce((sum,line)=>sum+line.text.length,0);if(chars>2_000_000){await task.destroy();throw fail('Extracted PDF text exceeds the 2 MB review limit.');}layout.push(...lines);}
   await task.destroy();if(chars<40)throw fail('This PDF has no extractable text; OCR is needed before this source can be imported.');
-  const rows=parseCurriculumOutline(pages);if(!rows.length)throw fail('The PDF was read, but no likely unit, chapter or topic headings were recognized. Use the CSV importer or another official syllabus document.');
-  return {title:cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||'')),sourceUrl:url.toString(),sourceHash:crypto.createHash('sha256').update(bytes).digest('hex'),pageCount:pdf.numPages,rows,reviewRequired:true,notice:'These are machine-extracted outline candidates. Verify every row and its page reference against the official PDF before saving as Draft.'};
+  const pageGroups=new Map<number,string[]>();for(const line of layout){const values=pageGroups.get(line.page)||[];values.push(line.text);pageGroups.set(line.page,values);}
+  const generic=parseCurriculumOutline([...pageGroups].map(([page,lines])=>({page,lines})));
+  const table=parseKeyConceptTable(layout);const course=parseCourseStructure(layout);
+  const rows=(table.length>=3?alignChapters(table,course):generic).slice(0,5000);if(!rows.length)throw fail('The PDF was read, but no likely unit, chapter or topic headings were recognized. Use the spreadsheet importer or correct the structure manually.');
+  const fullText=[...pageGroups].map(([page,lines])=>`Page ${page}: ${lines.join(' ')}`).join('\n');const scopeText=`${displayName} ${sourceUrl||''} ${fullText.slice(0,15000)}`;
+  return {title:cleanTitle(displayName),sourceUrl,sourceHash:createHash('sha256').update(bytes).digest('hex'),pageCount:pdf.numPages,rows,fullText,outline:rows.map(row=>({page:Number(row.pageReference.match(/\d+/)?.[0]||1),text:`${row.unit} › ${row.chapter} › ${row.topic}`})),detectedGradeCode:inferClass(scopeText),detectedSubject:inferSubject(scopeText),reviewRequired:true,notice:'A structured Draft was created from machine-extracted headings. Verify every unit, chapter, topic and page reference before review.'};
  }catch(error){if(hasStatusCode(error))throw error;throw fail('Could not parse this PDF. Use a text-based PDF; scanned image PDFs need OCR.');}
+}
+export async function extractOfficialSyllabusOutline(pdfUrl:string,boardCode:string){
+ const url=checkedOfficialUrl(pdfUrl,undefined,boardCode);let response;
+ try{response=await getOfficial<ArrayBuffer>(url,{timeout:45000,maxContentLength:maxPdfBytes,maxBodyLength:maxPdfBytes,responseType:'arraybuffer',headers:{Accept:'application/pdf','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not download the official PDF. It may require a browser session or direct download access.',502);}
+ const bytes=Buffer.from(response.data);return extractSyllabusPdfBytes(bytes,url.toString(),decodeURIComponent(url.pathname.split('/').pop()||''));
 }
