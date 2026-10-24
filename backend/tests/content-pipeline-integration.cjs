@@ -5,7 +5,7 @@ const path = require('node:path');
 const { PGlite } = require('@electric-sql/pglite');
 const root = path.resolve(__dirname, '../..');
 let syllabusStudentId;
-let db, pipeline, factory, quality, admin, discovery, learner, publicLearning, acquisition, syllabus, governance;
+let db, pipeline, factory, quality, admin, discovery, learner, publicLearning, acquisition, syllabus, syllabusDocuments, governance;
 let scanCode=0, downloads=0, stored=[], deleted=[], responseBytes=Buffer.from("%PDF-1.7\nfixture"), responseMime="application/pdf";
 const adminId = '00000000-0000-0000-0000-000000000001';
 const migrations = [
@@ -16,7 +16,7 @@ const migrations = [
  '045_learning_ai_content_creator.sql','046_learning_creator_source_discovery.sql','047_learning_source_registry_video_discovery.sql',
  '048_learning_content_factory_foundation.sql','049_learning_source_library_handoff.sql','050_unified_registration_role_linking.sql',
  '051_learning_content_pipeline.sql','052_learning_content_integration.sql','053_verified_syllabus_workspace.sql',
- '057_curriculum_topic_assets.sql','058_learning_asset_governance_analytics.sql','059_syllabus_content_handoff.sql',
+ '057_curriculum_topic_assets.sql','058_learning_asset_governance_analytics.sql','059_syllabus_content_handoff.sql','060_syllabus_e2e_manager.sql',
 ];
 async function sqlFile(file) {
  let sql = fs.readFileSync(path.join(root, file),'utf8').replace(/^\\.*$/gm,'').replace(/CREATE EXTENSION IF NOT EXISTS[^;]+;/g,'');
@@ -37,6 +37,7 @@ before(async () => {
  await sqlFile('database/migrations/057_curriculum_topic_assets.sql'); // idempotency
  await sqlFile('database/migrations/058_learning_asset_governance_analytics.sql');
  await sqlFile('database/migrations/059_syllabus_content_handoff.sql');
+ await sqlFile('database/migrations/060_syllabus_e2e_manager.sql');
  const query = (sql, params=[]) => db.query(sql,params);
  const dbModule = require.resolve('../dist/config/db');
  require.cache[dbModule] = { id: dbModule,filename: dbModule,loaded: true,exports: {
@@ -50,6 +51,7 @@ before(async () => {
  require('child_process').spawn=()=>{const child=new(require('events').EventEmitter)();child.stdin=new(require('events').EventEmitter)();child.stdin.end=()=>setImmediate(()=>child.emit('close',scanCode));child.kill=()=>{};return child;};
  acquisition=require('../dist/services/learningSourceAcquisition.service');
  syllabus=require('../dist/services/syllabus.service');
+ syllabusDocuments=require('../dist/services/syllabusDocuments.service');
  governance=require('../dist/services/learningAssetGovernance.service');
  pipeline = require('../dist/services/learningContentPipeline.service');
  factory = require('../dist/services/adminContentFactory.service');
@@ -73,6 +75,31 @@ test('original early-years content materialises once and stays unpublished',asyn
  await assert.rejects(pipeline.stageContent({...base,sourceUrl:row.source_url},adminId),/already in Content Library/);
  const readiness = await quality.getResourceReadiness(first.resourceId);
  assert.equal(readiness.checks.find((check)=>check.code==='CURRICULUM_SCOPE').passed,true);
+});
+
+test('multiple syllabus PDFs share one framework and a Draft deletion removes only its own topics',async () => {
+ const board=(await db.query("SELECT id FROM education_boards WHERE code='CBSE'")).rows[0];
+ const subjects=(await db.query('SELECT id,name FROM subjects ORDER BY name LIMIT 2')).rows;
+ assert.equal(subjects.length,2);
+ const insertDocument=async(index,subject)=> (await db.query(`INSERT INTO syllabus_documents(board_id,academic_year,grade_code,subject_id,title,language,medium,source_url,storage_key,checksum_sha256,byte_size,page_count,uploaded_by,structured_outline)
+   VALUES($1,'2031-32','CLASS_12',$2,$3,'en','en',$4,$5,$6,100,1,$7,'[]'::jsonb) RETURNING id`,[board.id,subject.id,`${subject.name} syllabus`,`https://cbseacademic.nic.in/${index}.pdf`,`syllabus/test-${index}.pdf`,String(index).repeat(64),adminId])).rows[0];
+ const first=await insertDocument(1,subjects[0]);const second=await insertDocument(2,subjects[1]);const third=await insertDocument(3,subjects[1]);
+ const importDocument=(document,subject,index)=>syllabus.importSyllabus({boardCode:'CBSE',academicYear:'2031-32',title:'CBSE Class 12 framework',sourceUrl:`https://cbseacademic.nic.in/${index}.pdf`,sourceDocumentId:document.id,medium:'en',rows:[{gradeCode:'CLASS_12',subjectId:subject.id,unit:`Unit ${index}`,chapter:`Chapter ${index}`,topic:`Topic ${index}`,learningOutcome:'Reviewed outcome',evidenceUrl:`https://cbseacademic.nic.in/${index}.pdf`,pageReference:'Page 1'}]},adminId);
+ const firstVersion=await importDocument(first,subjects[0],1);const secondVersion=await importDocument(second,subjects[1],2);await importDocument(third,subjects[1],2);
+ assert.equal(firstVersion.id,secondVersion.id);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topic_evidence e JOIN curriculum_topics t ON t.id=e.topic_id WHERE t.title=$1',[`Topic 2`])).rows[0].count,2);
+ const manual=await syllabus.addSyllabusTopic(firstVersion.id,{gradeCode:'CLASS_12',subjectId:subjects[1].id,unit:'Manual corrections',chapter:'Added chapter',topic:'Added topic',pageReference:'Page 2',sortOrder:2},adminId);assert.equal(manual.created,true);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_version_evidence WHERE curriculum_version_id=$1',[firstVersion.id])).rows[0].count,3);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topics WHERE source_document_id=ANY($1::uuid[])',[[first.id,second.id]])).rows[0].count,2);
+ await syllabusDocuments.deleteSyllabusDocument(second.id,adminId);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topics WHERE title=$1',[`Topic 2`])).rows[0].count,1);
+ assert.equal((await db.query('SELECT source_document_id FROM curriculum_topics WHERE title=$1',[`Topic 2`])).rows[0].source_document_id,third.id);
+ await syllabusDocuments.deleteSyllabusDocument(first.id,adminId);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topics WHERE source_document_id=$1',[first.id])).rows[0].count,0);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topics WHERE source_document_id=$1',[second.id])).rows[0].count,0);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topics WHERE source_document_id=$1',[third.id])).rows[0].count,1);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_topics WHERE id=$1',[manual.topicId])).rows[0].count,1);
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_versions WHERE id=$1',[firstVersion.id])).rows[0].count,1);
 });
 test('discovered candidate can be configured, rights reviewed and materialised through one pipeline',async () => {
  const source=(await db.query("SELECT id FROM learning_content_sources WHERE code='DIKSHA'")).rows[0];
@@ -319,6 +346,9 @@ test('syllabus endpoints enforce real JWT roles and validated input',async()=>{
  assert.equal((await fetch(`${baseUrl}/admin/syllabus/options`,{headers:{Authorization:`Bearer ${adminToken}`}})).status,200);
  assert.equal((await fetch(`${baseUrl}/student/syllabus`,{headers:{Authorization:`Bearer ${studentToken}`}})).status,200);
  assert.equal((await fetch(`${baseUrl}/admin/syllabus/import`,{method:'POST',headers:{Authorization:`Bearer ${adminToken}`,'Content-Type':'application/json'},body:JSON.stringify({boardCode:'CBSE',academicYear:'2026-29',title:'Invalid year',sourceUrl:'https://cbseacademic.nic.in/',rows:[]})})).status,400);
+ const batch=new FormData();batch.append('boardCode','CBSE');batch.append('academicYear','2026-27');batch.append('language','en');batch.append('files',new Blob(['%PDF-1.7\ninvalid'],{type:'application/pdf'}),'first.pdf');batch.append('files',new Blob(['%PDF-1.7\ninvalid'],{type:'application/pdf'}),'second.pdf');
+ const batchResponse=await fetch(`${baseUrl}/admin/syllabus/documents/upload-batch`,{method:'POST',headers:{Authorization:`Bearer ${adminToken}`},body:batch});
+ assert.equal(batchResponse.status,200);const batchPayload=await batchResponse.json();assert.equal(batchPayload.data.failed,2);assert.equal(batchPayload.data.results.length,2);
  } finally {await new Promise(r=>server.close(r));}
 });
 test('compiled server loads environment before database-bearing routes',()=>{
