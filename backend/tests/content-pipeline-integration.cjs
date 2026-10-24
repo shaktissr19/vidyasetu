@@ -16,7 +16,7 @@ const migrations = [
  '045_learning_ai_content_creator.sql','046_learning_creator_source_discovery.sql','047_learning_source_registry_video_discovery.sql',
  '048_learning_content_factory_foundation.sql','049_learning_source_library_handoff.sql','050_unified_registration_role_linking.sql',
  '051_learning_content_pipeline.sql','052_learning_content_integration.sql','053_verified_syllabus_workspace.sql',
- '057_curriculum_topic_assets.sql','058_learning_asset_governance_analytics.sql',
+ '057_curriculum_topic_assets.sql','058_learning_asset_governance_analytics.sql','059_syllabus_content_handoff.sql',
 ];
 async function sqlFile(file) {
  let sql = fs.readFileSync(path.join(root, file),'utf8').replace(/^\\.*$/gm,'').replace(/CREATE EXTENSION IF NOT EXISTS[^;]+;/g,'');
@@ -36,6 +36,7 @@ before(async () => {
  await sqlFile('database/migrations/053_verified_syllabus_workspace.sql');
  await sqlFile('database/migrations/057_curriculum_topic_assets.sql'); // idempotency
  await sqlFile('database/migrations/058_learning_asset_governance_analytics.sql');
+ await sqlFile('database/migrations/059_syllabus_content_handoff.sql');
  const query = (sql, params=[]) => db.query(sql,params);
  const dbModule = require.resolve('../dist/config/db');
  require.cache[dbModule] = { id: dbModule,filename: dbModule,loaded: true,exports: {
@@ -245,8 +246,10 @@ test('syllabus-linked content respects subscriptions and completion never implie
  const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];await db.query('UPDATE students SET school_id=NULL WHERE id=$1',[student.id]);
  await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});
  const view=await syllabus.studentSyllabus(student.user_id);const topic=view.topics[0];assert.ok(topic);
- await assert.rejects(pipeline.stageContent({...base,title:'Wrong syllabus board fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CISCE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id]},adminId),/Syllabus topics must match/);
- const staged=await pipeline.stageContent({...base,title:'Syllabus subscriber fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CBSE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id],visibility:'REGISTERED',accessRequirement:'SUBSCRIBER'},adminId);await pipeline.approveIntake(staged.intakeId,adminId);const resource=await pipeline.materialiseIntake(staged.intakeId,adminId);
+ await assert.rejects(pipeline.stageContent({...base,title:'Wrong syllabus board fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CISCE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id],curriculumTopicId:topic.id,curriculumAcademicYear:'2026-27',curriculumMedium:'hi'},adminId),/does not match the content board/);
+ await assert.rejects(pipeline.stageContent({...base,title:'Wrong syllabus medium fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CBSE'],subjectId:topic.subject_id,conceptIds:[topic.concept_id],curriculumTopicId:topic.id,curriculumAcademicYear:'2026-27',curriculumMedium:'en'},adminId),/does not match the selected syllabus medium/);
+ const staged=await pipeline.stageContent({...base,title:'Syllabus subscriber fixture',category:'ACADEMIC',gradeCodes:['CLASS_6'],boardCodes:['CBSE'],subjectId:topic.subject_id,topicLabel:topic.title,conceptIds:[topic.concept_id],curriculumTopicId:topic.id,curriculumAcademicYear:'2026-27',curriculumMedium:'hi',visibility:'REGISTERED',accessRequirement:'SUBSCRIBER'},adminId);await pipeline.approveIntake(staged.intakeId,adminId);const resource=await pipeline.materialiseIntake(staged.intakeId,adminId);
+ assert.equal((await db.query('SELECT curriculum_topic_id FROM learning_resources WHERE id=$1',[resource.resourceId])).rows[0].curriculum_topic_id,topic.id);
  await syllabus.linkTopicResource(topic.id,resource.resourceId,adminId);
  await assert.rejects(syllabus.linkTopicResource(topic.id,'00000000-0000-0000-0000-000000000099',adminId),/same canonical subject/);
  await db.query("UPDATE learning_resources SET review_status='APPROVED' WHERE id=$1",[resource.resourceId]);await db.query("UPDATE learning_resources SET review_status='PUBLISHED' WHERE id=$1",[resource.resourceId]);

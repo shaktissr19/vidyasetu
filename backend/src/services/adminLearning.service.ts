@@ -5,6 +5,7 @@ import { getDownloadUrl } from '../config/s3';
 import { query, transaction } from '../config/db';
 import { getResourceReadiness } from './learningQuality.service';
 import { resolveLearningAccessPolicy, type LearningAccessRequirement } from './learningAccessPolicy';
+import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
 export interface LearningConceptMappingInput {
   conceptId: UUID;
@@ -28,6 +29,10 @@ export interface SaveLearningResourceInput {
   language?: string;
   classMin?: number | null;
   classMax?: number | null;
+  subjectId?: UUID | null;
+  curriculumTopicId?: UUID | null;
+  curriculumAcademicYear?: string | null;
+  curriculumMedium?: 'en' | 'hi' | null;
   sourceCode: string;
   sourceUrl?: string | null;
   sourceItemId?: string | null;
@@ -251,6 +256,14 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
     );
     if (boards.length !== new Set(boardCodes).size) throw badRequest('One or more selected board codes are invalid.');
 
+    if (input.curriculumTopicId) {
+      const gradeCodes=input.classMin&&input.classMax===input.classMin?[`CLASS_${input.classMin}`]:[];
+      await requirePublishedSyllabusTopic(client,input.curriculumTopicId,{
+        boardCodes,gradeCodes,subjectId:input.subjectId,academicYear:input.curriculumAcademicYear,
+        medium:input.curriculumMedium,conceptId:conceptMappings[0]?.conceptId,
+      });
+    }
+
     if (conceptMappings.length) {
       const uniqueConceptIds = [...new Set(conceptMappings.map((mapping) => mapping.conceptId))];
       const { rows: concepts } = await client.query<{ id: UUID }>(
@@ -264,13 +277,13 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
       `INSERT INTO learning_resources
          (public_slug, title, title_hi, summary, summary_hi, body_markdown, body_markdown_hi,
           resource_type, category, visibility, review_status, language, class_min, class_max,
-          source_id, source_url, source_item_id, licence, licence_url, attribution_text,
+          subject_id,curriculum_topic_id,source_id, source_url, source_item_id, licence, licence_url, attribution_text,
           external_url, file_key, thumbnail_url, duration_secs, is_offline_ready,
           is_featured_public, access_requirement, created_by, reviewed_by, reviewed_at, published_at)
        VALUES
          ($1,$2,$3,$4,$5,$6,$7,$8::learning_resource_type,$9::learning_category,
-          $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16,$17,
-          $18::learning_license_code,$19,$20,$21,$22,$23,$24,$25,$26,$27::learning_access_requirement,$28::uuid,
+          $10::learning_visibility,$11::learning_review_status,$12,$13,$14,$15::uuid,$16::uuid,$17::uuid,$18,$19,
+          $20::learning_license_code,$21,$22,$23,$24,$25,$26,$27,$28,$29::learning_access_requirement,$30::uuid,
           NULL::uuid,NULL::timestamptz,NULL::timestamptz)
        RETURNING id`,
       [
@@ -278,7 +291,7 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
         input.summaryHi?.trim() || null, input.bodyMarkdown?.trim() || null,
         input.bodyMarkdownHi?.trim() || null, input.resourceType, input.category,
         access.visibility, requestedStatus, input.language || 'en', input.classMin || null,
-        input.classMax || null, source.id, input.sourceUrl?.trim() || null,
+        input.classMax || null,input.subjectId||null,input.curriculumTopicId||null, source.id, input.sourceUrl?.trim() || null,
         input.sourceItemId?.trim() || null, input.licence, input.licenceUrl?.trim() || null,
         input.attributionText?.trim() || null, input.externalUrl?.trim() || null,
         input.fileKey?.trim() || null, input.thumbnailUrl?.trim() || null,

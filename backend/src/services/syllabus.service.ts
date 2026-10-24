@@ -166,7 +166,7 @@ export async function studentSyllabus(userId:string) {
 export async function linkTopicResource(topicId:string,resourceId:string,actor:string) {
  await syllabusReady();
  return transaction(async client=>{
- const {rows:[topic]}=await client.query(`SELECT ctc.concept_id,cs.subject_id,cs.class_name,cv.board_id,cv.id AS version_id FROM curriculum_topic_concepts ctc JOIN curriculum_topics ct ON ct.id=ctc.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id WHERE ct.id=$1::uuid AND cv.status='ACTIVE' AND cv.verified_at IS NOT NULL AND ct.is_retired=FALSE FOR SHARE OF cv`,[topicId]);
+ const {rows:[topic]}=await client.query(`SELECT ctc.concept_id,cs.subject_id,cs.class_name,cv.board_id,cv.id AS version_id FROM curriculum_topic_concepts ctc JOIN curriculum_topics ct ON ct.id=ctc.topic_id JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id WHERE ct.id=$1::uuid AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL AND ct.is_retired=FALSE FOR SHARE OF cv`,[topicId]);
  if(!topic) throw fail('Choose a topic from a verified active syllabus');
  const {rows:[resource]}=await client.query('SELECT * FROM learning_resources WHERE id=$1::uuid FOR UPDATE',[resourceId]);
  if(!resource || resource.subject_id!==topic.subject_id) throw fail('Resource must have the same canonical subject');
@@ -179,6 +179,7 @@ export async function linkTopicResource(topicId:string,resourceId:string,actor:s
  const {rows:previousConcepts}=await client.query('SELECT * FROM learning_resource_concepts WHERE resource_id=$1',[resourceId]);
  await client.query(`INSERT INTO learning_resource_revisions(resource_id,actor_id,snapshot) VALUES($1,$2,$3::jsonb)`,[resourceId,actor,JSON.stringify({operation:'SYLLABUS_MAPPING',resource,relations:{concepts:previousConcepts},topicId})]);
  await client.query(`INSERT INTO learning_resource_concepts(resource_id,concept_id,journey_stage) VALUES($1,$2,'UNDERSTAND') ON CONFLICT DO NOTHING`,[resourceId,topic.concept_id]);
+ await client.query(`UPDATE learning_resources SET curriculum_topic_id=$2::uuid,chapter_label=COALESCE(chapter_label,(SELECT cc.title FROM curriculum_topics ct LEFT JOIN curriculum_chapters cc ON cc.id=ct.chapter_id WHERE ct.id=$2::uuid)),topic_label=COALESCE(topic_label,(SELECT title FROM curriculum_topics WHERE id=$2::uuid)),updated_at=NOW() WHERE id=$1::uuid`,[resourceId,topicId]);
  await client.query("UPDATE learning_quality_gate_reviews SET status='PENDING',note='Syllabus mapping changed; review again',reviewer_id=NULL,reviewed_at=NULL WHERE entity_type='RESOURCE' AND entity_id=$1",[resourceId]);
  await audit(client,actor,topic.version_id,'UPDATE',{operation:'LINK_DRAFT_RESOURCE',topicId,resourceId});
  return {mapped:true};

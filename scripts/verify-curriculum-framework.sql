@@ -13,4 +13,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_curriculum_versions_year_medium_version') THEN
     RAISE EXCEPTION 'Framework versions are not isolated by medium';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='curriculum_topic_id')
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_creator_jobs' AND column_name='curriculum_topic_id')
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='curriculum_topic_id') THEN
+    RAISE EXCEPTION 'Syllabus-to-content handoff migration 059 is incomplete';
+  END IF;
 END $$;

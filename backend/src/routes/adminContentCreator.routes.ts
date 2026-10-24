@@ -50,6 +50,9 @@ const creatorJobSchema = z.object({
   title: z.string().trim().min(3).max(300),
   instructions: z.string().trim().max(8000).nullable().optional(),
   conceptId: z.string().uuid().nullable().optional(),
+  curriculumTopicId: z.string().uuid().nullable().optional(),
+  curriculumAcademicYear: z.string().regex(/^20\d{2}-\d{2}$/).nullable().optional(),
+  curriculumMedium: z.enum(['en','hi']).nullable().optional(),
   existingResourceId: z.string().uuid().nullable().optional(),
   classNumber: z.number().int().min(1).max(12).nullable().optional(),
   subjectId: z.string().uuid().nullable().optional(),
@@ -84,6 +87,8 @@ const reviewSchema = z.object({
 
 const discoverySchema = z.object({
   conceptIds:z.array(z.string().uuid()).max(10).optional(),academicYear:z.string().regex(/^20\d{2}-\d{2}$/).nullable().optional(),
+  curriculumTopicId:z.string().uuid().nullable().optional(),
+  curriculumMedium:z.enum(['en','hi']).nullable().optional(),
   subjectId:z.string().uuid().nullable().optional(),chapterLabel:z.string().trim().max(220).nullable().optional(),topicLabel:z.string().trim().max(220).nullable().optional(),
   gradeCode: z.string().trim().min(2).max(24).nullable().optional(),
   boardCode: z.string().trim().min(2).max(40).nullable().optional(),

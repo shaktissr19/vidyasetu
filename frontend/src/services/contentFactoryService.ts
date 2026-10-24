@@ -19,6 +19,7 @@ export interface FactorySubjectOption {
 
 export interface FactoryCurriculumSubjectOption {
   academic_year?:string;
+  medium?:'en'|'hi';
   id: string;
   curriculum_version_id: string;
   board_id: string;
@@ -45,6 +46,9 @@ export interface FactoryCurriculumUnitOption {
 export interface FactoryCurriculumTopicOption {
   id: string;
   curriculum_unit_id: string;
+  chapter_id?:string|null;
+  chapter_title?:string|null;
+  concept_id?:string|null;
   topic_number?: string | null;
   title: string;
   title_hi?: string | null;
@@ -150,6 +154,9 @@ export interface AddApprovedSourceToLibraryPayload {
   subjectName?: string | null;
   chapter?: string | null;
   topic?: string | null;
+  curriculumTopicId?:string|null;
+  curriculumAcademicYear?:string|null;
+  curriculumMedium?:'en'|'hi'|null;
   language?: 'en' | 'hi' | 'en-hi';
   visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY';
   accessRequirement: 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';

@@ -4,6 +4,7 @@ import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
 import * as practiceService from './adminLearningPractice.service';
+import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
 export type DiscoveryProvider =
   | 'LOCAL'
@@ -19,7 +20,8 @@ export type DiscoveryProvider =
 export type DiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
 
 export interface DiscoverSourcesInput {
-  conceptIds?:string[]; academicYear?:string|null;
+  conceptIds?:string[]; academicYear?:string|null; curriculumMedium?:'en'|'hi'|null;
+  curriculumTopicId?:string|null;
   provider?: DiscoveryProvider;
   providers?: DiscoveryProvider[];
   query: string;
@@ -323,7 +325,7 @@ async function createRun(input: DiscoverSourcesInput, provider: DiscoveryProvide
         mediaKinds: input.mediaKinds || [],
         gradeCode: input.gradeCode || (input.classNumber ? `CLASS_${input.classNumber}` : null),
         boardCode: input.boardCode || null,
-        conceptIds:input.conceptIds || [],academicYear:input.academicYear || null,subjectId:input.subjectId || null,chapterLabel:input.chapterLabel || null,topicLabel:input.topicLabel || null,
+        conceptIds:input.conceptIds || [],academicYear:input.academicYear || null,curriculumMedium:input.curriculumMedium||null,curriculumTopicId:input.curriculumTopicId || null,subjectId:input.subjectId || null,chapterLabel:input.chapterLabel || null,topicLabel:input.topicLabel || null,
         publisher: input.publisher?.trim() || null,
         maxDurationMinutes: input.maxDurationMinutes || null,
         onlyCommercialSafe: Boolean(input.onlyCommercialSafe),
@@ -585,6 +587,21 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
   await assertDiscoverySchema();
   const { rows: [candidate] } = await query<CandidateRow>(`SELECT * FROM learning_source_discovery_candidates WHERE id=$1`, [candidateId]);
   if (!candidate) throw appError('Source discovery candidate not found',404);
+  const { rows: [run] } = await query(`SELECT filters,class_number FROM learning_source_discovery_runs WHERE id=$1::uuid`,[candidate.run_id]);
+  const filters = (run?.filters || {}) as Record<string,unknown>;
+  const curriculumTopicId = typeof filters.curriculumTopicId === 'string' ? filters.curriculumTopicId : null;
+  if (curriculumTopicId) {
+    await transaction(async (client) => {
+      await requirePublishedSyllabusTopic(client,curriculumTopicId,{
+        boardCodes:[String(filters.boardCode || '')],
+        gradeCodes:[String(filters.gradeCode || (run?.class_number ? `CLASS_${run.class_number}` : ''))],
+        subjectId:typeof filters.subjectId==='string'?filters.subjectId:null,
+        academicYear:typeof filters.academicYear==='string'?filters.academicYear:null,
+        medium:filters.curriculumMedium==='en'||filters.curriculumMedium==='hi'?filters.curriculumMedium:null,
+        conceptId:Array.isArray(filters.conceptIds)&&filters.conceptIds.length===1?String(filters.conceptIds[0]):null,
+      });
+    });
+  }
   if (candidate.reference_only) {
     throw appError('This is a reference-search entry, not a specific learning item. Open the official source, choose an item, then stage its URL using the selected-source form.');
   }
@@ -595,9 +612,18 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
     );
     return { kind: 'GOVERNED_RESOURCE' as const,resourceId: candidate.resource_id,candidate: updated };
   }
-  if (candidate.intake_id) return { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id,alreadyStaged: true };
+  if (candidate.intake_id) {
+    if (curriculumTopicId) {
+      const { rows: [linked] } = await query(
+        `UPDATE learning_source_intake SET curriculum_topic_id=$2::uuid
+         WHERE id=$1::uuid AND (curriculum_topic_id IS NULL OR curriculum_topic_id=$2::uuid)
+         RETURNING id`, [candidate.intake_id,curriculumTopicId],
+      );
+      if (!linked) throw appError('This source is already linked to a different syllabus topic. Stage a separate source item for the selected topic.',409);
+    }
+    return { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id,alreadyStaged: true };
+  }
   if (!candidate.source_url) throw appError('External discovery candidate has no usable source URL');
-  const { rows: [run] } = await query(`SELECT filters,class_number FROM learning_source_discovery_runs WHERE id=$1::uuid`,[candidate.run_id]);
   const selectedGrade = run?.filters?.gradeCode || (run?.class_number ? `CLASS_${run.class_number}` : null);
   const intake = await practiceService.createIntake({
     sourceCode: candidate.source_code,
@@ -610,6 +636,7 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
     subjectHint: candidate.subjects.join(', ') || null,
     boardHint: run?.filters?.boardCode || null,
   },adminId);
+  if (curriculumTopicId) await query(`UPDATE learning_source_intake SET curriculum_topic_id=$2::uuid WHERE id=$1::uuid`,[intake.id,curriculumTopicId]);
   await query(
     `UPDATE learning_source_discovery_candidates SET intake_id=$2,staged_by=$3,staged_at=NOW() WHERE id=$1`,
     [candidateId,intake.id,adminId],

@@ -30,6 +30,14 @@ export interface PipelineOptions {
 
 export interface PipelineQueueItem {
   id: string; title: string; source_url: string; source_item_id?: string | null; media_kind: PipelineMediaKind;
+  curriculum_topic_id?:string|null;
+  curriculum_academic_year?:string|null;
+  curriculum_medium?:'en'|'hi'|null;
+  curriculum_board_code?:string|null;
+  curriculum_class_name?:string|null;
+  curriculum_subject_name?:string|null;
+  curriculum_chapter_title?:string|null;
+  curriculum_topic_title?:string|null;
   category: PipelineCategory; delivery_mode: PipelineDeliveryMode; rights_status: string; licence_candidate?: PipelineLicence | null;
   licence_url?: string | null; attribution_text?: string | null; rights_evidence_url?: string | null;
   grade_code?: string | null; status: string; created_at: string; reviewed_at?: string | null;
@@ -42,6 +50,9 @@ export interface PipelineQueueItem {
 export interface StagePipelinePayload {
   intakeId?: string;
   originalFileName?: string | null;
+  curriculumTopicId?:string|null;
+  curriculumAcademicYear?:string|null;
+  curriculumMedium?:'en'|'hi'|null;
   titleHi?: string | null; difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null; conceptIds?: string[];
   journeyStage?: 'SEE' | 'UNDERSTAND' | 'DO' | 'PRACTISE' | 'APPLY' | 'REVISE';
   transcript?: string | null; altText?: string | null;
