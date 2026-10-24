@@ -183,8 +183,9 @@ log "7/9 Run local non-destructive cross-role release smoke"
 cd "$RELEASE_DIR"
 API_BASE=http://127.0.0.1:5000/api/v1 WEB_BASE=http://127.0.0.1:3000 bash scripts/cross-role-production-smoke.sh
 
-log "8/9 Validate existing Nginx and public routes without rewriting configuration"
+log "8/9 Configure syllabus upload size and validate Nginx/public routes"
 [[ -f "$NGINX_SITE" ]] || fail "Nginx site file not found: $NGINX_SITE"
+bash "$RELEASE_DIR/scripts/configure-syllabus-upload-nginx.sh"
 nginx -t
 WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/cross-role-production-smoke.sh
 
@@ -195,4 +196,4 @@ printf '\nNative release deployment completed.\nCommit: %s\nRelease: %s\nBackup:
 printf 'API runtime: %s\n' "$API_SCRIPT"
 printf 'OTP provider status: %s\n' "$OTP_PROVIDER_STATUS"
 printf 'Password login remains available even when OTP provider status is UNAVAILABLE.\n'
-printf 'No Docker command, database migration, seed, or Nginx rewrite was executed by this release script.\n'
+printf 'No Docker command, database migration, seed, or Nginx site-file rewrite was executed by this release script.\n'
