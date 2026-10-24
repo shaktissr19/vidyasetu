@@ -102,19 +102,6 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/027_student_concept_mastery_runtime.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/028_grounded_ai_doubt_resolution.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/036_learning_content_quality_governance.sql
-          for migration in \
-            044_learning_entitlements_canonical_runtime.sql \
-            045_learning_ai_content_creator.sql \
-            046_learning_creator_source_discovery.sql \
-            047_learning_source_registry_video_discovery.sql \
-            048_learning_content_factory_foundation.sql \
-            049_learning_source_library_handoff.sql \
-            050_unified_registration_role_linking.sql \
-            051_learning_content_pipeline.sql; do
-              echo "Applying $migration for current backend compatibility"
-              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
-          done
-
       - name: Apply validation content pack twice to prove idempotence
         env:
           PGPASSWORD: postgres
@@ -128,6 +115,20 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources lr JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE egl.code='CLASS_5' AND lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED';")" -ge 5
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources lr JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE egl.code='CLASS_8' AND lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED';")" -ge 8
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_resources lr JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id JOIN education_grade_levels egl ON egl.id=lrg.grade_id WHERE egl.code='PRE_NURSERY' AND lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED';")" -ge 2
+          for migration in \
+            044_learning_entitlements_canonical_runtime.sql \
+            045_learning_ai_content_creator.sql \
+            046_learning_creator_source_discovery.sql \
+            047_learning_source_registry_video_discovery.sql \
+            048_learning_content_factory_foundation.sql \
+            049_learning_source_library_handoff.sql \
+            050_unified_registration_role_linking.sql \
+            051_learning_content_pipeline.sql \
+            057_curriculum_topic_assets.sql \
+            058_learning_asset_governance_analytics.sql; do
+              echo "Applying $migration after legacy validation fixtures"
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
 
       - name: Start compiled backend
         working-directory: backend
