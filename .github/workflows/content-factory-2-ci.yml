@@ -33,6 +33,7 @@ jobs:
           test -s database/migrations/050_unified_registration_role_linking.sql
           test -s database/migrations/051_learning_content_pipeline.sql
           test -s database/migrations/059_syllabus_content_handoff.sql
+          test -s database/migrations/060_syllabus_e2e_manager.sql
           grep -q "learning_content_packs" database/migrations/048_learning_content_factory_foundation.sql
           grep -q "EXTERNAL_WEB" database/migrations/048_learning_content_factory_foundation.sql
           grep -q "licence_verified_at" database/migrations/049_learning_source_library_handoff.sql
@@ -136,7 +137,8 @@ jobs:
           for migration in \
             057_curriculum_topic_assets.sql \
             058_learning_asset_governance_analytics.sql \
-            059_syllabus_content_handoff.sql; do
+            059_syllabus_content_handoff.sql \
+            060_syllabus_e2e_manager.sql; do
               echo "Applying $migration"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
