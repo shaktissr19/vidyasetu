@@ -31,7 +31,7 @@ import {
 } from '@/services/learningContentPipelineService';
 
 const panel = { padding: 20, borderRadius: 16 } as const;
-const primary = { padding: '10px 16px', borderRadius: 10, border: 0, background: '#FF6B00', color: '#fff', fontWeight: 900, cursor: 'pointer' } as const;
+const primary = { padding: '10px 16px', borderRadius: 10, border: 0, background: '#B54708', color: '#fff', fontWeight: 900, cursor: 'pointer' } as const;
 const secondary = { padding: '9px 14px', borderRadius: 10, border: '1px solid #CBD5E1', background: '#fff', color: '#14213D', fontWeight: 800, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' } as const;
 const LICENCES: PipelineLicence[] = ['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','PERMISSION_GRANTED','OTHER'];
 const MEDIA_LABELS: Record<PipelineMediaKind, string> = {
@@ -230,7 +230,7 @@ export default function LearningContentPipelinePage() {
     <div className="admin-page" style={{ padding: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
         <div>
-          <div style={{ color: '#FF6B00', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>CONTENT PIPELINE</div>
+          <div style={{ color: '#9A3B00', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>CONTENT PIPELINE</div>
           <h1 style={{ margin: '5px 0', fontSize: 34 }}>Prepare content for your Library</h1>
           <p className="admin-muted" style={{ maxWidth: 900, lineHeight: 1.65 }}>Use one workflow for VidyaSetu originals, licensed files and official provider links/embeds. UKG, LKG, nursery and Classes 1–12 are first-class grade choices.</p>
         </div>

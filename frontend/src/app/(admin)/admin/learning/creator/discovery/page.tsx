@@ -127,7 +127,7 @@ export default function AdminSourceLibraryPage() {
     <div className="admin-page" style={{ padding: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 18 }}>
         <div>
-          <div style={{ color: '#FF6B00', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>LEARNING SOURCES</div>
+          <div style={{ color: '#9A3B00', fontSize: 12, fontWeight: 900, letterSpacing: '.12em' }}>LEARNING SOURCES</div>
           <h1 style={{ margin: '5px 0', fontSize: 34 }}>Source Library</h1>
           <p className="admin-muted" style={{ maxWidth: 850, lineHeight: 1.65 }}>Search VidyaSetu and DIKSHA directly, or open trusted official libraries when they do not expose a stable structured search API.</p>
         </div>

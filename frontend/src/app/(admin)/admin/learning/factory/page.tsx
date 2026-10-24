@@ -24,7 +24,7 @@ import {
 import { apiErrorText } from '@/utils/errors';
 
 const panel = { padding: 20,borderRadius: 16 } as const;
-const button = { padding: '10px 16px',borderRadius: 10,border: 0,background: '#FF6B00',color: '#fff',fontWeight: 900,cursor: 'pointer' } as const;
+const button = { padding: '10px 16px',borderRadius: 10,border: 0,background: '#B54708',color: '#fff',fontWeight: 900,cursor: 'pointer' } as const;
 const secondary = { padding: '9px 14px',borderRadius: 10,border: '1px solid #CBD5E1',background: '#fff',color: '#14213D',fontWeight: 800,textDecoration: 'none',display: 'inline-flex',alignItems: 'center',gap: 6 } as const;
 const providerIcon: Record<CreatorDiscoveryProvider,string> = {
   LOCAL: '📚',DIKSHA: '🇮🇳',NROER: '🏛️',CBSE: '🎓',NCERT_EPATHSHALA: '📖',NIOS: '🏫',SWAYAM: '🎬',PHET: '🔬',OER_COMMONS: '🌍',
@@ -253,7 +253,7 @@ export default function ContentFactoryPage() {
     <div className="admin-page" style={{ padding: 8 }}>
       <div style={{ display: 'flex',justifyContent: 'space-between',gap: 16,flexWrap: 'wrap',alignItems: 'flex-start',marginBottom: 18 }}>
         <div>
-          <div style={{ color: '#FF6B00',fontSize: 12,fontWeight: 900,letterSpacing: '.12em' }}>CONTENT FACTORY · START HERE</div>
+          <div style={{ color: '#9A3B00',fontSize: 12,fontWeight: 900,letterSpacing: '.12em' }}>CONTENT FACTORY · START HERE</div>
           <h1 style={{ margin: '5px 0',fontSize: 34 }}>Build or add learning content</h1>
           <p className="admin-muted" style={{ maxWidth: 940,lineHeight: 1.65 }}>Choose the learner context, search trusted sources, select an item, verify its rights, then add it to Content Library. You can also create an AI-assisted text/question draft from governed sources. Nothing is published automatically.</p>
         </div>

@@ -17,7 +17,7 @@ function menuLabel(text: string,count?: number): ReactNode {
   if (!count) return text;
   return <span style={{ display: 'flex',alignItems: 'center',justifyContent: 'space-between',gap: 8,width: '100%' }}>
     <span>{text}</span>
-    <span aria-label={`${count} pending`} style={{ minWidth: 20,height: 20,padding: '0 6px',borderRadius: 999,background: '#FF6B00',color: '#fff',fontSize: 11,fontWeight: 900,display: 'inline-flex',alignItems: 'center',justifyContent: 'center' }}>{count > 99 ? '99+' : count}</span>
+    <span aria-label={`${count} pending`} style={{ minWidth: 20,height: 20,padding: '0 6px',borderRadius: 999,background: '#B54708',color: '#fff',fontSize: 11,fontWeight: 900,display: 'inline-flex',alignItems: 'center',justifyContent: 'center' }}>{count > 99 ? '99+' : count}</span>
   </span>;
 }
 
