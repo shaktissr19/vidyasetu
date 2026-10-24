@@ -23,6 +23,7 @@ export default function AdminAnalytics() {
   const approveMut = useMutation({
     mutationFn: ({ id }: { id: string }) => updateSchoolStatus(id, 'ACTIVE'),
     onSuccess: async () => { toast.success('✅ School approved!'); await qc.invalidateQueries({ queryKey: ['admin-analytics'] }); await qc.invalidateQueries({ queryKey: ['admin-schools'] }); },
+    onError: () => toast.error('School approval failed. Refresh and try again.'),
   });
 
   function exportReport() {
@@ -63,7 +64,7 @@ export default function AdminAnalytics() {
   return (
     <div className="animate-fade-up">
       <div className="flex items-center justify-between mb-6">
-        <div><h1 className="font-display font-extrabold text-2xl text-white">📊 Platform Analytics</h1><p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Real-time · {today}</p></div>
+        <div><h1 className="font-display font-extrabold text-2xl text-white">📊 Platform Analytics</h1><p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.76)' }}>Real-time · {today}</p></div>
         <button className="btn-primary" onClick={exportReport}>📥 Export Report</button>
       </div>
 
@@ -88,7 +89,7 @@ export default function AdminAnalytics() {
 
         <div className="card-navy">
           <h3 className="font-display font-bold text-base text-white mb-4">⏳ Pending School Approvals</h3>
-          {(analytics?.pendingSchools || []).length === 0 ? <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>All caught up! ✅</p> : <div className="space-y-3">{(analytics?.pendingSchools || []).slice(0, 5).map((school) => <div key={school.id} className="flex items-center justify-between gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white truncate">{school.name}</p><p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{school.district}, {school.state}</p></div><button className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex-shrink-0" style={{ background: 'rgba(19,136,8,0.2)', color: '#A5D6A7', border: '1px solid rgba(19,136,8,0.3)' }} disabled={approveMut.isPending} onClick={() => approveMut.mutate({ id: school.id })}>Approve ✓</button></div>)}</div>}
+          {(analytics?.pendingSchools || []).length === 0 ? <p className="text-sm" style={{ color: 'rgba(255,255,255,0.76)' }}>All caught up! ✅</p> : <div className="space-y-3">{(analytics?.pendingSchools || []).slice(0, 5).map((school) => <div key={school.id} className="flex items-center justify-between gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white truncate">{school.name}</p><p className="text-xs" style={{ color: 'rgba(255,255,255,0.72)' }}>{school.district}, {school.state}</p></div><button className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex-shrink-0" style={{ background: 'rgba(19,136,8,0.2)', color: '#A5D6A7', border: '1px solid rgba(19,136,8,0.3)' }} disabled={approveMut.isPending} onClick={() => approveMut.mutate({ id: school.id })}>Approve ✓</button></div>)}</div>}
         </div>
       </div>
     </div>

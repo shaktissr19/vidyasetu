@@ -23,18 +23,24 @@ interface DashSidebarProps {
   menuItems?: readonly SidebarMenuItem[];
   accentColor?: string;
   profile?: SidebarProfile;
+  id?: string;
+  className?: string;
+  onNavigate?: () => void;
 }
 
 export default function DashSidebar({
   menuItems = [],
   accentColor = 'var(--saffron)',
   profile = {},
+  id,
+  className = '',
+  onNavigate,
 }: DashSidebarProps) {
   const { user } = useAuthStore();
   const pathname = usePathname();
 
   return (
-    <aside className="dash-sidebar" style={{ position: 'relative' }}>
+    <aside id={id} className={`dash-sidebar ${className}`.trim()} style={{ position: 'relative' }}>
       <div style={{ padding: '4px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <div style={{
@@ -63,7 +69,8 @@ export default function DashSidebar({
         {menuItems.map(({ href, icon, label, exact }) => {
           const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
           return (
-            <Link key={href} href={href} className={`sidebar-link${isActive ? ' active' : ''}`}
+            <Link key={href} href={href} className={`sidebar-link${isActive ? ' active' : ''}`} onClick={onNavigate}
+              aria-current={isActive ? 'page' : undefined}
               style={{ borderLeftColor: isActive ? accentColor : 'transparent' }}>
               <span style={{ fontSize: 15, flexShrink: 0 }}>{icon}</span>
               <span style={{ flex: 1 }}>{label}</span>

@@ -61,6 +61,7 @@ export default function ContentFactoryPage() {
   const [mediaKinds,setMediaKinds] = useState<CreatorDiscoveryMediaKind[]>(['ARTICLE','VIDEO']);
   const [publisher,setPublisher] = useState('');
   const [candidates,setCandidates] = useState<CreatorDiscoveryCandidate[]>([]);
+  const [previewCandidateId,setPreviewCandidateId] = useState('');
   const [runs,setRuns] = useState<Array<{ provider: CreatorDiscoveryProvider; count: number; status: 'COMPLETED' | 'FAILED'; error?: string }>>([]);
   const [staged,setStaged] = useState<Record<string,StageState>>({});
   const [selectedSources,setSelectedSources] = useState<CreatorSourceInput[]>([]);
@@ -356,6 +357,10 @@ export default function ContentFactoryPage() {
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',gap: 12 }}>
           {candidates.map((candidate) => {
             const stage = staged[candidate.id] || (candidate.intake_id ? { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id } : undefined);
+            const artifactUrl = typeof candidate.metadata?.artifactUrl === 'string' ? candidate.metadata.artifactUrl : null;
+            const previewKind = ['VIDEO','AUDIO','IMAGE','PDF'].includes(candidate.media_kind || '') ? candidate.media_kind : null;
+            const canPreviewArtifact = candidate.delivery_capability?.code === 'IMPORT' && Boolean(artifactUrl && artifactUrl.startsWith('https://') && previewKind);
+            const previewOpen = previewCandidateId === candidate.id;
             return <article key={candidate.id} style={{ border: '1px solid #DCE3EE',borderRadius: 14,padding: 14,background: '#fff' }}>
               <div style={{ display: 'flex',justifyContent: 'space-between',gap: 8 }}>
                 <strong>{mediaIcon[candidate.media_kind || 'LINK']} {candidate.title}</strong>
@@ -363,6 +368,15 @@ export default function ContentFactoryPage() {
               </div>
               <p className="admin-chip">{candidate.delivery_capability?.label || (candidate.reference_only ? 'Reference search only' : 'Delivery requires configuration')}</p>
               {candidate.delivery_capability?.code === 'EMBED' && <LearningAsset title={candidate.title} kind="VIDEO" embedUrl={candidate.embed_url} />}
+              {canPreviewArtifact && <div style={{ marginTop: 10 }}>
+                <button type="button" style={secondary} aria-expanded={previewOpen} onClick={() => setPreviewCandidateId(previewOpen ? '' : candidate.id)}>
+                  {previewOpen ? 'Hide source preview' : `Preview ${previewKind === 'PDF' ? 'PDF' : previewKind?.toLowerCase()} in admin`}
+                </button>
+                {previewOpen && <div className="admin-panel-muted" style={{ marginTop: 10,padding: 12,borderRadius: 10 }}>
+                  <p className="admin-muted" style={{ marginTop: 0 }}>This is a preview served by the source provider. It is not copied into VidyaSetu, and its availability does not confirm reuse rights. If playback is blocked, open the official source below.</p>
+                  <LearningAsset title={candidate.title} kind={previewKind!} contentUrl={artifactUrl} mimeType={previewKind === 'PDF' ? 'application/pdf' : undefined} altText={candidate.title} />
+                </div>}
+              </div>}
               <p className="admin-muted" style={{ minHeight: 38 }}>{candidate.description || candidate.primary_category || candidate.provider}</p>
               <div style={{ fontSize: 13,lineHeight: 1.65 }}>
                 <strong>{candidate.provider}</strong>{candidate.publisher_text ? ` · ${candidate.publisher_text}` : ''}{candidate.duration_seconds ? ` · ${durationText(candidate.duration_seconds)}` : ''}<br />
