@@ -63,3 +63,14 @@ test('official index parser recognizes pre-nursery as a valid grade option', () 
   assert.equal(result.documents.length, 1);
   assert.equal(result.documents[0].classGuess, 'PRE_NURSERY');
 });
+
+test('class-scoped discovery excludes unknown and mismatched PDFs', () => {
+  const result = parseOfficialSyllabusIndex('https://cbseacademic.nic.in/curriculum_2027.html', [
+    '<a href="web_material/Maths_SecP1IX_2026-27.pdf">Mathematics curriculum</a>',
+    '<a href="web_material/general-mathematics.pdf">Mathematics curriculum</a>',
+    '<a href="web_material/Class-VIII-Math.pdf">Class VIII Mathematics</a>',
+  ].join(' '), { boardCode: 'CBSE', classCode: 'CLASS_8', subject: 'Mathematics' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].classGuess, 'CLASS_8');
+  assert.match(result.documents[0].url, /Class-VIII-Math\.pdf$/);
+});

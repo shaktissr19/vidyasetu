@@ -32,6 +32,12 @@ SELECT
   AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='curriculum_topic_id')
   AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_creator_jobs' AND column_name='curriculum_topic_id')
   AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='curriculum_topic_id')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='syllabus_documents' AND column_name='structured_outline')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='syllabus_documents' AND column_name='deleted_at')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='source_document_id')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_topics' AND column_name='source_document_id')
+  AND to_regclass('public.curriculum_topic_evidence') IS NOT NULL
+  AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_syllabus_documents_live_checksum')
   AND (SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public'
       AND table_name IN ('learning_resources','learning_assessments')

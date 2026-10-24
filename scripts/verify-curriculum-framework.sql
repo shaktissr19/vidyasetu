@@ -18,4 +18,12 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='curriculum_topic_id') THEN
     RAISE EXCEPTION 'Syllabus-to-content handoff migration 059 is incomplete';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='syllabus_documents' AND column_name='structured_outline')
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='syllabus_documents' AND column_name='deleted_at')
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='source_document_id')
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_topics' AND column_name='source_document_id')
+     OR to_regclass('public.curriculum_topic_evidence') IS NULL
+     OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_syllabus_documents_live_checksum') THEN
+    RAISE EXCEPTION 'Syllabus E2E Manager migration 060 is incomplete';
+  END IF;
 END $$;
