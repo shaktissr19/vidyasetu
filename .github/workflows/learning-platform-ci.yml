@@ -161,6 +161,12 @@ jobs:
               echo "Applying $migration for current backend compatibility"
               psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
           done
+          for migration in \
+            057_curriculum_topic_assets.sql \
+            058_learning_asset_governance_analytics.sql; do
+              echo "Applying $migration for current backend compatibility"
+              psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f "database/migrations/$migration"
+          done
 
       - name: Synchronize canonical Class 8 concept registry in disposable database
         working-directory: backend
