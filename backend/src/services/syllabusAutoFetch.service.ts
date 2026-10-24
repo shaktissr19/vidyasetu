@@ -33,9 +33,9 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
   const title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'))||cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
   const text=`${title} ${url.pathname} ${sectionHeading}`.toLowerCase();
-  const classMatch=text.match(/(?:class|grade|standard|std)[\s_-]*(pre[- ]?nursery|nursery|lkg|ukg|xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|[1-9]|1[0-2])\b/i);
-  const classMap:Record<string,string>={nursery:'NURSERY',lkg:'LKG',ukg:'UKG'};
-  const classKey=classMatch?.[1].toLowerCase();const classGuess=classKey?(classMap[classKey]||`CLASS_${romanClasses[classKey.toUpperCase()]||Number(classKey)}`):null;
+  const classMatch=text.match(/(?:class|grade|standard|std)[\s_-]*(pre[- ]?nursery|nursery|lkg|ukg|xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|[1-9]|1[0-2])\b/i)||text.match(/\b(pre[- ]?nursery|nursery|lkg|ukg)\b/i);
+  const classMap:Record<string,string>={'pre-nursery':'PRE_NURSERY',nursery:'NURSERY',lkg:'LKG',ukg:'UKG'};
+  const classKey=classMatch?.[1].toLowerCase();const classGuess=classKey?(classMap[classKey.replace(/\s+/g,'-')]||`CLASS_${romanClasses[classKey.toUpperCase()]||Number(classKey)}`):null;
   const subjectGuess=input.subject&&subjectMatches(text,input.subject)?input.subject:null;
   if(input.classCode&&classGuess&&classGuess!==input.classCode)continue;
   if(input.subject&&!subjectMatches(text,input.subject))continue;

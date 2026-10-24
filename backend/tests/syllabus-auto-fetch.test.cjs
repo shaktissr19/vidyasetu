@@ -57,3 +57,9 @@ test('official index parser uses the nearest board page heading for class scope'
   assert.equal(tenth.documents.length, 1);
   assert.equal(tenth.documents[0].classGuess, 'CLASS_10');
 });
+
+test('official index parser recognizes pre-nursery as a valid grade option', () => {
+  const result = parseOfficialSyllabusIndex('https://cbseacademic.nic.in/curriculum_2027.html', '<h2>Pre-Nursery</h2><a href="pre-nursery-english.pdf">English</a>', { boardCode: 'CBSE', classCode: 'PRE_NURSERY' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].classGuess, 'PRE_NURSERY');
+});
