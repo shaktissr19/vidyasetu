@@ -58,16 +58,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/settings', icon: '⚙️', label: 'Settings' },
   ] as const;
 
-  const lightLearningWorkspace = pathname === '/admin/learning'
-    || (pathname.startsWith('/admin/learning') && pathname !== '/admin/learning/syllabus')
-    || pathname.startsWith('/admin/learning/factory')
-    || pathname.startsWith('/admin/learning/pipeline')
-    || pathname.startsWith('/admin/learning/creator')
-    || pathname.startsWith('/admin/learning/coverage')
-    || pathname.startsWith('/admin/learning/intake')
-    || pathname.startsWith('/admin/learning/practice')
-    || pathname.startsWith('/admin/learning/imports');
-
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=admin'); return; }
     if (user?.role && user.role !== 'SUPER_ADMIN') router.replace('/login?role=admin');
@@ -96,7 +86,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           profile={{ avatar: '⚙️', name: user?.name || 'Super Admin', subtitle: 'Platform Control', badge: '🔐 Admin' }}
           menuItems={menu}
         />
-        <main className={`dash-main admin-main${lightLearningWorkspace ? ' admin-learning-workspace' : ''}`} style={{ background: lightLearningWorkspace ? '#F3F6FB' : '#182540', color: lightLearningWorkspace ? '#14213D' : 'white' }}>
+        <main className="dash-main admin-main">
           <div className="admin-mobile-toolbar"><button type="button" aria-expanded={mobileNavOpen} aria-controls="admin-navigation" onClick={() => setMobileNavOpen((open) => !open)}>{mobileNavOpen ? '✕ Close menu' : '☰ Admin menu'}</button></div>
           {mobileNavOpen && <button type="button" className="admin-mobile-backdrop" aria-label="Close admin navigation" onClick={() => setMobileNavOpen(false)} />}
           {pathname.startsWith('/admin/learning') && pathname !== '/admin/learning/syllabus' && <nav aria-label="Content workspace" style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 16px',background:'#fff',borderBottom:'1px solid #DCE3EE'}}>{[
