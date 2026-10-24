@@ -2491,7 +2491,3 @@ COMMENT ON TABLE curriculum_version_evidence IS
   'Official source PDFs attached as evidence to a curriculum version; source PDF rights remain governed by syllabus_documents.';
 COMMIT;
 
--- Keep the psql migration entry point current with additive migrations after 056.
-\ir migrations/057_curriculum_topic_assets.sql
-\ir migrations/058_learning_asset_governance_analytics.sql
-\ir migrations/059_syllabus_content_handoff.sql
