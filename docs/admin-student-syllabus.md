@@ -1,47 +1,51 @@
-# Admin and student syllabus workspace
+# Syllabus Manager: admin and student guide
 
-The implementation extends the existing curriculum versions, subjects, units and topics. It adds an explicit verification gate, connections to canonical learning concepts, and independent-student learning preferences. It does not certify legacy curriculum rows or populate a full official K–12 syllabus.
+This workflow stores source PDFs as evidence and creates an editable, versioned syllabus tree. A source PDF upload or import does not by itself publish a syllabus. Only a reviewed and published curriculum version is shown to matching students.
 
 ## Admin workflow
 
-Open `/admin/learning/syllabus` as Super Admin. Select a board and academic year, and name the precise scope (for example, Class 6 Mathematics). Prepare topic rows with canonical grade and subject, chapter/developmental domain, topic, learning outcome, exact HTTPS evidence and page/section reference. Hindi topic names are optional. Manual entry avoids UUID typing; advanced bulk JSON supports up to 500 rows with server validation. PDF extraction and automatic provider fetching are not implemented here.
+Open `/admin/learning/syllabus` as a platform Super Admin. The page has three sections: **Syllabus library**, **Add syllabus**, and **Review & publish**.
 
-Saving creates or updates a DRAFT. Omitted rows are not deleted. While the version is DRAFT, topics can be retired or restored with a review note; historical progress is retained. Re-import matching chapter/topic names updates their metadata. Review all entered topics against the official source and applicable year, record a review note, then approve the version. ACTIVE plus verification is required for student visibility; legacy ACTIVE alone is insufficient. Partial scope is explicitly shown by the version title; approved topic counts must not be described as a complete board syllabus.
+### Add a syllabus
 
-Choose **Find content for this topic** to prefill Factory grade, board, subject, chapter, topic, academic year and canonical concept. The context follows structured discovery into Prepare & rights. Content then follows existing licence, academic and publication reviews. Alternatively, select an academic Library draft in this workspace and map it to a topic: grade, subject and board must match. Mapping requires a DRAFT resource, snapshots the previous state and invalidates prior quality reviews. Published resources must first return to draft in Library.
+- **Official PDF URL:** choose a board source and import a direct PDF URL from an allowed official domain. The service downloads, validates, scans and parses the PDF, then saves a Draft document and outline.
+- **Upload PDF files:** upload up to 10 text-based PDFs in one submission, with a 25 MB limit per PDF. The service stores each document and creates a Draft outline where class and subject can be identified. A title override is available for a single-file upload. Add the official source URL before document approval; it is not required just to save a Draft.
+- **CSV or Excel:** download the Excel template, prepare rows for a board, academic year and medium, then select the workbook. One workbook can contain multiple classes, subjects, units, chapters and topics. Use **Preview and validate** to see row errors and scope counts before saving the import as Draft.
 
-Resources mapped to unverified syllabus concepts are not publish-ready. Returning a syllabus to DRAFT or ARCHIVED hides it from students and prevents new publication against its unverified mapping. Previously published resources remain governed by Library; archiving a syllabus is not an automatic content withdrawal.
+The PDF parser handles supported text PDFs. Scanned image-only PDFs require OCR and cannot be reliably converted by this workflow. Review all extracted rows; extraction is a starting Draft, not an official certification. If extraction cannot resolve class or subject, correct document metadata and rebuild the Draft from the library record. Unsupported or malformed PDFs should be deleted as incorrect Drafts and re-uploaded in a supported format.
+
+### View and correct an import
+
+In **Syllabus library**, filter by board, class, subject and year, then open a record. The record shows the stored PDF preview, document metadata and extracted tree. Admins can edit title, class, subject, medium and source URL, then rebuild the Draft. The tree supports adding and editing topics, and the library supports deleting an incorrect unapproved Draft. Deletion removes that document's evidence; a topic supported by another source document is retained.
+
+PDFs are private by default. Malware scanning, PDF validation and checksum deduplication run during intake. The document's source URL and rights evidence are checked before approval. Student PDF download is available only after redistribution permission is recorded; otherwise students get the official source link.
+
+### Review and publish
+
+The document review and syllabus publication are separate gates. Approving a PDF records that its evidence was reviewed; it does not publish the curriculum. In **Review & publish**, verify board, academic year, medium, class, subject, unit, chapter, topic and page references against the official source. Add a review note, mark the syllabus **Reviewed**, then publish it. Draft, Reviewed, Published/Active and Archived states are preserved as separate governance steps. Archiving removes the syllabus from student visibility.
+
+Publishing requires an official source URL and a complete human review. The published version becomes available automatically to students matching its board, class, medium and academic year. No per-school assignment is needed. Keep academic years in separate versions; do not overwrite an earlier year's syllabus.
 
 ## Student workflow
 
-Open `/syllabus`, linked from Student Learning Home and My Subjects. Independent students can save board, learning class, academic year and English/Hindi preference. These are learning preferences, not changes to school enrolment. Canonical learner delivery uses independent preferences as well, preventing mismatched syllabus/content scopes. School-linked students retain school-assigned board/class; attempts to override these are rejected on the server. School corrections use existing school enrolment workflows.
+Students open **My Syllabus** at `/syllabus`. Matching published syllabi are organized by subject, then chapter and topic. Students can open the source document and mark topic progress. They see only the syllabus matching their school or saved learning profile; a different board is never used as a fallback. If no syllabus appears, check that the school/student board, class, medium and current academic year match a published version.
 
-Only the matching ACTIVE, verified version is shown. Missing/unverified syllabus has an explicit empty state and no completion percentage. Topics without published material remain visible as Content coming soon and remain in the coverage denominator.
+The official PDF is downloadable only when the admin has explicitly verified redistribution rights. Otherwise the student can open the official source URL.
 
-Topic resources use the existing publication, board/grade and visibility boundaries. Subscriber items show a lock without asset URLs; the existing resource endpoint independently enforces active entitlement. School-only content is not introduced into this path. Hindi topic/resource titles use existing translations where available and fall back to English; this is not complete multilingual UI localisation.
+## Automatic sourcing and current limits
 
-Coverage counts published mapped resources. Learning completion counts completed accessible lessons; the UI says exactly that and does not assert complete understanding. Mastery requires existing concept assessment evidence (`MASTERED` plus at least one mastery attempt). Watching a lesson cannot create mastery. Assessment/question creation remains in the existing Question Bank and diagnostic tools; this release does not create new assessments or automatically map unrelated old questions.
+The manager can discover/import supported official PDF sources and can extract a Draft from an uploaded or imported PDF. It does **not** crawl every board website or automatically guarantee a complete CBSE, CISCE/ICSE, or state-board catalogue. Official sites publish content with different structures, languages and document formats; the admin must select the correct source and review the generated tree. Scanned PDFs need OCR, which is not included. Coverage is therefore determined by the syllabus versions admins have imported and published, not by the list of boards in the selector.
 
-New academic years have distinct concepts and do not automatically inherit mastery. Changing an outcome creates a new concept connection; old progress and resources remain attached to the historical concept, requiring fresh content mapping and assessment evidence. Draft/archive actions retain learner progress. Audit entries retain import and status history; automatic syllabus diff/rollback and automatic mastery transfer are not provided.
+## Deployment and upload proxy limit
 
-## Deployment
-
-Migration `053_verified_syllabus_workspace.sql` is required after 052. It is idempotent and additive, widens curriculum grade labels for Pre-Nursery, and deliberately does not set verification timestamps on legacy versions. Migration `054_syllabus_document_library.sql` adds private source-PDF provenance, extracted text/page candidates, and explicit redistribution review. The backup-first preparation script applies and checks 054, and native production schema preflight checks its document table before service switch.
-
-## Source documents and topic search
-
-The admin Syllabus Library lists official starting points for CBSE, CISCE/ICSE, CISCE/ISC, UPMSP, and NCERT reference textbooks. Admins can upload a PDF or import a direct PDF URL from the allowlisted official domains. Documents are private by default, SHA-256 deduplicated, malware-scanned, and indexed for text search with page references. Scanned image PDFs need OCR and are not currently accepted. Extracted snippets are candidates; an admin must select and verify topic candidates before adding them to a draft curriculum. Curriculum version review and activation remain separate.
-
-The student library can filter by board, class, subject, and free text. It returns only admin-approved source documents. PDF copies are served only when an admin has recorded redistribution permission and its evidence URL; otherwise learners follow the official source link. This release does not populate every class/subject/board automatically: sources differ by board and many state boards publish documents as separate page or language downloads. NCERT is shown as a reference source, not as a substitute for a board's own syllabus. The existing content catalogue remains available for free-text topics that are not mapped to a syllabus.
-
-For the existing native installation, from its clean main checkout:
+The API accepts up to 10 PDFs at 25 MB each (250 MB of file data). Nginx must permit multipart overhead as well. `scripts/deploy-main-native.sh` installs an idempotent Nginx request-body limit of 260 MB before checking public routes. The helper backs up an existing managed config, validates the complete Nginx configuration, reloads Nginx, and restores the prior config if validation or reload fails. If deployment is performed by another process, run the helper as root before testing large uploads:
 
 ```bash
-git pull --ff-only origin main
-sudo bash scripts/prepare-registration-release.sh
-sudo bash scripts/deploy-main-native.sh
+sudo bash scripts/configure-syllabus-upload-nginx.sh
 ```
 
-The preparation script creates and validates a pre-migration database backup. Production migration/deployment are separate from GitHub merge. Production roles, exact official syllabus inventory and device playback are not verified by local tests.
+Then validate the production flow using one PDF, a multi-PDF batch, and a rejected oversized file. Production-specific storage credentials, OCR needs, source coverage and successful upload through the live proxy still require checks on the deployed server.
 
-Validation: 20 integration tests pass locally, including real JWT endpoint checks and compiled-server environment bootstrap ordering. Frontend production build and backend compilation pass. Validation includes real database migration idempotency, draft/approval/archive visibility, school profile restrictions, changed outcome and academic-year isolation, gaps, subscriber resource locks, completion versus mastery, real JWT role checks and invalid HTTP input. Existing content regressions and production frontend/backend builds must pass before merge.
+## Validation evidence
+
+The repository tests cover parser behavior, upload limits and batch handling, evidence ownership, Draft structure creation, metadata correction, deletion behavior, and existing syllabus/content access rules. A successful local build does not prove the live server's proxy, object-storage credentials or migration state; those must be verified on the deployed release.
