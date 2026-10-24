@@ -1,14 +1,15 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import { lookup } from 'dns/promises';
 import { Agent } from 'https';
 import { isIP } from 'net';
 
 const fail=(message:string,statusCode=400)=>Object.assign(new Error(message),{statusCode});
+function hasStatusCode(error:unknown):error is Error&{statusCode:number}{return error instanceof Error&&'statusCode' in error&&typeof error.statusCode==='number';}
 const maxHtmlBytes=2_000_000;
 const maxPdfBytes=25*1024*1024;
 const allowedHosts=()=> (process.env.SYLLABUS_IMPORT_ALLOWED_HOSTS||'cbseacademic.nic.in,cisce.org,upmsp.edu.in,ncert.nic.in').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
 function publicAddress(address:string){if(isIP(address)!==4)return false;const [a,b]=address.split('.').map(Number);return a!==0&&a!==10&&a!==127&&a<224&&a!==169&&a!==192&&!(a===172&&b>=16&&b<=31)&&!(a===100&&b>=64&&b<=127)&&!(a===198&&(b===18||b===19||b===51))&&!(a===203&&b===0);}
-async function getOfficial<T>(url:URL,config:Record<string,unknown>){const addresses=await lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(x=>!publicAddress(x.address)))throw fail('Official source host resolves to a private or unsupported IP address.',403);const address=addresses[0].address;const agent=new Agent({family:4,lookup:(_host,_options,callback)=>callback(null,address,4)});try{return await axios.get<T>(url.toString(),{...config,httpsAgent:agent,proxy:false,maxRedirects:0} as any);}finally{agent.destroy();}}
+async function getOfficial<T>(url:URL,config:AxiosRequestConfig){const addresses=await lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(x=>!publicAddress(x.address)))throw fail('Official source host resolves to a private or unsupported IP address.',403);const address=addresses[0].address;const agent=new Agent({family:4,lookup:(_host,_options,callback)=>callback(null,address,4)});try{return await axios.get<T>(url.toString(),{...config,httpsAgent:agent,proxy:false,maxRedirects:0});}finally{agent.destroy();}}
 const boardSourceHosts:Record<string,string[]>={CBSE:['cbseacademic.nic.in','ncert.nic.in'],CISCE:['cisce.org'],UPMSP:['upmsp.edu.in']};
 function checkedOfficialUrl(value:string,base?:string,boardCode?:string){
  let url:URL;try{url=new URL(value,base);}catch{throw fail('The source URL is invalid.');}
@@ -47,7 +48,7 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
 export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string}){
  const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);
  let response;
- try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/1.0'}});}catch(error){if((error as any)?.statusCode)throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
+ try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/1.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
  if(typeof response.data!=='string'||!/^text\/html|^application\/xhtml\+xml/i.test(String(response.headers['content-type']||''))) throw fail('The selected source is not an HTML index page. Paste the official index page URL, not a PDF URL.');
  const result=parseOfficialSyllabusIndex(source.toString(),response.data,input);
  if(!result.documents.length)return {...result,message:'No direct PDF links were found on this page. Some board sites render links with scripts; open the official page and use the direct PDF URL or upload the document.'};
@@ -55,9 +56,14 @@ export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;
 }
 
 export interface ExtractedOutlineRow {unit:string;chapter:string;topic:string;pageReference:string;confidence:'high'|'review';}
-function pageLines(items:any[]){
+interface PdfTextItem {str?:unknown;transform?:ArrayLike<number>;}
+interface PdfJsPage {getTextContent():Promise<{items:unknown[]}>;}
+interface PdfJsDocument {numPages:number;getPage(pageNumber:number):Promise<PdfJsPage>;}
+interface PdfJsLoadingTask {promise:Promise<PdfJsDocument>;destroy():Promise<void>;}
+interface PdfJsModule {getDocument(options:{data:Uint8Array;useSystemFonts:boolean;isEvalSupported:boolean;enableScripting:boolean}):PdfJsLoadingTask;}
+function pageLines(items:unknown[]){
  const grouped=new Map<number,{y:number;text:string}[]>();
- for(const item of items){if(typeof item.str!=='string'||!item.str.trim())continue;const y=Math.round(Number(item.transform?.[5]||0));const list=grouped.get(y)||[];list.push({y,text:item.str.trim()});grouped.set(y,list);}
+ for(const value of items){if(!value||typeof value!=='object')continue;const item=value as PdfTextItem;if(typeof item.str!=='string'||!item.str.trim())continue;const y=Math.round(Number(item.transform?.[5]||0));const list=grouped.get(y)||[];list.push({y,text:item.str.trim()});grouped.set(y,list);}
  return [...grouped.entries()].sort((a,b)=>b[0]-a[0]).map(([,parts])=>parts.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim()).filter(x=>x.length>2&&x.length<260);
 }
 function stripIndex(line:string){return line.replace(/^\s*(?:(?:unit|chapter|part)\s+[ivxlcdm\d]+\s*[:.\-–)]?\s*|\d+(?:\.\d+)*\s*[.):\-–]?\s*|[A-Z]\s*[.):\-–]\s*)/i,'').trim();}
@@ -81,17 +87,18 @@ export function parseCurriculumOutline(pages:Array<{page:number;lines:string[]}>
 }
 export async function extractOfficialSyllabusOutline(pdfUrl:string,boardCode:string){
  const url=checkedOfficialUrl(pdfUrl,undefined,boardCode);let response;
- try{response=await getOfficial<ArrayBuffer>(url,{timeout:45000,maxContentLength:maxPdfBytes,maxBodyLength:maxPdfBytes,responseType:'arraybuffer',headers:{Accept:'application/pdf','User-Agent':'VidyaSetu-SyllabusImporter/1.0'}});}catch(error){if((error as any)?.statusCode)throw error;throw fail('Could not download the official PDF. It may require a browser session or direct download access.',502);}
+ try{response=await getOfficial<ArrayBuffer>(url,{timeout:45000,maxContentLength:maxPdfBytes,maxBodyLength:maxPdfBytes,responseType:'arraybuffer',headers:{Accept:'application/pdf','User-Agent':'VidyaSetu-SyllabusImporter/1.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not download the official PDF. It may require a browser session or direct download access.',502);}
  const bytes=Buffer.from(response.data);if(bytes.length<8||bytes.subarray(0,5).toString()!=='%PDF-')throw fail('The official URL did not return a valid PDF.');
  const crypto=await import('crypto');
  try{
-  const dynamicImport=new Function('specifier','return import(specifier)') as (specifier:string)=>Promise<any>;
-  const pdfjs=await dynamicImport('pdfjs-dist/legacy/build/pdf.mjs');const task=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true,isEvalSupported:false,enableScripting:false});const pdf=await task.promise;
+  const dynamicImport=new Function('specifier','return import(specifier)') as (specifier:string)=>Promise<unknown>;
+  const imported=await dynamicImport('pdfjs-dist/legacy/build/pdf.mjs');if(!imported||typeof imported!=='object'||!('getDocument' in imported)||typeof imported.getDocument!=='function')throw new Error('Invalid PDF parser module');
+  const pdfjs=imported as PdfJsModule;const task=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true,isEvalSupported:false,enableScripting:false});const pdf=await task.promise;
   if(pdf.numPages>500){await task.destroy();throw fail('The selected PDF exceeds the 500-page extraction limit.');}
   const pages:Array<{page:number;lines:string[]}>=[];let chars=0;
   for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){const page=await pdf.getPage(pageNo);const content=await page.getTextContent();const lines=pageLines(content.items);chars+=lines.join('').length;if(chars>2_000_000){await task.destroy();throw fail('Extracted PDF text exceeds the 2 MB review limit.');}pages.push({page:pageNo,lines});}
   await task.destroy();if(chars<40)throw fail('This PDF has no extractable text; OCR is needed before this source can be imported.');
   const rows=parseCurriculumOutline(pages);if(!rows.length)throw fail('The PDF was read, but no likely unit, chapter or topic headings were recognized. Use the CSV importer or another official syllabus document.');
   return {title:cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||'')),sourceUrl:url.toString(),sourceHash:crypto.createHash('sha256').update(bytes).digest('hex'),pageCount:pdf.numPages,rows,reviewRequired:true,notice:'These are machine-extracted outline candidates. Verify every row and its page reference against the official PDF before saving as Draft.'};
- }catch(error){if((error as any)?.statusCode)throw error;throw fail('Could not parse this PDF. Use a text-based PDF; scanned image PDFs need OCR.');}
+ }catch(error){if(hasStatusCode(error))throw error;throw fail('Could not parse this PDF. Use a text-based PDF; scanned image PDFs need OCR.');}
 }

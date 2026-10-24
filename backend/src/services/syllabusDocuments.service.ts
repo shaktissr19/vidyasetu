@@ -5,7 +5,14 @@ import { downloadLicensedAsset, scanImportedAsset } from './learningSourceAcquis
 import { getStudentContext, canonicalGradeCode } from './studentCanonicalLearning.service';
 
 const fail=(message:string,statusCode=400)=>Object.assign(new Error(message),{statusCode});
+function hasStatusCode(error:unknown):error is Error&{statusCode:number}{return error instanceof Error&&'statusCode' in error&&typeof error.statusCode==='number';}
 const maxBytes=25*1024*1024;
+interface SyllabusPdfMetadata {boardCode:string;academicYear:string;gradeCode?:string|null;subjectId?:string|null;title:string;language:string;sourceUrl:string;sourcePublisher?:string|null;}
+interface PdfJsPage {getTextContent():Promise<{items:unknown[]}>;}
+interface PdfJsDocument {numPages:number;getPage(pageNumber:number):Promise<PdfJsPage>;}
+interface PdfJsLoadingTask {promise:Promise<PdfJsDocument>;destroy():Promise<void>;}
+interface PdfJsModule {getDocument(options:{data:Uint8Array;useSystemFonts:boolean;isEvalSupported:boolean;enableScripting:boolean}):PdfJsLoadingTask;}
+function textFromPdfItem(item:unknown):string{if(!item||typeof item!=='object')return'';const value=item as {str?:unknown};return typeof value.str==='string'?value.str:'';}
 const officialSources=[
  {boardCode:'CBSE',name:'CBSE Academic curriculum',url:'https://cbseacademic.nic.in/curriculum_2027.html',note:'Current curriculum page; select the applicable class and subject PDF.'},
  {boardCode:'CISCE',name:'CISCE regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-icse-2027/',note:'ICSE subject syllabus pages; ISC documents are on the separate ISC page.'},
@@ -18,15 +25,17 @@ async function extractPdf(bytes:Buffer){
  if(bytes.length<8||bytes.subarray(0,5).toString()!=='%PDF-')throw fail('The file is not a valid PDF.');
  try {
   // pdfjs-dist is ESM; load it dynamically because this backend is CommonJS.
-  const dynamicImport=new Function('specifier','return import(specifier)') as (specifier:string)=>Promise<any>;
-  const pdfjs=await dynamicImport('pdfjs-dist/legacy/build/pdf.mjs');
+  const dynamicImport=new Function('specifier','return import(specifier)') as (specifier:string)=>Promise<unknown>;
+  const imported=await dynamicImport('pdfjs-dist/legacy/build/pdf.mjs');
+  if(!imported||typeof imported!=='object'||!('getDocument' in imported)||typeof imported.getDocument!=='function')throw new Error('Invalid PDF parser module');
+  const pdfjs=imported as PdfJsModule;
   const loadingTask=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true,isEvalSupported:false,enableScripting:false});
   const doc=await loadingTask.promise;
   if(doc.numPages<1||doc.numPages>500){await loadingTask.destroy();throw fail('PDFs must contain 1–500 pages.');}
   const pages:string[]=[];let charCount=0;
   for(let pageNo=1;pageNo<=doc.numPages;pageNo++){
    const page=await doc.getPage(pageNo);const content=await page.getTextContent();
-   const text=content.items.map((x:any)=>typeof x.str==='string'?x.str:'').join(' ').replace(/\s+/g,' ').trim();
+   const text=content.items.map(textFromPdfItem).join(' ').replace(/\s+/g,' ').trim();
    charCount+=text.length;if(charCount>2_000_000){await loadingTask.destroy();throw fail('Extracted text exceeds the 2 MB review limit.');}
    if(text)pages.push(`Page ${pageNo}: ${text}`);
   }
@@ -34,7 +43,7 @@ async function extractPdf(bytes:Buffer){
   const text=pages.join('\n');if(text.length<40)throw fail('This PDF has no usable embedded text. Scanned PDFs need OCR before they can be indexed.');
   const outline=pages.flatMap((line,index)=>{const page=Number(line.match(/^Page (\d+):/)?.[1]||index+1);const body=line.replace(/^Page \d+:\s*/, '');return body.split(/(?<=[.!?])\s+/).filter(s=>s.length>25).slice(0,30).map(candidate=>({page,text:candidate.slice(0,500)}));}).slice(0,3000);
   return {text,outline,pageCount:doc.numPages};
- }catch(e){if((e as any)?.statusCode)throw e;throw fail('Could not read this PDF. Upload a text-based PDF; scanned files require OCR.');}
+ }catch(e){if(hasStatusCode(e))throw e;throw fail('Could not read this PDF. Upload a text-based PDF; scanned files require OCR.');}
 }
 
 async function save(input:{boardCode:string;academicYear:string;gradeCode?:string|null;subjectId?:string|null;title:string;language:string;sourceUrl:string;bytes:Buffer;actor:string;sourcePublisher?:string|null;redistributionAllowed?:boolean;redistributionEvidenceUrl?:string|null}){
@@ -54,12 +63,12 @@ async function save(input:{boardCode:string;academicYear:string;gradeCode?:strin
  }catch(e){await deleteObject(key).catch(()=>undefined);throw e;}
 }
 
-export async function uploadSyllabusPdf(file:Express.Multer.File,meta:any,actor:string){
+export async function uploadSyllabusPdf(file:Express.Multer.File,meta:SyllabusPdfMetadata,actor:string){
  if(!file)throw fail('Choose a PDF file.');
  if(file.mimetype!=='application/pdf'||file.buffer.subarray(0,5).toString()!=='%PDF-')throw fail('Upload a real PDF document.');
  return save({...meta,bytes:file.buffer,actor});
 }
-export async function importSyllabusPdf(meta:any,actor:string){
+export async function importSyllabusPdf(meta:SyllabusPdfMetadata&{pdfUrl:string},actor:string){
  const hosts=process.env.SYLLABUS_IMPORT_ALLOWED_HOSTS||'cbseacademic.nic.in,cisce.org,upmsp.edu.in,ncert.nic.in';
  const asset=await downloadLicensedAsset(meta.pdfUrl,'QUESTION_PAPER',hosts);
  if(asset.mime!=='application/pdf')throw fail('The official link did not return a PDF file. Paste a direct PDF link.');
