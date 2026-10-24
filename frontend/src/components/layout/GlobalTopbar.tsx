@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
@@ -44,6 +45,7 @@ export default function GlobalTopbar() {
   const router = useRouter();
   const { user, isLoggedIn, refreshToken, logout } = useAuthStore();
   const { lang, toggleLang } = useLanguageStore();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const notificationsQuery = useQuery({
     queryKey: ['notification-unread-count'],
@@ -64,66 +66,50 @@ export default function GlobalTopbar() {
   }
 
   return (
-    <header style={{
-      position: 'sticky', top: 0, zIndex: 1000, minHeight: 66,
-      background: 'rgba(255,255,255,0.98)', borderBottom: '2px solid #FF6B00',
-      display: 'flex', alignItems: 'center', padding: '0 24px', gap: 14,
-      boxShadow: '0 2px 10px rgba(13,27,62,0.06)',
-    }} className={`global-topbar${pathname.startsWith('/admin') ? ' global-topbar-admin' : ''}`}>
-      <Link href="/" className="global-topbar-brand" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
-        <div className="global-topbar-brand-icon" style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 20 }}>V</div>
-        <div style={{ fontFamily: "'Baloo 2',cursive", fontSize: 27, fontWeight: 800, color: '#0D1B3E', lineHeight: 1 }}>
-          Vidya<span style={{ color: '#FF6B00' }}>Setu</span>
+    <header className={`global-topbar${pathname.startsWith('/admin') ? ' global-topbar-admin' : ''}`}>
+      <Link href="/" className="global-topbar-brand">
+        <div className="global-topbar-brand-icon">V</div>
+        <div className="global-topbar-brand-name">
+          Vidya<span>Setu</span>
         </div>
       </Link>
 
-      <nav className="global-topbar-nav" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
+      <button className="global-topbar-control global-topbar-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="global-main-navigation" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? '✕ Close' : '☰ Menu'}</button>
+      <nav id="global-main-navigation" className={`global-topbar-nav${menuOpen ? ' is-open' : ''}`} aria-label="Main navigation">
         {NAV.map(([label, href]) => {
           const active = isActive(pathname, href);
           return (
-            <Link key={href} href={href} style={{
-              textDecoration: 'none', whiteSpace: 'nowrap', padding: '9px 10px', borderRadius: 10,
-              fontSize: 13, fontWeight: 700,
-              color: active ? '#FF6B00' : '#5A6278',
-              background: active ? '#FFF3E8' : 'transparent',
-            }}>{label}</Link>
+            <Link key={href} href={href} className={`global-topbar-link${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => setMenuOpen(false)}>{label}</Link>
           );
         })}
       </nav>
 
-      <div className="global-topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <button onClick={toggleLang} style={{ border: '1px solid #D9DEE8', background: '#fff', color: '#0D1B3E', padding: '8px 10px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
+      <div className="global-topbar-actions">
+        <button className="global-topbar-control" onClick={toggleLang}>
           {lang === 'hi' ? 'EN' : 'हिंदी'}
         </button>
         {isLoggedIn ? (
           <>
             <button
+              className="global-topbar-control global-topbar-notifications"
               onClick={() => router.push(notificationPath(user?.role))}
               title={unreadCount ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'Notifications'}
               aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-              style={{
-                position: 'relative', border: '1px solid #D9DEE8', background: unreadCount ? '#FFF8F0' : '#fff',
-                color: '#0D1B3E', minWidth: 40, height: 38, borderRadius: 10, fontSize: 18, cursor: 'pointer',
-              }}
             >
               🔔
               {unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -7, right: -7, minWidth: 20, height: 20, padding: '0 5px', borderRadius: 999,
-                  background: '#FF6B00', color: '#fff', border: '2px solid #fff', fontSize: 10, fontWeight: 900,
-                  display: 'grid', placeItems: 'center', lineHeight: 1,
-                }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                <span className="global-topbar-notification-count">{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
             </button>
-            <button className="global-topbar-dashboard" onClick={() => router.push(accountPath(user?.role))} title="Open your dashboard" style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
+            <button className="global-topbar-control global-topbar-dashboard" onClick={() => router.push(accountPath(user?.role))} title="Open your dashboard">
               My Dashboard
             </button>
-            <button className="global-topbar-logout" onClick={handleLogout} style={{ border: '2px solid #FF6B00', background: '#fff', color: '#FF6B00', padding: '8px 14px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Logout</button>
+            <button className="global-topbar-control global-topbar-logout" onClick={handleLogout}>Logout</button>
           </>
         ) : (
           <>
-            <button onClick={() => router.push('/login')} style={{ border: '2px solid #FF6B00', background: '#fff', color: '#FF6B00', padding: '8px 14px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Login</button>
-            <button onClick={() => router.push('/register')} style={{ border: 'none', background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', color: '#fff', padding: '10px 15px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Create Account</button>
+            <button className="global-topbar-control global-topbar-login" onClick={() => router.push('/login')}>Login</button>
+            <button className="global-topbar-control global-topbar-create" onClick={() => router.push('/register')}>Create Account</button>
           </>
         )}
       </div>
