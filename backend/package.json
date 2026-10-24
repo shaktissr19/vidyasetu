@@ -13,7 +13,8 @@
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "lint": "eslint src/",
-    "test:content-pipeline": "npm run build && node --test tests/content-pipeline-integration.cjs"
+    "test:content-pipeline": "npm run build && node --test tests/content-pipeline-integration.cjs",
+    "test:syllabus-auto-fetch": "npm run build && node --test tests/syllabus-auto-fetch.test.cjs"
   },
   "dependencies": {
     "express": "^4.18.2",

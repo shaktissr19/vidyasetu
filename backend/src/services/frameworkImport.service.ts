@@ -58,13 +58,14 @@ export async function previewFrameworkImport(rows:FrameworkCsvRow[]) {
   return {valid:errors.length===0,rowCount:rows.length,boardCode:first.boardCode,medium:first.medium,academicYear:first.academicYear,classes:[...new Set(rows.map(r=>r.gradeCode))].sort(),subjectScopes:scopes.length,errors};
 }
 
-export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string) {
+export async function commitFrameworkImport(rows:FrameworkCsvRow[],actor:string,sourceHashes?:string[]) {
   const preview=await previewFrameworkImport(rows);
   if(!preview.valid) throw problem('Framework import has validation errors. Correct the preview before saving.');
   const {rows:subjects}=await query<{code:string;id:string}>('SELECT code,id FROM subjects WHERE code=ANY($1::text[])',[[...new Set(rows.map(r=>r.subjectCode))]]);
   const byCode=new Map(subjects.map(s=>[s.code,s.id]));
   const syllabusRows:SyllabusRow[]=rows.map(r=>({gradeCode:r.gradeCode,subjectId:byCode.get(r.subjectCode)!,unit:r.unit,chapter:r.chapter,sortOrder:Number(r.sortOrder),topic:r.topic,topicHi:r.topicHi,learningOutcome:r.learningOutcome,evidenceUrl:r.sourceUrl,pageReference:r.pageReference}));
-  const hash=createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+  const normalizedHashes=[...new Set((sourceHashes||[]).map(x=>x.toLowerCase()))].sort();
+  const hash=createHash('sha256').update([...normalizedHashes,JSON.stringify(rows)].join('\n')).digest('hex');
   const result=await importSyllabus({boardCode:rows[0].boardCode,academicYear:rows[0].academicYear,title:`${rows[0].boardCode} ${rows[0].academicYear} curriculum framework`,sourceUrl:rows[0].sourceUrl,sourceHash:hash,medium:rows[0].medium,rows:syllabusRows},actor);
   return {...result,sourceHash:hash,importedRows:rows.length};
 }

@@ -32,8 +32,13 @@ export const getParentSyllabusProgress=(studentId:string)=>api.get<ApiEnvelope<{
 export interface FrameworkImportRow {boardCode:string;medium:'en'|'hi';academicYear:string;gradeCode:string;subjectCode:string;unit:string;chapter:string;topic:string;topicHi?:string;learningOutcome:string;sourceUrl:string;pageReference:string;sortOrder:number|string;}
 export interface FrameworkPreview {valid:boolean;rowCount:number;boardCode:string;medium:string;academicYear:string;classes:string[];subjectScopes:number;errors:{row:number;message:string}[];}
 export const previewFrameworkImport=(rows:FrameworkImportRow[])=>api.post<ApiEnvelope<FrameworkPreview>>('/admin/syllabus/framework/preview',{rows});
-export const commitFrameworkImport=(rows:FrameworkImportRow[])=>api.post('/admin/syllabus/framework/import',{rows});
+export const commitFrameworkImport=(rows:FrameworkImportRow[],sourceHashes?:string[])=>api.post('/admin/syllabus/framework/import',{rows,sourceHashes});
 export interface FrameworkCoverageRow {board_code:string;academic_year:string;medium:string;grade_code:string;subject_code:string;unit_count:number;chapter_count:number;topic_count:number;publication_status:string;}
 export const getFrameworkCoverage=()=>api.get<ApiEnvelope<FrameworkCoverageRow[]>>('/admin/syllabus/framework/coverage');
 
 export const attachFrameworkEvidence=(versionId:string,documentId:string)=>api.post('/admin/syllabus/framework/'+versionId+'/evidence',{documentId});
+
+export interface OfficialSyllabusDocument {title:string;url:string;sourceHost:string;classGuess:string|null;subjectGuess:string|null;}
+export interface ExtractedSyllabusOutline {title:string;sourceUrl:string;sourceHash:string;pageCount:number;reviewRequired:true;notice:string;rows:{unit:string;chapter:string;topic:string;pageReference:string;confidence:'high'|'review'}[];}
+export const discoverOfficialSyllabusDocuments=(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string})=>api.post<ApiEnvelope<{sourceUrl:string;sourceHost:string;documents:OfficialSyllabusDocument[];message?:string}>>('/admin/syllabus/framework/discover',input,{timeout:30000});
+export const extractOfficialSyllabusOutline=(boardCode:string,pdfUrl:string)=>api.post<ApiEnvelope<ExtractedSyllabusOutline>>('/admin/syllabus/framework/extract',{boardCode,pdfUrl},{timeout:90000});

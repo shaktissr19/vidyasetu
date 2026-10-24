@@ -137,6 +137,10 @@ jobs:
         working-directory: backend
         run: npm run test:content-pipeline
 
+      - name: Automatic syllabus fetch security and outline parser tests
+        working-directory: backend
+        run: node --test tests/syllabus-auto-fetch.test.cjs
+
       - name: Validate Content Factory database invariants
         env:
           PGPASSWORD: postgres
