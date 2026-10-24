@@ -29,6 +29,9 @@ SELECT
   AND to_regclass('public.curriculum_chapters') IS NOT NULL
   AND to_regclass('public.curriculum_version_evidence') IS NOT NULL
   AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='source_hash')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='curriculum_topic_id')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_creator_jobs' AND column_name='curriculum_topic_id')
+  AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_resources' AND column_name='curriculum_topic_id')
   AND (SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public'
       AND table_name IN ('learning_resources','learning_assessments')

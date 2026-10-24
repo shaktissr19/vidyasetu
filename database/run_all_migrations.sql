@@ -1799,6 +1799,7 @@ COMMIT;
 
 
 
+
 -- Minimal grade catalog prerequisite for a clean consolidated demo database.
 -- Production receives the full importer/backfill from migration 023 separately.
 BEGIN;
@@ -2489,3 +2490,4 @@ COMMENT ON COLUMN curriculum_versions.source_hash IS
 COMMENT ON TABLE curriculum_version_evidence IS
   'Official source PDFs attached as evidence to a curriculum version; source PDF rights remain governed by syllabus_documents.';
 COMMIT;
+

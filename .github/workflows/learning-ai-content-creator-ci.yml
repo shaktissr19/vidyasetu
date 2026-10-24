@@ -124,6 +124,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/045_learning_ai_content_creator.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/046_learning_creator_source_discovery.sql
           psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/047_learning_source_registry_video_discovery.sql
+          psql -h 127.0.0.1 -U postgres -d vidyasetu_db -v ON_ERROR_STOP=1 -f database/migrations/059_syllabus_content_handoff.sql
 
       - name: Validate creator database invariants
         env:
@@ -139,6 +140,7 @@ jobs:
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_source_connectors WHERE enabled=TRUE;")" -ge 9
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT COUNT(*) FROM learning_source_connectors WHERE 'VIDEO'=ANY(supports_media_kinds);")" -ge 9
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_creator_jobs' AND column_name='submitted_to_learning_at');")" = "t"
+          test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_creator_jobs' AND column_name='curriculum_topic_id');")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='learning_source_discovery_candidates' AND column_name='media_kind');")" = "t"
           test "$(psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='trg_learning_intake_item_governance');")" = "t"
 

@@ -120,6 +120,9 @@ export interface CreateCreatorJobPayload {
   title: string;
   instructions?: string | null;
   conceptId?: string | null;
+  curriculumTopicId?:string|null;
+  curriculumAcademicYear?:string|null;
+  curriculumMedium?:'en'|'hi'|null;
   existingResourceId?: string | null;
   classNumber?: number | null;
   subjectId?: string | null;
@@ -255,7 +258,7 @@ export interface CreatorLearningSubmissionResult {
 }
 
 export interface CreatorDiscoveryInput {
-  conceptIds?:string[]; academicYear?:string|null;
+  conceptIds?:string[]; academicYear?:string|null; curriculumTopicId?:string|null; curriculumMedium?:'en'|'hi'|null;
   gradeCode?: string | null; subjectId?:string | null; chapterLabel?:string | null; topicLabel?:string | null; boardCode?: string | null;
   provider?: CreatorDiscoveryProvider;
   providers?: CreatorDiscoveryProvider[];

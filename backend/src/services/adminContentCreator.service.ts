@@ -5,6 +5,7 @@ import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
 import * as learningService from './adminLearning.service';
 import * as practiceService from './adminLearningPractice.service';
+import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
 export type CreatorMode = 'CURRICULUM' | 'SOURCES' | 'IMPROVE_EXISTING';
 export type CreatorLanguageMode = 'ENGLISH' | 'HINDI' | 'BILINGUAL';
@@ -40,6 +41,9 @@ export interface CreateCreatorJobInput {
   title: string;
   instructions?: string | null;
   conceptId?: UUID | null;
+  curriculumTopicId?: UUID | null;
+  curriculumAcademicYear?: string | null;
+  curriculumMedium?: 'en' | 'hi' | null;
   existingResourceId?: UUID | null;
   classNumber?: number | null;
   subjectId?: UUID | null;
@@ -85,6 +89,7 @@ interface CreatorJobRow extends QueryResultRow {
   title: string;
   instructions: string | null;
   concept_id: UUID | null;
+  curriculum_topic_id: UUID | null;
   existing_resource_id: UUID | null;
   class_number: number | null;
   subject_id: UUID | null;
@@ -496,15 +501,20 @@ export async function createCreatorJob(input: CreateCreatorJobInput, createdBy: 
   const resolvedSources = await Promise.all(sourceInputs.map((source) => resolveSource(source, input.accessRequirement === 'SUBSCRIBER')));
   const pack = normalizedPack(input.requestedPack);
   return transaction(async (client) => {
+    const boardCodes=(input.boardCodes?.length ? input.boardCodes : ['COMMON']).map((code)=>code.toUpperCase());
+    const curriculumTopic=input.curriculumTopicId?await requirePublishedSyllabusTopic(client,input.curriculumTopicId,{
+      boardCodes,gradeCodes:input.classNumber?[`CLASS_${input.classNumber}`]:[],subjectId:input.subjectId,
+      academicYear:input.curriculumAcademicYear,medium:input.curriculumMedium,conceptId:input.conceptId,
+    }):null;
     const { rows: [job] } = await client.query<{ id: UUID; status: CreatorJobStatus }>(
       `INSERT INTO learning_creator_jobs
-       (mode,title,instructions,concept_id,existing_resource_id,class_number,subject_id,board_codes,language_mode,
+       (mode,title,instructions,concept_id,curriculum_topic_id,existing_resource_id,class_number,subject_id,board_codes,language_mode,
         visibility,access_requirement,requested_pack,status,source_count,created_by)
-       VALUES($1::learning_creator_mode,$2,$3,$4::uuid,$5::uuid,$6,$7::uuid,$8::text[],$9::learning_creator_language_mode,
-              $10::learning_visibility,$11::learning_access_requirement,$12::jsonb,'READY_TO_GENERATE',$13,$14::uuid)
+       VALUES($1::learning_creator_mode,$2,$3,$4::uuid,$5::uuid,$6::uuid,$7,$8::uuid,$9::text[],$10::learning_creator_language_mode,
+              $11::learning_visibility,$12::learning_access_requirement,$13::jsonb,'READY_TO_GENERATE',$14,$15::uuid)
        RETURNING id,status`,
-      [input.mode,input.title.trim(),input.instructions?.trim() || null,input.conceptId || null,input.existingResourceId || null,
-       input.classNumber || null,input.subjectId || null,(input.boardCodes?.length ? input.boardCodes : ['COMMON']).map((code) => code.toUpperCase()),
+      [input.mode,input.title.trim(),input.instructions?.trim() || null,input.conceptId || null,curriculumTopic?.id || null,input.existingResourceId || null,
+       input.classNumber || null,input.subjectId || null,boardCodes,
        input.languageMode || 'BILINGUAL',input.visibility,input.accessRequirement,JSON.stringify(pack),resolvedSources.length,createdBy],
     );
     for (const source of resolvedSources) {
@@ -623,6 +633,8 @@ export async function materialiseCreatorJob(jobId: UUID, adminId: UUID) {
     language: job.language_mode === 'HINDI' ? 'hi' : 'en',
     classMin: job.class_number,
     classMax: job.class_number,
+    subjectId:job.subject_id,
+    curriculumTopicId:job.curriculum_topic_id,
     sourceCode: 'VIDYASETU_ORIGINAL',
     sourceUrl: null,
     licence,

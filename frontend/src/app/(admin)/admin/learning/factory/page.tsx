@@ -48,6 +48,9 @@ function normalizedText(value?: string | null) {
 
 export default function ContentFactoryPage() {
   const queryClient = useQueryClient();
+  const [syllabusMode,setSyllabusMode] = useState<'SYLLABUS'|'EXPLORE'>('SYLLABUS');
+  const [curriculumTopicId,setCurriculumTopicId] = useState('');
+  const [curriculumMedium,setCurriculumMedium] = useState<'en'|'hi'>('en');
   const [syllabusConcept,setSyllabusConcept] = useState('');
   const [syllabusYear,setSyllabusYear] = useState('');
   const [gradeCode,setGradeCode] = useState('CLASS_5');
@@ -81,6 +84,10 @@ export default function ContentFactoryPage() {
     if(p.get('subject'))setSubjectId(p.get('subject')!);
     if(p.get('chapter'))setChapterText(p.get('chapter')!);
     if(p.get('topic'))setTopicText(p.get('topic')!);
+    const topicId=p.get('topicId')||'';
+    if(topicId){setCurriculumTopicId(topicId);setSyllabusMode('SYLLABUS');}
+    else if(p.get('mode')==='explore')setSyllabusMode('EXPLORE');
+    setCurriculumMedium((p.get('medium')==='hi'?'hi':'en'));
     setSyllabusConcept(p.get('concept')||'');setSyllabusYear(p.get('year')||'');
   },[]);
   const factoryQuery = useQuery({ queryKey: ['content-factory-options'],queryFn: () => getContentFactoryOptions().then((r) => r.data.data) });
@@ -93,28 +100,42 @@ export default function ContentFactoryPage() {
   const selectedBoard = factoryQuery.data?.boards.find((item) => item.code === boardCode);
   const readiness = factoryQuery.data?.readinessByClass.find((item) => item.classNumber === classNumber);
 
-  const curriculumSubject = useMemo(() => {
-    const candidatesForClass = (factoryQuery.data?.curriculumSubjects || []).filter((item) =>
-      item.board_code === boardCode && (!syllabusYear || item.academic_year===syllabusYear) && (item.class_name===gradeCode || (gradeCode.startsWith('CLASS_') && String(item.class_name).replace(/\D/g,'')===String(classNumber))),
-    );
-    return candidatesForClass.find((item) => item.subject_id === subjectId)
-      || candidatesForClass.find((item) => normalizedText(item.display_name) === normalizedText(subject));
-  },[factoryQuery.data,boardCode,classNumber,gradeCode,syllabusYear,subjectId,subject]);
-
-  const chapterSuggestions = useMemo(() => (factoryQuery.data?.units || []).filter((item) => item.curriculum_subject_id === curriculumSubject?.id),[factoryQuery.data,curriculumSubject]);
-  const selectedMappedUnit = chapterSuggestions.find((item) => normalizedText(item.title) === normalizedText(chapterText));
-  const topicSuggestions = useMemo(() => {
-    const unitIds = new Set(chapterSuggestions.map((item) => item.id));
-    return (factoryQuery.data?.topics || []).filter((item) => selectedMappedUnit ? item.curriculum_unit_id === selectedMappedUnit.id : unitIds.has(item.curriculum_unit_id));
-  },[factoryQuery.data,chapterSuggestions,selectedMappedUnit]);
+  const frameworkSubjectsForContext = useMemo(() => (factoryQuery.data?.curriculumSubjects || []).filter((item) =>
+    item.board_code === boardCode && item.medium === curriculumMedium &&
+    (item.class_name===gradeCode || (gradeCode.startsWith('CLASS_') && String(item.class_name).replace(/\D/g,'')===String(classNumber))),
+  ),[factoryQuery.data,boardCode,curriculumMedium,classNumber,gradeCode]);
+  const syllabusYears = useMemo(() => [...new Set(frameworkSubjectsForContext.map(item=>item.academic_year).filter((year):year is string=>Boolean(year)))].sort((a,b)=>b.localeCompare(a)),[frameworkSubjectsForContext]);
+  const availableCurriculumSubjects = useMemo(() => frameworkSubjectsForContext.filter(item=>!syllabusYear||item.academic_year===syllabusYear),[frameworkSubjectsForContext,syllabusYear]);
+  const curriculumSubject = availableCurriculumSubjects.find((item) => item.subject_id === subjectId)
+    || availableCurriculumSubjects.find((item) => normalizedText(item.display_name) === normalizedText(subject));
+  const chapterOptions = useMemo(() => {
+    const topics=factoryQuery.data?.topics||[];
+    const units=new Set((factoryQuery.data?.units||[]).filter(item=>item.curriculum_subject_id===curriculumSubject?.id).map(item=>item.id));
+    const unique=new Map<string,{id:string;title:string}>();
+    for(const topic of topics){if(!units.has(topic.curriculum_unit_id))continue;const id=topic.chapter_id||topic.curriculum_unit_id;unique.set(id,{id,title:topic.chapter_title||topic.title});}
+    return [...unique.values()];
+  },[factoryQuery.data,curriculumSubject]);
+  const visibleTopics = useMemo(() => {
+    const unitIds=new Set((factoryQuery.data?.units||[]).filter(item=>item.curriculum_subject_id===curriculumSubject?.id).map(item=>item.id));
+    return (factoryQuery.data?.topics||[]).filter(item=>unitIds.has(item.curriculum_unit_id)&&(!chapterText||((item.chapter_id||item.curriculum_unit_id)===chapterText)));
+  },[factoryQuery.data,curriculumSubject,chapterText]);
+  const selectedCurriculumTopic = useMemo(() => visibleTopics.find(item=>item.id===curriculumTopicId)
+    || (factoryQuery.data?.topics||[]).find(item=>item.id===curriculumTopicId&&item.curriculum_unit_id&&(factoryQuery.data?.units||[]).some(unit=>unit.id===item.curriculum_unit_id&&unit.curriculum_subject_id===curriculumSubject?.id)),
+  [visibleTopics,factoryQuery.data,curriculumTopicId,curriculumSubject]);
+  useEffect(()=>{if(syllabusYears.length&&!syllabusYears.includes(syllabusYear))setSyllabusYear(syllabusYears[0]);},[syllabusYear,syllabusYears]);
+  useEffect(()=>{if(selectedCurriculumTopic){setChapterText(selectedCurriculumTopic.chapter_id||selectedCurriculumTopic.curriculum_unit_id);setTopicText(selectedCurriculumTopic.title);if(selectedCurriculumTopic.concept_id)setSyllabusConcept(selectedCurriculumTopic.concept_id);}},[selectedCurriculumTopic]);
 
   const matchingConcepts = useMemo(() => (factoryQuery.data?.concepts || []).filter((item) =>
     item.class_number === classNumber && (!subject || normalizedText(item.subject_name) === normalizedText(subject) || normalizedText(item.subject_code) === normalizedText(selectedSubject?.code)),
   ),[factoryQuery.data,classNumber,subject,selectedSubject?.code]);
-  const matchedConcept = matchingConcepts.find((item) => normalizedText(item.name) === normalizedText(topicText))
-    || matchingConcepts.find((item) => normalizedText(item.chapter_title) === normalizedText(chapterText) && !topicText.trim())
-    || null;
-  const searchText = (topicText.trim() || chapterText.trim() || subject).trim();
+  const matchedConcept = syllabusMode==='SYLLABUS'
+    ? matchingConcepts.find((item)=>item.id===selectedCurriculumTopic?.concept_id)||null
+    : matchingConcepts.find((item) => normalizedText(item.name) === normalizedText(topicText))
+      || matchingConcepts.find((item) => normalizedText(item.chapter_title) === normalizedText(chapterText) && !topicText.trim())
+      || null;
+  const searchText = (syllabusMode==='SYLLABUS'
+    ? (language==='Bilingual'&&selectedCurriculumTopic?.title_hi ? `${selectedCurriculumTopic.title} ${selectedCurriculumTopic.title_hi}` : selectedCurriculumTopic?.title || '')
+    : (topicText.trim() || chapterText.trim() || subject)).trim();
   const discovery = creatorOptionsQuery.data?.discovery;
   const providerConfigured = Boolean(creatorOptionsQuery.data?.provider?.configured);
 
@@ -122,7 +143,7 @@ export default function ContentFactoryPage() {
     mutationFn: () => discoverContentCreatorSources({
       providers,
       query: searchText,
-      gradeCode,boardCode,conceptIds:syllabusConcept && factoryQuery.data?.concepts.some(c=>c.id===syllabusConcept && c.grade_code===gradeCode && c.subject_id===subjectId && normalizedText(c.name)===normalizedText(topicText))?[syllabusConcept]:[],academicYear:syllabusYear||null,subjectId:subjectId || null,chapterLabel:chapterText || null,topicLabel:topicText || null,
+      gradeCode,boardCode,conceptIds:selectedCurriculumTopic?.concept_id?[selectedCurriculumTopic.concept_id]:(syllabusConcept && factoryQuery.data?.concepts.some(c=>c.id===syllabusConcept && c.grade_code===gradeCode && c.subject_id===subjectId && normalizedText(c.name)===normalizedText(topicText))?[syllabusConcept]:[]),academicYear:syllabusYear||null,curriculumMedium:syllabusMode==='SYLLABUS'?curriculumMedium:null,curriculumTopicId:syllabusMode==='SYLLABUS'?selectedCurriculumTopic?.id||null:null,subjectId:subjectId || null,chapterLabel:selectedCurriculumTopic?.chapter_title||chapterText || null,topicLabel:selectedCurriculumTopic?.title||topicText || null,
       classNumber: gradeCode.startsWith('CLASS_') ? classNumber : null,
       subject: subject || null,
       language: language === 'Bilingual' ? null : language,
@@ -198,6 +219,9 @@ export default function ContentFactoryPage() {
         title: autoTitle,
         instructions: `Create a clear, age-appropriate Class ${classNumber} ${subject || ''} learning pack for ${focus}. Use only selected governed sources, explain concepts accurately, include examples and practice.`,
         conceptId: matchedConcept?.id || null,
+        curriculumTopicId: syllabusMode==='SYLLABUS'?selectedCurriculumTopic?.id||null:null,
+        curriculumAcademicYear: syllabusMode==='SYLLABUS'?syllabusYear||null:null,
+        curriculumMedium: syllabusMode==='SYLLABUS'?curriculumMedium:null,
         existingResourceId: null,
         classNumber,
         subjectId: subjectId || null,
@@ -246,7 +270,7 @@ export default function ContentFactoryPage() {
     }]);
   }
 
-  const canSearch = searchText.length >= 2 && providers.length > 0 && mediaKinds.length > 0;
+  const canSearch = searchText.length >= 2 && providers.length > 0 && mediaKinds.length > 0 && (syllabusMode==='EXPLORE'||Boolean(selectedCurriculumTopic));
   const canCreate = gradeCode.startsWith('CLASS_') && Boolean((matchedConcept || selectedSources.length) && searchText.length >= 2);
 
   return (
@@ -270,21 +294,27 @@ export default function ContentFactoryPage() {
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">1</span>What do you want to teach?</h2>
-        <div style={{ display: 'grid',gridTemplateColumns: 'repeat(4,minmax(160px,1fr))',gap: 12 }}>
+        <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginBottom: 14 }}>
+          <button type="button" style={{ ...secondary,borderColor:syllabusMode==='SYLLABUS'?'#B54708':'#CBD5E1',background:syllabusMode==='SYLLABUS'?'#FFF4EC':'#fff' }} onClick={()=>{setSyllabusMode('SYLLABUS');setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}>Use a published syllabus</button>
+          <button type="button" style={{ ...secondary,borderColor:syllabusMode==='EXPLORE'?'#B54708':'#CBD5E1',background:syllabusMode==='EXPLORE'?'#FFF4EC':'#fff' }} onClick={()=>{setSyllabusMode('EXPLORE');setCurriculumTopicId('');setSyllabusConcept('');}}>Explore another topic</button>
+          {syllabusMode==='SYLLABUS'&&<span className="admin-chip">Content found here will be linked to the selected syllabus topic.</span>}
+          {syllabusMode==='EXPLORE'&&<span className="admin-note" style={{ padding: '7px 10px' }}>Off-syllabus search · mapping can be added later by an academic reviewer.</span>}
+        </div>
+        <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))',gap: 12 }}>
           <label className="admin-label">Class
-            <select className="admin-select" value={gradeCode} onChange={(e) => { setGradeCode(e.target.value); const grade = factoryQuery.data?.grades.find((item) => item.code === e.target.value); setClassNumber(grade?.class_number || 1); setChapterText(''); setTopicText(''); }}>
+            <select className="admin-select" value={gradeCode} onChange={(e) => { setGradeCode(e.target.value); const grade = factoryQuery.data?.grades.find((item) => item.code === e.target.value); setClassNumber(grade?.class_number || 1);setSubjectId(''); setSyllabusYear('');setChapterText(''); setTopicText('');setCurriculumTopicId('');setSyllabusConcept(''); }}>
               {(factoryQuery.data?.grades || []).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
             </select>
           </label>
           <label className="admin-label">Board
-            <select className="admin-select" value={boardCode} onChange={(e) => { setBoardCode(e.target.value); setChapterText(''); setTopicText(''); }}>
+            <select className="admin-select" value={boardCode} onChange={(e) => { setBoardCode(e.target.value);setSubjectId('');setSyllabusYear(''); setChapterText(''); setTopicText('');setCurriculumTopicId('');setSyllabusConcept(''); }}>
               {(factoryQuery.data?.boards || []).map((item) => <option key={item.code} value={item.code}>{item.short_name || item.name}</option>)}
             </select>
           </label>
           <label className="admin-label">Subject
-            <select className="admin-select" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setChapterText(''); setTopicText(''); }}>
+            <select className="admin-select" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setChapterText(''); setTopicText('');setCurriculumTopicId('');setSyllabusConcept(''); }}>
               <option value="">Select subject…</option>
-              {subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              {(syllabusMode==='SYLLABUS'?subjects.filter(item=>availableCurriculumSubjects.some(scope=>scope.subject_id===item.id)):subjects).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
           <label className="admin-label">Language
@@ -292,22 +322,28 @@ export default function ContentFactoryPage() {
               <option>English</option><option>Hindi</option><option>Bilingual</option>
             </select>
           </label>
+          {syllabusMode==='SYLLABUS'&&<>
+            <label className="admin-label">Syllabus academic year<select className="admin-select" value={syllabusYear} onChange={e=>{setSyllabusYear(e.target.value);setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}><option value="">Select year</option>{syllabusYears.map(year=><option key={year}>{year}</option>)}</select></label>
+            <label className="admin-label">Syllabus medium<select className="admin-select" value={curriculumMedium} onChange={e=>{setCurriculumMedium(e.target.value as 'en'|'hi');setSyllabusYear('');setSubjectId('');setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}><option value="en">English syllabus</option><option value="hi">Hindi syllabus</option></select></label>
+          </>}
         </div>
 
-        <div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
-          <label className="admin-label">Chapter / unit <span className="admin-muted">— select a suggestion or type your own</span>
-            <input className="admin-input" list="factory-chapters" value={chapterText} onChange={(e) => { setChapterText(e.target.value); setTopicText(''); }} placeholder="e.g. Multiplication, Force and Pressure" />
-            <datalist id="factory-chapters">{chapterSuggestions.map((item) => <option key={item.id} value={item.title} />)}</datalist>
+        {syllabusMode==='SYLLABUS'?<div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
+          <label className="admin-label">Chapter / unit from syllabus
+            <select className="admin-select" value={chapterText} onChange={e=>{setChapterText(e.target.value);setCurriculumTopicId('');setTopicText('');setSyllabusConcept('');}}><option value="">All chapters</option>{chapterOptions.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select>
           </label>
-          <label className="admin-label">Topic / learning need <span className="admin-muted">— always editable</span>
-            <input className="admin-input" list="factory-topics" value={topicText} onChange={(e) => setTopicText(e.target.value)} placeholder="e.g. Multiplication of 2-digit numbers, solar system, nouns" />
-            <datalist id="factory-topics">{topicSuggestions.map((item) => <option key={item.id} value={item.title} />)}</datalist>
+          <label className="admin-label">Published syllabus topic
+            <select className="admin-select" value={selectedCurriculumTopic?curriculumTopicId:''} onChange={e=>{const topic=(factoryQuery.data?.topics||[]).find(item=>item.id===e.target.value);setCurriculumTopicId(e.target.value);setTopicText(topic?.title||'');setSyllabusConcept(topic?.concept_id||'');}}><option value="">Select a syllabus topic…</option>{visibleTopics.map(item=><option key={item.id} value={item.id}>{item.chapter_title||'Chapter'} · {item.title}{item.title_hi?` / ${item.title_hi}`:''}</option>)}</select>
           </label>
-        </div>
+          {!availableCurriculumSubjects.length&&<div className="admin-note" style={{ gridColumn:'1 / -1',padding:12 }}>No published syllabus is available for this board, class, year and medium yet. You can <Link className="underline font-semibold" href="/admin/learning/framework">open Framework Manager</Link> to import and review one, or switch to “Explore another topic”.</div>}
+          {availableCurriculumSubjects.length>0&&subjectId&&!curriculumSubject&&<div className="admin-note" style={{ gridColumn:'1 / -1',padding:12 }}>This subject has no published syllabus for the selected year and medium. Select another subject or use “Explore another topic”.</div>}
+        </div>:<div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
+          <label className="admin-label">Chapter / unit <span className="admin-muted">— type a search phrase</span><input className="admin-input" value={chapterText} onChange={(e) => { setChapterText(e.target.value); setTopicText(''); }} placeholder="e.g. Multiplication, Force and Pressure" /></label>
+          <label className="admin-label">Topic / learning need <span className="admin-muted">— free topic search</span><input className="admin-input" value={topicText} onChange={(e) => setTopicText(e.target.value)} placeholder="e.g. Multiplication of 2-digit numbers, solar system, nouns" /></label>
+        </div>}
 
-        <div className={readiness?.curriculumReady ? 'admin-success-note' : 'admin-note'} style={{ marginTop: 14,padding: 12 }}>
-          <strong>Curriculum mapping:</strong> Class {classNumber} currently has {readiness?.conceptCount || 0} canonical concept(s). {!readiness?.curriculumReady ? 'Search is available. Academic publication needs a mapped curriculum topic. Add a topic with syllabus evidence in Prepare & rights before sending the draft for review.' : 'Mapped suggestions are shown as you type; manual chapter/topic text is still allowed.'}
-        </div>
+        {syllabusMode==='SYLLABUS'&&selectedCurriculumTopic&&<div className="admin-success-note" style={{ marginTop: 14,padding: 12 }}><strong>Syllabus link selected:</strong> {selectedBoard?.short_name||boardCode} · {gradeCode} · {subject} · {syllabusYear} · {selectedCurriculumTopic.chapter_title||'Chapter'} → {selectedCurriculumTopic.title}. This stable topic ID will be retained through source review and Library draft creation.</div>}
+        {syllabusMode==='EXPLORE'&&<div className={readiness?.curriculumReady ? 'admin-success-note' : 'admin-note'} style={{ marginTop: 14,padding: 12 }}><strong>Off-syllabus search:</strong> Class {classNumber} currently has {readiness?.conceptCount || 0} canonical concept(s). Search is allowed; an academic reviewer can map the draft to a published syllabus topic later.</div>}
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>

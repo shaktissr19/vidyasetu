@@ -43,6 +43,7 @@ type FormState = StagePipelinePayload & { file: File | null };
 
 const INITIAL_FORM: FormState = {
   sourceCode: 'VIDYASETU_ORIGINAL', title: '', mediaKind: 'ARTICLE', deliveryMode: 'VIDYASETU_ORIGINAL',
+  curriculumTopicId:null,curriculumAcademicYear:null,curriculumMedium:null,
   sourceUrl: '', sourceItemId: '', embedUrl: '', storageKey: '', mimeType: '', byteSize: null,
   licenceCandidate: 'VIDYASETU_ORIGINAL', licenceUrl: '', attributionText: '', rightsEvidenceUrl: '',
   category: 'ACADEMIC', gradeCodes: [], boardCodes: ['COMMON'], subjectLabel: '', chapterLabel: '', topicLabel: '', language: 'en',
@@ -205,6 +206,7 @@ export default function LearningContentPipelinePage() {
       licenceCandidate: item.licence_candidate || 'OTHER', attributionText: item.attribution_text || '', licenceUrl: item.licence_url || '', rightsEvidenceUrl: item.rights_evidence_url || '',
       gradeCodes: metadata.gradeCodes || (inferredGrade ? [inferredGrade] : []), boardCodes: metadata.boardCodes || [item.board_hint || 'COMMON'],
       conceptIds:metadata.conceptIds || item.discovery_context?.conceptIds || [],subjectId:metadata.subjectId || item.discovery_context?.subjectId || null,chapterLabel:metadata.chapterLabel || item.discovery_context?.chapterLabel || '',topicLabel:metadata.topicLabel || item.discovery_context?.topicLabel || '',language:metadata.language || item.discovered_language || 'en',durationSecs:metadata.durationSecs || item.discovered_duration || null,
+      curriculumTopicId:item.curriculum_topic_id||item.discovery_context?.curriculumTopicId||null,curriculumAcademicYear:item.curriculum_academic_year||item.discovery_context?.curriculumAcademicYear||null,curriculumMedium:item.curriculum_medium||item.discovery_context?.curriculumMedium||null,
       subjectLabel: metadata.subjectLabel || item.subject_hint || '', thumbnailUrl: metadata.thumbnailUrl || item.discovered_thumbnail_url || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -322,6 +324,7 @@ export default function LearningContentPipelinePage() {
             const rights = rightsFor(item);
             return <article key={item.id} className="admin-panel-muted" style={{ padding: 16, borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><strong>{item.title}</strong><div className="admin-muted" style={{ marginTop: 4 }}>{item.source_name} · {MEDIA_LABELS[item.media_kind]} · {label(item.category)} · {label(item.delivery_mode)} · {label(item.status)}</div></div><span className="admin-chip">Rights: {label(item.rights_status)}</span></div>
+              {item.curriculum_topic_id&&<div className="admin-success-note" style={{ marginTop:8,padding:8 }}><strong>Syllabus linked:</strong> {item.curriculum_board_code} · {item.curriculum_class_name} · {item.curriculum_subject_name} · {item.curriculum_academic_year} ({item.curriculum_medium}) · {item.curriculum_chapter_title} → {item.curriculum_topic_title}</div>}
               <div style={{ marginTop: 8, fontSize: 12, color: '#475467' }}>{item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer">Inspect original source / rights ↗</a>}{item.storage_key ? ` · In-platform media ${item.processing_status || 'registered'}` : ''}{item.imported_resource_id && <Link href="/admin/learning"> · Open Library to preview &amp; publish</Link>}</div>
               {item.status !== 'IMPORTED' && <>
                 <button type="button" style={secondary} onClick={() => configure(item)}>{item.asset_id ? 'Edit details / delivery' : 'Complete details / choose delivery'}</button>

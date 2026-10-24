@@ -3,6 +3,7 @@ import type { PoolClient, QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
 import { assertOfficialEmbedUrl, assertLearningRightsPolicy, assertLearningAssetType, assertProviderEmbedAccess } from './learningDeliveryPolicy';
+import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
 export type PipelineMediaKind =
   | 'DOCUMENT'
@@ -73,6 +74,9 @@ export interface StagePipelineInput {
   gradeCodes: string[];
   boardCodes: string[];
   subjectId?: UUID | null;
+  curriculumTopicId?: UUID | null;
+  curriculumAcademicYear?: string | null;
+  curriculumMedium?: 'en' | 'hi' | null;
   subjectLabel?: string | null;
   chapterLabel?: string | null;
   topicLabel?: string | null;
@@ -353,6 +357,9 @@ export async function listPipelineQueue() {
   const { rows } = await query(
     `SELECT lsi.id,lsi.title,lsi.source_url,lsi.source_item_id,lsi.media_kind,lsi.delivery_mode,lsi.rights_status,
             lsi.licence_candidate,lsi.licence_url,lsi.attribution_text,lsi.rights_evidence_url,lsi.grade_code,
+            lsi.curriculum_topic_id,cv.academic_year AS curriculum_academic_year,cv.medium AS curriculum_medium,
+            eb.code AS curriculum_board_code,cs.class_name AS curriculum_class_name,cs.display_name AS curriculum_subject_name,
+            COALESCE(cc.title,cu.title) AS curriculum_chapter_title,ct.title AS curriculum_topic_title,
             lsi.category,
             lsi.status,lsi.created_at,lsi.reviewed_at,lsi.imported_resource_id,
             lcs.code AS source_code,lcs.name AS source_name,
@@ -362,6 +369,12 @@ export async function listPipelineQueue() {
      FROM learning_source_intake lsi
      JOIN learning_content_sources lcs ON lcs.id=lsi.source_id
      LEFT JOIN learning_content_assets a ON a.id=lsi.asset_id
+     LEFT JOIN curriculum_topics ct ON ct.id=lsi.curriculum_topic_id
+     LEFT JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id
+     LEFT JOIN curriculum_chapters cc ON cc.id=ct.chapter_id
+     LEFT JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
+     LEFT JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
+     LEFT JOIN education_boards eb ON eb.id=cv.board_id
      LEFT JOIN LATERAL (SELECT c.media_kind,c.embed_url,c.thumbnail_url,c.metadata,c.duration_seconds,r.filters,r.language FROM learning_source_discovery_candidates c JOIN learning_source_discovery_runs r ON r.id=c.run_id WHERE c.intake_id=lsi.id ORDER BY c.created_at DESC LIMIT 1) dc ON TRUE
      ORDER BY CASE lsi.status WHEN 'DISCOVERED' THEN 1 WHEN 'LICENCE_REVIEW' THEN 2 WHEN 'CONTENT_REVIEW' THEN 3
                               WHEN 'APPROVED' THEN 4 WHEN 'IMPORTED' THEN 8 ELSE 9 END,lsi.created_at DESC
@@ -385,14 +398,18 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID, acq
     // Serialise all staging/materialisation of one source URL, including concurrent first imports.
     let lockedUrl = pipelineSourceUrl(source.code, normalizeHttpsUrl(input.sourceUrl, 'Original source URL'));
     if (input.intakeId) {
-      const { rows: [selected] } = await client.query(`SELECT source_id,source_url FROM learning_source_intake WHERE id=$1::uuid`,[input.intakeId]);
+      const { rows: [selected] } = await client.query(`SELECT source_id,source_url,curriculum_topic_id FROM learning_source_intake WHERE id=$1::uuid`,[input.intakeId]);
       if (!selected || selected.source_id !== source.id || normalizeHttpsUrl(selected.source_url,'Selected source URL') !== lockedUrl) throw appError('Selected intake source/URL does not match; create a new intake for a different source');
+      if (selected.curriculum_topic_id && input.curriculumTopicId && selected.curriculum_topic_id !== input.curriculumTopicId) throw appError('This intake is already linked to a different syllabus topic. Create a separate content item for the other topic.',409);
+      if (selected.curriculum_topic_id && !input.curriculumTopicId) input.curriculumTopicId=selected.curriculum_topic_id;
       lockedUrl = selected.source_url;
     }
     input = { ...input, sourceUrl: lockedUrl };
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`${source.id}:${lockedUrl}`]);
-    const previous = await client.query(`SELECT id,status,imported_resource_id FROM learning_source_intake WHERE source_id=$1::uuid AND source_url=$2 FOR UPDATE`, [source.id,lockedUrl]);
+    const previous = await client.query(`SELECT id,status,imported_resource_id,curriculum_topic_id FROM learning_source_intake WHERE source_id=$1::uuid AND source_url=$2 FOR UPDATE`, [source.id,lockedUrl]);
     if (previous.rows[0]?.imported_resource_id || previous.rows[0]?.status === 'IMPORTED') throw appError('This source is already in Content Library. Archive/revise its resource rather than overwriting imported evidence',409);
+    if (previous.rows[0]?.curriculum_topic_id && input.curriculumTopicId && previous.rows[0].curriculum_topic_id !== input.curriculumTopicId) throw appError('This source is already staged for a different syllabus topic. Use a separate source item or map it through Asset Governance.',409);
+    if (previous.rows[0]?.curriculum_topic_id && !input.curriculumTopicId) input.curriculumTopicId=previous.rows[0].curriculum_topic_id;
     if (acquisition && previous.rows[0]) {
       const existingAsset = await client.query('SELECT a.storage_key FROM learning_source_intake i JOIN learning_content_assets a ON a.id=i.asset_id WHERE i.id=$1::uuid',[previous.rows[0].id]);
       if (existingAsset.rows[0]?.storage_key) throw appError('This intake already has a hosted asset. Review it before creating a replacement intake',409);
@@ -401,6 +418,10 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID, acq
     // Keep the selected intake key exact; older discovery rows may omit a trailing slash.
     if (input.intakeId) policy.sourceUrl = lockedUrl;
     const scope = await validateScope(client, input.gradeCodes, input.boardCodes);
+    const curriculumTopic = input.curriculumTopicId ? await requirePublishedSyllabusTopic(client,input.curriculumTopicId,{
+      boardCodes:scope.boards.map((item)=>item.code),gradeCodes:scope.grades,subjectId:input.subjectId,
+      academicYear:input.curriculumAcademicYear,medium:input.curriculumMedium,
+    }) : null;
     const licenceUrl = normalizeHttpsUrl(input.licenceUrl, 'Licence URL');
     const rightsEvidenceUrl = normalizeHttpsUrl(input.rightsEvidenceUrl, 'Rights evidence URL');
     const attributionText = nullable(input.attributionText)
@@ -420,6 +441,7 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID, acq
       gradeCodes: scope.grades,
       boardCodes: scope.boards.map((item) => item.code),
       subjectId: input.subjectId || null,
+      curriculumTopicId: curriculumTopic?.id || null,
       subjectLabel: nullable(input.subjectLabel),
       chapterLabel: nullable(input.chapterLabel),
       topicLabel: nullable(input.topicLabel),
@@ -493,6 +515,11 @@ export async function stageContent(input: StagePipelineInput, adminId: UUID, acq
       input.transcript||null,adminId,policy.rightsStatus]);
 
     await client.query(`UPDATE learning_source_intake SET asset_id=$2::uuid,updated_at=NOW() WHERE id=$1::uuid`, [intake.id,asset.id]);
+    if (curriculumTopic) {
+      const { rows: [topicColumn] } = await client.query(`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='learning_source_intake' AND column_name='curriculum_topic_id') AS ready`);
+      if (!topicColumn?.ready) throw appError('Apply migration 059 before linking content to a syllabus topic',503);
+      await client.query(`UPDATE learning_source_intake SET curriculum_topic_id=$2::uuid WHERE id=$1::uuid`,[intake.id,curriculumTopic.id]);
+    }
     await client.query(
       `INSERT INTO learning_content_pipeline_events(intake_id,asset_id,actor_id,event_code,from_state,to_state,details)
        VALUES($1::uuid,$2::uuid,$3::uuid,'STAGED',NULL,$4,$5::jsonb)`,
@@ -593,6 +620,7 @@ export async function materialiseIntake(intakeId: UUID, adminId: UUID) {
     }
 
     const metadata = item.metadata || {};
+    const curriculumTopicId = item.curriculum_topic_id || metadata.curriculumTopicId || null;
     const visibility = String(metadata.visibility || 'REGISTERED') as PipelineVisibility;
     const accessRequirement = String(metadata.accessRequirement || 'REGISTERED') as PipelineAccess;
     assertAccessPolicy(visibility,accessRequirement);
@@ -610,6 +638,9 @@ export async function materialiseIntake(intakeId: UUID, adminId: UUID) {
       const subject = await client.query(`SELECT id FROM subjects WHERE id=$1::uuid`,[subjectId]);
       if (!subject.rows[0]) throw appError('Selected subject is invalid');
     }
+    const curriculumTopic = curriculumTopicId ? await requirePublishedSyllabusTopic(client,String(curriculumTopicId),{
+      boardCodes:scope.boards.map((board)=>board.code),gradeCodes:scope.grades,subjectId,
+    }) : null;
     const gradeNumbers = scope.grades.filter((code) => /^CLASS_\d+$/.test(code)).map((code) => Number(code.slice(6)));
     const classMin = gradeNumbers.length ? Math.min(...gradeNumbers) : null;
     const classMax = gradeNumbers.length ? Math.max(...gradeNumbers) : null;
@@ -626,14 +657,14 @@ export async function materialiseIntake(intakeId: UUID, adminId: UUID) {
     const resourceResult = await client.query<{ id: UUID }>(
       `INSERT INTO learning_resources
        (public_slug,title,summary,summary_hi,body_markdown,body_markdown_hi,resource_type,category,visibility,review_status,language,
-        class_min,class_max,subject_id,subject_label,topic_label,chapter_label,source_id,source_url,source_item_id,licence,licence_url,
+        class_min,class_max,subject_id,curriculum_topic_id,subject_label,topic_label,chapter_label,source_id,source_url,source_item_id,licence,licence_url,
         attribution_text,external_url,file_key,thumbnail_url,duration_secs,is_offline_ready,is_featured_public,access_requirement,created_by,
         delivery_mode,rights_status,rights_evidence_url,rights_verified_at,rights_verified_by,asset_id,title_hi,difficulty,transcript,alt_text)
        VALUES($1,$2,$3,$4,$5,$6,$7::learning_resource_type,$8::learning_category,$9::learning_visibility,'DRAFT'::learning_review_status,
-              $10,$11,$12,$13::uuid,$14,$15,$16,$17::uuid,$18,$19,$20::learning_license_code,$21,$22,$23,$24,$25,$26,FALSE,FALSE,
-              $27::learning_access_requirement,$28::uuid,$29::learning_delivery_mode,'VERIFIED'::learning_rights_status,$30,$31,$32::uuid,$33::uuid,$34,$35,$36,$37)
+              $10,$11,$12,$13::uuid,$14::uuid,$15,$16,$17,$18::uuid,$19,$20,$21::learning_license_code,$22,$23,$24,$25,$26,$27,FALSE,FALSE,
+              $28::learning_access_requirement,$29::uuid,$30::learning_delivery_mode,'VERIFIED'::learning_rights_status,$31,$32,$33::uuid,$34::uuid,$35,$36,$37,$38)
        RETURNING id`,
-      [publicSlug,item.title,nullable(metadata.summary),nullable(metadata.summaryHi),body,bodyHi,item.media_kind,item.category,visibility,String(metadata.language || 'en'),classMin,classMax,subjectId,nullable(metadata.subjectLabel),nullable(metadata.topicLabel),nullable(metadata.chapterLabel),item.source_id,sourceUrl,item.source_item_id,item.licence_candidate, item.licence_url,item.attribution_text,externalUrl,item.delivery_mode === 'LICENSED_REHOST' || item.delivery_mode === 'VIDYASETU_ORIGINAL' ? item.storage_key : null,nullable(metadata.thumbnailUrl),Number(metadata.durationSecs || 0) || null,accessRequirement,adminId,item.delivery_mode,item.rights_evidence_url,item.licence_verified_at,item.licence_verified_by,item.asset_id,nullable(metadata.titleHi),nullable(metadata.difficulty),nullable(metadata.transcript),nullable(metadata.altText)],
+      [publicSlug,item.title,nullable(metadata.summary),nullable(metadata.summaryHi),body,bodyHi,item.media_kind,item.category,visibility,String(metadata.language || 'en'),classMin,classMax,subjectId,curriculumTopic?.id || null,nullable(metadata.subjectLabel),curriculumTopic?.title || nullable(metadata.topicLabel),curriculumTopic?.chapter_title || nullable(metadata.chapterLabel),item.source_id,sourceUrl,item.source_item_id,item.licence_candidate, item.licence_url,item.attribution_text,externalUrl,item.delivery_mode === 'LICENSED_REHOST' || item.delivery_mode === 'VIDYASETU_ORIGINAL' ? item.storage_key : null,nullable(metadata.thumbnailUrl),Number(metadata.durationSecs || 0) || null,accessRequirement,adminId,item.delivery_mode,item.rights_evidence_url,item.licence_verified_at,item.licence_verified_by,item.asset_id,nullable(metadata.titleHi),nullable(metadata.difficulty),nullable(metadata.transcript),nullable(metadata.altText)],
     );
     const resourceId = resourceResult.rows[0].id;
     for (const board of scope.boards) await client.query(`INSERT INTO learning_resource_boards(resource_id,board_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`,[resourceId,board.id]);
@@ -658,6 +689,10 @@ export async function updateDraftDetails(resourceId: UUID, input: StagePipelineI
     if (['PUBLISHED','ARCHIVED'].includes(resource.review_status)) throw appError('Archive published content and restore it to DRAFT before correcting it');
     if (input.sourceCode !== resource.source_code || input.mediaKind !== resource.resource_type || input.deliveryMode !== resource.delivery_mode) throw appError('Source, file format and delivery evidence are immutable. Create a new intake for a different asset');
     const scope = await validateScope(client,input.gradeCodes,input.boardCodes);
+    const curriculumTopic = input.curriculumTopicId ? await requirePublishedSyllabusTopic(client,input.curriculumTopicId,{
+      boardCodes:scope.boards.map((board)=>board.code),gradeCodes:scope.grades,subjectId:input.subjectId,
+      academicYear:input.curriculumAcademicYear,medium:input.curriculumMedium,
+    }) : null;
     if (input.visibility === 'SCHOOL_ONLY') throw appError('School-specific delivery is not integrated');
     assertAccessPolicy(input.visibility,input.accessRequirement);
     try { assertLearningRightsPolicy({ deliveryMode: resource.delivery_mode,licence: resource.licence,sourceCode: resource.source_code,embedUrl: resource.external_url,attribution: resource.attribution_text,evidenceUrl: resource.rights_evidence_url,accessRequirement: input.accessRequirement }); }
@@ -672,10 +707,10 @@ export async function updateDraftDetails(resourceId: UUID, input: StagePipelineI
     const { rows: [relations] } = await client.query(`SELECT (SELECT jsonb_agg(rg) FROM learning_resource_grades rg WHERE rg.resource_id=$1::uuid) AS grades,(SELECT jsonb_agg(rb) FROM learning_resource_boards rb WHERE rb.resource_id=$1::uuid) AS boards,(SELECT jsonb_agg(rc) FROM learning_resource_concepts rc WHERE rc.resource_id=$1::uuid) AS concepts`,[resourceId]);
     await client.query(`INSERT INTO learning_resource_revisions(resource_id,actor_id,snapshot) VALUES($1::uuid,$2::uuid,$3::jsonb)`,[resourceId,adminId,JSON.stringify({resource,relations})]);
     await client.query(`UPDATE learning_resources SET title=$2,title_hi=$3,summary=$4,summary_hi=$5,body_markdown=$6,body_markdown_hi=$7,
-      category=$8::learning_category,subject_id=$9::uuid,subject_label=$10,chapter_label=$11,topic_label=$12,language=$13,
-      difficulty=$14,transcript=$15,alt_text=$16,visibility=$17::learning_visibility,access_requirement=$18::learning_access_requirement,
-      class_min=$19,class_max=$20,review_status='DRAFT',reviewed_by=NULL,reviewed_at=NULL,updated_at=NOW()
-      WHERE id=$1::uuid`,[resourceId,text(input.title),nullable(input.titleHi),nullable(input.summary),nullable(input.summaryHi),nullable(input.bodyMarkdown),nullable(input.bodyMarkdownHi),input.category,input.subjectId || null,nullable(input.subjectLabel),nullable(input.chapterLabel),nullable(input.topicLabel),input.language || 'en',input.difficulty || null,nullable(input.transcript),nullable(input.altText),input.visibility,input.accessRequirement,grades.length ? Math.min(...grades) : null,grades.length ? Math.max(...grades) : null]);
+      category=$8::learning_category,subject_id=$9::uuid,curriculum_topic_id=$10::uuid,subject_label=$11,chapter_label=$12,topic_label=$13,language=$14,
+      difficulty=$15,transcript=$16,alt_text=$17,visibility=$18::learning_visibility,access_requirement=$19::learning_access_requirement,
+      class_min=$20,class_max=$21,review_status='DRAFT',reviewed_by=NULL,reviewed_at=NULL,updated_at=NOW()
+      WHERE id=$1::uuid`,[resourceId,text(input.title),nullable(input.titleHi),nullable(input.summary),nullable(input.summaryHi),nullable(input.bodyMarkdown),nullable(input.bodyMarkdownHi),input.category,input.subjectId || null,curriculumTopic?.id || null,nullable(input.subjectLabel),curriculumTopic?.chapter_title || nullable(input.chapterLabel),curriculumTopic?.title || nullable(input.topicLabel),input.language || 'en',input.difficulty || null,nullable(input.transcript),nullable(input.altText),input.visibility,input.accessRequirement,grades.length ? Math.min(...grades) : null,grades.length ? Math.max(...grades) : null]);
     await client.query(`DELETE FROM learning_resource_grades WHERE resource_id=$1::uuid`,[resourceId]);
     await client.query(`INSERT INTO learning_resource_grades(resource_id,grade_id) SELECT $1::uuid,id FROM education_grade_levels WHERE code=ANY($2::varchar[])`,[resourceId,scope.grades]);
     await client.query(`DELETE FROM learning_resource_boards WHERE resource_id=$1::uuid`,[resourceId]);

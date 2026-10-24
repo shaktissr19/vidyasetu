@@ -5,6 +5,7 @@ import { query, transaction } from '../config/db';
 import * as pipeline from './learningContentPipeline.service';
 import { assertLearningRightsPolicy } from './learningDeliveryPolicy';
 import * as practiceService from './adminLearningPractice.service';
+import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
 export interface StageExternalWebSourceInput {
   title: string;
@@ -29,6 +30,9 @@ export interface AddApprovedIntakeToLibraryInput {
   subjectName?: string | null;
   chapter?: string | null;
   topic?: string | null;
+  curriculumTopicId?: UUID | null;
+  curriculumAcademicYear?: string | null;
+  curriculumMedium?: 'en' | 'hi' | null;
   language?: 'en' | 'hi' | 'en-hi';
   visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY';
   accessRequirement: 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
@@ -135,25 +139,29 @@ export async function getFactoryOptions() {
   const [boards,subjects,curriculumSubjects,units,topics,concepts,conceptCoverage,grades] = await Promise.all([
     query(`SELECT id,code,name,short_name,board_type,state,sort_order FROM education_boards WHERE is_active=TRUE ORDER BY sort_order,name`),
     query(`SELECT id,code,name FROM subjects ORDER BY name`),
-    query(`SELECT cs.id,cs.curriculum_version_id,cv.academic_year,cv.board_id,eb.code AS board_code,eb.name AS board_name,
+    query(`SELECT cs.id,cs.curriculum_version_id,cv.academic_year,cv.medium,cv.board_id,eb.code AS board_code,eb.name AS board_name,
                   cs.subject_id,cs.class_name,cs.display_name,cs.display_name_hi,cs.subject_code,cs.sort_order
            FROM curriculum_subjects cs
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
            JOIN education_boards eb ON eb.id=cv.board_id
-           WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND eb.is_active=TRUE
+           WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL AND eb.is_active=TRUE
            ORDER BY eb.sort_order,cs.class_name,cs.sort_order,cs.display_name`),
     query(`SELECT cu.id,cu.curriculum_subject_id,cu.unit_number,cu.title,cu.title_hi,cu.description,cu.sort_order
            FROM curriculum_units cu
            JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
-           WHERE cs.is_active=TRUE AND cv.status='ACTIVE'
+           WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL
            ORDER BY cu.curriculum_subject_id,cu.sort_order,cu.title`),
-    query(`SELECT ct.id,ct.curriculum_unit_id,ct.topic_number,ct.title,ct.title_hi,ct.learning_outcome,ct.competency_tags,ct.sort_order
+    query(`SELECT ct.id,ct.curriculum_unit_id,ct.chapter_id,COALESCE(cc.title,cu.title) AS chapter_title,
+                  ctc.concept_id,ct.topic_number,ct.title,ct.title_hi,ct.learning_outcome,ct.competency_tags,ct.sort_order
            FROM curriculum_topics ct
            JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id
            JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
-           WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND COALESCE((to_jsonb(ct)->>'is_retired')::boolean,FALSE)=FALSE
+           LEFT JOIN curriculum_chapters cc ON cc.id=ct.chapter_id
+           LEFT JOIN curriculum_topic_concepts ctc ON ctc.topic_id=ct.id
+           WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL
+             AND COALESCE((to_jsonb(ct)->>'is_retired')::boolean,FALSE)=FALSE
            ORDER BY ct.curriculum_unit_id,ct.sort_order,ct.title`),
     query(`SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.chapter_title,lc.subject_code,lc.subject_id,
                   sub.name AS subject_name,egl.code AS grade_code,egl.class_number
@@ -313,6 +321,14 @@ export async function addApprovedIntakeToLibrary(intakeId: UUID, input: AddAppro
     return { ...resource,alreadyImported: true,intakeId };
   }
   if (item.asset_id) {
+    if (input.curriculumTopicId) await transaction(async(client)=>{
+      const topic=await requirePublishedSyllabusTopic(client,input.curriculumTopicId!,{
+        boardCodes:[input.boardCode],gradeCodes:[`CLASS_${input.classNumber}`],subjectId:input.subjectId,
+        academicYear:input.curriculumAcademicYear,medium:input.curriculumMedium,
+      });
+      const { rows: [linked] } = await client.query(`UPDATE learning_source_intake SET curriculum_topic_id=$2::uuid WHERE id=$1::uuid AND (curriculum_topic_id IS NULL OR curriculum_topic_id=$2::uuid) RETURNING id`,[intakeId,topic.id]);
+      if(!linked) throw appError('This source is already linked to a different syllabus topic.',409);
+    });
     const result = await pipeline.materialiseIntake(intakeId,adminId);
     const { rows: [resource] } = await query(`SELECT * FROM learning_resources WHERE id=$1::uuid`,[result.resourceId]);
     return { ...resource,...result,intakeId };
@@ -331,6 +347,7 @@ export async function addApprovedIntakeToLibrary(intakeId: UUID, input: AddAppro
     category: input.category || 'ACADEMIC',gradeCodes: [`CLASS_${input.classNumber}`],boardCodes: [input.boardCode],
     subjectId: subject?.id,subjectLabel: subject?.name,chapterLabel: input.chapter,topicLabel: input.topic,
     language: input.language,visibility: input.visibility,accessRequirement: input.accessRequirement,
+    curriculumTopicId:input.curriculumTopicId,curriculumAcademicYear:input.curriculumAcademicYear,curriculumMedium:input.curriculumMedium,
     difficulty: input.difficulty,conceptIds: input.conceptIds,thumbnailUrl: item.thumbnail_url,durationSecs: item.duration_seconds,
     summary: 'Reviewed external learning resource.',
   },adminId);
