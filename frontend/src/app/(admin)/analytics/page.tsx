@@ -69,27 +69,27 @@ export default function AdminAnalytics() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 stagger">
-        <StatCard dark label="Total Students" value={Number(students.total || 0).toLocaleString('en-IN')} sub={`↑ ${students.new_this_month || 0} this month`} />
-        <StatCard dark label="Active Schools" value={Number(schools.active || 0).toLocaleString('en-IN')} sub={`↑ ${schools.new_this_month || 0} new`} />
-        <StatCard dark label="MRR" value={formatCurrency(analytics?.mrr || 0)} sub={`${schools.paid || 0} paid schools`} />
-        <StatCard dark label="DAU" value={Number(analytics?.dau || 0).toLocaleString('en-IN')} sub="Daily active students" />
+        <StatCard label="Total Students" value={Number(students.total || 0).toLocaleString('en-IN')} sub={`↑ ${students.new_this_month || 0} this month`} />
+        <StatCard label="Active Schools" value={Number(schools.active || 0).toLocaleString('en-IN')} sub={`↑ ${schools.new_this_month || 0} new`} />
+        <StatCard label="MRR" value={formatCurrency(analytics?.mrr || 0)} sub={`${schools.paid || 0} paid schools`} />
+        <StatCard label="DAU" value={Number(analytics?.dau || 0).toLocaleString('en-IN')} sub="Daily active students" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-5 mb-5">
-        <div className="card-navy">
-          <h3 className="font-display font-bold text-base text-white mb-4">🌐 Top States by Enrollment</h3>
+        <div className="card">
+          <h3 className="font-display font-bold text-base mb-4" style={{color:'#14213D'}}>🌐 Top States by Enrollment</h3>
           <div className="space-y-3">
             {(analytics?.topStates || []).map((state) => {
               const max = Number(analytics?.topStates?.[0]?.student_count || 1);
               const pct = Math.round((Number(state.student_count) / max) * 100);
-              return <div key={state.state}><div className="flex justify-between text-sm mb-1"><span style={{ color: 'rgba(255,255,255,0.7)' }}>{state.state}</span><span style={{ color: 'var(--saffron-light)', fontWeight: 700 }}>{Number(state.student_count).toLocaleString('en-IN')}</span></div><div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}><div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: 'var(--saffron-light)' }} /></div></div>;
+              return <div key={state.state}><div className="flex justify-between text-sm mb-1"><span style={{ color: '#334155' }}>{state.state}</span><span style={{ color: '#B54708', fontWeight: 700 }}>{Number(state.student_count).toLocaleString('en-IN')}</span></div><div className="h-1.5 rounded-full" style={{ background: '#E2E8F0' }}><div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: '#F97316' }} /></div></div>;
             })}
           </div>
         </div>
 
-        <div className="card-navy">
-          <h3 className="font-display font-bold text-base text-white mb-4">⏳ Pending School Approvals</h3>
-          {(analytics?.pendingSchools || []).length === 0 ? <p className="text-sm" style={{ color: 'rgba(255,255,255,0.76)' }}>All caught up! ✅</p> : <div className="space-y-3">{(analytics?.pendingSchools || []).slice(0, 5).map((school) => <div key={school.id} className="flex items-center justify-between gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white truncate">{school.name}</p><p className="text-xs" style={{ color: 'rgba(255,255,255,0.72)' }}>{school.district}, {school.state}</p></div><button className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex-shrink-0" style={{ background: 'rgba(19,136,8,0.2)', color: '#A5D6A7', border: '1px solid rgba(19,136,8,0.3)' }} disabled={approveMut.isPending} onClick={() => approveMut.mutate({ id: school.id })}>Approve ✓</button></div>)}</div>}
+        <div className="card">
+          <h3 className="font-display font-bold text-base mb-4" style={{color:'#14213D'}}>⏳ Pending School Approvals</h3>
+          {(analytics?.pendingSchools || []).length === 0 ? <p className="text-sm" style={{ color: '#334155' }}>All caught up! ✅</p> : <div className="space-y-3">{(analytics?.pendingSchools || []).slice(0, 5).map((school) => <div key={school.id} className="flex items-center justify-between gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-semibold truncate" style={{color:'#14213D'}}>{school.name}</p><p className="text-xs" style={{ color: '#475569' }}>{school.district}, {school.state}</p></div><button className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex-shrink-0" style={{ background: '#E8F5E9', color: '#176B2C', border: '1px solid #86C791' }} disabled={approveMut.isPending} onClick={() => approveMut.mutate({ id: school.id })}>Approve ✓</button></div>)}</div>}
         </div>
       </div>
     </div>
