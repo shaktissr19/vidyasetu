@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
@@ -17,11 +17,12 @@ function menuLabel(text: string,count?: number): ReactNode {
   if (!count) return text;
   return <span style={{ display: 'flex',alignItems: 'center',justifyContent: 'space-between',gap: 8,width: '100%' }}>
     <span>{text}</span>
-    <span aria-label={`${count} pending`} style={{ minWidth: 20,height: 20,padding: '0 6px',borderRadius: 999,background: '#FF6B00',color: '#fff',fontSize: 11,fontWeight: 900,display: 'inline-flex',alignItems: 'center',justifyContent: 'center' }}>{count > 99 ? '99+' : count}</span>
+    <span aria-label={`${count} pending`} style={{ minWidth: 20,height: 20,padding: '0 6px',borderRadius: 999,background: '#B54708',color: '#fff',fontSize: 11,fontWeight: 900,display: 'inline-flex',alignItems: 'center',justifyContent: 'center' }}>{count > 99 ? '99+' : count}</span>
   </span>;
 }
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { isLoggedIn, user } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -72,6 +73,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     if (user?.role && user.role !== 'SUPER_ADMIN') router.replace('/login?role=admin');
   }, [isLoggedIn, user, router]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileNavOpen]);
+
   if (!isLoggedIn) return null;
 
   return (
@@ -79,11 +89,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <GlobalTopbar />
       <div className="dash-layout">
         <DashSidebar
+          id="admin-navigation"
+          className={mobileNavOpen ? 'admin-sidebar-open' : ''}
+          onNavigate={() => setMobileNavOpen(false)}
           accentColor="#FF6B00"
           profile={{ avatar: '⚙️', name: user?.name || 'Super Admin', subtitle: 'Platform Control', badge: '🔐 Admin' }}
           menuItems={menu}
         />
-        <main className={`dash-main admin-main${lightLearningWorkspace ? ' admin-learning-workspace' : ''}`} style={{ background: lightLearningWorkspace ? '#F3F6FB' : '#182540', color: lightLearningWorkspace ? '#14213D' : 'white' }}>{pathname.startsWith('/admin/learning') && pathname !== '/admin/learning/syllabus' && <nav aria-label="Content workspace" style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 16px',background:'#fff',borderBottom:'1px solid #DCE3EE'}}>{[
+        <main className={`dash-main admin-main${lightLearningWorkspace ? ' admin-learning-workspace' : ''}`} style={{ background: lightLearningWorkspace ? '#F3F6FB' : '#182540', color: lightLearningWorkspace ? '#14213D' : 'white' }}>
+          <div className="admin-mobile-toolbar"><button type="button" aria-expanded={mobileNavOpen} aria-controls="admin-navigation" onClick={() => setMobileNavOpen((open) => !open)}>{mobileNavOpen ? '✕ Close menu' : '☰ Admin menu'}</button></div>
+          {mobileNavOpen && <button type="button" className="admin-mobile-backdrop" aria-label="Close admin navigation" onClick={() => setMobileNavOpen(false)} />}
+          {pathname.startsWith('/admin/learning') && pathname !== '/admin/learning/syllabus' && <nav aria-label="Content workspace" style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 16px',background:'#fff',borderBottom:'1px solid #DCE3EE'}}>{[
  ['/admin/learning/syllabus','Syllabus'],['/admin/learning/factory','1 · Find content'],['/admin/learning/pipeline',`2 · Prepare & rights (${sourceReviewCount})`],['/admin/learning','3 · Review & publish'],['/admin/learning/practice','Questions & tests'],['/admin/learning/coverage','Coverage'],['/admin/learning/imports','Bulk records']
  ].map(([href,title]) => <Link key={href} href={href} aria-current={pathname===href || (pathname==='/admin/learning/intake' && href==='/admin/learning/pipeline') ? 'page' : undefined} style={{padding:'8px 12px',borderRadius:8,color:'#14213D',background:pathname===href ? '#FFF0E5' : '#F3F6FB',fontWeight:700,textDecoration:'none'}}>{title}</Link>)}</nav>}{children}</main>
       </div>

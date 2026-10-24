@@ -12,23 +12,23 @@ interface StatCardProps {
   dark?: boolean;
 }
 
-export function StatCard({ label, value, sub, accent = 'var(--saffron)', icon, onClick }: StatCardProps) {
+export function StatCard({ label, value, sub, accent = 'var(--saffron)', icon, onClick, dark = false }: StatCardProps) {
   return (
     <div
-      className="card"
+      className={dark ? 'card-navy stat-card-dark' : 'card'}
       onClick={onClick}
       style={{ cursor: onClick ? 'pointer' : 'default', borderTop: `3px solid ${accent}`, minWidth: 0 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: dark ? '#C6D1E2' : 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
           {label}
         </p>
         {icon && <span style={{ fontSize: 18 }}>{icon}</span>}
       </div>
-      <p style={{ fontFamily: "'Baloo 2', cursive", fontWeight: 800, fontSize: '1.6rem', color: 'var(--navy)', lineHeight: 1.1 }}>
+      <p style={{ fontFamily: "'Baloo 2', cursive", fontWeight: 800, fontSize: '1.6rem', color: dark ? '#FFFFFF' : 'var(--navy)', lineHeight: 1.1 }}>
         {value ?? '—'}
       </p>
-      {sub && <p style={{ fontSize: '0.72rem', color: 'var(--slate)', marginTop: 4 }}>{sub}</p>}
+      {sub && <p style={{ fontSize: '0.72rem', color: dark ? '#B8C5D9' : 'var(--slate)', marginTop: 4 }}>{sub}</p>}
     </div>
   );
 }

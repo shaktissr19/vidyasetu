@@ -69,15 +69,15 @@ export default function GlobalTopbar() {
       background: 'rgba(255,255,255,0.98)', borderBottom: '2px solid #FF6B00',
       display: 'flex', alignItems: 'center', padding: '0 24px', gap: 14,
       boxShadow: '0 2px 10px rgba(13,27,62,0.06)',
-    }}>
-      <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 20 }}>V</div>
+    }} className={`global-topbar${pathname.startsWith('/admin') ? ' global-topbar-admin' : ''}`}>
+      <Link href="/" className="global-topbar-brand" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
+        <div className="global-topbar-brand-icon" style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 20 }}>V</div>
         <div style={{ fontFamily: "'Baloo 2',cursive", fontSize: 27, fontWeight: 800, color: '#0D1B3E', lineHeight: 1 }}>
           Vidya<span style={{ color: '#FF6B00' }}>Setu</span>
         </div>
       </Link>
 
-      <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
+      <nav className="global-topbar-nav" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {NAV.map(([label, href]) => {
           const active = isActive(pathname, href);
           return (
@@ -91,7 +91,7 @@ export default function GlobalTopbar() {
         })}
       </nav>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      <div className="global-topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <button onClick={toggleLang} style={{ border: '1px solid #D9DEE8', background: '#fff', color: '#0D1B3E', padding: '8px 10px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
           {lang === 'hi' ? 'EN' : 'हिंदी'}
         </button>
@@ -115,10 +115,10 @@ export default function GlobalTopbar() {
                 }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
             </button>
-            <button onClick={() => router.push(accountPath(user?.role))} title="Open your dashboard" style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
+            <button className="global-topbar-dashboard" onClick={() => router.push(accountPath(user?.role))} title="Open your dashboard" style={{ border: 'none', background: '#F5F7FA', color: '#0D1B3E', padding: '8px 12px', borderRadius: 9, fontWeight: 700, cursor: 'pointer' }}>
               My Dashboard
             </button>
-            <button onClick={handleLogout} style={{ border: '2px solid #FF6B00', background: '#fff', color: '#FF6B00', padding: '8px 14px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Logout</button>
+            <button className="global-topbar-logout" onClick={handleLogout} style={{ border: '2px solid #FF6B00', background: '#fff', color: '#FF6B00', padding: '8px 14px', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Logout</button>
           </>
         ) : (
           <>
