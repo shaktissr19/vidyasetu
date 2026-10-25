@@ -20,10 +20,12 @@ function checkedOfficialUrl(value:string,base?:string,boardCode?:string){
  return url;
 }
 function cleanTitle(value:string){return value.replace(/\.(pdf|html?)($|\?.*)/i,'').replace(/[+_]/g,' ').replace(/\s+/g,' ').trim().slice(0,240)||'Official curriculum document';}
-function subjectMatches(text:string,subject:string){const normalized=subject.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const aliases:Record<string,string[]>={mathematics:['mathematics','maths','math'],maths:['mathematics','maths','math'],math:['mathematics','maths','math'],'social science':['social science','social sciences','social studies'],'social studies':['social science','social sciences','social studies'],science:['science','general science'],english:['english'],hindi:['hindi']};const terms=aliases[normalized]||[normalized];return terms.some(term=>term&&text.toLowerCase().includes(term));}
+function subjectMatches(text:string,subject:string){const normalized=subject.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const searchable=text.toLowerCase().replace(/[_-]+/g,' ');const aliases:Record<string,string[]>={mathematics:['mathematics','maths','math'],maths:['mathematics','maths','math'],math:['mathematics','maths','math'],'social science':['social science','social sciences','social studies'],'social studies':['social science','social sciences','social studies'],science:['science','general science'],english:['english'],hindi:['hindi'],'skill education':['skill education','kaushal bodh'],'vocational education':['vocational education','kaushal bodh']};const terms=aliases[normalized]||[normalized];return terms.some(term=>term&&searchable.includes(term));}
 const romanClasses:Record<string,number>={I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12};
 function classCode(value:string|undefined){if(!value)return null;const key=value.toUpperCase();const numeric=romanClasses[key]||Number(key);return Number.isInteger(numeric)&&numeric>=1&&numeric<=12?`CLASS_${numeric}`:null;}
 function inferClass(text:string){
+ const kaushalBodh=text.match(/kaushal[_ -]?bodh[_ -]?(vi{1,3}|[6-8])(?:\b|[_\-.])/i);
+ if(kaushalBodh)return classCode(kaushalBodh[1]);
  const early=text.match(/\b(pre[- ]?nursery|nursery|lkg|ukg)\b/i)?.[1]?.toLowerCase().replace(/\s+/g,'-');
  if(early)return ({'pre-nursery':'PRE_NURSERY',nursery:'NURSERY',lkg:'LKG',ukg:'UKG'} as Record<string,string>)[early]||null;
  const match=text.match(/(?:class|grade|standard|std)[\s_()\-–]*(xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|1[0-2]|[1-9])\b/i)
@@ -44,7 +46,7 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
   let title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'));
   // Several official indexes use a generic “Download” label and put the
   // actual class/subject in the PDF filename. Prefer that filename for review.
-  if(/^(download|download now|click here|डाउनलोड करें|डाउनलोड)$/i.test(title))title=cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
+  if(/^(download|download now|click here|डाउनलोड करें|डाउनलोड|vi|vii|viii)$/i.test(title))title=cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
   const text=`${title} ${decodeURIComponent(url.pathname)} ${sectionHeading}`;
   const guessedClass=inferClass(text);const guessedSubject=inferSubject(text);
@@ -66,7 +68,7 @@ export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;
  // index. Do not turn a known gap for Classes 1–8 into a misleading “no match”.
  const sourcePath=source.pathname.toLowerCase();
  const supportedGrades= input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/curriculum_2027.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
-  :input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/skill-education-curriculum.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/skill-education-curriculum.html')?['CLASS_6','CLASS_7','CLASS_8','CLASS_9','CLASS_10','CLASS_11','CLASS_12']
   :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/icse-regulations-and-syllabuses-2027/')?['CLASS_9','CLASS_10']
   :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/isc-regulations-and-syllabuses-2027/')?['CLASS_11','CLASS_12']
   :input.boardCode.toUpperCase()==='UPMSP'&&sourcePath.endsWith('/board_syllabus.aspx')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
