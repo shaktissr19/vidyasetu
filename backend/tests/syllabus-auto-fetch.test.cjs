@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseCurriculumOutline, parseOfficialSyllabusIndex } = require('../dist/services/syllabusAutoFetch.service');
+const { parseCurriculumOutline, parseKeyConceptTable, parseOfficialSyllabusIndex } = require('../dist/services/syllabusAutoFetch.service');
 const { discoverOfficialSyllabusDocuments, extractOfficialSyllabusOutline } = require('../dist/services/syllabusAutoFetch.service');
 
 test('outline parser preserves explicit unit, chapter, topic and page evidence', () => {
@@ -24,6 +24,22 @@ test('outline parser ignores front matter and repeated headings', () => {
   assert.equal(rows.filter(row => row.topic === 'Real Numbers').length, 0);
   assert.equal(rows.some(row => row.topic === 'Contents'), false);
   assert.ok(rows.some(row => row.topic === 'Euclid’s Division Lemma'));
+});
+
+test('CBSE current course table extracts index topics and excludes competency columns', () => {
+  const lines = [
+    { page: 3, y: 442, text: 'UNIT I: NUMBER SYSTEMS', parts: [{ x: 238, text: 'UNIT I: NUMBER SYSTEMS' }] },
+    { page: 3, y: 414, text: '1. REAL NUMBERS Develops understanding', parts: [{ x: 69, text: '1.' }, { x: 104, text: 'REAL NUMBERS' }, { x: 280, text: '•' }, { x: 298, text: 'Develops understanding' }] },
+    { page: 3, y: 382, text: '1. Fundamental Theorem of the set of real numbers', parts: [{ x: 109, text: '1.' }, { x: 127, text: 'Fundamental' }, { x: 205, text: 'Theorem' }, { x: 280, text: '•' }, { x: 298, text: 'the set of real numbers' }] },
+    { page: 3, y: 366, text: 'Arithmetic - statements and its properties', parts: [{ x: 127, text: 'Arithmetic - statements' }, { x: 298, text: 'and its properties' }] },
+    { page: 3, y: 287, text: '2. Proofs of irrationality of', parts: [{ x: 109, text: '2.' }, { x: 127, text: 'Proofs' }, { x: 172, text: 'of' }, { x: 193, text: 'irrationality' }, { x: 262, text: 'of' }, { x: 280, text: '•' }, { x: 298, text: 'Applies Fundamental Theorem' }] },
+    { page: 3, y: 268, text: '√2, √3, √5', parts: [{ x: 127, text: '√2, √3, √5' }, { x: 298, text: 'to solve problems' }] },
+  ];
+  const rows = parseKeyConceptTable(lines);
+  assert.deepEqual(rows.map(row => [row.unit, row.chapter, row.topic, row.pageReference]), [
+    ['Unit I · NUMBER SYSTEMS', 'REAL NUMBERS', 'Fundamental Theorem Arithmetic - statements', 'Page 3'],
+    ['Unit I · NUMBER SYSTEMS', 'REAL NUMBERS', 'Proofs of irrationality of √2, √3, √5', 'Page 3'],
+  ]);
 });
 
 test('source discovery rejects a board/source mismatch before making a request', async () => {
