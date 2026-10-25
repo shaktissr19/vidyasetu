@@ -24,7 +24,7 @@ export const getSyllabusSources=()=>api.get<ApiEnvelope<{boardCode:string;name:s
 export interface SyllabusImportResult {documentId:string;versionId:string|null;detectedGradeCode:string|null;detectedSubject:string|null;requiresScope:boolean;structuredOutline:StructuredOutlineRow[];}
 export const uploadSyllabusDocument=(form:FormData)=>api.post<ApiEnvelope<SyllabusImportResult>>('/admin/syllabus/documents/upload',form,{timeout:120000});
 export const uploadSyllabusDocuments=(form:FormData)=>api.post<ApiEnvelope<{results:Array<{file:string;ok:boolean;data?:SyllabusImportResult;error?:string}>;successful:number;failed:number}>>('/admin/syllabus/documents/upload-batch',form,{timeout:180000});
-export const importSyllabusDocument=(input:Record<string,string>)=>api.post<ApiEnvelope<SyllabusImportResult>>('/admin/syllabus/documents/import',input,{timeout:120000});
+export const importSyllabusDocument=(input:Record<string,string>)=>api.post<ApiEnvelope<SyllabusImportResult>>('/admin/syllabus/documents/import',input,{timeout:180000});
 export const updateSyllabusDocument=(id:string,input:{gradeCode:string|null;subjectId:string|null;title:string;sourceUrl:string|null;language:'en'|'hi'})=>api.patch(`/admin/syllabus/documents/${id}`,input);
 export const deleteSyllabusDocument=(id:string)=>api.delete(`/admin/syllabus/documents/${id}`);
 export const reviewSyllabusDocument=(id:string,input:{status:'APPROVED'|'REJECTED';note:string;redistributionAllowed:boolean;redistributionEvidenceUrl?:string})=>api.patch(`/admin/syllabus/documents/${id}/review`,input);
