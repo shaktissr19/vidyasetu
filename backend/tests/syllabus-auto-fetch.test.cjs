@@ -38,6 +38,22 @@ test('known CBSE connector coverage gap returns unsupported-scope without fetchi
   assert.match(result.message, /No PDFs were fetched/);
 });
 
+test('CBSE Skill Education source distinguishes grade-specific Kaushal Bodh PDFs for classes VI to VIII', () => {
+  const html = [
+    '<h4>Classes VI-VIII</h4>',
+    '<p>Skill Education (Kaushal Bodh) <a href="/web_material/Curriculum27/Kaushal_Bodh_6.pdf">VI</a></p>',
+    '<p>Skill Education (Kaushal Bodh) <a href="/web_material/Curriculum27/Kaushal_Bodh_7.pdf">VII</a></p>',
+    '<p>Skill Education (Kaushal Bodh) <a href="/web_material/Curriculum27/Kaushal_Bodh_8.pdf">VIII</a></p>',
+  ].join(' ');
+  for (const [grade, digit] of [['CLASS_6', '6'], ['CLASS_7', '7'], ['CLASS_8', '8']]) {
+    const result = parseOfficialSyllabusIndex('https://cbseacademic.nic.in/skill-education-curriculum.html', html, { boardCode: 'CBSE', classCode: grade, subject: 'Skill Education' });
+    assert.equal(result.documents.length, 1);
+    assert.equal(result.documents[0].classGuess, grade);
+    assert.match(result.documents[0].url, new RegExp(`Kaushal_Bodh_${digit}\\.pdf$`));
+    assert.match(result.documents[0].title, /Kaushal Bodh/);
+  }
+});
+
 test('official CISCE and UPMSP class-band gaps are explicit before fetching', async () => {
   const cisce = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/icse-regulations-and-syllabuses-2027/', classCode: 'CLASS_11' });
   assert.equal(cisce.outcome, 'UNSUPPORTED_SCOPE');
