@@ -8,10 +8,10 @@ const fail=(message:string,statusCode=400)=>Object.assign(new Error(message),{st
 function hasStatusCode(error:unknown):error is Error&{statusCode:number}{return error instanceof Error&&'statusCode' in error&&typeof error.statusCode==='number';}
 const maxHtmlBytes=2_000_000;
 const maxPdfBytes=25*1024*1024;
-const allowedHosts=()=> (process.env.SYLLABUS_IMPORT_ALLOWED_HOSTS||'cbseacademic.nic.in,cisce.org,upmsp.edu.in,ncert.nic.in').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+const allowedHosts=()=> (process.env.SYLLABUS_IMPORT_ALLOWED_HOSTS||'cbseacademic.nic.in,cisce.org,upmsp.edu.in,ncert.nic.in,nios.ac.in').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
 function publicAddress(address:string){if(isIP(address)!==4)return false;const [a,b]=address.split('.').map(Number);return a!==0&&a!==10&&a!==127&&a<224&&a!==169&&a!==192&&!(a===172&&b>=16&&b<=31)&&!(a===100&&b>=64&&b<=127)&&!(a===198&&(b===18||b===19||b===51))&&!(a===203&&b===0);}
 async function getOfficial<T>(url:URL,config:AxiosRequestConfig){const addresses=await lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(x=>!publicAddress(x.address)))throw fail('Official source host resolves to a private or unsupported IP address.',403);const address=addresses[0].address;const agent=new Agent({family:4,lookup:(_host,_options,callback)=>callback(null,address,4)});try{return await axios.get<T>(url.toString(),{...config,httpsAgent:agent,proxy:false,maxRedirects:0});}finally{agent.destroy();}}
-const boardSourceHosts:Record<string,string[]>={CBSE:['cbseacademic.nic.in','ncert.nic.in'],CISCE:['cisce.org'],UPMSP:['upmsp.edu.in']};
+const boardSourceHosts:Record<string,string[]>={CBSE:['cbseacademic.nic.in','ncert.nic.in'],CISCE:['cisce.org'],UPMSP:['upmsp.edu.in'],NIOS:['nios.ac.in']};
 function checkedOfficialUrl(value:string,base?:string,boardCode?:string){
  let url:URL;try{url=new URL(value,base);}catch{throw fail('The source URL is invalid.');}
  const host=url.hostname.toLowerCase();
@@ -20,10 +20,12 @@ function checkedOfficialUrl(value:string,base?:string,boardCode?:string){
  return url;
 }
 function cleanTitle(value:string){return value.replace(/\.(pdf|html?)($|\?.*)/i,'').replace(/[+_]/g,' ').replace(/\s+/g,' ').trim().slice(0,240)||'Official curriculum document';}
-function subjectMatches(text:string,subject:string){const normalized=subject.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const aliases:Record<string,string[]>={mathematics:['mathematics','maths','math'],maths:['mathematics','maths','math'],math:['mathematics','maths','math'],'social science':['social science','social sciences','social studies'],'social studies':['social science','social sciences','social studies'],science:['science','general science'],english:['english'],hindi:['hindi']};const terms=aliases[normalized]||[normalized];return terms.some(term=>term&&text.toLowerCase().includes(term));}
+function subjectMatches(text:string,subject:string){const normalized=subject.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const searchable=text.toLowerCase().replace(/[_-]+/g,' ');const aliases:Record<string,string[]>={mathematics:['mathematics','maths','math'],maths:['mathematics','maths','math'],math:['mathematics','maths','math'],'social science':['social science','social sciences','social studies'],'social studies':['social science','social sciences','social studies'],science:['science','general science'],english:['english'],hindi:['hindi'],'skill education':['skill education','kaushal bodh'],'vocational education':['vocational education','kaushal bodh']};const terms=aliases[normalized]||[normalized];return terms.some(term=>term&&searchable.includes(term));}
 const romanClasses:Record<string,number>={I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12};
 function classCode(value:string|undefined){if(!value)return null;const key=value.toUpperCase();const numeric=romanClasses[key]||Number(key);return Number.isInteger(numeric)&&numeric>=1&&numeric<=12?`CLASS_${numeric}`:null;}
 function inferClass(text:string){
+ const kaushalBodh=text.match(/kaushal[_ -]?bodh[_ -]?(vi{1,3}|[6-8])(?:\b|[_\-.])/i);
+ if(kaushalBodh)return classCode(kaushalBodh[1]);
  const early=text.match(/\b(pre[- ]?nursery|nursery|lkg|ukg)\b/i)?.[1]?.toLowerCase().replace(/\s+/g,'-');
  if(early)return ({'pre-nursery':'PRE_NURSERY',nursery:'NURSERY',lkg:'LKG',ukg:'UKG'} as Record<string,string>)[early]||null;
  const match=text.match(/(?:class|grade|standard|std)[\s_()\-–]*(xii|xi|x|ix|viii|vii|vi|iv|v|iii|ii|i|1[0-2]|[1-9])\b/i)
@@ -41,11 +43,19 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
  while((match=anchor.exec(html))){
   const raw=(match[1]||match[2]||match[3]||'').replace(/&amp;/g,'&');if(!/\.pdf(?:[?#]|$)/i.test(raw))continue;
   let url:URL;try{url=checkedOfficialUrl(raw,source.toString(),input.boardCode);}catch{continue;}if(url.hostname!==source.hostname&&!url.hostname.endsWith(`.${source.hostname}`))continue;
-  const title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'))||cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
+  let title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'));
+  // Several official indexes use a generic “Download” label and put the
+  // actual class/subject in the PDF filename. Prefer that filename for review.
+  if(/^(download|download now|click here|डाउनलोड करें|डाउनलोड|vi|vii|viii)$/i.test(title))title=cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
   const text=`${title} ${decodeURIComponent(url.pathname)} ${sectionHeading}`;
   const guessedClass=inferClass(text);const guessedSubject=inferSubject(text);
-  if(input.classCode&&guessedClass!==input.classCode)continue;
+  const niosCourseIndex=input.boardCode.toUpperCase()==='NIOS'&&source.hostname.endsWith('.nios.ac.in');
+  // NIOS course-material indexes are level-scoped (Secondary/Senior Secondary)
+  // rather than class-scoped; keep their unlabelled course PDFs for explicit
+  // admin scope confirmation, while still excluding positively mismatched PDFs.
+  if(input.classCode&&guessedClass&&guessedClass!==input.classCode)continue;
+  if(input.classCode&&!guessedClass&&!niosCourseIndex)continue;
   if(input.subject&&!subjectMatches(text,input.subject))continue;
   links.set(url.toString(),{title,url:url.toString(),sourceHost:url.hostname,classGuess:guessedClass,subjectGuess:input.subject&&subjectMatches(text,input.subject)?input.subject:guessedSubject});
  }
@@ -53,12 +63,29 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents};
 }
 export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string}){
- const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);let response;
- try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
+ const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);
+ // The currently configured CBSE page publishes the secondary/senior-secondary
+ // index. Do not turn a known gap for Classes 1–8 into a misleading “no match”.
+ const sourcePath=source.pathname.toLowerCase();
+ const supportedGrades= input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/curriculum_2027.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/skill-education-curriculum.html')?['CLASS_6','CLASS_7','CLASS_8','CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/icse-regulations-and-syllabuses-2027/')?['CLASS_9','CLASS_10']
+  :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/isc-regulations-and-syllabuses-2027/')?['CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='UPMSP'&&sourcePath.endsWith('/board_syllabus.aspx')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='NIOS'&&source.hostname==='rchyderabad.nios.ac.in'&&sourcePath.endsWith('/secondary-courses-material.html')?['CLASS_9','CLASS_10']
+  :input.boardCode.toUpperCase()==='NIOS'&&source.hostname==='rcpune.nios.ac.in'&&sourcePath.endsWith('/senior-secondary-courses-material.html')?['CLASS_11','CLASS_12']
+  :null;
+ if(supportedGrades&&input.classCode&&!supportedGrades.includes(input.classCode)){
+  const scope=input.classCode.replace('CLASS_','Class ');
+  const covered=supportedGrades.map(value=>value.replace('CLASS_','')).join(', ');
+  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents:[],outcome:'UNSUPPORTED_SCOPE' as const,message:`Automatic discovery from this official index is configured for Classes ${covered}. ${scope} is not covered by this connector. No PDFs were fetched. Load a verified official PDF or import a reviewed syllabus index spreadsheet for this class.`};
+ }
+ let response;
+ try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. No PDFs were fetched. Check the URL and try again.',502);}
  if(typeof response.data!=='string'||!/^text\/html|^application\/xhtml\+xml/i.test(String(response.headers['content-type']||''))) throw fail('The selected source is not an HTML index page. Paste the official index page URL, not a PDF URL.');
  const result=parseOfficialSyllabusIndex(source.toString(),response.data,input);
- if(!result.documents.length)return {...result,message:'No PDF matched the selected class and subject. Open the official page to confirm its labels, or upload the PDF directly.'};
- return result;
+ if(!result.documents.length){const scope=[input.classCode?input.classCode.replace('CLASS_','Class '):'all classes',input.subject||'all subjects'].join(' · ');return {...result,outcome:'NO_MATCH' as const,message:`No matching syllabus PDF was found in the selected ${input.boardCode} source for ${scope}. The syllabus may be absent from this index, or its links may use a format the importer cannot read. No PDFs were fetched. Verify the source or load the official PDF manually.`};}
+ return {...result,outcome:'FOUND' as const};
 }
 
 export interface ExtractedOutlineRow {unit:string;chapter:string;topic:string;pageReference:string;confidence:'high'|'review';}
