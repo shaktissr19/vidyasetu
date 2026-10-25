@@ -199,10 +199,15 @@ export default function LearningContentPipelinePage() {
     const inferredGrade = item.grade_code || (options?.grades.some((grade) => grade.code === item.class_hint) ? item.class_hint : '') || (/Class\s*(\d+)/i.exec(item.class_hint || '')?.[1] ? `CLASS_${/Class\s*(\d+)/i.exec(item.class_hint || '')![1]}` : '');
     const discoveredKind = item.discovered_media_kind;
     const mediaKind = (item.asset_id ? item.media_kind : discoveredKind && !['LINK','COURSE','ARTICLE'].includes(discoveredKind) ? discoveredKind : 'EXTERNAL_LINK') as PipelineMediaKind;
+    // The discovery service only marks an embed-deliverable result selectable
+    // after validating it against the server's approved embed hosts. The stage
+    // endpoint validates it again before saving.
+    const discoveredEmbed = Boolean(item.discovered_embed_url);
+    const discoveredBinary = Boolean(item.discovered_asset_url) && ['VIDEO','AUDIO','IMAGE','PDF'].includes(mediaKind);
     setEditingId(item.id); setAssetUrl(item.discovered_asset_url || ''); setPermissionConfirmed(false);
     setForm({ ...INITIAL_FORM, ...metadata, file: null, title: item.title, sourceCode: item.source_code,
       sourceUrl: item.source_url, sourceItemId: item.source_item_id, mediaKind,
-      deliveryMode: item.delivery_mode, embedUrl: item.embed_url || (item.discovered_embed_url && /^https:\/\/(www\.youtube(?:-nocookie)?\.com\/embed\/|player\.vimeo\.com\/video\/|phet\.colorado\.edu\/sims\/)/.test(item.discovered_embed_url) ? item.discovered_embed_url : ''), storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
+      deliveryMode: discoveredEmbed ? 'OFFICIAL_EMBED' : discoveredBinary ? 'LICENSED_REHOST' : item.delivery_mode, embedUrl: item.embed_url || (discoveredEmbed ? item.discovered_embed_url : ''), storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
       licenceCandidate: item.licence_candidate || 'OTHER', attributionText: item.attribution_text || '', licenceUrl: item.licence_url || '', rightsEvidenceUrl: item.rights_evidence_url || '',
       gradeCodes: metadata.gradeCodes || (inferredGrade ? [inferredGrade] : []), boardCodes: metadata.boardCodes || [item.board_hint || 'COMMON'],
       conceptIds:metadata.conceptIds || item.discovery_context?.conceptIds || [],subjectId:metadata.subjectId || item.discovery_context?.subjectId || null,chapterLabel:metadata.chapterLabel || item.discovery_context?.chapterLabel || '',topicLabel:metadata.topicLabel || item.discovery_context?.topicLabel || '',language:metadata.language || item.discovered_language || 'en',durationSecs:metadata.durationSecs || item.discovered_duration || null,
