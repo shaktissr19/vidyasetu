@@ -57,8 +57,8 @@ export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;
  try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
  if(typeof response.data!=='string'||!/^text\/html|^application\/xhtml\+xml/i.test(String(response.headers['content-type']||''))) throw fail('The selected source is not an HTML index page. Paste the official index page URL, not a PDF URL.');
  const result=parseOfficialSyllabusIndex(source.toString(),response.data,input);
- if(!result.documents.length)return {...result,message:'No PDF matched the selected class and subject. Open the official page to confirm its labels, or upload the PDF directly.'};
- return result;
+ if(!result.documents.length){const scope=[input.classCode?input.classCode.replace('CLASS_','Class '):'all classes',input.subject||'all subjects'].join(' · ');return {...result,outcome:'NOT_FOUND' as const,message:`No syllabus is available on the selected official source for ${scope} (${input.boardCode}). No matching source PDFs were fetched. Check the source and academic year, or load the official PDF manually.`};}
+ return {...result,outcome:'FOUND' as const};
 }
 
 export interface ExtractedOutlineRow {unit:string;chapter:string;topic:string;pageReference:string;confidence:'high'|'review';}

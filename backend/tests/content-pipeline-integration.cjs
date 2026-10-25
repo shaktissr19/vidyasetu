@@ -269,6 +269,28 @@ test('verified syllabus is hidden until approval, preserves gaps and protects sc
  await assert.rejects(syllabus.saveLearningPreference(student.user_id,{boardCode:'CISCE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'}),e=>e.statusCode===403);
  await syllabus.changeSyllabusStatus(second.id,'ARCHIVED','Archive superseded fixture syllabus',adminId);assert.equal((await syllabus.studentSyllabus(student.user_id)).version,null);
 });
+test('new syllabus revision keeps every published subject scope and exposes the full revision to Content Creator',async()=>{
+ const subjects=(await db.query('SELECT id,name FROM subjects ORDER BY name LIMIT 2')).rows;assert.equal(subjects.length,2);
+ const student=(await db.query("SELECT id,user_id FROM students WHERE status='ACTIVE' LIMIT 1")).rows[0];
+ await db.query("UPDATE students SET school_id=NULL,grade_code='CLASS_6',grade_level='6' WHERE id=$1",[student.id]);
+ const baseInput={boardCode:'CBSE',academicYear:'2033-34',medium:'en',title:'CBSE 2033-34 complete syllabus',sourceUrl:'https://cbseacademic.nic.in/curriculum_2027.html'};
+ const published=await syllabus.importSyllabus({...baseInput,rows:subjects.map((subject,index)=>({gradeCode:'CLASS_6',subjectId:subject.id,unit:`Unit ${index+1}`,chapter:`Chapter ${index+1}`,topic:`Published topic ${index+1}`,learningOutcome:'Explain the verified topic',evidenceUrl:baseInput.sourceUrl,pageReference:`Page ${index+1}`}))},adminId);
+ await syllabus.changeSyllabusStatus(published.id,'REVIEWED','Verify both subject scopes and page references',adminId);await syllabus.changeSyllabusStatus(published.id,'ACTIVE','Publish both verified class subject scopes',adminId);
+ const revision=await syllabus.importSyllabus({...baseInput,rows:[{gradeCode:'CLASS_6',subjectId:subjects[0].id,unit:'New Unit',chapter:'New Chapter',topic:'New revision topic',learningOutcome:'Explain the new revision topic',evidenceUrl:baseInput.sourceUrl,pageReference:'Page 3'}]},adminId);
+ assert.notEqual(revision.id,published.id);
+ const draft=await syllabus.syllabusDetail(revision.id);
+ assert.deepEqual(new Set(draft.topics.map(topic=>topic.subject_id)),new Set(subjects.map(subject=>subject.id)));
+ assert.equal(draft.topics.length,3);
+ const preservedDraftTopic=draft.topics.find(topic=>topic.subject_id===subjects[1].id);const originalConcept=preservedDraftTopic.concept_id;
+ await syllabus.updateSyllabusTopic(preservedDraftTopic.id,{unit:preservedDraftTopic.unit,chapter:preservedDraftTopic.chapter,topic:'Corrected draft-only topic',pageReference:preservedDraftTopic.page_reference,learningOutcome:preservedDraftTopic.learning_outcome},adminId);
+ const publishedOriginal=await syllabus.syllabusDetail(published.id);assert.ok(publishedOriginal.topics.some(topic=>topic.title===preservedDraftTopic.title&&topic.concept_id===originalConcept));
+ const correctedDraft=await syllabus.syllabusDetail(revision.id);assert.ok(correctedDraft.topics.some(topic=>topic.title==='Corrected draft-only topic'&&topic.concept_id!==originalConcept));
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2033-34',language:'en'});
+ assert.equal((await syllabus.studentSyllabus(student.user_id)).topics.length,2,'students continue seeing the prior published syllabus while the revision is Draft');
+ await syllabus.changeSyllabusStatus(revision.id,'REVIEWED','Verify revised and preserved class subject scopes',adminId);await syllabus.changeSyllabusStatus(revision.id,'ACTIVE','Publish complete revised class subject scopes',adminId);
+ const studentView=await syllabus.studentSyllabus(student.user_id);assert.equal(studentView.topics.length,3);assert.deepEqual(new Set(studentView.topics.map(topic=>topic.subject_id)),new Set(subjects.map(subject=>subject.id)));assert.ok(studentView.topics.some(topic=>topic.title==='Corrected draft-only topic'));
+ const options=await factory.getFactoryOptions();assert.ok(options.curriculumSubjects.some(item=>item.curriculum_version_id===revision.id&&item.subject_id===subjects[1].id),'Content Creator can use an unchanged subject in the new published revision');
+});
 test('syllabus-linked content respects subscriptions and completion never implies mastery',async()=>{
  const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];await db.query('UPDATE students SET school_id=NULL WHERE id=$1',[student.id]);
  await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});
