@@ -146,6 +146,14 @@ test('CBSE Class 10 Mathematics discovery never returns Class 1 PDFs', () => {
   assert.match(result.documents[0].url, /Maths_SecP1X_2026-27\.pdf$/);
 });
 
+test('CBSE live index path SecPart1 does not misclassify Class IX Mathematics as Class 1', () => {
+  const html = '<div class="card-heading"><h4 class="card-header">Main Subjects</h4></div><a target="_blank" href="web_material/CurriculumMain27/SecPart1/Maths_SecP1IX_2026-27.pdf">Mathematics</a>';
+  const result = parseOfficialSyllabusIndex('https://cbseacademic.nic.in/curriculum_2027.html', html, { boardCode: 'CBSE', classCode: 'CLASS_9', subject: 'Mathematics' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].classGuess, 'CLASS_9');
+  assert.match(result.documents[0].url, /Maths_SecP1IX_2026-27\.pdf$/);
+});
+
 test('automatic CBSE fetch requires a class and refuses an academic-year mismatch', async () => {
   await assert.rejects(
     discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', academicYear: '2026-27', classCode: '' }),
