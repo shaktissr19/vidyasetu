@@ -41,7 +41,10 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
  while((match=anchor.exec(html))){
   const raw=(match[1]||match[2]||match[3]||'').replace(/&amp;/g,'&');if(!/\.pdf(?:[?#]|$)/i.test(raw))continue;
   let url:URL;try{url=checkedOfficialUrl(raw,source.toString(),input.boardCode);}catch{continue;}if(url.hostname!==source.hostname&&!url.hostname.endsWith(`.${source.hostname}`))continue;
-  const title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'))||cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
+  let title=cleanTitle(match[4].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/g,'&'));
+  // Several official indexes use a generic “Download” label and put the
+  // actual class/subject in the PDF filename. Prefer that filename for review.
+  if(/^(download|download now|click here|डाउनलोड करें|डाउनलोड)$/i.test(title))title=cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
   const text=`${title} ${decodeURIComponent(url.pathname)} ${sectionHeading}`;
   const guessedClass=inferClass(text);const guessedSubject=inferSubject(text);
@@ -56,9 +59,16 @@ export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;
  const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);
  // The currently configured CBSE page publishes the secondary/senior-secondary
  // index. Do not turn a known gap for Classes 1–8 into a misleading “no match”.
- if(input.boardCode.toUpperCase()==='CBSE'&&/curriculum_2027\.html$/i.test(source.pathname)&&input.classCode&&!['CLASS_9','CLASS_10','CLASS_11','CLASS_12'].includes(input.classCode)){
+ const sourcePath=source.pathname.toLowerCase();
+ const supportedGrades= input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/curriculum_2027.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/skill-education-curriculum.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/icse-regulations-and-syllabuses-2027/')?['CLASS_9','CLASS_10']
+  :input.boardCode.toUpperCase()==='UPMSP'&&sourcePath.endsWith('/board_syllabus.aspx')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :null;
+ if(supportedGrades&&input.classCode&&!supportedGrades.includes(input.classCode)){
   const scope=input.classCode.replace('CLASS_','Class ');
-  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents:[],outcome:'UNSUPPORTED_SCOPE' as const,message:`Automatic discovery from this CBSE index is configured for Classes 9–12. ${scope} is not covered by this connector. No PDFs were fetched. Load a verified official PDF or import a reviewed syllabus index spreadsheet for this class.`};
+  const covered=supportedGrades.map(value=>value.replace('CLASS_','')).join(', ');
+  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents:[],outcome:'UNSUPPORTED_SCOPE' as const,message:`Automatic discovery from this official index is configured for Classes ${covered}. ${scope} is not covered by this connector. No PDFs were fetched. Load a verified official PDF or import a reviewed syllabus index spreadsheet for this class.`};
  }
  let response;
  try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. No PDFs were fetched. Check the URL and try again.',502);}

@@ -12,10 +12,10 @@ export interface SyllabusPdfMetadata {boardCode:string;academicYear:string;grade
 const safeName=(value:string)=>value.replace(/[^a-zA-Z0-9._ -]+/g,'_').replace(/\s+/g,' ').trim().slice(0,240)||'syllabus.pdf';
 
 const officialSources=[
- {boardCode:'CBSE',name:'CBSE Academic curriculum',url:'https://cbseacademic.nic.in/curriculum_2027.html',note:'This index is currently configured for Classes 9–12. Classes 1–8 need a verified board syllabus PDF or spreadsheet import.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
- {boardCode:'CISCE',name:'CISCE regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-icse-2027/',note:'ICSE syllabus index; actual PDF coverage depends on links published on this official page.'},
- {boardCode:'CISCE',name:'CISCE ISC regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-isc-2027/',note:'ISC syllabus index; actual PDF coverage depends on links published on this official page.'},
- {boardCode:'UPMSP',name:'UPMSP syllabus',url:'https://upmsp.edu.in/Board_Syllabus.aspx',note:'Official syllabus index; class/subject labeling depends on the published PDF links.'},
+ {boardCode:'CBSE',name:'CBSE Academic curriculum (IX–XII)',url:'https://cbseacademic.nic.in/curriculum_2027.html',note:'Academic curriculum index for Classes 9–12. Classes 1–8 are not covered by this syllabus index.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
+ {boardCode:'CBSE',name:'CBSE Skill Education curriculum (IX–XII)',url:'https://cbseacademic.nic.in/skill-education-curriculum.html',note:'Separate official index for skill education subjects in Classes 9–12.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
+ {boardCode:'CISCE',name:'CISCE ICSE regulations and syllabus (IX–X)',url:'https://cisce.org/icse-regulations-and-syllabuses-2027/',note:'Official ICSE Year 2027 index. ISC has a separate syllabus set and is not configured for automatic discovery.',supportedGrades:['CLASS_9','CLASS_10']},
+ {boardCode:'UPMSP',name:'UPMSP syllabus (IX–XII)',url:'https://upmsp.edu.in/Board_Syllabus.aspx',note:'Official syllabus PDF index for Classes 9–12.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
 ];
 
 async function subjectFromDetection(name:string|null){

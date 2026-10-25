@@ -27,15 +27,24 @@ test('outline parser ignores front matter and repeated headings', () => {
 });
 
 test('source discovery rejects a board/source mismatch before making a request', async () => {
-  await assert.rejects(discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cisce.org/regulations-and-syllabus-icse-2027/' }), /No official-source connector is configured for CBSE/);
+  await assert.rejects(discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cisce.org/icse-regulations-and-syllabuses-2027/' }), /No official-source connector is configured for CBSE/);
   await assert.rejects(discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html' }), /No official-source connector is configured for CISCE/);
 });
 
 test('known CBSE connector coverage gap returns unsupported-scope without fetching', async () => {
   const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', classCode: 'CLASS_6', subject: 'Science' });
   assert.equal(result.outcome, 'UNSUPPORTED_SCOPE');
-  assert.match(result.message, /configured for Classes 9–12/);
+  assert.match(result.message, /configured for Classes 9, 10, 11, 12/);
   assert.match(result.message, /No PDFs were fetched/);
+});
+
+test('official CISCE and UPMSP class-band gaps are explicit before fetching', async () => {
+  const cisce = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/icse-regulations-and-syllabuses-2027/', classCode: 'CLASS_11' });
+  assert.equal(cisce.outcome, 'UNSUPPORTED_SCOPE');
+  assert.match(cisce.message, /Classes 9, 10/);
+  const upmsp = await discoverOfficialSyllabusDocuments({ boardCode: 'UPMSP', sourceUrl: 'https://upmsp.edu.in/Board_Syllabus.aspx', classCode: 'CLASS_8' });
+  assert.equal(upmsp.outcome, 'UNSUPPORTED_SCOPE');
+  assert.match(upmsp.message, /Classes 9, 10, 11, 12/);
 });
 
 test('PDF extraction rejects non-allowlisted URLs and unsupported board connectors', async () => {
@@ -53,6 +62,14 @@ test('official index parser resolves relative PDF links and infers Roman-numeral
   assert.equal(result.documents[0].classGuess, 'CLASS_10');
   assert.equal(result.documents[0].subjectGuess, 'Science');
   assert.equal(result.documents[0].url, 'https://cbseacademic.nic.in/web_material/CurriculumMain27/Class-X-Science.pdf');
+});
+
+test('UPMSP generic download links use the linked filename for class and subject', () => {
+  const result = parseOfficialSyllabusIndex('https://upmsp.edu.in/Board_Syllabus.aspx', '<a href="/Downloads/Syllabus/Class09/931-Science-Class-9.pdf">डाउनलोड करें</a>', { boardCode: 'UPMSP', classCode: 'CLASS_9', subject: 'Science' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].classGuess, 'CLASS_9');
+  assert.equal(result.documents[0].subjectGuess, 'Science');
+  assert.match(result.documents[0].title, /Science-Class-9/);
 });
 
 test('official index parser uses the nearest board page heading for class scope', () => {
