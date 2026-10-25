@@ -54,8 +54,8 @@ async function main() {
              SET password_hash = $2,
                  password_changed_at = NOW(),
                  must_change_password = TRUE,
-                 failed_login_attempts = 0,
-                 locked_until = NULL,
+                 password_failed_attempts = 0,
+                 password_locked_until = NULL,
                  updated_at = NOW()
            WHERE id = $1`,
           [account.id, account.hash],
