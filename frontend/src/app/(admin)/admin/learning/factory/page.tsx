@@ -19,7 +19,6 @@ import {
 import {
   getContentFactoryOptions,
   getContentFactoryQueueCounts,
-  stageExternalWebSource,
 } from '@/services/contentFactoryService';
 import { apiErrorText } from '@/utils/errors';
 
@@ -72,10 +71,6 @@ export default function ContentFactoryPage() {
   const [title,setTitle] = useState('');
   const [createdJobId,setCreatedJobId] = useState('');
   const [createdJobStatus,setCreatedJobStatus] = useState('');
-  const [webTitle,setWebTitle] = useState('');
-  const [webUrl,setWebUrl] = useState('');
-  const [webAttribution,setWebAttribution] = useState('');
-  const [lastWebIntakeId,setLastWebIntakeId] = useState('');
 
   useEffect(()=>{
     const p=new URLSearchParams(window.location.search);
@@ -108,6 +103,7 @@ export default function ContentFactoryPage() {
   const availableCurriculumSubjects = useMemo(() => frameworkSubjectsForContext.filter(item=>!syllabusYear||item.academic_year===syllabusYear),[frameworkSubjectsForContext,syllabusYear]);
   const curriculumSubject = availableCurriculumSubjects.find((item) => item.subject_id === subjectId)
     || availableCurriculumSubjects.find((item) => normalizedText(item.display_name) === normalizedText(subject));
+  const useSyllabusTopics = syllabusMode === 'SYLLABUS' && Boolean(curriculumSubject);
   const chapterOptions = useMemo(() => {
     const topics=factoryQuery.data?.topics||[];
     const units=new Set((factoryQuery.data?.units||[]).filter(item=>item.curriculum_subject_id===curriculumSubject?.id).map(item=>item.id));
@@ -128,12 +124,12 @@ export default function ContentFactoryPage() {
   const matchingConcepts = useMemo(() => (factoryQuery.data?.concepts || []).filter((item) =>
     item.class_number === classNumber && (!subject || normalizedText(item.subject_name) === normalizedText(subject) || normalizedText(item.subject_code) === normalizedText(selectedSubject?.code)),
   ),[factoryQuery.data,classNumber,subject,selectedSubject?.code]);
-  const matchedConcept = syllabusMode==='SYLLABUS'
+  const matchedConcept = useSyllabusTopics
     ? matchingConcepts.find((item)=>item.id===selectedCurriculumTopic?.concept_id)||null
     : matchingConcepts.find((item) => normalizedText(item.name) === normalizedText(topicText))
       || matchingConcepts.find((item) => normalizedText(item.chapter_title) === normalizedText(chapterText) && !topicText.trim())
       || null;
-  const searchText = (syllabusMode==='SYLLABUS'
+  const searchText = (useSyllabusTopics
     ? (language==='Bilingual'&&selectedCurriculumTopic?.title_hi ? `${selectedCurriculumTopic.title} ${selectedCurriculumTopic.title_hi}` : selectedCurriculumTopic?.title || '')
     : (topicText.trim() || chapterText.trim() || subject)).trim();
   const discovery = creatorOptionsQuery.data?.discovery;
@@ -143,7 +139,7 @@ export default function ContentFactoryPage() {
     mutationFn: () => discoverContentCreatorSources({
       providers,
       query: searchText,
-      gradeCode,boardCode,conceptIds:selectedCurriculumTopic?.concept_id?[selectedCurriculumTopic.concept_id]:(syllabusConcept && factoryQuery.data?.concepts.some(c=>c.id===syllabusConcept && c.grade_code===gradeCode && c.subject_id===subjectId && normalizedText(c.name)===normalizedText(topicText))?[syllabusConcept]:[]),academicYear:syllabusYear||null,curriculumMedium:syllabusMode==='SYLLABUS'?curriculumMedium:null,curriculumTopicId:syllabusMode==='SYLLABUS'?selectedCurriculumTopic?.id||null:null,subjectId:subjectId || null,chapterLabel:selectedCurriculumTopic?.chapter_title||chapterText || null,topicLabel:selectedCurriculumTopic?.title||topicText || null,
+      gradeCode,boardCode,conceptIds:useSyllabusTopics&&selectedCurriculumTopic?.concept_id?[selectedCurriculumTopic.concept_id]:(syllabusConcept && factoryQuery.data?.concepts.some(c=>c.id===syllabusConcept && c.grade_code===gradeCode && c.subject_id===subjectId && normalizedText(c.name)===normalizedText(topicText))?[syllabusConcept]:[]),academicYear:useSyllabusTopics?syllabusYear||null:null,curriculumMedium:useSyllabusTopics?curriculumMedium:null,curriculumTopicId:useSyllabusTopics?selectedCurriculumTopic?.id||null:null,subjectId:subjectId || null,chapterLabel:useSyllabusTopics?selectedCurriculumTopic?.chapter_title||null:chapterText||null,topicLabel:useSyllabusTopics?selectedCurriculumTopic?.title||null:topicText||null,
       classNumber: gradeCode.startsWith('CLASS_') ? classNumber : null,
       subject: subject || null,
       language: language === 'Bilingual' ? null : language,
@@ -188,28 +184,6 @@ export default function ContentFactoryPage() {
     onError: (error: unknown) => toast.error(apiErrorText(error,'Could not select source')),
   });
 
-  const webMutation = useMutation({
-    mutationFn: () => stageExternalWebSource({
-      title: webTitle.trim(),
-      sourceUrl: webUrl.trim(),
-      licenceCandidate: 'EXTERNAL_LINK_ONLY',
-      attributionText: webAttribution.trim() || null,
-      classNumber,
-      subject: subject || null,
-      boardCode,
-    }),
-    onSuccess: async (response) => {
-      setLastWebIntakeId(response.data.data.intakeId);
-      toast.success('Web item saved in Content Review Queue.');
-      setWebTitle(''); setWebUrl(''); setWebAttribution('');
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['content-factory-source-review'] }),
-        queryClient.invalidateQueries({ queryKey: ['content-factory-queue-counts'] }),
-      ]);
-    },
-    onError: (error: unknown) => toast.error(apiErrorText(error,'Could not stage web source')),
-  });
-
   const createMutation = useMutation({
     mutationFn: () => {
       const focus = topicText.trim() || chapterText.trim() || subject || 'Learning';
@@ -219,9 +193,9 @@ export default function ContentFactoryPage() {
         title: autoTitle,
         instructions: `Create a clear, age-appropriate Class ${classNumber} ${subject || ''} learning pack for ${focus}. Use only selected governed sources, explain concepts accurately, include examples and practice.`,
         conceptId: matchedConcept?.id || null,
-        curriculumTopicId: syllabusMode==='SYLLABUS'?selectedCurriculumTopic?.id||null:null,
-        curriculumAcademicYear: syllabusMode==='SYLLABUS'?syllabusYear||null:null,
-        curriculumMedium: syllabusMode==='SYLLABUS'?curriculumMedium:null,
+        curriculumTopicId: useSyllabusTopics?selectedCurriculumTopic?.id||null:null,
+        curriculumAcademicYear: useSyllabusTopics?syllabusYear||null:null,
+        curriculumMedium: useSyllabusTopics?curriculumMedium:null,
         existingResourceId: null,
         classNumber,
         subjectId: subjectId || null,
@@ -270,7 +244,7 @@ export default function ContentFactoryPage() {
     }]);
   }
 
-  const canSearch = searchText.length >= 2 && providers.length > 0 && mediaKinds.length > 0 && (syllabusMode==='EXPLORE'||Boolean(selectedCurriculumTopic));
+  const canSearch = searchText.length >= 2 && providers.length > 0 && mediaKinds.length > 0 && (!useSyllabusTopics||Boolean(selectedCurriculumTopic));
   const canCreate = gradeCode.startsWith('CLASS_') && Boolean((matchedConcept || selectedSources.length) && searchText.length >= 2);
 
   return (
@@ -297,7 +271,7 @@ export default function ContentFactoryPage() {
         <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginBottom: 14 }}>
           <button type="button" style={{ ...secondary,borderColor:syllabusMode==='SYLLABUS'?'#B54708':'#CBD5E1',background:syllabusMode==='SYLLABUS'?'#FFF4EC':'#fff' }} onClick={()=>{setSyllabusMode('SYLLABUS');setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}>Use a published syllabus</button>
           <button type="button" style={{ ...secondary,borderColor:syllabusMode==='EXPLORE'?'#B54708':'#CBD5E1',background:syllabusMode==='EXPLORE'?'#FFF4EC':'#fff' }} onClick={()=>{setSyllabusMode('EXPLORE');setCurriculumTopicId('');setSyllabusConcept('');}}>Explore another topic</button>
-          {syllabusMode==='SYLLABUS'&&<span className="admin-chip">Content found here will be linked to the selected syllabus topic.</span>}
+          {useSyllabusTopics&&<span className="admin-chip">Content found here will be linked to the selected syllabus topic.</span>}
           {syllabusMode==='EXPLORE'&&<span className="admin-note" style={{ padding: '7px 10px' }}>Off-syllabus search · mapping can be added later by an academic reviewer.</span>}
         </div>
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))',gap: 12 }}>
@@ -314,7 +288,7 @@ export default function ContentFactoryPage() {
           <label className="admin-label">Subject
             <select className="admin-select" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setChapterText(''); setTopicText('');setCurriculumTopicId('');setSyllabusConcept(''); }}>
               <option value="">Select subject…</option>
-              {(syllabusMode==='SYLLABUS'?subjects.filter(item=>availableCurriculumSubjects.some(scope=>scope.subject_id===item.id)):subjects).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              {subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
           <label className="admin-label">Language
@@ -328,27 +302,28 @@ export default function ContentFactoryPage() {
           </>}
         </div>
 
-        {syllabusMode==='SYLLABUS'?<div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
+        {useSyllabusTopics?<div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
           <label className="admin-label">Chapter / unit from syllabus
             <select className="admin-select" value={chapterText} onChange={e=>{setChapterText(e.target.value);setCurriculumTopicId('');setTopicText('');setSyllabusConcept('');}}><option value="">All chapters</option>{chapterOptions.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select>
           </label>
           <label className="admin-label">Published syllabus topic
             <select className="admin-select" value={selectedCurriculumTopic?curriculumTopicId:''} onChange={e=>{const topic=(factoryQuery.data?.topics||[]).find(item=>item.id===e.target.value);setCurriculumTopicId(e.target.value);setTopicText(topic?.title||'');setSyllabusConcept(topic?.concept_id||'');}}><option value="">Select a syllabus topic…</option>{visibleTopics.map(item=><option key={item.id} value={item.id}>{item.chapter_title||'Chapter'} · {item.title}{item.title_hi?` / ${item.title_hi}`:''}</option>)}</select>
           </label>
-          {!availableCurriculumSubjects.length&&<div className="admin-note" style={{ gridColumn:'1 / -1',padding:12 }}>No published syllabus is available for this board, class, year and medium yet. You can <Link className="underline font-semibold" href="/admin/learning/framework">open Framework Manager</Link> to import and review one, or switch to “Explore another topic”.</div>}
-          {availableCurriculumSubjects.length>0&&subjectId&&!curriculumSubject&&<div className="admin-note" style={{ gridColumn:'1 / -1',padding:12 }}>This subject has no published syllabus for the selected year and medium. Select another subject or use “Explore another topic”.</div>}
-        </div>:<div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
+        </div>:null}
+        {!useSyllabusTopics&&<div style={{ display: 'grid',gridTemplateColumns: '1fr 1.4fr',gap: 12,marginTop: 12 }}>
           <label className="admin-label">Chapter / unit <span className="admin-muted">— type a search phrase</span><input className="admin-input" value={chapterText} onChange={(e) => { setChapterText(e.target.value); setTopicText(''); }} placeholder="e.g. Multiplication, Force and Pressure" /></label>
           <label className="admin-label">Topic / learning need <span className="admin-muted">— free topic search</span><input className="admin-input" value={topicText} onChange={(e) => setTopicText(e.target.value)} placeholder="e.g. Multiplication of 2-digit numbers, solar system, nouns" /></label>
         </div>}
 
-        {syllabusMode==='SYLLABUS'&&selectedCurriculumTopic&&<div className="admin-success-note" style={{ marginTop: 14,padding: 12 }}><strong>Syllabus link selected:</strong> {selectedBoard?.short_name||boardCode} · {gradeCode} · {subject} · {syllabusYear} · {selectedCurriculumTopic.chapter_title||'Chapter'} → {selectedCurriculumTopic.title}. This stable topic ID will be retained through source review and Library draft creation.</div>}
+        {!availableCurriculumSubjects.length&&syllabusMode==='SYLLABUS'&&<div className="admin-note" style={{ marginTop: 12,padding: 12 }}>No published syllabus is available for this board, class, year and medium yet. You can still search by subject and topic here, or <Link className="underline font-semibold" href="/admin/learning/framework">open Framework Manager</Link> to import and review a syllabus.</div>}
+        {availableCurriculumSubjects.length>0&&subjectId&&!curriculumSubject&&syllabusMode==='SYLLABUS'&&<div className="admin-note" style={{ marginTop: 12,padding: 12 }}>This subject has no published syllabus for the selected year and medium. Search it as an off-syllabus topic; an academic reviewer can map it later.</div>}
+        {useSyllabusTopics&&selectedCurriculumTopic&&<div className="admin-success-note" style={{ marginTop: 14,padding: 12 }}><strong>Syllabus link selected:</strong> {selectedBoard?.short_name||boardCode} · {gradeCode} · {subject} · {syllabusYear} · {selectedCurriculumTopic.chapter_title||'Chapter'} → {selectedCurriculumTopic.title}. This stable topic ID will be retained through source review and Library draft creation.</div>}
         {syllabusMode==='EXPLORE'&&<div className={readiness?.curriculumReady ? 'admin-success-note' : 'admin-note'} style={{ marginTop: 14,padding: 12 }}><strong>Off-syllabus search:</strong> Class {classNumber} currently has {readiness?.conceptCount || 0} canonical concept(s). Search is allowed; an academic reviewer can map the draft to a published syllabus topic later.</div>}
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">2</span>Find learning material</h2>
-        <p className="admin-muted">Select where and what to search. A checked content type is included in the search. DIKSHA and VidyaSetu can return individual items; reference connectors open/search official libraries without pretending that a website grants reuse rights.</p>
+        <p className="admin-muted">Select sources and content types. Results that VidyaSetu can play or preview appear here; source-only references are clearly marked and cannot be added as playable Learning items.</p>
 
         <div className="admin-label" style={{ marginBottom: 6 }}>Sources</div>
         <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginBottom: 14 }}>
@@ -396,14 +371,15 @@ export default function ContentFactoryPage() {
             const artifactUrl = typeof candidate.metadata?.artifactUrl === 'string' ? candidate.metadata.artifactUrl : null;
             const previewKind = ['VIDEO','AUDIO','IMAGE','PDF'].includes(candidate.media_kind || '') ? candidate.media_kind : null;
             const canPreviewArtifact = candidate.delivery_capability?.code === 'IMPORT' && Boolean(artifactUrl && artifactUrl.startsWith('https://') && previewKind);
+            const canDeliverInVidyaSetu = ['LIBRARY','EMBED','IMPORT'].includes(candidate.delivery_capability?.code || '');
             const previewOpen = previewCandidateId === candidate.id;
             return <article key={candidate.id} style={{ border: '1px solid #DCE3EE',borderRadius: 14,padding: 14,background: '#fff' }}>
               <div style={{ display: 'flex',justifyContent: 'space-between',gap: 8 }}>
                 <strong>{mediaIcon[candidate.media_kind || 'LINK']} {candidate.title}</strong>
-                <span style={{ color: candidate.reference_only ? '#B45309' : '#15803D',fontWeight: 800,fontSize: 11 }}>{candidate.reference_only ? 'OFFICIAL REFERENCE' : 'ITEM RESULT'}</span>
+                <span style={{ color: canDeliverInVidyaSetu ? '#15803D' : '#B45309',fontWeight: 800,fontSize: 11 }}>{canDeliverInVidyaSetu ? 'VIDYASETU PREVIEW' : 'SOURCE ONLY'}</span>
               </div>
               <p className="admin-chip">{candidate.delivery_capability?.label || (candidate.reference_only ? 'Reference search only' : 'Delivery requires configuration')}</p>
-              {candidate.delivery_capability?.code === 'EMBED' && <LearningAsset title={candidate.title} kind="VIDEO" embedUrl={candidate.embed_url} />}
+              {candidate.delivery_capability?.code === 'EMBED' && <LearningAsset title={candidate.title} kind={candidate.media_kind || 'VIDEO'} embedUrl={candidate.embed_url} />}
               {canPreviewArtifact && <div style={{ marginTop: 10 }}>
                 <button type="button" style={secondary} aria-expanded={previewOpen} onClick={() => setPreviewCandidateId(previewOpen ? '' : candidate.id)}>
                   {previewOpen ? 'Hide source preview' : `Preview ${previewKind === 'PDF' ? 'PDF' : previewKind?.toLowerCase()} in admin`}
@@ -420,12 +396,12 @@ export default function ContentFactoryPage() {
                 Licence metadata: {candidate.licence_candidate || 'review required'} · Adaptation: {candidate.can_adapt ? 'possible after verification' : 'not assumed'}
               </div>
               <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginTop: 12 }}>
-                {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={secondary}>Inspect source / rights ↗</a>}
-                {!candidate.reference_only && !stage && <button type="button" style={button} disabled={stageCandidateMutation.isPending} onClick={() => stageCandidateMutation.mutate(candidate)}>{candidate.resource_id ? 'Select governed source' : `Select this ${candidate.media_kind === 'VIDEO' ? 'video' : 'item'}`}</button>}
+                {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={secondary}>Open original source / rights ↗</a>}
+                {canDeliverInVidyaSetu && !stage && <button type="button" style={button} disabled={stageCandidateMutation.isPending} onClick={() => stageCandidateMutation.mutate(candidate)}>{candidate.resource_id ? 'Select governed source' : 'Select for review'}</button>}
                 {stage?.kind === 'OER_INTAKE' && stage.intakeId && <Link href={`/admin/learning/pipeline?intake=${stage.intakeId}`} style={button}>Complete delivery &amp; add to Library</Link>}
                 {stage?.kind === 'GOVERNED_RESOURCE' && <Link href="/admin/learning" style={secondary}>Open Library</Link>}
                 {stage?.kind === 'GOVERNED_RESOURCE' && <span className="admin-success-note" style={{ padding: '9px 12px',borderRadius: 9 }}>✓ Already in Library</span>}
-                {candidate.reference_only && <span className="admin-note" style={{ padding: '9px 12px',borderRadius: 9,fontSize: 12 }}>Open the official library, choose the exact item, then use the web-address section below.</span>}
+                {!canDeliverInVidyaSetu && <span className="admin-note" style={{ padding: '9px 12px',borderRadius: 9,fontSize: 12 }}>This result only points to a source page. VidyaSetu cannot play it yet, so it cannot be selected for the Learning Library.</span>}
               </div>
             </article>;
           })}
@@ -433,23 +409,9 @@ export default function ContentFactoryPage() {
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}><span className="admin-step">4</span>Already have an exact web address?</h2>
-        <p className="admin-muted">Paste any HTTPS learning item that is not returned directly. VidyaSetu stores the exact URL in Content Review Queue as link-only first. It is never silently copied or published.</p>
-        <div style={{ display: 'grid',gridTemplateColumns: '1fr 2fr 1fr',gap: 12 }}>
-          <label className="admin-label">Title<input className="admin-input" value={webTitle} onChange={(e) => setWebTitle(e.target.value)} placeholder="Resource title" /></label>
-          <label className="admin-label">HTTPS URL<input className="admin-input" value={webUrl} onChange={(e) => setWebUrl(e.target.value)} placeholder="https://..." /></label>
-          <label className="admin-label">Attribution / publisher<input className="admin-input" value={webAttribution} onChange={(e) => setWebAttribution(e.target.value)} placeholder="Optional — domain used if blank" /></label>
-        </div>
-        <div style={{ display: 'flex',gap: 9,alignItems: 'center',marginTop: 12,flexWrap: 'wrap' }}>
-          <button type="button" style={{ ...button,opacity: webTitle.trim().length >= 2 && webUrl.startsWith('https://') ? 1 : .55 }} disabled={webTitle.trim().length < 2 || !webUrl.startsWith('https://') || webMutation.isPending} onClick={() => webMutation.mutate()}>{webMutation.isPending ? 'Sending…' : 'Send to Content Review Queue'}</button>
-          {lastWebIntakeId && <Link href={`/admin/learning/pipeline?intake=${lastWebIntakeId}`} style={{ ...secondary,borderColor: '#22C55E',background: '#ECFDF3' }}>✓ Saved · Configure in Pipeline →</Link>}
-        </div>
-      </section>
-
-      <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}><span className="admin-step">5</span>What happens after source review?</h2>
+        <h2 style={{ marginTop: 0 }}><span className="admin-step">4</span>What happens after you select content?</h2>
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(3,minmax(190px,1fr))',gap: 10 }}>
-          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>1 · Verify and approve</strong><p className="admin-muted">Source Review records item-level licence and attribution. Approval is disabled until required evidence is saved.</p><Link href={`/admin/learning/pipeline?intake=${lastWebIntakeId}`} style={secondary}>Open Source Review</Link></div>
+          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>1 · Verify and approve</strong><p className="admin-muted">The selected result opens in the Content Review Queue with its source and available media details. Rights evidence is required before approval.</p><Link href="/admin/learning/pipeline" style={secondary}>Open Source Review</Link></div>
           <div className="admin-panel-muted" style={{ padding: 14 }}><strong>2 · Add to Content Library</strong><p className="admin-muted">Choose class, board, subject, chapter/topic and Public / Registered / Subscriber audience. The item enters Content Library as DRAFT.</p><Link href="/admin/learning" style={secondary}>Open Content Library</Link></div>
           <div className="admin-panel-muted" style={{ padding: 14 }}><strong>3 · Review and publish</strong><p className="admin-muted">Only PUBLISHED items reach learners. Public Free appears under Learn; private items are restricted by class and, when selected, subscription entitlement.</p></div>
         </div>
