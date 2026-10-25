@@ -66,7 +66,7 @@ body { font-family: 'Noto Sans', sans-serif; background: var(--white); color: va
 .sidebar-link:hover { background: rgba(255,107,0,0.1); color: #FF9A3C; border-left-color: rgba(255,107,0,0.4); }
 .sidebar-link.active { background: rgba(255,107,0,0.12); color: #FF9A3C; border-left-color: var(--saffron); }
 .global-topbar {
-  --topbar-bg: #FF751A;
+  --topbar-bg: #FF8A3D;
   --topbar-ink: #14213D;
   --topbar-soft: #FFF0E5;
   position: sticky;
@@ -78,7 +78,7 @@ body { font-family: 'Noto Sans', sans-serif; background: var(--white); color: va
   gap: 12px;
   padding: 8px 22px;
   background: var(--topbar-bg);
-  border-bottom: 2px solid #E56510;
+  border-bottom: 2px solid #E7762C;
   box-shadow: 0 3px 14px rgba(13,27,62,.14);
   color: var(--topbar-ink);
 }

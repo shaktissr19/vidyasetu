@@ -32,7 +32,7 @@ test('source discovery rejects a board/source mismatch before making a request',
 });
 
 test('known CBSE connector coverage gap returns unsupported-scope without fetching', async () => {
-  const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', classCode: 'CLASS_6', subject: 'Science' });
+  const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', academicYear: '2026-27', classCode: 'CLASS_6', subject: 'Science' });
   assert.equal(result.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(result.message, /configured for Classes 9, 10, 11, 12/);
   assert.match(result.message, /No PDFs were fetched/);
@@ -55,16 +55,16 @@ test('CBSE Skill Education source distinguishes grade-specific Kaushal Bodh PDFs
 });
 
 test('official CISCE and UPMSP class-band gaps are explicit before fetching', async () => {
-  const cisce = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/icse-regulations-and-syllabuses-2027/', classCode: 'CLASS_11' });
+  const cisce = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/icse-regulations-and-syllabuses-2027/', academicYear: '2026-27', classCode: 'CLASS_11' });
   assert.equal(cisce.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(cisce.message, /Classes 9, 10/);
-  const isc = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/isc-regulations-and-syllabuses-2027/', classCode: 'CLASS_10' });
+  const isc = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/isc-regulations-and-syllabuses-2027/', academicYear: '2026-27', classCode: 'CLASS_10' });
   assert.equal(isc.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(isc.message, /Classes 11, 12/);
-  const upmsp = await discoverOfficialSyllabusDocuments({ boardCode: 'UPMSP', sourceUrl: 'https://upmsp.edu.in/Board_Syllabus.aspx', classCode: 'CLASS_8' });
+  const upmsp = await discoverOfficialSyllabusDocuments({ boardCode: 'UPMSP', sourceUrl: 'https://upmsp.edu.in/Board_Syllabus.aspx', academicYear: '2026-27', classCode: 'CLASS_8' });
   assert.equal(upmsp.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(upmsp.message, /Classes 9, 10, 11, 12/);
-  const nios = await discoverOfficialSyllabusDocuments({ boardCode: 'NIOS', sourceUrl: 'https://rchyderabad.nios.ac.in/secondary-courses-material.html', classCode: 'CLASS_8' });
+  const nios = await discoverOfficialSyllabusDocuments({ boardCode: 'NIOS', sourceUrl: 'https://rchyderabad.nios.ac.in/secondary-courses-material.html', academicYear: '2026-27', classCode: 'CLASS_8' });
   assert.equal(nios.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(nios.message, /Classes 9, 10/);
 });
@@ -135,6 +135,28 @@ test('class-scoped discovery excludes unknown and mismatched PDFs', () => {
   assert.match(result.documents[0].url, /Class-VIII-Math\.pdf$/);
 });
 
+test('CBSE Class 10 Mathematics discovery never returns Class 1 PDFs', () => {
+  const html = [
+    '<h2>Primary Curriculum (Class I)</h2><a href="web_material/Maths_Class_1_2026-27.pdf">Mathematics</a>',
+    '<h2>Secondary Curriculum: Part - 1 (Class X)</h2><a href="web_material/CurriculumMain27/SecPart1/Maths_SecP1X_2026-27.pdf">Mathematics</a>',
+  ].join(' ');
+  const result = parseOfficialSyllabusIndex('https://cbseacademic.nic.in/curriculum_2027.html', html, { boardCode: 'CBSE', classCode: 'CLASS_10', subject: 'Mathematics' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].classGuess, 'CLASS_10');
+  assert.match(result.documents[0].url, /Maths_SecP1X_2026-27\.pdf$/);
+});
+
+test('automatic CBSE fetch requires a class and refuses an academic-year mismatch', async () => {
+  await assert.rejects(
+    discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', academicYear: '2026-27', classCode: '' }),
+    /Select a class before fetching/,
+  );
+  const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', academicYear: '2025-26', classCode: 'CLASS_10', subject: 'Mathematics' });
+  assert.equal(result.outcome, 'UNSUPPORTED_SCOPE');
+  assert.equal(result.documents.length, 0);
+  assert.match(result.message, /verified for academic year 2026-27/);
+});
+
 test('a page with no matching PDF reports no-match, not verified syllabus absence', async () => {
   const axios = require('axios');
   const dns = require('dns/promises');
@@ -143,7 +165,7 @@ test('a page with no matching PDF reports no-match, not verified syllabus absenc
   axios.default.get = async () => ({ data: '<html><h1>Curriculum</h1><p>No links here</p></html>', headers: { 'content-type': 'text/html' } });
   dns.lookup = async () => [{ address: '8.8.8.8', family: 4 }];
   try {
-    const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/unknown-index.html', classCode: 'CLASS_6', subject: 'Science' });
+    const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/unknown-index.html', academicYear: '2026-27', classCode: 'CLASS_6', subject: 'Science' });
     assert.equal(result.outcome, 'NO_MATCH');
     assert.equal(result.documents.length, 0);
     assert.match(result.message, /No matching syllabus PDF was found/);

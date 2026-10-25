@@ -62,8 +62,9 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
  const documents=[...links.values()].slice(0,250);
  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents};
 }
-export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string}){
+export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;sourceUrl:string;academicYear:string;classCode:string;subject?:string}){
  const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);
+ if(!input.classCode)throw fail('Select a class before fetching. Automatic syllabus discovery is always limited to one class so results from another class cannot be mixed in.');
  // The currently configured CBSE page publishes the secondary/senior-secondary
  // index. Do not turn a known gap for Classes 1–8 into a misleading “no match”.
  const sourcePath=source.pathname.toLowerCase();
@@ -79,6 +80,12 @@ export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;
   const scope=input.classCode.replace('CLASS_','Class ');
   const covered=supportedGrades.map(value=>value.replace('CLASS_','')).join(', ');
   return {sourceUrl:source.toString(),sourceHost:source.hostname,documents:[],outcome:'UNSUPPORTED_SCOPE' as const,message:`Automatic discovery from this official index is configured for Classes ${covered}. ${scope} is not covered by this connector. No PDFs were fetched. Load a verified official PDF or import a reviewed syllabus index spreadsheet for this class.`};
+ }
+ const isCurrentCbseIndex=input.boardCode.toUpperCase()==='CBSE'&&(
+  sourcePath.endsWith('/curriculum_2027.html')||sourcePath.endsWith('/skill-education-curriculum.html')
+ );
+ if(isCurrentCbseIndex&&input.academicYear!=='2026-27'){
+  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents:[],outcome:'UNSUPPORTED_SCOPE' as const,message:`This CBSE source is verified for academic year 2026-27, not ${input.academicYear}. No PDFs were fetched. Choose the matching official source for that year.`};
  }
  let response;
  try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. No PDFs were fetched. Check the URL and try again.',502);}

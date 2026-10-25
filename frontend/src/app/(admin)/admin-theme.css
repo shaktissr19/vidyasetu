@@ -194,7 +194,7 @@
 
 @media (max-width: 1100px) {
   .admin-shell .global-topbar-nav { display: none !important; }
-  .admin-shell .global-topbar-nav.is-open { display: flex !important; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; padding: 8px 12px; background: var(--topbar-bg, #FF751A); }
+  .admin-shell .global-topbar-nav.is-open { display: flex !important; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; padding: 8px 12px; background: var(--topbar-bg, #FF8A3D); }
   .admin-shell .admin-page [style*="grid-template-columns: repeat(4"] { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
   .admin-shell .admin-page [style*="grid-template-columns: minmax(330px"] { grid-template-columns: 1fr !important; }
   .admin-shell .admin-page [style*="grid-template-columns: minmax(360px"] { grid-template-columns: 1fr !important; }
