@@ -259,3 +259,23 @@ export async function retireSyllabusTopic(topicId:string,retired:boolean,note:st
  return {topicId,retired};
  });
 }
+
+export async function changeSyllabusScope(versionId:string,input:{gradeCode:string;subjectId:string;retired:boolean;note:string},actor:string) {
+ await syllabusReady();
+ return transaction(async client=>{
+  const {rows:[version]}=await client.query(`SELECT id,COALESCE(publication_status,status) AS state FROM curriculum_versions WHERE id=$1::uuid FOR UPDATE`,[versionId]);
+  if(!version) throw fail('Syllabus version not found',404);
+  if(version.state!=='DRAFT') throw fail('Only a Draft syllabus can have a class and subject scope removed or restored. Published history is retained.',409);
+  const {rows:scopes}=await client.query(`SELECT id FROM curriculum_subjects WHERE curriculum_version_id=$1::uuid AND class_name=$2 AND subject_id=$3::uuid FOR UPDATE`,[versionId,input.gradeCode,input.subjectId]);
+  if(!scopes.length) throw fail('No syllabus scope matches this class and subject.',404);
+  const scopeIds=scopes.map(scope=>scope.id as string);
+  const {rows:topics}=await client.query(`SELECT ct.id FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id WHERE cs.id=ANY($1::uuid[]) FOR UPDATE OF ct`,[scopeIds]);
+  if(!topics.length) throw fail('This class and subject scope has no topics to remove or restore.',404);
+  const topicIds=[...new Set(topics.map(topic=>topic.id as string))];
+  await client.query('UPDATE curriculum_topics SET is_retired=$2 WHERE id=ANY($1::uuid[])',[topicIds,input.retired]);
+  // Retiring a topic in one syllabus must not deactivate a learning concept
+  // that may also be referenced by another board, class, or published version.
+  await audit(client,actor,versionId,'UPDATE',{operation:input.retired?'REMOVE_DRAFT_SYLLABUS_SCOPE':'RESTORE_DRAFT_SYLLABUS_SCOPE',gradeCode:input.gradeCode,subjectId:input.subjectId,topicCount:topicIds.length,note:input.note});
+  return {versionId,gradeCode:input.gradeCode,subjectId:input.subjectId,retired:input.retired,topicCount:topicIds.length};
+ });
+}

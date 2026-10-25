@@ -29,6 +29,7 @@ export const updateSyllabusDocument=(id:string,input:{gradeCode:string|null;subj
 export const deleteSyllabusDocument=(id:string)=>api.delete(`/admin/syllabus/documents/${id}`);
 export const reviewSyllabusDocument=(id:string,input:{status:'APPROVED'|'REJECTED';note:string;redistributionAllowed:boolean;redistributionEvidenceUrl?:string})=>api.patch(`/admin/syllabus/documents/${id}/review`,input);
 export const updateSyllabusVersion=(id:string,input:{title?:string;sourceUrl?:string|null})=>api.patch(`/admin/syllabus/${id}`,input);
+export const changeSyllabusScope=(id:string,input:{gradeCode:string;subjectId:string;retired:boolean;note:string})=>api.patch(`/admin/syllabus/${id}/scopes`,input);
 export const updateSyllabusTopic=(id:string,input:{unit:string;chapter:string;topic:string;topicHi?:string|null;learningOutcome?:string|null;pageReference:string;sortOrder?:number})=>api.patch(`/admin/syllabus/topics/${id}/details`,input);
 export const addSyllabusTopic=(versionId:string,input:{gradeCode:string;subjectId:string;unit:string;chapter:string;topic:string;topicHi?:string|null;learningOutcome?:string|null;pageReference:string;sortOrder?:number})=>api.post(`/admin/syllabus/versions/${versionId}/topics`,input);
 
