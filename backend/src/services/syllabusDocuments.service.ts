@@ -13,7 +13,7 @@ const safeName=(value:string)=>value.replace(/[^a-zA-Z0-9._ -]+/g,'_').replace(/
 
 const officialSources=[
  {boardCode:'CBSE',name:'CBSE Academic curriculum (IX–XII)',url:'https://cbseacademic.nic.in/curriculum_2027.html',note:'Academic curriculum index for Classes 9–12. Classes 1–8 are not covered by this syllabus index.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
- {boardCode:'CBSE',name:'CBSE Skill Education curriculum (IX–XII)',url:'https://cbseacademic.nic.in/skill-education-curriculum.html',note:'Separate official index for skill education subjects in Classes 9–12.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
+ {boardCode:'CBSE',name:'CBSE Skill Education curriculum (VI–XII)',url:'https://cbseacademic.nic.in/skill-education-curriculum.html',note:'Official 2026–27 index includes grade-specific Kaushal Bodh PDFs for Classes 6–8 and skill subjects for Classes 9–12. This does not cover the full core curriculum for Classes 1–8.',supportedGrades:['CLASS_6','CLASS_7','CLASS_8','CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
  {boardCode:'CISCE',name:'CISCE ICSE regulations and syllabus (IX–X)',url:'https://cisce.org/icse-regulations-and-syllabuses-2027/',note:'Official ICSE Year 2027 index for Classes 9–10.',supportedGrades:['CLASS_9','CLASS_10']},
  {boardCode:'CISCE',name:'CISCE ISC regulations and syllabus (XI–XII)',url:'https://cisce.org/isc-regulations-and-syllabuses-2027/',note:'Official ISC Year 2027 index for Classes 11–12.',supportedGrades:['CLASS_11','CLASS_12']},
  {boardCode:'UPMSP',name:'UPMSP syllabus (IX–XII)',url:'https://upmsp.edu.in/Board_Syllabus.aspx',note:'Official syllabus PDF index for Classes 9–12.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
