@@ -298,6 +298,31 @@ test('new syllabus revision keeps every published subject scope and exposes the 
  await pipeline.approveIntake(staged.intakeId,adminId);const materialised=await pipeline.materialiseIntake(staged.intakeId,adminId);
  assert.equal((await db.query('SELECT curriculum_topic_id FROM learning_resources WHERE id=$1',[materialised.resourceId])).rows[0].curriculum_topic_id,corrected.id,'created content retains the canonical revised topic link');
 });
+test('source-document edit, admin review, publish and student syllabus form one complete lifecycle',async()=>{
+ const board=(await db.query("SELECT id FROM education_boards WHERE code='CBSE'")).rows[0];
+ const subject=(await db.query("SELECT id FROM subjects WHERE is_active=TRUE AND name='Science' LIMIT 1")).rows[0];
+ assert.ok(subject,'Science subject seed is present');
+ const inserted=(await db.query(`INSERT INTO syllabus_documents(board_id,academic_year,grade_code,subject_id,title,language,medium,source_url,source_publisher,storage_key,checksum_sha256,byte_size,page_count,uploaded_by,structured_outline,outline)
+  VALUES($1,'2034-35',NULL,NULL,'Initial source','en','en','https://cbseacademic.nic.in/curriculum_2027.html','CBSE','syllabus/e2e-source.pdf',$2,120,1,$3,$4::jsonb,$5::jsonb) RETURNING id`,[board.id,'a'.repeat(64),adminId,JSON.stringify([{unit:'Unit 1',chapter:'Materials',topic:'States of Matter',pageReference:'Page 2',confidence:'high'}]),JSON.stringify([{page:2,text:'Unit 1 › Materials › States of Matter'}])])).rows[0];
+ const first=await syllabusDocuments.updateSyllabusDocument(inserted.id,{gradeCode:'CLASS_6',subjectId:subject.id,title:'CBSE Class 6 Science Draft',sourceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',language:'en'},adminId);
+ assert.ok(first.versionId,'assigning class/subject creates a Draft from extracted syllabus topics');
+ const second=await syllabusDocuments.updateSyllabusDocument(inserted.id,{gradeCode:'CLASS_6',subjectId:subject.id,title:'CBSE Class 6 Science Corrected Draft',sourceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',language:'en'},adminId);
+ assert.notEqual(second.versionId,first.versionId,'editing the source record replaces its Draft instead of leaving a stale revision');
+ assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM curriculum_versions WHERE id=$1',[first.versionId])).rows[0].count,0);
+ const filtered=await syllabusDocuments.listSyllabusDocuments({boardCode:'CBSE',gradeCode:'CLASS_6',subjectId:subject.id,academicYear:'2034-35'});
+ assert.ok(filtered.some(item=>item.id===inserted.id),'admin board/class/subject/year filters return the loaded source');
+ const detail=await syllabusDocuments.syllabusDocumentDetail(inserted.id,true);assert.equal(detail.structured_outline.length,1);
+ await syllabusDocuments.reviewSyllabusDocument(inserted.id,{status:'APPROVED',note:'Verified source, class, subject and topic outline',redistributionAllowed:false},adminId);
+ await syllabus.changeSyllabusStatus(second.versionId,'REVIEWED','Verified extracted syllabus topics and source page references',adminId);
+ await syllabus.changeSyllabusStatus(second.versionId,'ACTIVE','Published verified Class 6 Science syllabus',adminId);
+ const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];
+ await db.query("UPDATE students SET school_id=NULL,grade_code='CLASS_6',grade_level='6' WHERE id=$1",[student.id]);
+ await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2034-35',language:'en'});
+ const view=await syllabus.studentSyllabus(student.user_id);
+ assert.equal(view.version.id,second.versionId);assert.equal(view.topics.length,1);assert.equal(view.topics[0].title,'States of Matter');
+ await assert.rejects(syllabusDocuments.updateSyllabusDocument(inserted.id,{gradeCode:'CLASS_6',subjectId:subject.id,title:'Unsafe published edit',sourceUrl:'https://cbseacademic.nic.in/curriculum_2027.html',language:'en'},adminId),/reviewed or published syllabus/);
+ await assert.rejects(syllabusDocuments.deleteSyllabusDocument(inserted.id,adminId),/Approved evidence cannot be deleted/);
+});
 test('syllabus-linked content respects subscriptions and completion never implies mastery',async()=>{
  const student=(await db.query('SELECT id,user_id FROM students WHERE id=$1',[syllabusStudentId])).rows[0];await db.query('UPDATE students SET school_id=NULL WHERE id=$1',[student.id]);
  await syllabus.saveLearningPreference(student.user_id,{boardCode:'CBSE',gradeCode:'CLASS_6',academicYear:'2026-27',language:'hi'});

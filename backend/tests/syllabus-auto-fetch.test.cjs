@@ -42,9 +42,29 @@ test('official CISCE and UPMSP class-band gaps are explicit before fetching', as
   const cisce = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/icse-regulations-and-syllabuses-2027/', classCode: 'CLASS_11' });
   assert.equal(cisce.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(cisce.message, /Classes 9, 10/);
+  const isc = await discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cisce.org/isc-regulations-and-syllabuses-2027/', classCode: 'CLASS_10' });
+  assert.equal(isc.outcome, 'UNSUPPORTED_SCOPE');
+  assert.match(isc.message, /Classes 11, 12/);
   const upmsp = await discoverOfficialSyllabusDocuments({ boardCode: 'UPMSP', sourceUrl: 'https://upmsp.edu.in/Board_Syllabus.aspx', classCode: 'CLASS_8' });
   assert.equal(upmsp.outcome, 'UNSUPPORTED_SCOPE');
   assert.match(upmsp.message, /Classes 9, 10, 11, 12/);
+  const nios = await discoverOfficialSyllabusDocuments({ boardCode: 'NIOS', sourceUrl: 'https://rchyderabad.nios.ac.in/secondary-courses-material.html', classCode: 'CLASS_8' });
+  assert.equal(nios.outcome, 'UNSUPPORTED_SCOPE');
+  assert.match(nios.message, /Classes 9, 10/);
+});
+
+test('ISC official index links are scoped to Classes XI and XII', () => {
+  const result = parseOfficialSyllabusIndex('https://cisce.org/isc-regulations-and-syllabuses-2027/', '<h2>ISC Class XI</h2><a href="/wp-content/uploads/2025/02/25.-ISC-Computer-Science.doc.pdf">Computer Science</a>', { boardCode: 'CISCE', classCode: 'CLASS_11', subject: 'Computer Science' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].classGuess, 'CLASS_11');
+  assert.equal(result.documents[0].subjectGuess, 'Computer Science');
+});
+
+test('NIOS course index accepts approved board hosts and infers subject from course PDF', () => {
+  const result = parseOfficialSyllabusIndex('https://rchyderabad.nios.ac.in/secondary-courses-material.html', '<a href="/curriculum/mathematics-211.pdf">Mathematics (211)</a>', { boardCode: 'NIOS', classCode: 'CLASS_10', subject: 'Mathematics' });
+  assert.equal(result.documents.length, 1);
+  assert.equal(result.documents[0].subjectGuess, 'Mathematics');
+  assert.equal(result.documents[0].url, 'https://rchyderabad.nios.ac.in/curriculum/mathematics-211.pdf');
 });
 
 test('PDF extraction rejects non-allowlisted URLs and unsupported board connectors', async () => {

@@ -8,10 +8,10 @@ const fail=(message:string,statusCode=400)=>Object.assign(new Error(message),{st
 function hasStatusCode(error:unknown):error is Error&{statusCode:number}{return error instanceof Error&&'statusCode' in error&&typeof error.statusCode==='number';}
 const maxHtmlBytes=2_000_000;
 const maxPdfBytes=25*1024*1024;
-const allowedHosts=()=> (process.env.SYLLABUS_IMPORT_ALLOWED_HOSTS||'cbseacademic.nic.in,cisce.org,upmsp.edu.in,ncert.nic.in').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+const allowedHosts=()=> (process.env.SYLLABUS_IMPORT_ALLOWED_HOSTS||'cbseacademic.nic.in,cisce.org,upmsp.edu.in,ncert.nic.in,nios.ac.in').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
 function publicAddress(address:string){if(isIP(address)!==4)return false;const [a,b]=address.split('.').map(Number);return a!==0&&a!==10&&a!==127&&a<224&&a!==169&&a!==192&&!(a===172&&b>=16&&b<=31)&&!(a===100&&b>=64&&b<=127)&&!(a===198&&(b===18||b===19||b===51))&&!(a===203&&b===0);}
 async function getOfficial<T>(url:URL,config:AxiosRequestConfig){const addresses=await lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(x=>!publicAddress(x.address)))throw fail('Official source host resolves to a private or unsupported IP address.',403);const address=addresses[0].address;const agent=new Agent({family:4,lookup:(_host,_options,callback)=>callback(null,address,4)});try{return await axios.get<T>(url.toString(),{...config,httpsAgent:agent,proxy:false,maxRedirects:0});}finally{agent.destroy();}}
-const boardSourceHosts:Record<string,string[]>={CBSE:['cbseacademic.nic.in','ncert.nic.in'],CISCE:['cisce.org'],UPMSP:['upmsp.edu.in']};
+const boardSourceHosts:Record<string,string[]>={CBSE:['cbseacademic.nic.in','ncert.nic.in'],CISCE:['cisce.org'],UPMSP:['upmsp.edu.in'],NIOS:['nios.ac.in']};
 function checkedOfficialUrl(value:string,base?:string,boardCode?:string){
  let url:URL;try{url=new URL(value,base);}catch{throw fail('The source URL is invalid.');}
  const host=url.hostname.toLowerCase();
@@ -48,7 +48,12 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
   const text=`${title} ${decodeURIComponent(url.pathname)} ${sectionHeading}`;
   const guessedClass=inferClass(text);const guessedSubject=inferSubject(text);
-  if(input.classCode&&guessedClass!==input.classCode)continue;
+  const niosCourseIndex=input.boardCode.toUpperCase()==='NIOS'&&source.hostname.endsWith('.nios.ac.in');
+  // NIOS course-material indexes are level-scoped (Secondary/Senior Secondary)
+  // rather than class-scoped; keep their unlabelled course PDFs for explicit
+  // admin scope confirmation, while still excluding positively mismatched PDFs.
+  if(input.classCode&&guessedClass&&guessedClass!==input.classCode)continue;
+  if(input.classCode&&!guessedClass&&!niosCourseIndex)continue;
   if(input.subject&&!subjectMatches(text,input.subject))continue;
   links.set(url.toString(),{title,url:url.toString(),sourceHost:url.hostname,classGuess:guessedClass,subjectGuess:input.subject&&subjectMatches(text,input.subject)?input.subject:guessedSubject});
  }
@@ -63,7 +68,10 @@ export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;
  const supportedGrades= input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/curriculum_2027.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
   :input.boardCode.toUpperCase()==='CBSE'&&sourcePath.endsWith('/skill-education-curriculum.html')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
   :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/icse-regulations-and-syllabuses-2027/')?['CLASS_9','CLASS_10']
+  :input.boardCode.toUpperCase()==='CISCE'&&sourcePath.endsWith('/isc-regulations-and-syllabuses-2027/')?['CLASS_11','CLASS_12']
   :input.boardCode.toUpperCase()==='UPMSP'&&sourcePath.endsWith('/board_syllabus.aspx')?['CLASS_9','CLASS_10','CLASS_11','CLASS_12']
+  :input.boardCode.toUpperCase()==='NIOS'&&source.hostname==='rchyderabad.nios.ac.in'&&sourcePath.endsWith('/secondary-courses-material.html')?['CLASS_9','CLASS_10']
+  :input.boardCode.toUpperCase()==='NIOS'&&source.hostname==='rcpune.nios.ac.in'&&sourcePath.endsWith('/senior-secondary-courses-material.html')?['CLASS_11','CLASS_12']
   :null;
  if(supportedGrades&&input.classCode&&!supportedGrades.includes(input.classCode)){
   const scope=input.classCode.replace('CLASS_','Class ');
