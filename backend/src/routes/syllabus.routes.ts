@@ -21,7 +21,7 @@ const frameworkRows=z.object({rows:z.array(frameworkRow).min(1).max(10000)});
 const frameworkCommit=z.object({rows:z.array(frameworkRow).min(1).max(10000),sourceHashes:z.array(z.string().regex(/^[a-f0-9]{64}$/i)).max(250).optional()});
 const officialSourceUrl=z.string().url().max(2000).refine(v=>{try{const u=new URL(v);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}},'Use an HTTPS official source URL');
 adminSyllabusRoutes.get('/framework/coverage',route(()=>framework.frameworkCoverage()));
-adminSyllabusRoutes.post('/framework/discover',validate(z.object({boardCode:z.string().trim().min(2).max(30),sourceUrl:officialSourceUrl,classCode:grade.optional(),subject:z.string().trim().max(120).optional()})),route(req=>autoFetch.discoverOfficialSyllabusDocuments(req.body)));
+adminSyllabusRoutes.post('/framework/discover',validate(z.object({boardCode:z.string().trim().min(2).max(30),sourceUrl:officialSourceUrl,academicYear:year,classCode:grade,subject:z.string().trim().max(120).optional()})),route(req=>autoFetch.discoverOfficialSyllabusDocuments(req.body)));
 adminSyllabusRoutes.post('/framework/extract',validate(z.object({boardCode:z.string().trim().min(2).max(30),pdfUrl:officialSourceUrl})),route(req=>autoFetch.extractOfficialSyllabusOutline(req.body.pdfUrl,req.body.boardCode)));
 adminSyllabusRoutes.post('/framework/:versionId/evidence',validate(z.object({versionId:z.string().uuid()}),'params'),validate(z.object({documentId:z.string().uuid()})),route(req=>framework.attachFrameworkEvidence(req.params.versionId,req.body.documentId,req.user!.userId)));
 adminSyllabusRoutes.post('/framework/preview',validate(frameworkRows),route(req=>framework.previewFrameworkImport(req.body.rows)));
