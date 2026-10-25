@@ -48,7 +48,11 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
   // actual class/subject in the PDF filename. Prefer that filename for review.
   if(/^(download|download now|click here|डाउनलोड करें|डाउनलोड|vi|vii|viii)$/i.test(title))title=cleanTitle(decodeURIComponent(url.pathname.split('/').pop()||''));
   const preceding=html.slice(0,match.index);const headings=[...preceding.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/gi)];const sectionHeading=headings.at(-1)?.[1].replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ')||'';
-  const text=`${title} ${decodeURIComponent(url.pathname)} ${sectionHeading}`;
+  // Infer class from the PDF filename, not its containing directory. CBSE's
+  // 2026-27 index stores Class IX/X PDFs under `SecPart1/`; interpreting that
+  // directory name as a grade incorrectly turns both classes into Class 1.
+  const filename=decodeURIComponent(url.pathname.split('/').pop()||'');
+  const text=`${title} ${filename} ${sectionHeading}`;
   const guessedClass=inferClass(text);const guessedSubject=inferSubject(text);
   const niosCourseIndex=input.boardCode.toUpperCase()==='NIOS'&&source.hostname.endsWith('.nios.ac.in');
   // NIOS course-material indexes are level-scoped (Secondary/Senior Secondary)
