@@ -121,23 +121,25 @@ export function parseCurriculumOutline(pages:Array<{page:number;lines:string[]}>
  for(const page of pages){for(const raw of page.lines){const line=raw.replace(/\s+/g,' ').trim();const unitHeading=/^(unit|part)\s+([ivxlcdm\d]+)\s*[:.\-–)]?\s*(.*)$/i.exec(line);if(unitHeading){flushChapter();unit=`${unitHeading[1][0].toUpperCase()}${unitHeading[1].slice(1)} ${unitHeading[2]}${unitHeading[3]?` · ${unitHeading[3]}`:''}`;chapter=stripIndex(unitHeading[3]||unit);continue;}const chapterHeading=/^(chapter\s+[ivxlcdm\d]+\s*[:.\-–)]?\s*.+|\d+(?:\.\d+)?\s*[.):\-–]\s*[A-Z][^.!?]{2,100})$/i.test(line);const topicHeading=/^(?:topics?\s*[:\-–]|\d+\.\d+\s+|[•●▪◦*\-]\s+|[a-z]\)\s+)/i.test(line);const contentsLabel=/^(?:contents|index|syllabus|learning outcomes?|curricular objectives?|course structure)$/i.test(line);if(contentsLabel||line.length>190||/^(?:page\s+\d+|www\.|https?:|©|copyright)/i.test(line))continue;if(chapterHeading){const next=stripIndex(line);if(next.length>2&&next.length<180&&next.toLowerCase()!==chapter.toLowerCase()){flushChapter();chapter=next;pendingChapter={unit,chapter,pageReference:`Page ${page.page}`};}continue;}if(topicHeading){const topic=stripIndex(line.replace(/^(?:topics?\s*[:\-–]|[•●▪◦*\-]\s+)/i,''));if(topic.length<4)continue;const key=`${unit}|${chapter}|${topic}`.toLowerCase();chapterHasTopics=true;if(!seen.has(key)){rows.push({unit,chapter,topic,pageReference:`Page ${page.page}`,confidence:/^\d/.test(line)?'high':'review'});seen.add(key);}}}}
  flushChapter();return rows.slice(0,5000);
 }
-function parseKeyConceptTable(lines:LayoutLine[]){
- const rows:ExtractedOutlineRow[]=[];let unit='Curriculum';let chapter='';let topic='';let topicPage=0;let lastLeftPage=0;let lastLeftY=0;
+export function parseKeyConceptTable(lines:LayoutLine[]){
+ const rows:ExtractedOutlineRow[]=[];let unit='Curriculum';let chapter='';let topic='';let topicPage=0;let readingCourseTable=false;
  const seen=new Set<string>();
  const finish=()=>{const clean=topic.replace(/\s+/g,' ').replace(/[.;:]$/,'').trim();if(chapter&&clean.length>=3&&clean.length<=220&&!/^the student will/i.test(clean)){const key=`${unit}|${chapter}|${clean}`.toLowerCase();if(!seen.has(key)){rows.push({unit,chapter:chapter.replace(/\s+/g,' ').trim().slice(0,220),topic:clean,pageReference:`Page ${topicPage}`,confidence:'high'});seen.add(key);}}topic='';};
+ const columnText=(line:LayoutLine,min:number,max:number)=>line.parts.filter(part=>part.x>=min&&part.x<max&&!/^[•●▪◦*\-]$/.test(part.text)).map(part=>part.text).join(' ').replace(/\s+/g,' ').trim();
  for(const line of lines){
-  const unitMatch=line.text.match(/\bUNIT\s+([IVXLCDM\d]+)\s*:\s*([^|]{2,120})/i);if(unitMatch){finish();unit=`Unit ${unitMatch[1]} · ${unitMatch[2].replace(/No\. of periods.*$/i,'').trim()}`;chapter='';lastLeftPage=0;lastLeftY=0;continue;}
+  const unitMatch=line.text.match(/\bUNIT\s+([IVXLCDM\d]+)\s*:\s*([^|]{2,120})/i);if(unitMatch){finish();unit=`Unit ${unitMatch[1]} · ${unitMatch[2].replace(/No\. of periods.*$/i,'').trim()}`;chapter='';readingCourseTable=true;continue;}
   if(/Chapter\s*Name/i.test(line.text)&&/Key\s*Concepts/i.test(line.text))continue;
-  const left=line.parts.filter(part=>part.x<110&&!/^[•●▪◦*\-]$/.test(part.text)).map(part=>part.text).join(' ').trim();
-  const bullet=line.parts.find(part=>part.x>=95&&part.x<180&&/^[•●▪◦*\-]$/.test(part.text));
-  const middle=line.parts.filter(part=>part.x>=110&&part.x<276&&!/^[•●▪◦*\-]$/.test(part.text)&&!/^CG-/i.test(part.text)).map(part=>part.text).join(' ').trim();
-  if(left&&!/^(unit|chapter|name|total)$/i.test(left)){
-   const startsNew=!chapter||line.page!==lastLeftPage||Math.abs(lastLeftY-line.y)>35;
-   if(startsNew){finish();chapter=left;}else if(left.length<80)chapter=`${chapter} ${left}`.trim();
-   lastLeftPage=line.page;lastLeftY=line.y;
-  }
-  if(bullet){finish();topic=middle;topicPage=line.page;}
-  else if(topic&&middle&&!/^(CG-|C-\d|No\. of periods)/i.test(middle))topic=`${topic} ${middle}`.trim();
+  if(!readingCourseTable)continue;
+  // In CBSE's current table, chapter serials are around x=69 and titles
+  // begin at x=104. Topic serials are around x=109 and their text at x=127.
+  // Competencies/explanations start at x≈280, so exclude those columns.
+  const chapterSerial=line.parts.find(part=>part.x<95&&/^\d{1,2}\.?$/.test(part.text));
+  const topicSerial=line.parts.find(part=>part.x>=95&&part.x<120&&/^\d{1,2}\.?$/.test(part.text));
+  if(chapterSerial){finish();chapter=columnText(line,95,280);if(chapter.length>220)chapter=chapter.slice(0,220);continue;}
+  if(topicSerial){finish();topic=columnText(line,120,280);topicPage=line.page;continue;}
+  const continuation=columnText(line,120,280);
+  if(topic&&continuation)topic=`${topic} ${continuation}`.trim();
+  else if(chapter&&!topic){const chapterContinuation=columnText(line,95,280);if(chapterContinuation)chapter=`${chapter} ${chapterContinuation}`.trim();}
  }
  finish();return rows;
 }
