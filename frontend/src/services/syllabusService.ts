@@ -49,5 +49,5 @@ export const attachFrameworkEvidence=(versionId:string,documentId:string)=>api.p
 
 export interface OfficialSyllabusDocument {title:string;url:string;sourceHost:string;classGuess:string|null;subjectGuess:string|null;}
 export interface ExtractedSyllabusOutline {title:string;sourceUrl:string;sourceHash:string;pageCount:number;reviewRequired:true;notice:string;rows:{unit:string;chapter:string;topic:string;pageReference:string;confidence:'high'|'review'}[];}
-export const discoverOfficialSyllabusDocuments=(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string})=>api.post<ApiEnvelope<{sourceUrl:string;sourceHost:string;documents:OfficialSyllabusDocument[];outcome?:'FOUND'|'NO_MATCH'|'UNSUPPORTED_SCOPE';message?:string}>>('/admin/syllabus/framework/discover',input,{timeout:30000});
+export const discoverOfficialSyllabusDocuments=(input:{boardCode:string;sourceUrl:string;academicYear:string;classCode:string;subject?:string})=>api.post<ApiEnvelope<{sourceUrl:string;sourceHost:string;documents:OfficialSyllabusDocument[];outcome?:'FOUND'|'NO_MATCH'|'UNSUPPORTED_SCOPE';message?:string}>>('/admin/syllabus/framework/discover',input,{timeout:30000});
 export const extractOfficialSyllabusOutline=(boardCode:string,pdfUrl:string)=>api.post<ApiEnvelope<ExtractedSyllabusOutline>>('/admin/syllabus/framework/extract',{boardCode,pdfUrl},{timeout:90000});
