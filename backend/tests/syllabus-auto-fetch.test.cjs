@@ -31,6 +31,13 @@ test('source discovery rejects a board/source mismatch before making a request',
   await assert.rejects(discoverOfficialSyllabusDocuments({ boardCode: 'CISCE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html' }), /No official-source connector is configured for CISCE/);
 });
 
+test('known CBSE connector coverage gap returns unsupported-scope without fetching', async () => {
+  const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/curriculum_2027.html', classCode: 'CLASS_6', subject: 'Science' });
+  assert.equal(result.outcome, 'UNSUPPORTED_SCOPE');
+  assert.match(result.message, /configured for Classes 9–12/);
+  assert.match(result.message, /No PDFs were fetched/);
+});
+
 test('PDF extraction rejects non-allowlisted URLs and unsupported board connectors', async () => {
   await assert.rejects(extractOfficialSyllabusOutline('https://example.com/syllabus.pdf', 'CBSE'), /approved official board domains/);
   await assert.rejects(extractOfficialSyllabusOutline('https://cbseacademic.nic.in/syllabus.pdf', 'UNKNOWN'), /No official-source connector is configured/);
@@ -73,4 +80,24 @@ test('class-scoped discovery excludes unknown and mismatched PDFs', () => {
   assert.equal(result.documents.length, 1);
   assert.equal(result.documents[0].classGuess, 'CLASS_8');
   assert.match(result.documents[0].url, /Class-VIII-Math\.pdf$/);
+});
+
+test('a page with no matching PDF reports no-match, not verified syllabus absence', async () => {
+  const axios = require('axios');
+  const dns = require('dns/promises');
+  const originalGet = axios.default.get;
+  const originalLookup = dns.lookup;
+  axios.default.get = async () => ({ data: '<html><h1>Curriculum</h1><p>No links here</p></html>', headers: { 'content-type': 'text/html' } });
+  dns.lookup = async () => [{ address: '8.8.8.8', family: 4 }];
+  try {
+    const result = await discoverOfficialSyllabusDocuments({ boardCode: 'CBSE', sourceUrl: 'https://cbseacademic.nic.in/unknown-index.html', classCode: 'CLASS_6', subject: 'Science' });
+    assert.equal(result.outcome, 'NO_MATCH');
+    assert.equal(result.documents.length, 0);
+    assert.match(result.message, /No matching syllabus PDF was found/);
+    assert.match(result.message, /links may use a format the importer cannot read/);
+    assert.doesNotMatch(result.message, /No syllabus is available/);
+  } finally {
+    axios.default.get = originalGet;
+    dns.lookup = originalLookup;
+  }
 });

@@ -53,11 +53,18 @@ export function parseOfficialSyllabusIndex(sourceUrl:string,html:string,input:{b
  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents};
 }
 export async function discoverOfficialSyllabusDocuments(input:{boardCode:string;sourceUrl:string;classCode?:string;subject?:string}){
- const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);let response;
- try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. Check the URL and try again.',502);}
+ const source=checkedOfficialUrl(input.sourceUrl,undefined,input.boardCode);
+ // The currently configured CBSE page publishes the secondary/senior-secondary
+ // index. Do not turn a known gap for Classes 1–8 into a misleading “no match”.
+ if(input.boardCode.toUpperCase()==='CBSE'&&/curriculum_2027\.html$/i.test(source.pathname)&&input.classCode&&!['CLASS_9','CLASS_10','CLASS_11','CLASS_12'].includes(input.classCode)){
+  const scope=input.classCode.replace('CLASS_','Class ');
+  return {sourceUrl:source.toString(),sourceHost:source.hostname,documents:[],outcome:'UNSUPPORTED_SCOPE' as const,message:`Automatic discovery from this CBSE index is configured for Classes 9–12. ${scope} is not covered by this connector. No PDFs were fetched. Load a verified official PDF or import a reviewed syllabus index spreadsheet for this class.`};
+ }
+ let response;
+ try{response=await getOfficial<string>(source,{timeout:15000,maxContentLength:maxHtmlBytes,maxBodyLength:maxHtmlBytes,responseType:'text',headers:{Accept:'text/html,application/xhtml+xml','User-Agent':'VidyaSetu-SyllabusImporter/2.0'}});}catch(error){if(hasStatusCode(error))throw error;throw fail('Could not fetch the official syllabus index. No PDFs were fetched. Check the URL and try again.',502);}
  if(typeof response.data!=='string'||!/^text\/html|^application\/xhtml\+xml/i.test(String(response.headers['content-type']||''))) throw fail('The selected source is not an HTML index page. Paste the official index page URL, not a PDF URL.');
  const result=parseOfficialSyllabusIndex(source.toString(),response.data,input);
- if(!result.documents.length){const scope=[input.classCode?input.classCode.replace('CLASS_','Class '):'all classes',input.subject||'all subjects'].join(' · ');return {...result,outcome:'NOT_FOUND' as const,message:`No syllabus is available on the selected official source for ${scope} (${input.boardCode}). No matching source PDFs were fetched. Check the source and academic year, or load the official PDF manually.`};}
+ if(!result.documents.length){const scope=[input.classCode?input.classCode.replace('CLASS_','Class '):'all classes',input.subject||'all subjects'].join(' · ');return {...result,outcome:'NO_MATCH' as const,message:`No matching syllabus PDF was found in the selected ${input.boardCode} source for ${scope}. The syllabus may be absent from this index, or its links may use a format the importer cannot read. No PDFs were fetched. Verify the source or load the official PDF manually.`};}
  return {...result,outcome:'FOUND' as const};
 }
 

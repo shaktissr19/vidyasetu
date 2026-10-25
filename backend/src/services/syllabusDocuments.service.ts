@@ -12,11 +12,10 @@ export interface SyllabusPdfMetadata {boardCode:string;academicYear:string;grade
 const safeName=(value:string)=>value.replace(/[^a-zA-Z0-9._ -]+/g,'_').replace(/\s+/g,' ').trim().slice(0,240)||'syllabus.pdf';
 
 const officialSources=[
- {boardCode:'CBSE',name:'CBSE Academic curriculum',url:'https://cbseacademic.nic.in/curriculum_2027.html',note:'Current curriculum page; select the applicable class and subject PDF.'},
- {boardCode:'CISCE',name:'CISCE regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-icse-2027/',note:'ICSE subject syllabus pages; ISC documents are on the separate ISC page.'},
- {boardCode:'CISCE',name:'CISCE ISC regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-isc-2027/',note:'ISC subject syllabus pages.'},
- {boardCode:'UPMSP',name:'UPMSP syllabus',url:'https://upmsp.edu.in/Board_Syllabus.aspx',note:'Board syllabus downloads by class.'},
- {boardCode:'COMMON',name:'NCERT textbooks',url:'https://ncert.nic.in/textbook.php',note:'Reference textbooks; not a substitute for each board syllabus.'},
+ {boardCode:'CBSE',name:'CBSE Academic curriculum',url:'https://cbseacademic.nic.in/curriculum_2027.html',note:'This index is currently configured for Classes 9–12. Classes 1–8 need a verified board syllabus PDF or spreadsheet import.',supportedGrades:['CLASS_9','CLASS_10','CLASS_11','CLASS_12']},
+ {boardCode:'CISCE',name:'CISCE regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-icse-2027/',note:'ICSE syllabus index; actual PDF coverage depends on links published on this official page.'},
+ {boardCode:'CISCE',name:'CISCE ISC regulations and syllabus',url:'https://cisce.org/regulations-and-syllabus-isc-2027/',note:'ISC syllabus index; actual PDF coverage depends on links published on this official page.'},
+ {boardCode:'UPMSP',name:'UPMSP syllabus',url:'https://upmsp.edu.in/Board_Syllabus.aspx',note:'Official syllabus index; class/subject labeling depends on the published PDF links.'},
 ];
 
 async function subjectFromDetection(name:string|null){

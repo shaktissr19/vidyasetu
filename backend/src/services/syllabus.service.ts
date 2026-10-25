@@ -232,14 +232,20 @@ export async function updateSyllabusVersion(id:string,input:{title?:string;sourc
 export async function updateSyllabusTopic(topicId:string,input:{unit:string;chapter:string;topic:string;topicHi?:string|null;learningOutcome?:string|null;pageReference:string;sortOrder?:number},actor:string) {
  await syllabusReady();
  return transaction(async client=>{
-  const {rows:[current]}=await client.query(`SELECT ct.id,ct.curriculum_unit_id,ct.chapter_id,ctc.concept_id,cv.id AS version_id,cv.publication_status,cv.status
-   FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
+  const {rows:[current]}=await client.query(`SELECT ct.id,ct.curriculum_unit_id,ct.chapter_id,ct.title,ctc.concept_id,cu.curriculum_subject_id,cu.title AS unit_title,cc.title AS chapter_title,cv.id AS version_id,cv.publication_status,cv.status
+   FROM curriculum_topics ct JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id LEFT JOIN curriculum_chapters cc ON cc.id=ct.chapter_id JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
    LEFT JOIN curriculum_topic_concepts ctc ON ctc.topic_id=ct.id WHERE ct.id=$1::uuid FOR UPDATE OF ct,cv`,[topicId]);
   if(!current) throw fail('Syllabus topic not found',404);
   if((current.publication_status||current.status)!=='DRAFT') throw fail('Return the syllabus to Draft before editing topics.',409);
-  await client.query('UPDATE curriculum_units SET title=$2,sort_order=COALESCE($3,sort_order) WHERE id=$1::uuid',[current.curriculum_unit_id,input.unit,input.sortOrder??null]);
-  if(current.chapter_id) await client.query('UPDATE curriculum_chapters SET title=$2,sort_order=COALESCE($3,sort_order) WHERE id=$1::uuid',[current.chapter_id,input.chapter,input.sortOrder??null]);
-  await client.query(`UPDATE curriculum_topics SET title=$2,title_hi=$3,learning_outcome=$4,page_reference=$5,sort_order=COALESCE($6,sort_order) WHERE id=$1::uuid`,[topicId,input.topic,input.topicHi||null,input.learningOutcome||null,input.pageReference,input.sortOrder??null]);
+  // Unit and chapter names are shared hierarchy rows. Move a single edited
+  // topic to a matching/new node instead of renaming that node for its siblings.
+  const {rows:[unit]}=await client.query(`INSERT INTO curriculum_units(curriculum_subject_id,title,sort_order) VALUES($1,$2,$3) ON CONFLICT(curriculum_subject_id,title) DO UPDATE SET sort_order=curriculum_units.sort_order RETURNING id`,[current.curriculum_subject_id,input.unit,input.sortOrder??0]);
+  const {rows:[chapter]}=await client.query(`INSERT INTO curriculum_chapters(curriculum_unit_id,title,sort_order) VALUES($1,$2,$3) ON CONFLICT(curriculum_unit_id,title) DO UPDATE SET sort_order=curriculum_chapters.sort_order RETURNING id`,[unit.id,input.chapter,input.sortOrder??0]);
+  const {rows:[duplicate]}=await client.query('SELECT id FROM curriculum_topics WHERE curriculum_unit_id=$1::uuid AND title=$2 AND id<>$3::uuid',[unit.id,input.topic,topicId]);
+  if(duplicate) throw fail('A topic with this name already exists in the selected unit.',409);
+  await client.query(`UPDATE curriculum_topics SET curriculum_unit_id=$2::uuid,chapter_id=$3::uuid,title=$4,title_hi=$5,learning_outcome=$6,page_reference=$7,sort_order=COALESCE($8,sort_order) WHERE id=$1::uuid`,[topicId,unit.id,chapter.id,input.topic,input.topicHi||null,input.learningOutcome||null,input.pageReference,input.sortOrder??null]);
+  if(current.chapter_id&&current.chapter_id!==chapter.id) await client.query('DELETE FROM curriculum_chapters WHERE id=$1::uuid AND NOT EXISTS(SELECT 1 FROM curriculum_topics WHERE chapter_id=$1::uuid)',[current.chapter_id]);
+  if(current.curriculum_unit_id!==unit.id) await client.query('DELETE FROM curriculum_units WHERE id=$1::uuid AND NOT EXISTS(SELECT 1 FROM curriculum_topics WHERE curriculum_unit_id=$1::uuid)',[current.curriculum_unit_id]);
   // Concepts may be shared with the published predecessor. A correction in a
   // Draft gets a new concept mapping so the old published version stays intact.
   if(current.concept_id){
