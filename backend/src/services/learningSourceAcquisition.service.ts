@@ -20,6 +20,16 @@ export function approvedAssetUrl(raw: string, hosts = process.env.LEARNING_IMPOR
   return url;
 }
 
+/** Return only provider URLs that meet the same strict import policy used by the downloader. */
+export function importableAssetUrl(metadata?: Record<string, unknown> | null): string | null {
+  if (!metadata) return null;
+  for (const value of [metadata.artifactUrl, metadata.artifactURL, metadata.downloadUrl, metadata.downloadURL, metadata.contentUrl, metadata.contentURL, metadata.streamingUrl, metadata.previewUrl]) {
+    if (typeof value !== 'string' || !value.trim()) continue;
+    try { return approvedAssetUrl(value).toString(); } catch { /* Try the next explicit media URL field. */ }
+  }
+  return null;
+}
+
 export async function scanImportedAsset(bytes: Buffer): Promise<void> {
   await new Promise<void>((resolve,reject) => {
     const child = spawn('clamscan',['--no-summary','-'],{stdio:['pipe','ignore','ignore']});
@@ -77,13 +87,11 @@ export function deliveryCapability(item: { resource_id?: unknown; reference_only
   if (item.resource_id) return { code:'LIBRARY',label:'Already in VidyaSetu Library' };
   if (item.reference_only) return { code:'REFERENCE',label:'Provider search only — choose an individual item' };
   if (item.embed_url) { try { assertOfficialEmbedUrl(item.embed_url); return { code:'EMBED',label:'Official player available — rights review required' }; } catch { /* Raw streaming URLs are not official players. */ } }
-  const asset = item.metadata?.artifactUrl;
+  const asset = importableAssetUrl(item.metadata);
   // Only media types rendered by LearningAsset can be offered as in-platform
   // previews/imports. A source article, course, ECML package or portal URL must
   // not be labelled playable just because discovery returned artifactUrl.
-  if (['VIDEO','AUDIO','IMAGE','PDF'].includes(String(item.media_kind || '').toUpperCase()) && typeof asset === 'string') {
-    try { approvedAssetUrl(asset); return { code:'IMPORT',label:'Media file available — review and import into VidyaSetu' }; } catch { /* No host approval. */ }
-  }
+  if (['VIDEO','AUDIO','IMAGE','PDF'].includes(String(item.media_kind || '').toUpperCase()) && asset) return { code:'IMPORT',label:'Media file available — review and import into VidyaSetu' };
   return { code:'REFERENCE',label:'Delivery needs configuration — source page only' };
 }
 

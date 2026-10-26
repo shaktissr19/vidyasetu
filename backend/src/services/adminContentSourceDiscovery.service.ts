@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { acquireContent, deliveryCapability } from './learningSourceAcquisition.service';
+import { acquireContent, deliveryCapability, importableAssetUrl } from './learningSourceAcquisition.service';
 import * as pipeline from './learningContentPipeline.service';
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
@@ -231,7 +231,7 @@ function safeMetadata(value: Record<string, unknown>): Record<string, unknown> {
   const fields = [
     'identifier','name','description','primaryCategory','resourceType','contentType','mimeType','gradeLevel','subject','medium','language',
     'license','licence','creator','author','organisation','publisher','attributions','copyright','channel','publishedOn','framework',
-    'duration','appIcon','posterImage','artifactUrl','streamingUrl','previewUrl',
+    'duration','appIcon','posterImage','artifactUrl','artifactURL','downloadUrl','downloadURL','contentUrl','contentURL','streamingUrl','previewUrl','mediaType',
   ];
   return Object.fromEntries(fields.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]));
 }
@@ -254,7 +254,13 @@ function applyCandidateFilters(input: DiscoverSourcesInput, candidates: Normaliz
 
 function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
   if (!rawUnknown || typeof rawUnknown !== 'object' || Array.isArray(rawUnknown)) return null;
-  const raw = rawUnknown as Record<string, unknown>;
+  const envelope = rawUnknown as Record<string, unknown>;
+  // Search API deployments differ on whether the media metadata is flattened
+  // onto the search hit or returned under contentData/metadata. Normalise both
+  // shapes so an actual public artifact is not downgraded to a source-page hit.
+  const nested = [envelope.contentData,envelope.metadata,envelope.data]
+    .find((value): value is Record<string,unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)) || {};
+  const raw = { ...nested,...envelope };
   const identifier = asString(raw.identifier);
   const title = asString(raw.name);
   if (!identifier || !title) return null;
@@ -265,7 +271,11 @@ function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
   const publisher = firstText(raw.publisher, raw.organisation, raw.channel);
   const attributions = firstText(raw.attributions, raw.copyright);
   const attribution = [author, publisher, attributions].filter(Boolean).join(' · ') || null;
-  const mediaKind = normalizeMediaKind(raw.primaryCategory, raw.resourceType, raw.contentType, raw.mimeType);
+  const mediaKind = normalizeMediaKind(raw.primaryCategory, raw.resourceType, raw.contentType, raw.mimeType, raw.mediaType, raw.artifactUrl, raw.artifactURL);
+  const metadata = safeMetadata(raw);
+  // Persist a canonical, policy-approved direct asset URL for the Library
+  // review preview. Never expose a portal URL or a signed/query URL as media.
+  metadata.artifactUrl = importableAssetUrl(metadata) || undefined;
   return {
     provider: 'DIKSHA',
     sourceCode: 'DIKSHA',
@@ -297,7 +307,7 @@ function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
     // VidyaSetu player.
     embedUrl: null,
     referenceOnly: false,
-    metadata: safeMetadata(raw),
+    metadata,
   };
 }
 
@@ -448,6 +458,44 @@ function dikshaEndpoint(): string {
   return process.env.DIKSHA_DISCOVERY_ENDPOINT || 'https://diksha.gov.in/api/content/v1/search';
 }
 
+function dikshaReadEndpoint(): string {
+  return process.env.DIKSHA_CONTENT_READ_ENDPOINT || dikshaEndpoint().replace(/\/search\/?$/,'/read');
+}
+
+function dikshaReadContent(response: unknown): Record<string,unknown> | null {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return null;
+  const result=(response as Record<string,unknown>).result;
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return null;
+  const resultRow=result as Record<string,unknown>;
+  const content=resultRow.content || resultRow.contentData || resultRow;
+  return content && typeof content === 'object' && !Array.isArray(content) ? content as Record<string,unknown> : null;
+}
+
+async function hydrateDikshaMediaMetadata(candidate: NormalizedCandidate): Promise<NormalizedCandidate> {
+  if (importableAssetUrl(candidate.metadata)) return candidate;
+  try {
+    // Search hits can omit both media type and delivery metadata even when the
+    // public content-read record has them. Hydrate item results without a
+    // direct asset; if DIKSHA does not return one, retain the safe source-only
+    // classification and do not pretend its portal page is playable.
+    const response=await axios.get(dikshaReadEndpoint().replace(/\/$/,'')+'/'+encodeURIComponent(candidate.sourceItemId),{
+      headers:{Accept:'application/json'},timeout:3500,
+    });
+    const detail=dikshaReadContent(response.data);
+    if (!detail) return candidate;
+    const metadata={...candidate.metadata,...safeMetadata(detail)};
+    const assetUrl=importableAssetUrl(metadata);
+    if (assetUrl) metadata.artifactUrl=assetUrl;
+    const merged={...candidate.metadata,...detail};
+    const hydrated=dikshaCandidate({...merged,...(merged.contentData && typeof merged.contentData==='object' ? {contentData:{...(candidate.metadata||{}),...(merged.contentData as Record<string,unknown>)}} : {})});
+    return hydrated ? {...hydrated,metadata:{...hydrated.metadata,...metadata}} : candidate;
+  } catch {
+    // Public content-read is best-effort. Search still returns the original
+    // result, whose playback capability remains conservative.
+    return candidate;
+  }
+}
+
 async function discoverDiksha(input: DiscoverSourcesInput): Promise<NormalizedCandidate[]> {
   if (!dikshaEnabled()) throw appError('DIKSHA discovery is disabled by server configuration', 503);
   const limit = Math.min(30, Math.max(1, input.limit || 12));
@@ -460,14 +508,18 @@ async function discoverDiksha(input: DiscoverSourcesInput): Promise<NormalizedCa
   const fields = [
     'identifier','name','description','primaryCategory','resourceType','contentType','mimeType','gradeLevel','subject','medium','language',
     'license','licence','creator','author','organisation','publisher','attributions','copyright','channel','publishedOn','framework',
-    'duration','appIcon','posterImage','artifactUrl','streamingUrl','previewUrl',
+    'duration','appIcon','posterImage','artifactUrl','downloadUrl','contentUrl','streamingUrl','previewUrl','mediaType',
   ];
   const response = await axios.post<DikshaSearchResponse>(dikshaEndpoint(), {
     request: { query: input.query.trim(), filters, fields, limit: Math.min(100,limit * 4), offset: 0 },
   }, { headers: { 'Content-Type': 'application/json' }, timeout: 20000 });
   const content = Array.isArray(response.data?.result?.content) ? response.data.result!.content! : [];
-  const candidates = content.map(dikshaCandidate).filter((item): item is NormalizedCandidate => Boolean(item));
-  return applyCandidateFilters(input,candidates).slice(0,limit);
+  const candidates = applyCandidateFilters(input,content.map(dikshaCandidate).filter((item): item is NormalizedCandidate => Boolean(item))).slice(0,limit);
+  const hydrated:NormalizedCandidate[]=[];
+  for(let offset=0;offset<candidates.length;offset+=8){
+    hydrated.push(...await Promise.all(candidates.slice(offset,offset+8).map(hydrateDikshaMediaMetadata)));
+  }
+  return hydrated;
 }
 
 function templateUrl(template: string | null, connector: ConnectorRow, input: DiscoverSourcesInput): string {
@@ -630,6 +682,10 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
     );
     return { kind: 'GOVERNED_RESOURCE' as const,resourceId: candidate.resource_id,candidate: updated };
   }
+  // Staging here only opens the established source governance intake. It does
+  // not create Library content. The Content Factory UI offers the Library
+  // handoff only for EMBED/IMPORT results, and addDiscoveredContentToLibrary
+  // independently enforces that same playback gate before materialising.
   if (candidate.intake_id) {
     if (curriculumTopicId) {
       const { rows: [linked] } = await query(
@@ -728,7 +784,7 @@ export async function addDiscoveredContentToLibrary(candidateId: UUID, input: Ad
     curriculumMedium: filters.curriculumMedium === 'en' || filters.curriculumMedium === 'hi' ? filters.curriculumMedium : null,
   };
   const staged = mode === 'LICENSED_REHOST'
-    ? await acquireContent({ ...payload,assetUrl: String(candidate.metadata?.artifactUrl || ''),permissionConfirmed: true },adminId)
+    ? await acquireContent({ ...payload,assetUrl: importableAssetUrl(candidate.metadata) || '',permissionConfirmed: true },adminId)
     : await pipeline.stageContent(payload,adminId);
   const intakeId = staged.intakeId;
   if (!intakeId) throw appError('The selected source could not be staged for Library review',409);
