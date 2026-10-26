@@ -682,10 +682,10 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
     );
     return { kind: 'GOVERNED_RESOURCE' as const,resourceId: candidate.resource_id,candidate: updated };
   }
-  const candidateCapability = deliveryCapability(candidate);
-  if (!['EMBED','IMPORT'].includes(candidateCapability.code)) {
-    throw appError('This result has no supported in-platform player or importable media file. It was not added to the Library.');
-  }
+  // Staging here only opens the established source governance intake. It does
+  // not create Library content. The Content Factory UI offers the Library
+  // handoff only for EMBED/IMPORT results, and addDiscoveredContentToLibrary
+  // independently enforces that same playback gate before materialising.
   if (candidate.intake_id) {
     if (curriculumTopicId) {
       const { rows: [linked] } = await query(
