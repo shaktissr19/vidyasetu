@@ -29,6 +29,7 @@ export interface PipelineOptions {
 }
 
 export interface PipelineQueueItem {
+  discovery_candidate_id?: string | null;
   id: string; title: string; source_url: string; source_item_id?: string | null; media_kind: PipelineMediaKind;
   curriculum_topic_id?:string|null;
   curriculum_academic_year?:string|null;

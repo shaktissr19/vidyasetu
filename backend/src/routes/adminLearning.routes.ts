@@ -185,6 +185,7 @@ router.get('/review/:packKey', ctrl.contentPackReview);
 router.post('/resources', validate(resourceSchema), ctrl.createResource);
 router.patch('/resources/:resourceId/access', validate(accessPolicySchema), ctrl.updateResourceAccess);
 router.patch('/resources/:resourceId/status', validate(statusSchema), ctrl.updateStatus);
+router.post('/resources/:resourceId/review-publish', ctrl.reviewAndPublish);
 
 router.get('/questions', ctrl.questions);
 router.post('/questions', validate(questionSchema), ctrl.createQuestion);

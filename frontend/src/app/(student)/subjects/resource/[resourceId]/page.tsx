@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import LearningAsset from '@/components/learning/LearningAsset';
+import LearningAsset, { approvedEmbedUrl } from '@/components/learning/LearningAsset';
 import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import { getCanonicalLearningResource, recordLearningMediaEvent } from '@/services/canonicalLearningService';
 import { cacheLearningAsset, hasCachedLearningAsset } from '@/lib/offlineLearning';
@@ -74,8 +74,9 @@ export default function StudentLearningResourcePage() {
 
   const title = lang === 'hi' && resource.title_hi ? resource.title_hi : resource.title;
   const summary = lang === 'hi' && resource.summary_hi ? resource.summary_hi : resource.summary;
-  const externalUrl = resource.external_url || resource.source_url;
   const mediaUrl = resource.content_url;
+  const embedUrl = resource.delivery_mode === 'OFFICIAL_EMBED' ? approvedEmbedUrl(resource.external_url) : null;
+  const hasHostedPlayer = Boolean(mediaUrl && ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER'].includes(resource.resource_type));
   useEffect(()=>{if(resource?.resource_type==='AUDIO'&&resource.is_offline_ready&&mediaUrl) void hasCachedLearningAsset(mediaUrl).then(setAudioSavedOffline).catch(()=>setAudioSavedOffline(false));},[resource?.resource_type,resource?.is_offline_ready,mediaUrl]);
   async function saveAudioOffline(){if(!mediaUrl)return;setSavingAudio(true);try{await cacheLearningAsset(mediaUrl);setAudioSavedOffline(true);toast.success('Audio saved on this device for offline listening.');}catch{toast.error('Could not save this audio for offline listening.');}finally{setSavingAudio(false);}}
   const progress = Math.round(Number(resource.progress_pct || 0));
@@ -124,26 +125,18 @@ export default function StudentLearningResourcePage() {
       </section>
 
       <section className="card mt-4" style={{ padding: 24 }}>
-        <LearningAsset title={title} kind={resource.resource_type} contentUrl={mediaUrl} embedUrl={resource.delivery_mode === 'OFFICIAL_EMBED' ? externalUrl : null} transcript={resource.transcript} altText={resource.alt_text} onEvent={(event,durationSecs)=>{void recordLearningMediaEvent(resourceId,event,durationSecs).catch(()=>undefined);}} />
+        <LearningAsset title={title} kind={resource.resource_type} contentUrl={mediaUrl} embedUrl={embedUrl} transcript={resource.transcript} altText={resource.alt_text} onEvent={(event,durationSecs)=>{void recordLearningMediaEvent(resourceId,event,durationSecs).catch(()=>undefined);}} />
         {resource.resource_type==='AUDIO'&&resource.is_offline_ready&&<button className="btn-secondary mb-4" type="button" disabled={savingAudio||audioSavedOffline} onClick={()=>void saveAudioOffline()}>{audioSavedOffline?'Saved for offline listening':savingAudio?'Saving audio…':'Save audio for offline listening'}</button>}
         {resource.difficulty && <p className="text-sm mb-4">Difficulty: {resource.difficulty === 'ADVANCED' ? 'Advanced / difficult' : resource.difficulty === 'MODERATE' ? 'Moderate' : 'Easy'}</p>}
         {body ? (
           <LearningMarkdown body={body} />
-        ) : (mediaUrl || resource.delivery_mode === 'OFFICIAL_EMBED') ? (
+        ) : (hasHostedPlayer || embedUrl) ? (
           <p className="text-sm" style={{ color: 'var(--slate)' }}>
             {t('ऊपर दिया गया मीडिया इस पाठ का मुख्य लर्निंग संसाधन है।', 'The media above is the primary learning resource for this lesson.')}
           </p>
-        ) : externalUrl ? (
-          <div>
-            <h2 className="font-display font-bold text-xl" style={{ color: 'var(--navy)' }}>{t('मूल संसाधन खोलें', 'Open learning resource')}</h2>
-            <p className="text-sm mt-2 mb-4" style={{ color: 'var(--slate)' }}>
-              {t('यह सत्यापित बाहरी लर्निंग संसाधन है। स्रोत और लाइसेंस जानकारी नीचे रखी गई है।', 'This is a verified external learning resource. Source and licence information is retained below.')}
-            </p>
-            <a className="btn-primary inline-block" href={externalUrl} target="_blank" rel="noopener noreferrer">{t('संसाधन खोलें', 'Open resource')} ↗</a>
-          </div>
         ) : (
           <div className="rounded-xl p-4" style={{ background: '#f6f7f9', color: 'var(--slate)' }}>
-            {t('इस संसाधन की मीडिया प्रस्तुति तैयार की जा रही है।', 'The media presentation for this resource is being prepared.')}
+            {t('यह सामग्री अभी VidyaSetu के अंदर चलाने योग्य नहीं है।', 'This resource is not currently playable inside VidyaSetu.')}
           </div>
         )}
 

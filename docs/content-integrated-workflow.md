@@ -8,13 +8,14 @@ The update connects existing tools rather than introducing another content syste
 
 ## Administrator workflow
 
-1. Open **Content Factory**, select grade, board, subject/topic and search. LOCAL searches existing published Library resources; DIKSHA has structured discovery. Other existing providers offer reference discovery rather than a guaranteed playable-media import. Finding a web page is not obtaining its media or permission.
-2. Stage a candidate and choose **Complete delivery & add to Library**. The shared workspace navigation is **Find content → Prepare & rights → Review & publish**; there is one Prepare queue rather than duplicate Pipeline/Source Review menus. Existing Source Review bookmarks now open the Pipeline. A manually entered resource or original content can start directly in the Pipeline.
-3. Configure the exact resource, curriculum metadata and delivery mode. Choose an approved official player, upload an owned/licensed asset through the existing upload flow, or write original bilingual article content. Discovery alone does not download provider files. For a permitted direct media file, choose licensed hosted delivery, confirm asset-level copying permission, enter the media URL and licence evidence, and select **Import licensed file & stage**.
-4. For external content, record the actual item-level rights evidence, licence and attribution. Verify rights, then approve intake. Editing staged delivery details invalidates prior verification. Original content must use the original source and licence.
-5. **Materialise** creates one canonical Library **DRAFT**. Repeating the operation returns the existing resource. It never publishes automatically. Legacy Factory import routes use the same implementation.
-6. In **Library**, preview the learner presentation, complete metadata, pass the existing academic, language, accessibility, safety, copyright and technical quality gates, then approve and publish.
-7. PUBLIC resources appear through public Learning. REGISTERED resources require login. SUBSCRIBER resources use existing active individual/school subscription entitlement checks in Student Learning. CLASS_ONLY also requires applicable class scope. School-only publication is blocked until the canonical delivery path supports it.
+1. Open **Content Factory**, select class, board and subject, then select a published syllabus topic or enter an off-syllabus chapter/topic. Search preserves that context for the selected item.
+2. Choose **Select for review**. This opens the item in the **Content Library** review card; there is no separate “Complete delivery” form in the primary path. Source-only results that cannot be rendered or imported are not selectable for publication.
+3. Review the preview inside VidyaSetu, confirm the item-level licence/rights and that the player works without learner sign-in to the source, adjust the content name if needed, and choose Public or Private. These checks are required because a search result alone is neither a playable VidyaSetu asset nor reuse permission.
+4. **Add reviewed item to Library draft** imports supported, rights-cleared media into VidyaSetu storage or stages an approved in-page player. The resource stays unpublished. Metadata and syllabus links come from the search context; an off-syllabus topic can be reviewed and mapped later.
+5. In the same Library item, inspect the learner preview and complete the existing quality gates. **Review & Publish** is enabled only after required checks pass. The underlying DRAFT → SUBMITTED → ACADEMIC_REVIEW → APPROVED → PUBLISHED transitions and audit entries are retained.
+6. Public resources appear on public Learning. Private resources stay in the student runtime and are subject to the existing board, class, school and subscription access rules. Direct resource URLs enforce the same learner eligibility checks.
+
+The Advanced Pipeline and Source Review tools remain available for exceptional corrections and manual operations; they are not part of the normal Content Factory-to-Library path.
 
 ## Required and optional fields
 

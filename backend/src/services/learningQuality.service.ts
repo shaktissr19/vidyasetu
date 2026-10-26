@@ -176,9 +176,9 @@ function buildReadiness(
 
 export async function getResourceReadiness(resourceId: UUID): Promise<EntityReadiness> {
   const { rows: [row] } = await query<QueryResultRow>(
-    `SELECT lr.id,lr.public_slug,lr.title,lr.title_hi,lr.summary,lr.summary_hi,
+    `SELECT lr.id,lr.public_slug,lr.title,lr.title_hi,lr.summary,lr.summary_hi,lr.language,
             lr.body_markdown,lr.body_markdown_hi,lr.resource_type::text,lr.category::text,
-            lr.visibility::text,lr.class_min,lr.class_max,lr.licence::text,
+            lr.visibility::text,lr.class_min,lr.class_max,lr.licence::text,lr.delivery_mode::text,
             lr.source_url,lr.external_url,lr.file_key,lr.attribution_text,lr.subject_id,lr.subject_label,
             to_jsonb(lr)->>'topic_label' AS topic_label,
             to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'asset_id' AS asset_id,
@@ -201,27 +201,27 @@ export async function getResourceReadiness(resourceId: UUID): Promise<EntityRead
   const academic = row.category === 'ACADEMIC';
   const original = row.source_code === 'VIDYASETU_ORIGINAL';
   const article = row.resource_type === 'ARTICLE';
-  const technicalAsset = article
-    ? truthyText(row.body_markdown) && truthyText(row.body_markdown_hi)
-    : truthyText(row.file_key) || truthyText(row.external_url) || truthyText(row.source_url);
+  const hasLearnerBody = truthyText(row.body_markdown) || truthyText(row.body_markdown_hi);
+  const hostedPlayerTypes = ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER'];
+  const technicalAsset = hasLearnerBody || (hostedPlayerTypes.includes(String(row.resource_type)) && truthyText(row.file_key))
+    || (row.delivery_mode === 'OFFICIAL_EMBED' && truthyText(row.external_url));
   const sourceReady = original || (
     truthyText(row.source_url) && truthyText(row.attribution_text) && row.licence !== 'OTHER'
   );
   const checks: ReadinessCheck[] = [
-    { code: 'BILINGUAL_TITLE', label: 'English + Hindi title', passed: truthyText(row.title) && truthyText(row.title_hi), reason: 'English and Hindi titles are required.', weight: 15 },
-    { code: 'BILINGUAL_BODY', label: 'Bilingual learner body', passed: !article || (truthyText(row.body_markdown) && truthyText(row.body_markdown_hi)), reason: 'Article resources require complete English and Hindi learner bodies.', weight: 15 },
+    { code: 'LEARNER_TITLE', label: 'Learner title', passed: truthyText(row.title), reason: 'A learner-facing title is required.', weight: 15 },
+    { code: 'LEARNER_BODY', label: 'Learner content', passed: !article || hasLearnerBody || (hostedPlayerTypes.includes(String(row.resource_type)) && truthyText(row.file_key)) || (row.delivery_mode === 'OFFICIAL_EMBED' && truthyText(row.external_url)), reason: 'Text resources require learner content in at least one language.', weight: 15 },
     { code: 'CURRICULUM_SCOPE', label: 'Class and board scope', passed: !academic || (Number(row.board_count) > 0 && (Number(row.grade_count) > 0 || (row.class_min != null && row.class_max != null))), reason: 'Academic resources require class range and at least one board mapping.', weight: 10 },
-    { code: 'ACADEMIC_METADATA', label: 'Subject, topic and difficulty', passed: !academic || !row.asset_id || (truthyText(row.subject_id) && truthyText(row.topic_label) && truthyText(row.difficulty)), reason: 'New academic Pipeline resources require a canonical subject, topic and Easy/Moderate/Advanced difficulty.', weight: 10 },
-    { code: 'CONCEPT_MAPPING', label: 'Canonical concept mapping', passed: !academic || (Number(row.concept_count) > 0 && Number(row.staged_concept_count) === Number(row.concept_count)), reason: 'Academic resources must map to a canonical concept and learning-journey stage.', weight: 20 },
+    { code: 'ACADEMIC_METADATA', label: 'Subject and topic', passed: !academic || (truthyText(row.subject_id) && truthyText(row.topic_label)), reason: 'Academic resources require a subject and topic.', weight: 10 },
+    { code: 'CONCEPT_MAPPING', label: 'Curriculum mapping', passed: !academic || (Number(row.concept_count) > 0 && Number(row.staged_concept_count) === Number(row.concept_count)) || (truthyText(row.subject_id) && truthyText(row.topic_label)), reason: 'Academic resources need a curriculum concept or a clear subject/topic label for later mapping.', weight: 20 },
     { code: 'SYLLABUS_VERIFICATION', label: 'Approved syllabus mapping', passed: !academic || Number(row.unverified_syllabus_count || 0)===0, reason: 'Mapped syllabus topics must belong to an academically verified active syllabus.', weight: 5 },
     { code: 'SOURCE_LICENCE', label: 'Source and licence', passed: sourceReady, reason: 'External learning resources require verified source, attribution and licence metadata.', weight: 15 },
-    { code: 'TECHNICAL_ASSET', label: 'Usable learning asset', passed: technicalAsset, reason: 'Resource requires a usable article body, file or external/source URL.', weight: 15 },
-    { code: 'SUMMARY', label: 'Learner summary', passed: truthyText(row.summary) && truthyText(row.summary_hi), reason: 'English and Hindi summaries are required before academic approval.', weight: 10 },
+    { code: 'TECHNICAL_ASSET', label: 'In-platform learning asset', passed: technicalAsset, reason: 'Resource requires learner text, a VidyaSetu hosted file, or an approved in-page player.', weight: 15 },
   ];
   const gateMap = await loadGateMap('RESOURCE', resourceId);
   const gates = manualGates(gateMap, [
-    'ACADEMIC_ACCURACY','AGE_APPROPRIATENESS','ENGLISH_QUALITY','HINDI_QUALITY',
-    'ACCESSIBILITY','SAFETY','COPYRIGHT_LICENSING','TECHNICAL_READINESS',
+    'ACADEMIC_ACCURACY','AGE_APPROPRIATENESS','ACCESSIBILITY','SAFETY',
+    'COPYRIGHT_LICENSING','TECHNICAL_READINESS',
   ]);
   const publication: ReadinessCheck[] = [
     { code: 'PUBLIC_SLUG', label: 'Stable public slug', passed: row.visibility !== 'PUBLIC' || truthyText(row.public_slug), reason: 'Public resources require a stable public slug.', weight: 5 },

@@ -77,9 +77,10 @@ export interface LearningStudioResource {
   id: string; public_slug?: string | null; title: string; title_hi?: string | null; summary?: string | null; summary_hi?: string | null;
   resource_type: string; category: LearningCategory; visibility: LearningVisibility; access_requirement: LearningAccessRequirement;
   review_status: LearningReviewStatus; language: string;
-  class_min?: number | null; class_max?: number | null; licence: string; source_url?: string | null;
+  class_min?: number | null; class_max?: number | null; subject_id?: string | null; subject_name?: string | null; licence: string; source_url?: string | null;
   external_url?: string | null; attribution_text?: string | null; is_featured_public: boolean;
-  published_at?: string | null; created_at: string; source_code: string; source_name: string; board_codes: string[];
+  quality_review_complete?: boolean;
+  published_at?: string | null; created_at: string; source_code: string; source_name: string; board_codes: string[]; grade_codes?: string[];
   concept_count?: number; difficulty?: 'EASY' | 'MODERATE' | 'ADVANCED' | null;
 }
 
@@ -227,6 +228,7 @@ export const getLearningStudioResources = () => api.get<ApiEnvelope<LearningStud
 export const createLearningStudioResource = (payload: SaveLearningStudioResource) => api.post<ApiEnvelope<{ id: string }>>('/admin/learning/resources', payload);
 export const updateLearningStudioResourceAccess = (resourceId: string, payload: LearningAccessPolicyPayload) => api.patch<ApiEnvelope<LearningStudioResource>>(`/admin/learning/resources/${resourceId}/access`, payload);
 export const updateLearningStudioStatus = (resourceId: string, status: string, note?: string) => api.patch<ApiEnvelope<LearningStudioResource>>(`/admin/learning/resources/${resourceId}/status`, { status, note });
+export const reviewAndPublishLearningStudioResource = (resourceId:string) => api.post<ApiEnvelope<LearningStudioResource>>(`/admin/learning/resources/${resourceId}/review-publish`);
 
 export const getLearningStudioQuestions = () => api.get<ApiEnvelope<LearningStudioQuestion[]>>('/admin/learning/questions');
 export const createLearningStudioQuestion = (payload: SaveLearningStudioQuestion) => api.post<ApiEnvelope<{ id: string; public_code: string }>>('/admin/learning/questions', payload);

@@ -60,6 +60,16 @@ function gradeLabel(gradeCode: string): string {
   return numeric ? `Class ${numeric}` : gradeCode.replaceAll('_', ' ');
 }
 
+// Learner catalogues only expose resources that the VidyaSetu player can render.
+// `source_url` is provenance, never a learner playback fallback.
+const PLAYABLE_RESOURCE_SQL = `(
+  (lr.resource_type::text IN ('VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER')
+    AND NULLIF(BTRIM(lr.file_key),'') IS NOT NULL)
+  OR (lr.resource_type::text IN ('ARTICLE','QUIZ')
+    AND (NULLIF(BTRIM(lr.body_markdown),'') IS NOT NULL OR NULLIF(BTRIM(lr.body_markdown_hi),'') IS NOT NULL))
+  OR (to_jsonb(lr)->>'delivery_mode'='OFFICIAL_EMBED' AND NULLIF(BTRIM(lr.external_url),'') IS NOT NULL)
+)`;
+
 export async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
     `SELECT s.id AS student_id, s.grade_level, to_jsonb(s)->>'grade_code' AS grade_code, sc.class_name,
@@ -172,6 +182,7 @@ export async function getCanonicalLearningCatalogue(userId: UUID) {
      WHERE lr.review_status='PUBLISHED'
        AND lr.category='ACADEMIC'
        AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
+       AND ${PLAYABLE_RESOURCE_SQL}
        AND ${resourceScopeSql(2, 3, 5)}
      GROUP BY sub.id
      ORDER BY sub.name`,
@@ -239,6 +250,7 @@ export async function getCanonicalSubjectResources(userId: UUID, subjectId: UUID
        AND lr.category='ACADEMIC'
        AND lr.subject_id=$6::uuid
        AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
+       AND ${PLAYABLE_RESOURCE_SQL}
        AND ${resourceScopeSql(2, 3, 5)}
      GROUP BY lr.id, lcs.id, slrp.student_id, slrp.resource_id
      ORDER BY
@@ -286,6 +298,7 @@ async function assertResourceForLearner(userId: UUID, resourceId: UUID) {
        AND lr.review_status='PUBLISHED'
        AND NOT EXISTS (SELECT 1 FROM learning_asset_moderation m WHERE m.asset_id=lr.asset_id AND m.state='TAKEN_DOWN')
        AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
+       AND ${PLAYABLE_RESOURCE_SQL}
        AND ${resourceScopeSql(2, 3, 4)}
        AND (
          NOT EXISTS (SELECT 1 FROM learning_asset_nodes scoped_node JOIN learning_content_assets scoped_asset ON scoped_asset.id=scoped_node.asset_id WHERE scoped_asset.resource_id=lr.id)

@@ -73,12 +73,17 @@ export async function downloadLicensedAsset(raw: string, kind: string, allowedHo
   } catch (error) { throw fail(axios.isAxiosError(error) ? 'Provider download failed or exceeded the limit. Redirects, login pages and protected streams are not imported. Use a reviewed local upload instead.' : (error as Error).message); } finally { agent.destroy(); }
 }
 
-export function deliveryCapability(item: { resource_id?: unknown; reference_only?: boolean; embed_url?: string | null; metadata?: Record<string,unknown> }) {
+export function deliveryCapability(item: { resource_id?: unknown; reference_only?: boolean; media_kind?: string | null; embed_url?: string | null; metadata?: Record<string,unknown> }) {
   if (item.resource_id) return { code:'LIBRARY',label:'Already in VidyaSetu Library' };
   if (item.reference_only) return { code:'REFERENCE',label:'Provider search only — choose an individual item' };
   if (item.embed_url) { try { assertOfficialEmbedUrl(item.embed_url); return { code:'EMBED',label:'Official player available — rights review required' }; } catch { /* Raw streaming URLs are not official players. */ } }
   const asset = item.metadata?.artifactUrl;
-  if (typeof asset === 'string') { try { approvedAssetUrl(asset); return { code:'IMPORT',label:'Media URL available — verify rights and file format' }; } catch { /* No host approval. */ } }
+  // Only media types rendered by LearningAsset can be offered as in-platform
+  // previews/imports. A source article, course, ECML package or portal URL must
+  // not be labelled playable just because discovery returned artifactUrl.
+  if (['VIDEO','AUDIO','IMAGE','PDF'].includes(String(item.media_kind || '').toUpperCase()) && typeof asset === 'string') {
+    try { approvedAssetUrl(asset); return { code:'IMPORT',label:'Media file available — review and import into VidyaSetu' }; } catch { /* No host approval. */ }
+  }
   return { code:'REFERENCE',label:'Delivery needs configuration — source page only' };
 }
 

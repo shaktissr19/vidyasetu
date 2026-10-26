@@ -136,23 +136,35 @@ function assertAccessPolicy(input: AddApprovedIntakeToLibraryInput): void {
 }
 
 export async function getFactoryOptions() {
+  const { rows: [curriculumSchema] } = await query<{ ready: boolean } & QueryResultRow>(
+    `SELECT (
+       to_regclass('public.curriculum_versions') IS NOT NULL
+       AND to_regclass('public.curriculum_subjects') IS NOT NULL
+       AND to_regclass('public.curriculum_units') IS NOT NULL
+       AND to_regclass('public.curriculum_topics') IS NOT NULL
+       AND to_regclass('public.curriculum_topic_concepts') IS NOT NULL
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='publication_status')
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='curriculum_versions' AND column_name='verified_at')
+     ) AS ready`,
+  );
+  const curriculumReady = Boolean(curriculumSchema?.ready);
   const [boards,subjects,curriculumSubjects,units,topics,concepts,conceptCoverage,grades] = await Promise.all([
     query(`SELECT id,code,name,short_name,board_type,state,sort_order FROM education_boards WHERE is_active=TRUE ORDER BY sort_order,name`),
     query(`SELECT id,code,name FROM subjects ORDER BY name`),
-    query(`SELECT cs.id,cs.curriculum_version_id,cv.academic_year,cv.medium,cv.board_id,eb.code AS board_code,eb.name AS board_name,
+    curriculumReady ? query(`SELECT cs.id,cs.curriculum_version_id,cv.academic_year,cv.medium,cv.board_id,eb.code AS board_code,eb.name AS board_name,
                   cs.subject_id,cs.class_name,cs.display_name,cs.display_name_hi,cs.subject_code,cs.sort_order
            FROM curriculum_subjects cs
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
            JOIN education_boards eb ON eb.id=cv.board_id
            WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL AND eb.is_active=TRUE
-           ORDER BY eb.sort_order,cs.class_name,cs.sort_order,cs.display_name`),
-    query(`SELECT cu.id,cu.curriculum_subject_id,cu.unit_number,cu.title,cu.title_hi,cu.description,cu.sort_order
+           ORDER BY eb.sort_order,cs.class_name,cs.sort_order,cs.display_name`) : Promise.resolve({ rows: [] }),
+    curriculumReady ? query(`SELECT cu.id,cu.curriculum_subject_id,cu.unit_number,cu.title,cu.title_hi,cu.description,cu.sort_order
            FROM curriculum_units cu
            JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
            JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
            WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL
-           ORDER BY cu.curriculum_subject_id,cu.sort_order,cu.title`),
-    query(`SELECT ct.id,ct.curriculum_unit_id,ct.chapter_id,COALESCE(cc.title,cu.title) AS chapter_title,
+           ORDER BY cu.curriculum_subject_id,cu.sort_order,cu.title`) : Promise.resolve({ rows: [] }),
+    curriculumReady ? query(`SELECT ct.id,ct.curriculum_unit_id,ct.chapter_id,COALESCE(cc.title,cu.title) AS chapter_title,
                   ctc.concept_id,ct.topic_number,ct.title,ct.title_hi,ct.learning_outcome,ct.competency_tags,ct.sort_order
            FROM curriculum_topics ct
            JOIN curriculum_units cu ON cu.id=ct.curriculum_unit_id
@@ -162,7 +174,7 @@ export async function getFactoryOptions() {
            LEFT JOIN curriculum_topic_concepts ctc ON ctc.topic_id=ct.id
            WHERE cs.is_active=TRUE AND cv.status='ACTIVE' AND cv.publication_status='PUBLISHED' AND cv.verified_at IS NOT NULL
              AND COALESCE((to_jsonb(ct)->>'is_retired')::boolean,FALSE)=FALSE
-           ORDER BY ct.curriculum_unit_id,ct.sort_order,ct.title`),
+           ORDER BY ct.curriculum_unit_id,ct.sort_order,ct.title`) : Promise.resolve({ rows: [] }),
     query(`SELECT lc.id,lc.code,lc.name,lc.name_hi,lc.chapter_title,lc.subject_code,lc.subject_id,
                   sub.name AS subject_name,egl.code AS grade_code,egl.class_number
            FROM learning_concepts lc

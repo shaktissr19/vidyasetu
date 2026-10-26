@@ -126,6 +126,17 @@ export async function stageDiscoveryCandidate(
   } catch (error: unknown) { next(error); }
 }
 
+export async function addDiscoveredContentToLibrary(
+  req: Request<{ candidateId: UUID }, unknown, discoveryService.AddDiscoveredContentToLibraryInput>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.created(res, await discoveryService.addDiscoveredContentToLibrary(req.params.candidateId,req.body,req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
 export async function stageExternalSourceItem(
   req: Request<Record<string,string>, unknown, discoveryService.StageExternalItemInput>,
   res: Response,

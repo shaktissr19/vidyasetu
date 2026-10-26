@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { deliveryCapability } from './learningSourceAcquisition.service';
+import { acquireContent, deliveryCapability } from './learningSourceAcquisition.service';
+import * as pipeline from './learningContentPipeline.service';
 import type { QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
@@ -46,6 +47,17 @@ export interface StageExternalItemInput {
   attributionText?: string | null;
   classHint?: string | null;
   subjectHint?: string | null;
+}
+
+export interface AddDiscoveredContentToLibraryInput {
+  title?: string;
+  visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY';
+  accessRequirement: 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
+  licenceCandidate: string;
+  licenceUrl?: string | null;
+  attributionText: string;
+  rightsEvidenceUrl?: string | null;
+  permissionConfirmed: boolean;
 }
 
 interface DiscoveryRunRow extends QueryResultRow {
@@ -278,7 +290,12 @@ function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
     mediaKind,
     durationSeconds: asPositiveNumber(raw.duration),
     thumbnailUrl: firstText(raw.appIcon, raw.posterImage),
-    embedUrl: firstText(raw.streamingUrl, raw.previewUrl),
+    // DIKSHA's streamingUrl/previewUrl values are media or portal URLs, not a
+    // guaranteed embeddable player URL. Treat artifactUrl as an import
+    // candidate and require a separate approved player URL for embeds. This
+    // prevents a DIKSHA login page or protected stream from being framed as a
+    // VidyaSetu player.
+    embedUrl: null,
     referenceOnly: false,
     metadata: safeMetadata(raw),
   };
@@ -321,6 +338,7 @@ async function createRun(input: DiscoverSourcesInput, provider: DiscoveryProvide
       input.subject?.trim() || null,
       input.language?.trim() || null,
       JSON.stringify({
+        query: input.query.trim(),
         limit: Math.min(30, Math.max(1, input.limit || 12)),
         mediaKinds: input.mediaKinds || [],
         gradeCode: input.gradeCode || (input.classNumber ? `CLASS_${input.classNumber}` : null),
@@ -650,6 +668,84 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
     status: intake.status,
     message: 'Candidate staged for existing OER licence/attribution review. It is not grounding-ready yet.',
   };
+}
+
+/**
+ * Complete the selected-source handoff from the Content Library review pane.
+ * Search metadata supplies the learning context; the admin supplies the
+ * publication audience and confirms the item-level rights/player check.
+ */
+export async function addDiscoveredContentToLibrary(candidateId: UUID, input: AddDiscoveredContentToLibraryInput, adminId: UUID) {
+  await assertDiscoverySchema();
+  if (input.visibility === 'PUBLIC' && input.accessRequirement !== 'PUBLIC') throw appError('Public learning must use public access');
+  if (input.visibility !== 'PUBLIC' && input.accessRequirement === 'PUBLIC') throw appError('Private learning must require a learner account');
+  if (!input.permissionConfirmed) throw appError('Confirm the item-level rights and in-platform playback review first');
+  const { rows: [candidate] } = await query<CandidateRow & { metadata: Record<string,unknown> }>(`SELECT * FROM learning_source_discovery_candidates WHERE id=$1::uuid`,[candidateId]);
+  if (!candidate) throw appError('Source discovery candidate not found',404);
+  const capability = deliveryCapability(candidate);
+  if (!['EMBED','IMPORT'].includes(capability.code)) throw appError('This result has no supported in-platform player or importable media file');
+  if (!candidate.source_url) throw appError('The selected item has no original source record');
+  const { rows: [run] } = await query(`SELECT class_number,filters FROM learning_source_discovery_runs WHERE id=$1::uuid`,[candidate.run_id]);
+  const filters = (run?.filters || {}) as Record<string,unknown>;
+  const gradeCode = typeof filters.gradeCode === 'string' ? filters.gradeCode : run?.class_number ? `CLASS_${run.class_number}` : '';
+  if (!gradeCode) throw appError('Select a class before adding discovered content to the Library');
+  const boardCode = typeof filters.boardCode === 'string' ? filters.boardCode : 'COMMON';
+  const gradeCodes = [gradeCode];
+  const boardCodes = [boardCode];
+  const mediaKind = candidate.media_kind && ['VIDEO','AUDIO','IMAGE','PDF','INTERACTIVE'].includes(candidate.media_kind)
+    ? candidate.media_kind as pipeline.PipelineMediaKind : null;
+  if (!mediaKind) throw appError('This result format is not playable in VidyaSetu');
+  const mode: pipeline.PipelineDeliveryMode = capability.code === 'EMBED' ? 'OFFICIAL_EMBED' : 'LICENSED_REHOST';
+  const evidenceUrl = input.rightsEvidenceUrl || candidate.source_url;
+  const attributionText = input.attributionText.trim() || candidate.attribution_text || '';
+  if (!attributionText) throw appError('Add the creator or publisher attribution shown by the source');
+  const payload: pipeline.StagePipelineInput = {
+    intakeId: candidate.intake_id || undefined,
+    sourceCode: candidate.source_code,
+    title: input.title?.trim() || candidate.title,
+    sourceUrl: candidate.source_url,
+    sourceItemId: candidate.source_item_id,
+    mediaKind,
+    deliveryMode: mode,
+    embedUrl: mode === 'OFFICIAL_EMBED' ? candidate.embed_url : null,
+    licenceCandidate: input.licenceCandidate as pipeline.PipelineLicence,
+    licenceUrl: input.licenceUrl || null,
+    attributionText,
+    rightsEvidenceUrl: evidenceUrl,
+    category: 'ACADEMIC',
+    gradeCodes,
+    boardCodes,
+    subjectId: typeof filters.subjectId === 'string' ? filters.subjectId : null,
+    subjectLabel: typeof filters.subject === 'string' ? filters.subject : candidate.subjects[0] || null,
+    chapterLabel: typeof filters.chapterLabel === 'string' ? filters.chapterLabel : null,
+    topicLabel: typeof filters.topicLabel === 'string' ? filters.topicLabel : typeof filters.query === 'string' ? filters.query : null,
+    language: candidate.languages[0] || 'en',
+    visibility: input.visibility,
+    accessRequirement: input.accessRequirement,
+    summary: candidate.description,
+    thumbnailUrl: candidate.thumbnail_url,
+    durationSecs: candidate.duration_seconds,
+    conceptIds: Array.isArray(filters.conceptIds) ? filters.conceptIds.map(String) : [],
+    curriculumTopicId: typeof filters.curriculumTopicId === 'string' ? filters.curriculumTopicId : null,
+    curriculumAcademicYear: typeof filters.academicYear === 'string' ? filters.academicYear : null,
+    curriculumMedium: filters.curriculumMedium === 'en' || filters.curriculumMedium === 'hi' ? filters.curriculumMedium : null,
+  };
+  const staged = mode === 'LICENSED_REHOST'
+    ? await acquireContent({ ...payload,assetUrl: String(candidate.metadata?.artifactUrl || ''),permissionConfirmed: true },adminId)
+    : await pipeline.stageContent(payload,adminId);
+  const intakeId = staged.intakeId;
+  if (!intakeId) throw appError('The selected source could not be staged for Library review',409);
+  await pipeline.verifyRights(intakeId,{
+    licenceCandidate: input.licenceCandidate as pipeline.PipelineLicence,
+    attributionText,
+    licenceUrl: input.licenceUrl || null,
+    rightsEvidenceUrl: evidenceUrl,
+    reviewerNote: 'Reviewed from Content Library: item-level rights and in-platform playback confirmed.',
+  },adminId);
+  await pipeline.approveIntake(intakeId,adminId,'Reviewed from Content Library');
+  const materialised = await pipeline.materialiseIntake(intakeId,adminId);
+  await query(`UPDATE learning_source_discovery_candidates SET staged_by=$2::uuid,staged_at=COALESCE(staged_at,NOW()) WHERE id=$1::uuid`,[candidateId,adminId]);
+  return { ...materialised,intakeId,deliveryMode:mode };
 }
 
 function assertOfficialSourceUrl(connector: ConnectorRow, rawUrl: string): string {

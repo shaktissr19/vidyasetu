@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
-import LearningAsset from '@/components/learning/LearningAsset';
+import LearningAsset, { approvedEmbedUrl } from '@/components/learning/LearningAsset';
 import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import { parseLearningMarkdown } from '@/lib/learningMarkdown';
 import { getPublicLearningResource, type PublicLearningResource } from '@/services/publicService';
@@ -47,9 +47,10 @@ export default function PublicLearningResourcePage() {
 
   const mediaUrl = resource.content_url || null;
   const embedUrl = resource.delivery_mode === 'OFFICIAL_EMBED'
-    ? (resource.external_url || resource.source_url || null)
+    ? approvedEmbedUrl(resource.external_url)
     : null;
-  const isExternal = !mediaUrl && !embedUrl && (resource.external_url || resource.source_url);
+  const hasHostedPlayer = Boolean(mediaUrl && ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER'].includes(resource.resource_type));
+  const isPlayableInVidyaSetu = Boolean(hasHostedPlayer || embedUrl || parseLearningMarkdown(resource.body_markdown).length);
   const hasTextBody = parseLearningMarkdown(resource.body_markdown).length > 0;
 
   return (
@@ -77,9 +78,7 @@ export default function PublicLearningResourcePage() {
           </>
         )}
 
-        {isExternal && (
-          <p><a className={styles.primary} href={resource.external_url || resource.source_url || '#'} target="_blank" rel="noopener noreferrer">Open original resource ↗</a></p>
-        )}
+        {!isPlayableInVidyaSetu && <p role="status">This resource is not currently playable inside VidyaSetu.</p>}
 
         <div className={styles.sourceBox}>
           <strong>Source & licence</strong><br />

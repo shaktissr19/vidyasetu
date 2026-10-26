@@ -202,12 +202,15 @@ export default function LearningContentPipelinePage() {
     // The discovery service only marks an embed-deliverable result selectable
     // after validating it against the server's approved embed hosts. The stage
     // endpoint validates it again before saving.
-    const discoveredEmbed = Boolean(item.discovered_embed_url);
     const discoveredBinary = Boolean(item.discovered_asset_url) && ['VIDEO','AUDIO','IMAGE','PDF'].includes(mediaKind);
+    // A discovered file URL takes precedence over loosely populated preview
+    // URLs. Discovery providers often call a file/portal URL a "preview"; it
+    // must not be configured as an official embed player.
+    const discoveredEmbed = !discoveredBinary && Boolean(item.discovered_embed_url);
     setEditingId(item.id); setAssetUrl(item.discovered_asset_url || ''); setPermissionConfirmed(false);
     setForm({ ...INITIAL_FORM, ...metadata, file: null, title: item.title, sourceCode: item.source_code,
       sourceUrl: item.source_url, sourceItemId: item.source_item_id, mediaKind,
-      deliveryMode: discoveredEmbed ? 'OFFICIAL_EMBED' : discoveredBinary ? 'LICENSED_REHOST' : item.delivery_mode, embedUrl: item.embed_url || (discoveredEmbed ? item.discovered_embed_url : ''), storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
+      deliveryMode: discoveredBinary ? 'LICENSED_REHOST' : discoveredEmbed ? 'OFFICIAL_EMBED' : item.delivery_mode, embedUrl: discoveredEmbed ? (item.embed_url || item.discovered_embed_url || '') : '', storageKey: item.storage_key || '', mimeType: item.mime_type || '', byteSize: item.byte_size,
       licenceCandidate: item.licence_candidate || 'OTHER', attributionText: item.attribution_text || '', licenceUrl: item.licence_url || '', rightsEvidenceUrl: item.rights_evidence_url || '',
       gradeCodes: metadata.gradeCodes || (inferredGrade ? [inferredGrade] : []), boardCodes: metadata.boardCodes || [item.board_hint || 'COMMON'],
       conceptIds:metadata.conceptIds || item.discovery_context?.conceptIds || [],subjectId:metadata.subjectId || item.discovery_context?.subjectId || null,chapterLabel:metadata.chapterLabel || item.discovery_context?.chapterLabel || '',topicLabel:metadata.topicLabel || item.discovery_context?.topicLabel || '',language:metadata.language || item.discovered_language || 'en',durationSecs:metadata.durationSecs || item.discovered_duration || null,
@@ -230,7 +233,7 @@ export default function LearningContentPipelinePage() {
     onSuccess: async response => { await optionsQuery.refetch(); update('conceptIds',[...(form.conceptIds || []),response.data.data.id]); toast.success('Curriculum topic saved and mapped. Academic review is still required.'); },
     onError: error => toast.error(apiErrorText(error,'Could not add curriculum topic')),
   });
-  const publicationBlockers = [!form.titleHi?.trim() && 'Hindi title',!form.summary?.trim() && 'English summary',!form.summaryHi?.trim() && 'Hindi summary',!form.gradeCodes.length && 'Grade',!form.boardCodes.length && 'Board',form.category === 'ACADEMIC' && !form.subjectId && 'Subject',form.category === 'ACADEMIC' && !form.topicLabel?.trim() && 'Topic',form.category === 'ACADEMIC' && !form.difficulty && 'Difficulty',form.category === 'ACADEMIC' && !form.conceptIds?.length && 'Curriculum mapping',form.mediaKind === 'ARTICLE' && !form.bodyMarkdown?.trim() && 'English article',form.mediaKind === 'ARTICLE' && !form.bodyMarkdownHi?.trim() && 'Hindi article'].filter(Boolean);
+  const publicationBlockers = [!form.gradeCodes.length && 'Class',!form.boardCodes.length && 'Board',form.category === 'ACADEMIC' && !form.subjectId && 'Subject',form.category === 'ACADEMIC' && !form.topicLabel?.trim() && 'Topic',form.mediaKind === 'ARTICLE' && !form.bodyMarkdown?.trim() && !form.bodyMarkdownHi?.trim() && 'Learner text'].filter(Boolean);
   const filteredQueue = queue.filter((item) => `${item.title} ${item.source_name} ${item.status}`.toLowerCase().includes(queueSearch.toLowerCase()));
 
   return (

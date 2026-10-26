@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import LearningAsset from '@/components/learning/LearningAsset';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -46,6 +47,7 @@ function normalizedText(value?: string | null) {
 }
 
 export default function ContentFactoryPage() {
+  const router=useRouter();
   const queryClient = useQueryClient();
   const [syllabusMode,setSyllabusMode] = useState<'SYLLABUS'|'EXPLORE'>('SYLLABUS');
   const [curriculumTopicId,setCurriculumTopicId] = useState('');
@@ -173,13 +175,14 @@ export default function ContentFactoryPage() {
         }
         toast.success('Governed VidyaSetu resource selected for the optional draft creator.');
       } else {
-        toast.success('Saved in Content Review Queue. Verify it there, then add it to Content Library.');
+        toast.success('Selected. Review the media, rights and audience in Content Library.');
       }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['content-creator-options'] }),
         queryClient.invalidateQueries({ queryKey: ['content-factory-source-review'] }),
         queryClient.invalidateQueries({ queryKey: ['content-factory-queue-counts'] }),
       ]);
+      router.push(result.intakeId ? `/admin/learning?intake=${result.intakeId}` : result.resourceId ? `/admin/learning?resource=${result.resourceId}` : '/admin/learning');
     },
     onError: (error: unknown) => toast.error(apiErrorText(error,'Could not select source')),
   });
@@ -256,14 +259,12 @@ export default function ContentFactoryPage() {
           <p className="admin-muted" style={{ maxWidth: 940,lineHeight: 1.65 }}>Choose the learner context, search trusted sources, select an item, verify its rights, then add it to Content Library. You can also create an AI-assisted text/question draft from governed sources. Nothing is published automatically.</p>
         </div>
         <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap' }}>
-          <Link href="/admin/learning/pipeline" style={secondary}>Content Review Queue {queueQuery.data?.sourceReviewPending ? `(${queueQuery.data.sourceReviewPending})` : ''}</Link>
           <Link href="/admin/learning" style={secondary}>Content Library {queueQuery.data?.contentLibraryPending ? `(${queueQuery.data.contentLibraryPending})` : ''}</Link>
-          <Link href="/admin/learning/creator/discovery" style={secondary}>Advanced Source Search</Link>
         </div>
       </div>
 
       <div className="admin-success-note" style={{ padding: 13,marginBottom: 16 }}>
-        <strong>How this works:</strong> Search → select an external item → Content Review Queue → verify licence/attribution → approve → Add to Content Library → normal Learning review → publish. Public items then appear under Learn; class-private items are filtered by the Student Learning runtime.
+        <strong>How this works:</strong> Search → select a playable result → review it in Content Library → confirm rights and audience → publish when ready. Public items appear under Learn; private items follow their class and subscription rules.
       </div>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
@@ -364,7 +365,7 @@ export default function ContentFactoryPage() {
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">3</span>Select a useful result</h2>
-        {!candidates.length && <div className="admin-panel-muted" style={{ padding: 16 }}>No results loaded yet. Search above. When you select an external item, its status remains visible here and it is saved in Content Review Queue.</div>}
+        {!candidates.length && <div className="admin-panel-muted" style={{ padding: 16 }}>No results loaded yet. Search above. Select a playable result to open its review card in Content Library.</div>}
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',gap: 12 }}>
           {candidates.map((candidate) => {
             const stage = staged[candidate.id] || (candidate.intake_id ? { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id } : undefined);
@@ -372,11 +373,12 @@ export default function ContentFactoryPage() {
             const previewKind = ['VIDEO','AUDIO','IMAGE','PDF'].includes(candidate.media_kind || '') ? candidate.media_kind : null;
             const canPreviewArtifact = candidate.delivery_capability?.code === 'IMPORT' && Boolean(artifactUrl && artifactUrl.startsWith('https://') && previewKind);
             const canDeliverInVidyaSetu = ['LIBRARY','EMBED','IMPORT'].includes(candidate.delivery_capability?.code || '');
+            const deliveryLabel = candidate.delivery_capability?.code === 'IMPORT' ? 'IMPORT TO VIDYASETU' : candidate.delivery_capability?.code === 'EMBED' ? 'IN-PLATFORM PLAYER' : candidate.delivery_capability?.code === 'LIBRARY' ? 'ALREADY IN LIBRARY' : 'SOURCE ONLY';
             const previewOpen = previewCandidateId === candidate.id;
             return <article key={candidate.id} style={{ border: '1px solid #DCE3EE',borderRadius: 14,padding: 14,background: '#fff' }}>
               <div style={{ display: 'flex',justifyContent: 'space-between',gap: 8 }}>
                 <strong>{mediaIcon[candidate.media_kind || 'LINK']} {candidate.title}</strong>
-                <span style={{ color: canDeliverInVidyaSetu ? '#15803D' : '#B45309',fontWeight: 800,fontSize: 11 }}>{canDeliverInVidyaSetu ? 'VIDYASETU PREVIEW' : 'SOURCE ONLY'}</span>
+                <span style={{ color: canDeliverInVidyaSetu ? '#15803D' : '#B45309',fontWeight: 800,fontSize: 11 }}>{deliveryLabel}</span>
               </div>
               <p className="admin-chip">{candidate.delivery_capability?.label || (candidate.reference_only ? 'Reference search only' : 'Delivery requires configuration')}</p>
               {candidate.delivery_capability?.code === 'EMBED' && <LearningAsset title={candidate.title} kind={candidate.media_kind || 'VIDEO'} embedUrl={candidate.embed_url} />}
@@ -385,7 +387,7 @@ export default function ContentFactoryPage() {
                   {previewOpen ? 'Hide source preview' : `Preview ${previewKind === 'PDF' ? 'PDF' : previewKind?.toLowerCase()} in admin`}
                 </button>
                 {previewOpen && <div className="admin-panel-muted" style={{ marginTop: 10,padding: 12,borderRadius: 10 }}>
-                  <p className="admin-muted" style={{ marginTop: 0 }}>This is a preview served by the source provider. It is not copied into VidyaSetu, and its availability does not confirm reuse rights. If playback is blocked, open the official source below.</p>
+                  <p className="admin-muted" style={{ marginTop: 0 }}>This preview is loaded inside VidyaSetu from the source media URL. It has not yet been copied into VidyaSetu storage, and preview availability does not confirm reuse rights.</p>
                   <LearningAsset title={candidate.title} kind={previewKind!} contentUrl={artifactUrl} mimeType={previewKind === 'PDF' ? 'application/pdf' : undefined} altText={candidate.title} />
                 </div>}
               </div>}
@@ -398,8 +400,8 @@ export default function ContentFactoryPage() {
               <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginTop: 12 }}>
                 {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={secondary}>Open original source / rights ↗</a>}
                 {canDeliverInVidyaSetu && !stage && <button type="button" style={button} disabled={stageCandidateMutation.isPending} onClick={() => stageCandidateMutation.mutate(candidate)}>{candidate.resource_id ? 'Select governed source' : 'Select for review'}</button>}
-                {stage?.kind === 'OER_INTAKE' && stage.intakeId && <Link href={`/admin/learning/pipeline?intake=${stage.intakeId}`} style={button}>Complete delivery &amp; add to Library</Link>}
-                {stage?.kind === 'GOVERNED_RESOURCE' && <Link href="/admin/learning" style={secondary}>Open Library</Link>}
+                {stage?.kind === 'OER_INTAKE' && stage.intakeId && <Link href={`/admin/learning?intake=${stage.intakeId}`} style={button}>Review in Content Library</Link>}
+                {stage?.kind === 'GOVERNED_RESOURCE' && <Link href={`/admin/learning?resource=${candidate.resource_id}`} style={secondary}>Open in Content Library</Link>}
                 {stage?.kind === 'GOVERNED_RESOURCE' && <span className="admin-success-note" style={{ padding: '9px 12px',borderRadius: 9 }}>✓ Already in Library</span>}
                 {!canDeliverInVidyaSetu && <span className="admin-note" style={{ padding: '9px 12px',borderRadius: 9,fontSize: 12 }}>This result only points to a source page. VidyaSetu cannot play it yet, so it cannot be selected for the Learning Library.</span>}
               </div>
@@ -409,12 +411,9 @@ export default function ContentFactoryPage() {
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}><span className="admin-step">4</span>What happens after you select content?</h2>
-        <div style={{ display: 'grid',gridTemplateColumns: 'repeat(3,minmax(190px,1fr))',gap: 10 }}>
-          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>1 · Verify and approve</strong><p className="admin-muted">The selected result opens in the Content Review Queue with its source and available media details. Rights evidence is required before approval.</p><Link href="/admin/learning/pipeline" style={secondary}>Open Source Review</Link></div>
-          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>2 · Add to Content Library</strong><p className="admin-muted">Choose class, board, subject, chapter/topic and Public / Registered / Subscriber audience. The item enters Content Library as DRAFT.</p><Link href="/admin/learning" style={secondary}>Open Content Library</Link></div>
-          <div className="admin-panel-muted" style={{ padding: 14 }}><strong>3 · Review and publish</strong><p className="admin-muted">Only PUBLISHED items reach learners. Public Free appears under Learn; private items are restricted by class and, when selected, subscription entitlement.</p></div>
-        </div>
+        <h2 style={{ marginTop: 0 }}><span className="admin-step">4</span>Review and publish from Content Library</h2>
+        <p className="admin-muted">Selecting a result opens its review card in Content Library. Preview it there, confirm rights and in-platform playback, choose Public or Private, then add it as a draft. Publish only after the required review checks pass.</p>
+        <Link href="/admin/learning" style={secondary}>Open Content Library</Link>
       </section>
 
       <details className="admin-panel" style={{ ...panel,marginBottom: 16 }}>

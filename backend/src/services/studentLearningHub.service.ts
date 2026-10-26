@@ -62,6 +62,12 @@ function gradeLabel(gradeCode: string): string {
   return numeric ? `Class ${numeric}` : gradeCode.replaceAll('_', ' ');
 }
 
+const PLAYABLE_RESOURCE_SQL = `(
+  (lr.resource_type::text IN ('VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER') AND NULLIF(BTRIM(lr.file_key),'') IS NOT NULL)
+  OR (lr.resource_type::text IN ('ARTICLE','QUIZ') AND (NULLIF(BTRIM(lr.body_markdown),'') IS NOT NULL OR NULLIF(BTRIM(lr.body_markdown_hi),'') IS NOT NULL))
+  OR (to_jsonb(lr)->>'delivery_mode'='OFFICIAL_EMBED' AND NULLIF(BTRIM(lr.external_url),'') IS NOT NULL)
+)`;
+
 async function getStudentContext(userId: UUID): Promise<StudentContextRow> {
   const { rows: [student] } = await query<StudentContextRow>(
     `SELECT s.id AS student_id, s.grade_level, s.grade_code, sc.class_name,
@@ -138,6 +144,7 @@ export async function getLearningHome(userId: UUID) {
        LEFT JOIN student_learning_resource_progress slrp ON slrp.resource_id=lr.id AND slrp.student_id=$1
        WHERE lr.review_status='PUBLISHED'
          AND lr.visibility IN ('PUBLIC','REGISTERED','CLASS_ONLY')
+         AND ${PLAYABLE_RESOURCE_SQL}
          AND ${resourceScopeSql(2, 3, 4)}
        ORDER BY slrp.last_accessed DESC NULLS LAST, lr.is_featured_public DESC, lr.sort_order, lr.published_at DESC NULLS LAST
        LIMIT 12`,

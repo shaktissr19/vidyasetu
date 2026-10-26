@@ -47,7 +47,8 @@ jobs:
           grep -q "add-to-library" backend/src/routes/adminContentFactory.routes.ts
           grep -q "Search Learning Content" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
           grep -q "Topic / learning need" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
-          grep -q "Complete delivery" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "Select for review" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
+          grep -q "Review and publish from Content Library" 'frontend/src/app/(admin)/admin/learning/factory/page.tsx'
           grep -q "materialiseLearningPipelineIntake" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
           grep -q "verifyLearningPipelineRights" 'frontend/src/app/(admin)/admin/learning/pipeline/page.tsx'
           grep -q "export { default }" 'frontend/src/app/(admin)/admin/learning/intake/page.tsx'

@@ -11,7 +11,7 @@ router.use(authorize('SUPER_ADMIN'));
 
 const visibilitySchema = z.enum(['PUBLIC','REGISTERED','CLASS_ONLY','SCHOOL_ONLY']);
 const accessRequirementSchema = z.enum(['PUBLIC','REGISTERED','SUBSCRIBER']);
-const licenceSchema = z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','OTHER']);
+const licenceSchema = z.enum(['VIDYASETU_ORIGINAL','CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','EXTERNAL_LINK_ONLY','PERMISSION_GRANTED','OTHER']);
 const discoveryProviderSchema = z.enum(['LOCAL','DIKSHA','NROER','CBSE','NCERT_EPATHSHALA','NIOS','SWAYAM','PHET','OER_COMMONS']);
 const discoveryMediaSchema = z.enum(['ARTICLE','VIDEO','AUDIO','IMAGE','INTERACTIVE','PDF','COURSE','LINK']);
 
@@ -127,6 +127,20 @@ const intakeEvidenceSchema = z.object({
   reviewerNote: z.string().trim().max(3000).nullable().optional(),
 });
 
+const addDiscoveredContentSchema = z.object({
+  title: z.string().trim().min(3).max(300).optional(),
+  visibility: z.enum(['PUBLIC','REGISTERED','CLASS_ONLY']),
+  accessRequirement: accessRequirementSchema,
+  licenceCandidate: licenceSchema,
+  licenceUrl: z.string().url().max(2000).nullable().optional(),
+  attributionText: z.string().trim().min(2).max(4000),
+  rightsEvidenceUrl: z.string().url().max(2000).nullable().optional(),
+  permissionConfirmed: z.boolean(),
+}).superRefine((value, ctx) => {
+  if (value.visibility === 'PUBLIC' && value.accessRequirement !== 'PUBLIC') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accessRequirement'], message: 'Public learning requires public access' });
+  if (value.visibility !== 'PUBLIC' && value.accessRequirement === 'PUBLIC') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accessRequirement'], message: 'Private learning requires learner sign-in' });
+});
+
 router.get('/options', ctrl.options);
 router.get('/jobs', ctrl.jobs);
 router.get('/jobs/:jobId', ctrl.job);
@@ -140,6 +154,7 @@ router.get('/discovery/runs', ctrl.discoveryRuns);
 router.get('/discovery/runs/:runId', ctrl.discoveryRun);
 router.post('/discovery/search', validate(discoverySchema), ctrl.discoverSources);
 router.post('/discovery/candidates/:candidateId/stage', ctrl.stageDiscoveryCandidate);
+router.post('/discovery/candidates/:candidateId/add-to-library', validate(addDiscoveredContentSchema), ctrl.addDiscoveredContentToLibrary);
 router.post('/discovery/selected-item', validate(externalItemSchema), ctrl.stageExternalSourceItem);
 router.patch('/discovery/intake/:intakeId/evidence', validate(intakeEvidenceSchema), ctrl.updateIntakeEvidence);
 
