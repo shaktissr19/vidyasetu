@@ -23,7 +23,7 @@ export function approvedAssetUrl(raw: string, hosts = process.env.LEARNING_IMPOR
 /** Return only provider URLs that meet the same strict import policy used by the downloader. */
 export function importableAssetUrl(metadata?: Record<string, unknown> | null): string | null {
   if (!metadata) return null;
-  for (const value of [metadata.artifactUrl, metadata.downloadUrl, metadata.contentUrl, metadata.streamingUrl, metadata.previewUrl]) {
+  for (const value of [metadata.artifactUrl, metadata.artifactURL, metadata.downloadUrl, metadata.downloadURL, metadata.contentUrl, metadata.contentURL, metadata.streamingUrl, metadata.previewUrl]) {
     if (typeof value !== 'string' || !value.trim()) continue;
     try { return approvedAssetUrl(value).toString(); } catch { /* Try the next explicit media URL field. */ }
   }
