@@ -38,6 +38,11 @@ FROM learning_resources lr
 JOIN subjects sub ON sub.id=lr.subject_id
 WHERE lr.review_status='PUBLISHED'
   AND lr.category='ACADEMIC'
+  AND (
+    (lr.resource_type::text IN ('VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER') AND NULLIF(BTRIM(lr.file_key),'') IS NOT NULL)
+    OR (lr.resource_type::text IN ('ARTICLE','QUIZ') AND (NULLIF(BTRIM(lr.body_markdown),'') IS NOT NULL OR NULLIF(BTRIM(lr.body_markdown_hi),'') IS NOT NULL))
+    OR (to_jsonb(lr)->>'delivery_mode'='OFFICIAL_EMBED' AND NULLIF(BTRIM(lr.external_url),'') IS NOT NULL)
+  )
   AND EXISTS (
     SELECT 1 FROM learning_resource_boards lrb
     JOIN education_boards eb ON eb.id=lrb.board_id
