@@ -351,8 +351,7 @@ async function assertResourceDeliveryPolicy(resourceId: UUID, accessRequirement?
       && Boolean(String(row.body_markdown || '').trim() || String(row.body_markdown_hi || '').trim());
     const hasHostedFile = ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER'].includes(String(row.resource_type)) && Boolean(row.file_key);
     const hasApprovedEmbed = row.delivery_mode === 'OFFICIAL_EMBED' && Boolean(row.external_url);
-    if (row.delivery_mode === 'EXTERNAL_LINK' || row.resource_type === 'EXTERNAL_LINK'
-        || (!hasNativeLesson && !hasHostedFile && !hasApprovedEmbed)) {
+    if (row.resource_type === 'EXTERNAL_LINK' || (!hasNativeLesson && !hasHostedFile && !hasApprovedEmbed)) {
       throw new Error('This item only opens on its original source and cannot be published in VidyaSetu Learning. Use an approved in-page player or a permitted hosted media file.');
     }
   } catch (error) { throw badRequest((error as Error).message); }
