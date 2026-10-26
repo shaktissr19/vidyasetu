@@ -120,6 +120,17 @@ export async function updateStatus(
   } catch (error: unknown) { next(error); }
 }
 
+export async function archiveResources(
+  req: Request<Record<string, string>, unknown, { resourceIds: UUID[] }>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, await learningService.archiveLearningResources(req.body.resourceIds, req.user.userId));
+  } catch (error: unknown) { next(error); }
+}
+
 export async function reviewAndPublish(req:Request<{resourceId:UUID}>,res:Response,next:NextFunction):Promise<Response|void>{
   try {
     if(!req.user)return R.unauthorized(res);

@@ -80,6 +80,7 @@ const statusSchema = z.object({
   status: z.enum(['DRAFT','SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED','ARCHIVED']),
   note: z.string().trim().max(2000).nullable().optional(),
 });
+const archiveResourcesSchema = z.object({ resourceIds: z.array(z.string().uuid()).min(1).max(250) });
 
 const questionSchema = z.object({
   publicCode: z.string().trim().min(3).max(50).optional(),
@@ -185,6 +186,7 @@ router.get('/review/:packKey', ctrl.contentPackReview);
 router.post('/resources', validate(resourceSchema), ctrl.createResource);
 router.patch('/resources/:resourceId/access', validate(accessPolicySchema), ctrl.updateResourceAccess);
 router.patch('/resources/:resourceId/status', validate(statusSchema), ctrl.updateStatus);
+router.post('/resources/bulk-archive', validate(archiveResourcesSchema), ctrl.archiveResources);
 router.post('/resources/:resourceId/review-publish', ctrl.reviewAndPublish);
 
 router.get('/questions', ctrl.questions);
