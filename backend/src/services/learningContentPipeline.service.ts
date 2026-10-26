@@ -365,7 +365,7 @@ export async function listPipelineQueue() {
             lcs.code AS source_code,lcs.name AS source_name,
             a.id AS asset_id,a.storage_key,a.mime_type,a.byte_size,a.processing_status,a.resource_id,
             a.verified_at AS asset_verified_at,a.metadata,lsi.embed_url,lsi.class_hint,lsi.board_hint,lsi.subject_hint,
-            dc.media_kind AS discovered_media_kind,dc.embed_url AS discovered_embed_url,dc.thumbnail_url AS discovered_thumbnail_url,dc.metadata->>'artifactUrl' AS discovered_asset_url,dc.filters AS discovery_context,dc.language AS discovered_language,dc.duration_seconds AS discovered_duration
+            dc.id AS discovery_candidate_id,dc.media_kind AS discovered_media_kind,dc.embed_url AS discovered_embed_url,dc.thumbnail_url AS discovered_thumbnail_url,dc.metadata->>'artifactUrl' AS discovered_asset_url,dc.filters AS discovery_context,dc.language AS discovered_language,dc.duration_seconds AS discovered_duration
      FROM learning_source_intake lsi
      JOIN learning_content_sources lcs ON lcs.id=lsi.source_id
      LEFT JOIN learning_content_assets a ON a.id=lsi.asset_id
@@ -375,7 +375,7 @@ export async function listPipelineQueue() {
      LEFT JOIN curriculum_subjects cs ON cs.id=cu.curriculum_subject_id
      LEFT JOIN curriculum_versions cv ON cv.id=cs.curriculum_version_id
      LEFT JOIN education_boards eb ON eb.id=cv.board_id
-     LEFT JOIN LATERAL (SELECT c.media_kind,c.embed_url,c.thumbnail_url,c.metadata,c.duration_seconds,r.filters,r.language FROM learning_source_discovery_candidates c JOIN learning_source_discovery_runs r ON r.id=c.run_id WHERE c.intake_id=lsi.id ORDER BY c.created_at DESC LIMIT 1) dc ON TRUE
+     LEFT JOIN LATERAL (SELECT c.id,c.media_kind,c.embed_url,c.thumbnail_url,c.metadata,c.duration_seconds,jsonb_set(r.filters,'{query}',to_jsonb(r.query_text),true) AS filters,r.language FROM learning_source_discovery_candidates c JOIN learning_source_discovery_runs r ON r.id=c.run_id WHERE c.intake_id=lsi.id ORDER BY c.created_at DESC LIMIT 1) dc ON TRUE
      ORDER BY CASE lsi.status WHEN 'DISCOVERED' THEN 1 WHEN 'LICENCE_REVIEW' THEN 2 WHEN 'CONTENT_REVIEW' THEN 3
                               WHEN 'APPROVED' THEN 4 WHEN 'IMPORTED' THEN 8 ELSE 9 END,lsi.created_at DESC
      LIMIT 500`,

@@ -347,6 +347,17 @@ export interface CreatorDiscoveryStageResult {
   message?: string;
 }
 
+export interface AddDiscoveredContentToLibraryPayload {
+  title?: string;
+  visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY';
+  accessRequirement: 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
+  licenceCandidate: string;
+  licenceUrl?: string | null;
+  attributionText: string;
+  rightsEvidenceUrl?: string | null;
+  permissionConfirmed: boolean;
+}
+
 export interface CreatorSelectedExternalItemInput {
   provider: Exclude<CreatorDiscoveryProvider,'LOCAL'>;
   title: string;
@@ -371,6 +382,7 @@ export const discoverContentCreatorSources = (payload: CreatorDiscoveryInput) =>
 export const getContentCreatorDiscoveryRuns = () => api.get<ApiEnvelope<CreatorDiscoveryRun[]>>('/admin/learning/creator/discovery/runs');
 export const getContentCreatorDiscoveryRun = (runId: string) => api.get<ApiEnvelope<CreatorDiscoveryRun>>(`/admin/learning/creator/discovery/runs/${runId}`);
 export const stageContentCreatorDiscoveryCandidate = (candidateId: string) => api.post<ApiEnvelope<CreatorDiscoveryStageResult>>(`/admin/learning/creator/discovery/candidates/${candidateId}/stage`);
+export const addDiscoveredContentToLibrary = (candidateId: string,payload: AddDiscoveredContentToLibraryPayload) => api.post<ApiEnvelope<{resourceId:string;intakeId:string;reviewStatus:string;deliveryMode:string}>>(`/admin/learning/creator/discovery/candidates/${candidateId}/add-to-library`,payload,{timeout:120000});
 export const stageSelectedExternalContentCreatorItem = (payload: CreatorSelectedExternalItemInput) => api.post<ApiEnvelope<CreatorDiscoveryStageResult>>('/admin/learning/creator/discovery/selected-item', payload);
 export const updateContentCreatorIntakeEvidence = (intakeId: string, payload: { licenceCandidate: string; attributionText: string; reviewerNote?: string | null }) =>
   api.patch<ApiEnvelope<{ id: string; status: string }>>(`/admin/learning/creator/discovery/intake/${intakeId}/evidence`, payload);

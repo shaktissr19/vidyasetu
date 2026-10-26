@@ -207,21 +207,31 @@ export async function listLearningResources() {
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,lr.summary_hi,
             to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
             lr.resource_type, lr.category, lr.visibility, lr.access_requirement, lr.review_status,
-            lr.language, lr.class_min, lr.class_max, lr.licence,
+            lr.language, lr.class_min, lr.class_max, lr.subject_id, sub.name AS subject_name, lr.licence,
             lr.source_url, lr.external_url, lr.attribution_text,
             lr.is_featured_public, lr.published_at, lr.created_at,
+            (SELECT COUNT(*)=6 FROM learning_quality_gate_reviews q WHERE q.entity_type='RESOURCE'::learning_quality_entity_type AND q.entity_id=lr.id
+              AND q.gate_code IN ('ACADEMIC_ACCURACY','AGE_APPROPRIATENESS','ACCESSIBILITY','SAFETY','COPYRIGHT_LICENSING','TECHNICAL_READINESS')
+              AND q.status IN ('PASS','NOT_APPLICABLE')) AS quality_review_complete,
             lcs.code AS source_code, lcs.name AS source_name,
             COALESCE(
               ARRAY_AGG(DISTINCT eb.code) FILTER (WHERE eb.code IS NOT NULL),
               ARRAY[]::varchar[]
             ) AS board_codes,
+            COALESCE(
+              ARRAY_AGG(DISTINCT egl.code) FILTER (WHERE egl.code IS NOT NULL),
+              ARRAY[]::varchar[]
+            ) AS grade_codes,
             COUNT(DISTINCT lrc.concept_id)::int AS concept_count
      FROM learning_resources lr
      JOIN learning_content_sources lcs ON lcs.id=lr.source_id
      LEFT JOIN learning_resource_boards lrb ON lrb.resource_id=lr.id
      LEFT JOIN education_boards eb ON eb.id=lrb.board_id
+     LEFT JOIN learning_resource_grades lrg ON lrg.resource_id=lr.id
+     LEFT JOIN education_grade_levels egl ON egl.id=lrg.grade_id
+     LEFT JOIN subjects sub ON sub.id=lr.subject_id
      LEFT JOIN learning_resource_concepts lrc ON lrc.resource_id=lr.id
-     GROUP BY lr.id, lcs.id
+     GROUP BY lr.id, lcs.id, sub.name
      ORDER BY lr.updated_at DESC
      LIMIT 250`,
   );
@@ -272,6 +282,19 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
       );
       if (concepts.length !== uniqueConceptIds.length) throw badRequest('One or more selected canonical concepts are invalid.');
     }
+    const primaryConceptId = conceptMappings.find((mapping) => mapping.isPrimary !== false)?.conceptId || conceptMappings[0]?.conceptId;
+    const { rows: [mappedConcept] } = primaryConceptId
+      ? await client.query<{ subject_id: UUID | null }>(
+          `SELECT COALESCE(lc.subject_id,(
+             SELECT s.id FROM subjects s
+             WHERE UPPER(s.code)=UPPER(lc.subject_code) OR UPPER(s.name)=UPPER(lc.subject_code)
+             ORDER BY CASE WHEN UPPER(s.code)=UPPER(lc.subject_code) THEN 0 ELSE 1 END
+             LIMIT 1
+           )) AS subject_id
+           FROM learning_concepts lc WHERE lc.id=$1::uuid`,
+          [primaryConceptId],
+        )
+      : { rows: [] as Array<{ subject_id: UUID | null }> };
 
     const { rows: [resource] } = await client.query<ResourceIdRow>(
       `INSERT INTO learning_resources
@@ -291,7 +314,7 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
         input.summaryHi?.trim() || null, input.bodyMarkdown?.trim() || null,
         input.bodyMarkdownHi?.trim() || null, input.resourceType, input.category,
         access.visibility, requestedStatus, input.language || 'en', input.classMin || null,
-        input.classMax || null,input.subjectId||null,input.curriculumTopicId||null, source.id, input.sourceUrl?.trim() || null,
+        input.classMax || null,input.subjectId||mappedConcept?.subject_id||null,input.curriculumTopicId||null, source.id, input.sourceUrl?.trim() || null,
         input.sourceItemId?.trim() || null, input.licence, input.licenceUrl?.trim() || null,
         input.attributionText?.trim() || null, input.externalUrl?.trim() || null,
         input.fileKey?.trim() || null, input.thumbnailUrl?.trim() || null,
@@ -336,6 +359,13 @@ async function assertResourceDeliveryPolicy(resourceId: UUID, accessRequirement?
       if (row.rights_status !== 'VERIFIED') throw new Error('Verify item-level delivery rights before publishing or changing access');
       assertLearningRightsPolicy({ deliveryMode: row.delivery_mode || 'EXTERNAL_LINK', licence: row.licence, sourceCode: row.source_code, embedUrl: row.external_url, attribution: row.attribution_text, evidenceUrl: row.rights_evidence_url, accessRequirement: accessRequirement || row.access_requirement });
       if (row.delivery_mode === 'OFFICIAL_EMBED') assertOfficialEmbedUrl(row.external_url || '');
+    }
+    const hasNativeLesson = ['ARTICLE','QUIZ'].includes(row.resource_type)
+      && Boolean(String(row.body_markdown || '').trim() || String(row.body_markdown_hi || '').trim());
+    const hasHostedFile = ['VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER'].includes(String(row.resource_type)) && Boolean(row.file_key);
+    const hasApprovedEmbed = row.delivery_mode === 'OFFICIAL_EMBED' && Boolean(row.external_url);
+    if (row.resource_type === 'EXTERNAL_LINK' || (!hasNativeLesson && !hasHostedFile && !hasApprovedEmbed)) {
+      throw new Error('This item only opens on its original source and cannot be published in VidyaSetu Learning. Use an approved in-page player or a permitted hosted media file.');
     }
   } catch (error) { throw badRequest((error as Error).message); }
 }
@@ -410,6 +440,58 @@ export async function updateLearningResourceStatus(
       [resourceId, reviewerId, existing.review_status, normalizedNextStatus, note?.trim() || null],
     );
 
+    return updated;
+  });
+}
+
+/**
+ * One Library action for reviewers who own the complete approval permission.
+ * The established statuses are still written in order for audit/history, but
+ * admins do not have to submit the same item through four separate screens.
+ */
+export async function reviewAndPublishLearningResource(resourceId: UUID, reviewerId: UUID) {
+  await assertResourceDeliveryPolicy(resourceId);
+  const readiness = await getResourceReadiness(resourceId);
+  if (!readiness.readyForPublication) {
+    throw badRequest(`Resource is not ready to publish: ${readiness.blockers.slice(0,6).join(' ')}`);
+  }
+  return transaction(async (client) => {
+    const { rows: [existing] } = await client.query<{ review_status:string; public_slug:string|null }>(
+      `SELECT review_status,public_slug FROM learning_resources WHERE id=$1::uuid FOR UPDATE`,[resourceId],
+    );
+    if (!existing) throw Object.assign(new Error('Learning resource not found'),{statusCode:404});
+    if (!existing.public_slug) throw badRequest('Published resources require a public slug.');
+    const nextByStatus:Record<string,LearningReviewStatus[]>={
+      DRAFT:['SUBMITTED','ACADEMIC_REVIEW','APPROVED','PUBLISHED'],
+      SUBMITTED:['ACADEMIC_REVIEW','APPROVED','PUBLISHED'],
+      ACADEMIC_REVIEW:['APPROVED','PUBLISHED'],
+      APPROVED:['PUBLISHED'],
+    };
+    const transitions=nextByStatus[existing.review_status];
+    if (!transitions) throw badRequest(`A ${existing.review_status} resource cannot be published from this action.`);
+    let previous=existing.review_status;
+    for (const next of transitions) {
+      await client.query(
+        `INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note,created_at)
+         VALUES($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5,clock_timestamp())`,
+        [resourceId,reviewerId,previous,next,'Reviewed and published from Content Library; intermediate governance transitions retained for audit.'],
+      );
+      await client.query(
+        `UPDATE learning_resources
+         SET review_status=$2::learning_review_status,
+             reviewed_by=CASE WHEN $2='APPROVED' THEN $3::uuid ELSE reviewed_by END,
+             reviewed_at=CASE WHEN $2='APPROVED' THEN NOW() ELSE reviewed_at END,
+             published_at=CASE WHEN $2='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
+         WHERE id=$1::uuid`,
+        [resourceId,next,reviewerId],
+      );
+      previous=next;
+    }
+    const { rows:[updated] }=await client.query(
+      `SELECT id,public_slug,title,review_status,visibility,access_requirement,published_at
+       FROM learning_resources WHERE id=$1::uuid`,
+      [resourceId],
+    );
     return updated;
   });
 }

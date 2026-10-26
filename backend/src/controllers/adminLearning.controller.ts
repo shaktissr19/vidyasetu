@@ -120,6 +120,13 @@ export async function updateStatus(
   } catch (error: unknown) { next(error); }
 }
 
+export async function reviewAndPublish(req:Request<{resourceId:UUID}>,res:Response,next:NextFunction):Promise<Response|void>{
+  try {
+    if(!req.user)return R.unauthorized(res);
+    return R.ok(res,await learningService.reviewAndPublishLearningResource(req.params.resourceId,req.user.userId));
+  } catch(error:unknown){next(error);}
+}
+
 export async function questions(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await practiceService.listQuestions()); }
   catch (error: unknown) { next(error); }

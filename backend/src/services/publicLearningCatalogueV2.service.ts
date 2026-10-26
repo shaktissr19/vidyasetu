@@ -16,7 +16,12 @@ export interface PublicLearningCatalogueFilters {
 }
 
 const PUBLIC_WHERE = `lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED'
-  AND NOT EXISTS (SELECT 1 FROM learning_content_assets a JOIN learning_asset_moderation m ON m.asset_id=a.id WHERE a.id=lr.asset_id AND m.state='TAKEN_DOWN')`;
+  AND NOT EXISTS (SELECT 1 FROM learning_content_assets a JOIN learning_asset_moderation m ON m.asset_id=a.id WHERE a.id=lr.asset_id AND m.state='TAKEN_DOWN')
+  AND (
+    (lr.resource_type::text IN ('VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER') AND NULLIF(BTRIM(lr.file_key),'') IS NOT NULL)
+    OR (lr.resource_type::text IN ('ARTICLE','QUIZ') AND (NULLIF(BTRIM(lr.body_markdown),'') IS NOT NULL OR NULLIF(BTRIM(lr.body_markdown_hi),'') IS NOT NULL))
+    OR (to_jsonb(lr)->>'delivery_mode'='OFFICIAL_EMBED' AND NULLIF(BTRIM(lr.external_url),'') IS NOT NULL)
+  )`;
 
 export async function listPublicLearningCatalogue(filters: PublicLearningCatalogueFilters = {}) {
   const values: unknown[] = [];
