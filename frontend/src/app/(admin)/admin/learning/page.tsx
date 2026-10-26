@@ -1,6 +1,6 @@
 'use client';
 
-import LearningAsset from '@/components/learning/LearningAsset';
+import LearningAsset, { approvedEmbedUrl } from '@/components/learning/LearningAsset';
 import LearningMarkdown from '@/components/learning/LearningMarkdown';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -23,6 +23,7 @@ import {
   type LearningStudioResource,
   type LearningVisibility,
   type SaveLearningStudioResource,
+  updateLearningStudioIntakeStatus,
 } from '@/services/adminLearningService';
 import { getLearningMediaUploadUrl } from '@/services/learningMediaService';
 import type { LearningCategory } from '@/services/publicService';
@@ -65,6 +66,13 @@ const INITIAL: StudioForm = {
 };
 function statusLabel(value: string): string { return value.replaceAll('_',' '); }
 function accessLabel(value: LearningAccessRequirement): string { return ACCESS_OPTIONS.find((item) => item.value === value)?.label || value; }
+function canRenderDiscoveredAsset(value?: string | null): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'obj.diksha.gov.in' && !url.username && !url.password && !url.port && !url.search;
+  } catch { return false; }
+}
 
 export default function AdminContentLibraryPage() {
   const queryClient = useQueryClient();
@@ -75,9 +83,6 @@ export default function AdminContentLibraryPage() {
   const [classFilter,setClassFilter] = useState('');
   const [subjectFilter,setSubjectFilter] = useState('');
   const [selectedIntakeId,setSelectedIntakeId] = useState('');
-  const [intakeTitle,setIntakeTitle] = useState('');
-  const [intakeVisibility,setIntakeVisibility] = useState<'PUBLIC'|'CLASS_ONLY'>('CLASS_ONLY');
-  const [intakeAccess,setIntakeAccess] = useState<LearningAccessRequirement>('REGISTERED');
   const [intakeLicence,setIntakeLicence] = useState('OTHER');
   const [intakeLicenceUrl,setIntakeLicenceUrl] = useState('');
   const [intakeAttribution,setIntakeAttribution] = useState('');
@@ -109,7 +114,6 @@ export default function AdminContentLibraryPage() {
   },[resourcesQuery.data]);
   useEffect(() => {
     if (!selectedIntake) return;
-    setIntakeTitle(selectedIntake.title);
     setIntakeLicence(selectedIntake.licence_candidate || 'OTHER');
     setIntakeAttribution(selectedIntake.attribution_text || '');
     setIntakeEvidenceUrl(selectedIntake.rights_evidence_url || selectedIntake.source_url || '');
@@ -121,9 +125,11 @@ export default function AdminContentLibraryPage() {
       if (!selectedIntake?.discovery_candidate_id) throw new Error('Select an item from Content Factory first');
       if (!intakeRightsConfirmed) throw new Error('Confirm the item rights and in-platform playback review');
       return addDiscoveredContentToLibrary(selectedIntake.discovery_candidate_id,{
-        title:intakeTitle.trim()||selectedIntake.title,
-        visibility:intakeVisibility,
-        accessRequirement:intakeVisibility==='PUBLIC'?'PUBLIC':intakeAccess==='PUBLIC'?'REGISTERED':intakeAccess,
+        title:selectedIntake.title,
+        // Imported discoveries always start private. Audience is chosen once,
+        // in the Library publication panel, immediately before publishing.
+        visibility:'CLASS_ONLY',
+        accessRequirement:'REGISTERED',
         licenceCandidate:intakeLicence,licenceUrl:intakeLicenceUrl.trim()||null,attributionText:intakeAttribution.trim(),
         rightsEvidenceUrl:intakeEvidenceUrl.trim()||selectedIntake.source_url,permissionConfirmed:true,
       });
@@ -137,6 +143,18 @@ export default function AdminContentLibraryPage() {
       if(created)setSelectedResource(created);
     },
     onError:(error:unknown)=>toast.error(apiErrorText(error,'Could not add discovered content to the Library')),
+  });
+  const discardUnsupportedMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedIntake) throw new Error('Select a discovered item first');
+      return updateLearningStudioIntakeStatus(selectedIntake.id,'REJECTED','Source reference has no supported in-platform player or importable media file.');
+    },
+    onSuccess: async () => {
+      toast.success('Source-only reference removed from the review queue.');
+      setSelectedIntakeId('');
+      await queryClient.invalidateQueries({ queryKey: ['learning-pipeline-queue'] });
+    },
+    onError: (error:unknown) => toast.error(apiErrorText(error,'Could not remove this source reference')),
   });
   const conceptsQuery = useQuery({
     queryKey: ['learning-studio-concepts', form.classMin || 5],
@@ -252,6 +270,8 @@ export default function AdminContentLibraryPage() {
     ? selectedIntake.discovered_media_kind : selectedIntake?.media_kind;
   const intakeArtifactUrl = selectedIntake?.discovered_asset_url || null;
   const intakeEmbedUrl = selectedIntake?.discovered_embed_url || null;
+  const intakeSafeEmbedUrl = approvedEmbedUrl(intakeEmbedUrl);
+  const intakeHasPlayableMedia = Boolean(intakeSafeEmbedUrl || canRenderDiscoveredAsset(intakeArtifactUrl));
 
   return (
     <div className="admin-page" style={{ padding: 8 }}>
@@ -264,8 +284,8 @@ export default function AdminContentLibraryPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems:'center' }}><Link href="/admin/learning/creator" className="btn-primary">Create Content</Link><Link href="/admin/learning/coverage" style={secondaryButton}>Coverage</Link><Link href="/admin/learning/practice" style={secondaryButton}>Question Bank</Link><details style={{position:'relative'}}><summary style={{...secondaryButton,listStyle:'none'}}>Advanced tools</summary><div className="admin-panel" style={{position:'absolute',right:0,zIndex:5,minWidth:220,display:'grid',gap:8,padding:12}}><Link href="/admin/learning/pipeline" style={secondaryButton}>Content Pipeline</Link><Link href="/admin/learning/intake" style={secondaryButton}>Advanced Source Review</Link></div></details></div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
-        {[['All resources', resources.length],['Drafts', draftCount],['In review', reviewCount],['Published', publishedCount]].map(([label,value]) => <div key={String(label)} className="admin-panel" style={{ padding: 15 }}><div style={{ fontSize: 26, fontWeight: 900 }}>{value}</div><div style={{ color: '#667085', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginBottom: 16 }}>
+        {[['Library resources', resources.length],['Drafts', draftCount],['In review', reviewCount],['Published', publishedCount],['Selected for review', pendingDiscovered.length]].map(([label,value]) => <div key={String(label)} className="admin-panel" style={{ padding: 15 }}><div style={{ fontSize: 26, fontWeight: 900 }}>{value}</div><div style={{ color: '#667085', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
       </div>
 
       {pendingDiscovered.length > 0 && <section className="admin-panel" style={{ padding: 20, marginBottom: 16 }}>
@@ -275,18 +295,20 @@ export default function AdminContentLibraryPage() {
           <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>{pendingDiscovered.map((item)=><button key={item.id} type="button" className={`admin-source-card ${selectedIntakeId===item.id?'selected':''}`} onClick={()=>setSelectedIntakeId(item.id)} style={{ padding: 12,textAlign:'left' }}><strong>{item.title}</strong><div className="admin-muted" style={{fontSize:12,marginTop:4}}>{item.source_name} · {item.discovered_media_kind||item.media_kind} · Needs review</div></button>)}</div>
           {selectedIntake ? <div className="admin-panel-muted" style={{padding:16}}>
             <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}><div><h3 style={{margin:'0 0 4px'}}>{selectedIntake.title}</h3><p className="admin-muted" style={{margin:0}}>{selectedIntake.source_name} · {intakeMediaKind||'Learning media'} · {selectedIntake.licence_candidate||'Rights review needed'}</p></div><span className="admin-chip">Not published</span></div>
-            {intakeMediaKind && (intakeArtifactUrl || intakeEmbedUrl) && <div style={{marginTop:12}}><LearningAsset title={selectedIntake.title} kind={intakeMediaKind} contentUrl={intakeArtifactUrl} embedUrl={intakeEmbedUrl} altText={selectedIntake.title} /></div>}
+            {intakeMediaKind && intakeHasPlayableMedia && <div style={{marginTop:12}}><LearningAsset title={selectedIntake.title} kind={intakeMediaKind} contentUrl={intakeArtifactUrl} embedUrl={intakeSafeEmbedUrl} altText={selectedIntake.title} /></div>}
+            {!intakeHasPlayableMedia && <div className="admin-note" role="status" style={{padding:12,marginTop:12}}><strong>This is a source reference, not playable Library content.</strong> It was selected before VidyaSetu could verify an in-platform player or public media file. It cannot be added or published as-is.<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:9}}><a href={selectedIntake.source_url} target="_blank" rel="noreferrer" style={{color:'#9A3B00',fontWeight:800}}>Inspect the original source ↗</a><button type="button" className="btn-secondary" disabled={discardUnsupportedMutation.isPending} onClick={()=>discardUnsupportedMutation.mutate()}>{discardUnsupportedMutation.isPending?'Removing…':'Remove from review queue'}</button></div></div>}
             <div className="admin-muted" style={{fontSize:13,lineHeight:1.6,marginTop:8}}>Class: {selectedIntake.class_hint||selectedIntake.discovery_context?.gradeCodes?.join(', ')||'From search'} · Board: {selectedIntake.board_hint||selectedIntake.discovery_context?.boardCodes?.join(', ')||'From search'} · Subject: {selectedIntake.subject_hint||selectedIntake.discovery_context?.subjectLabel||'From search'}<br/>Topic: {selectedIntake.discovery_context?.topicLabel||selectedIntake.discovery_context?.chapterLabel||'Not mapped to a syllabus topic'}</div>
-            {selectedIntake.source_url&&<p style={{margin:'8px 0'}}><a href={selectedIntake.source_url} target="_blank" rel="noreferrer" style={{color:'#9A3B00',fontWeight:800}}>Inspect source and rights evidence ↗</a></p>}
-            <label className="admin-label" style={{display:'block',marginTop:12}}>Content name<input className="admin-input" value={intakeTitle} onChange={(event)=>setIntakeTitle(event.target.value)} maxLength={300} /></label>
+            {intakeHasPlayableMedia && selectedIntake.source_url&&<p style={{margin:'8px 0'}}><a href={selectedIntake.source_url} target="_blank" rel="noreferrer" style={{color:'#9A3B00',fontWeight:800}}>Inspect source and rights evidence ↗</a></p>}
+            {intakeHasPlayableMedia && <>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginTop:12}}>
-              <label className="admin-label">Who can see it?<select className="admin-select" value={intakeVisibility==='PUBLIC'?'PUBLIC':intakeAccess==='SUBSCRIBER'?'SUBSCRIBER':'CLASS_ONLY'} onChange={(event)=>{const audience=event.target.value;if(audience==='PUBLIC'){setIntakeVisibility('PUBLIC');setIntakeAccess('PUBLIC');}else{setIntakeVisibility('CLASS_ONLY');setIntakeAccess(audience==='SUBSCRIBER'?'SUBSCRIBER':'REGISTERED');}}}><option value="PUBLIC">Public · anyone</option><option value="CLASS_ONLY">Private · selected class learners</option><option value="SUBSCRIBER">Private · subscribers</option></select></label>
               <label className="admin-label">Licence<select className="admin-select" value={intakeLicence} onChange={(event)=>setIntakeLicence(event.target.value)}>{['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','PERMISSION_GRANTED','EXTERNAL_LINK_ONLY','OTHER'].map((value)=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
               <label className="admin-label">Attribution<input className="admin-input" value={intakeAttribution} onChange={(event)=>setIntakeAttribution(event.target.value)} placeholder="Creator / publisher credit" /></label>
               <label className="admin-label">Rights evidence<input className="admin-input" value={intakeEvidenceUrl} onChange={(event)=>setIntakeEvidenceUrl(event.target.value)} placeholder="Source page showing licence and reuse terms" /></label>
             </div>
             <label style={{display:'flex',gap:8,alignItems:'start',marginTop:12,fontSize:13}}><input type="checkbox" checked={intakeRightsConfirmed} onChange={(event)=>setIntakeRightsConfirmed(event.target.checked)} /><span>I checked the item’s rights and confirmed the content plays inside VidyaSetu without requiring the learner to sign in to the source.</span></label>
-            <button type="button" className="btn-primary" disabled={addDiscoveredMutation.isPending||!intakeRightsConfirmed||intakeTitle.trim().length<3} onClick={()=>addDiscoveredMutation.mutate()} style={{marginTop:12}}>{addDiscoveredMutation.isPending?'Preparing VidyaSetu playback…':'Add reviewed item to Library draft'}</button>
+            <p className="admin-muted" style={{fontSize:12,margin:'10px 0 0'}}>New Library drafts start private. Choose public or class/subscription access in the Library when you are ready to publish.</p>
+            <button type="button" className="btn-primary" disabled={addDiscoveredMutation.isPending||!intakeRightsConfirmed} onClick={()=>addDiscoveredMutation.mutate()} style={{marginTop:12}}>{addDiscoveredMutation.isPending?'Preparing VidyaSetu playback…':'Add reviewed item to Library draft'}</button>
+            </>}
           </div> : <div className="admin-panel-muted" style={{padding:18}}>Select a discovered item to review it here.</div>}
         </div>
       </section>}

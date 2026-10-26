@@ -136,6 +136,8 @@ export default function ContentFactoryPage() {
     : (topicText.trim() || chapterText.trim() || subject)).trim();
   const discovery = creatorOptionsQuery.data?.discovery;
   const providerConfigured = Boolean(creatorOptionsQuery.data?.provider?.configured);
+  const playableCandidates = candidates.filter((candidate) => ['LIBRARY','EMBED','IMPORT'].includes(candidate.delivery_capability?.code || ''));
+  const sourceOnlyCandidates = candidates.filter((candidate) => !['LIBRARY','EMBED','IMPORT'].includes(candidate.delivery_capability?.code || ''));
 
   const discoverMutation = useMutation({
     mutationFn: () => discoverContentCreatorSources({
@@ -288,7 +290,7 @@ export default function ContentFactoryPage() {
           </label>
           <label className="admin-label">Subject
             <select className="admin-select" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setChapterText(''); setTopicText('');setCurriculumTopicId('');setSyllabusConcept(''); }}>
-              <option value="">Select subject…</option>
+              <option value="">{factoryQuery.isLoading ? 'Loading subjects…' : subjects.length ? 'Select subject…' : 'No subjects available'}</option>
               {subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
@@ -298,7 +300,7 @@ export default function ContentFactoryPage() {
             </select>
           </label>
           {syllabusMode==='SYLLABUS'&&<>
-            <label className="admin-label">Syllabus academic year<select className="admin-select" value={syllabusYear} onChange={e=>{setSyllabusYear(e.target.value);setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}><option value="">Select year</option>{syllabusYears.map(year=><option key={year}>{year}</option>)}</select></label>
+            {syllabusYears.length > 0 && <label className="admin-label">Syllabus year<select className="admin-select" value={syllabusYear} onChange={e=>{setSyllabusYear(e.target.value);setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}>{syllabusYears.map(year=><option key={year}>{year}</option>)}</select></label>}
             <label className="admin-label">Syllabus medium<select className="admin-select" value={curriculumMedium} onChange={e=>{setCurriculumMedium(e.target.value as 'en'|'hi');setSyllabusYear('');setSubjectId('');setChapterText('');setTopicText('');setCurriculumTopicId('');setSyllabusConcept('');}}><option value="en">English syllabus</option><option value="hi">Hindi syllabus</option></select></label>
           </>}
         </div>
@@ -316,7 +318,7 @@ export default function ContentFactoryPage() {
           <label className="admin-label">Topic / learning need <span className="admin-muted">— free topic search</span><input className="admin-input" value={topicText} onChange={(e) => setTopicText(e.target.value)} placeholder="e.g. Multiplication of 2-digit numbers, solar system, nouns" /></label>
         </div>}
 
-        {!availableCurriculumSubjects.length&&syllabusMode==='SYLLABUS'&&<div className="admin-note" style={{ marginTop: 12,padding: 12 }}>No published syllabus is available for this board, class, year and medium yet. You can still search by subject and topic here, or <Link className="underline font-semibold" href="/admin/learning/framework">open Framework Manager</Link> to import and review a syllabus.</div>}
+        {!availableCurriculumSubjects.length&&syllabusMode==='SYLLABUS'&&<div className="admin-note" style={{ marginTop: 12,padding: 12 }}>No published syllabus is available for this board and class yet. Choose a subject and search normally; a syllabus year is only needed when selecting a published syllabus topic. <Link className="underline font-semibold" href="/admin/learning/framework">Open Framework Manager</Link> to import and review a syllabus.</div>}
         {availableCurriculumSubjects.length>0&&subjectId&&!curriculumSubject&&syllabusMode==='SYLLABUS'&&<div className="admin-note" style={{ marginTop: 12,padding: 12 }}>This subject has no published syllabus for the selected year and medium. Search it as an off-syllabus topic; an academic reviewer can map it later.</div>}
         {useSyllabusTopics&&selectedCurriculumTopic&&<div className="admin-success-note" style={{ marginTop: 14,padding: 12 }}><strong>Syllabus link selected:</strong> {selectedBoard?.short_name||boardCode} · {gradeCode} · {subject} · {syllabusYear} · {selectedCurriculumTopic.chapter_title||'Chapter'} → {selectedCurriculumTopic.title}. This stable topic ID will be retained through source review and Library draft creation.</div>}
         {syllabusMode==='EXPLORE'&&<div className={readiness?.curriculumReady ? 'admin-success-note' : 'admin-note'} style={{ marginTop: 14,padding: 12 }}><strong>Off-syllabus search:</strong> Class {classNumber} currently has {readiness?.conceptCount || 0} canonical concept(s). Search is allowed; an academic reviewer can map the draft to a published syllabus topic later.</div>}
@@ -366,8 +368,11 @@ export default function ContentFactoryPage() {
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}><span className="admin-step">3</span>Select a useful result</h2>
         {!candidates.length && <div className="admin-panel-muted" style={{ padding: 16 }}>No results loaded yet. Search above. Select a playable result to open its review card in Content Library.</div>}
+        {candidates.length > 0 && <div className={playableCandidates.length ? 'admin-success-note' : 'admin-note'} style={{ padding: 12, marginBottom: 12 }}>
+          <strong>{playableCandidates.length} ready for VidyaSetu review</strong> · {sourceOnlyCandidates.length} source reference{sourceOnlyCandidates.length === 1 ? '' : 's'} do not currently have a supported in-platform player or importable file. Only ready items can enter the Library queue.
+        </div>}
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',gap: 12 }}>
-          {candidates.map((candidate) => {
+          {playableCandidates.map((candidate) => {
             const stage = staged[candidate.id] || (candidate.intake_id ? { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id } : undefined);
             const artifactUrl = typeof candidate.metadata?.artifactUrl === 'string' ? candidate.metadata.artifactUrl : null;
             const previewKind = ['VIDEO','AUDIO','IMAGE','PDF'].includes(candidate.media_kind || '') ? candidate.media_kind : null;
@@ -408,6 +413,16 @@ export default function ContentFactoryPage() {
             </article>;
           })}
         </div>
+        {sourceOnlyCandidates.length > 0 && <details style={{ marginTop: 14 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 800, color: '#475467' }}>Show source-only references ({sourceOnlyCandidates.length})</summary>
+          <p className="admin-muted" style={{ fontSize: 12 }}>These can help you find a topic, but cannot be saved or published until the provider supplies a public media file or an approved player VidyaSetu can render.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 8 }}>
+            {sourceOnlyCandidates.map((candidate) => <article key={candidate.id} className="admin-panel-muted" style={{ padding: 12 }}>
+              <strong>{candidate.title}</strong><div className="admin-muted" style={{ fontSize: 12, marginTop: 4 }}>{candidate.provider} · {candidate.media_kind || 'Unknown format'} · {candidate.delivery_capability?.label || 'Source only'}</div>
+              {candidate.source_url && <a href={candidate.source_url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6, color: '#9A3B00', fontWeight: 800 }}>Inspect source ↗</a>}
+            </article>)}
+          </div>
+        </details>}
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
