@@ -43,6 +43,7 @@ export interface PipelineQueueItem {
   licence_url?: string | null; attribution_text?: string | null; rights_evidence_url?: string | null;
   grade_code?: string | null; status: string; created_at: string; reviewed_at?: string | null;
   imported_resource_id?: string | null; source_code: string; source_name: string; asset_id?: string | null;
+  discovery_metadata?: { youtubeLicense?: string; youtubeMadeForKids?: boolean; youtubeAudienceClassification?: string; embedOnly?: boolean } | null;
   metadata?: Partial<StagePipelinePayload>; embed_url?: string | null; discovered_media_kind?: string | null; discovered_embed_url?: string | null; discovered_asset_url?: string | null; discovery_context?:Partial<StagePipelinePayload>; discovered_language?:string | null; discovered_duration?:number | null; discovered_thumbnail_url?: string | null; class_hint?: string | null; board_hint?: string | null; subject_hint?: string | null;
   storage_key?: string | null; mime_type?: string | null; byte_size?: number | null;
   processing_status?: string | null; asset_verified_at?: string | null; resource_id?: string | null;

@@ -16,6 +16,7 @@ const ALLOW_NA = new Set(['ACCESSIBILITY', 'SAFETY']);
 export default function LearningQualityPanel({ entityType, entityId }: { entityType: QualityEntityType; entityId: string }) {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [statuses, setStatuses] = useState<Record<string, QualityGateStatus>>({});
   const queryKey = useMemo(() => ['learning-readiness', entityType, entityId], [entityId, entityType]);
   const readinessQuery = useQuery({
     queryKey,
@@ -24,8 +25,9 @@ export default function LearningQualityPanel({ entityType, entityId }: { entityT
   });
 
   const gateMutation = useMutation({
-    mutationFn: ({ gateCode, status }: { gateCode: string; status: QualityGateStatus }) =>
-      setLearningQualityGate(entityType, entityId, gateCode, status, notes[gateCode] || null),
+    mutationFn: (gates:Array<{gateCode:string;status:QualityGateStatus}>) => Promise.all(
+      gates.map(({gateCode,status})=>setLearningQualityGate(entityType,entityId,gateCode,status,notes[gateCode]||null)),
+    ),
     onSuccess: async () => {
       toast.success('Quality gate saved');
       await queryClient.invalidateQueries({ queryKey });
@@ -60,21 +62,22 @@ export default function LearningQualityPanel({ entityType, entityId }: { entityT
       </div>
 
       <h4 style={{ color: '#14213D', margin: '18px 0 8px' }}>Human quality gates</h4>
-      <div style={{ display: 'grid', gap: 9 }}>
+      <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,420px),1fr))', gap: 9 }}>
         {readiness.manualGates.map((gate) => {
           const noteValue = notes[gate.gateCode] ?? gate.note ?? '';
           return (
-            <div key={gate.gateCode} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) 150px minmax(180px,1.4fr) 74px', gap: 8, alignItems: 'center' }}>
+            <div key={gate.gateCode} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px,1fr) minmax(130px,170px)', gap: 8, alignItems: 'center',padding:10,border:'1px solid #E2E8F0',borderRadius:9,background:'#FFFFFF' }}>
               <div style={{ color: '#344054', fontSize: 12, fontWeight: 800 }}>{gate.gateCode.replaceAll('_', ' ')}</div>
-              <select defaultValue={gate.status} id={`gate-${entityType}-${entityId}-${gate.gateCode}`} className="admin-select" style={{ marginTop: 0 }}>
+              <select value={statuses[gate.gateCode]??gate.status} onChange={(event)=>setStatuses((current)=>({...current,[gate.gateCode]:event.target.value as QualityGateStatus}))} className="admin-select" style={{ marginTop: 0 }}>
                 <option value="PENDING">PENDING</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option>{ALLOW_NA.has(gate.gateCode) && <option value="NOT_APPLICABLE">N/A</option>}
               </select>
-              <input value={noteValue} onChange={(event) => setNotes((current) => ({ ...current, [gate.gateCode]: event.target.value }))} placeholder="Reviewer note" className="admin-input" style={{ marginTop: 0 }} />
-              <button type="button" disabled={gateMutation.isPending} onClick={() => { const element = document.getElementById(`gate-${entityType}-${entityId}-${gate.gateCode}`) as HTMLSelectElement | null; gateMutation.mutate({ gateCode: gate.gateCode, status: (element?.value || gate.status) as QualityGateStatus }); }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1', background: '#FFFFFF', color: '#14213D', fontWeight: 800, cursor: 'pointer' }}>Save</button>
+              <input value={noteValue} onChange={(event) => setNotes((current) => ({ ...current, [gate.gateCode]: event.target.value }))} placeholder="Optional note" className="admin-input" style={{ marginTop: 0,gridColumn:'1 / -1' }} />
             </div>
           );
         })}
       </div>
+
+      {readiness.manualGates.length>0&&<div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}><button type="button" disabled={gateMutation.isPending} onClick={()=>gateMutation.mutate(readiness.manualGates.map((gate)=>({gateCode:gate.gateCode,status:statuses[gate.gateCode]??gate.status})))} className="btn-secondary">{gateMutation.isPending?'Saving review…':'Save all review checks'}</button></div>}
 
       {readiness.blockers.length > 0 && <div style={{ marginTop: 15, padding: 12, borderRadius: 10, background: '#FFF1F0', border: '1px solid #FDA29B' }}><strong style={{ color: '#B42318' }}>Current blockers</strong><ul style={{ margin: '8px 0 0 18px', color: '#7A271A', fontSize: 12, lineHeight: 1.6 }}>{readiness.blockers.slice(0,10).map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div>}
     </div>

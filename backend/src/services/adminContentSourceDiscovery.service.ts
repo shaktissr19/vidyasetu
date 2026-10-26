@@ -838,6 +838,16 @@ export async function addDiscoveredContentToLibrary(candidateId: UUID, input: Ad
   const boardCode = typeof filters.boardCode === 'string' ? filters.boardCode : 'COMMON';
   const gradeCodes = [gradeCode];
   const boardCodes = [boardCode];
+  let selectedSubjectId = typeof filters.subjectId === 'string' ? filters.subjectId : null;
+  const selectedSubjectLabel = typeof filters.subject === 'string' ? filters.subject : candidate.subjects[0] || null;
+  if (!selectedSubjectId && selectedSubjectLabel) {
+    const { rows: [matchedSubject] } = await query<{ id: UUID }>(
+      `SELECT id FROM subjects WHERE lower(name)=lower($1) OR lower(code)=lower($1)
+       ORDER BY CASE WHEN lower(name)=lower($1) THEN 0 ELSE 1 END LIMIT 1`,
+      [selectedSubjectLabel.trim()],
+    );
+    selectedSubjectId = matchedSubject?.id || null;
+  }
   const mediaKind = candidate.media_kind && ['VIDEO','AUDIO','IMAGE','PDF','INTERACTIVE'].includes(candidate.media_kind)
     ? candidate.media_kind as pipeline.PipelineMediaKind : null;
   if (!mediaKind) throw appError('This result format is not playable in VidyaSetu');
@@ -861,8 +871,8 @@ export async function addDiscoveredContentToLibrary(candidateId: UUID, input: Ad
     category: 'ACADEMIC',
     gradeCodes,
     boardCodes,
-    subjectId: typeof filters.subjectId === 'string' ? filters.subjectId : null,
-    subjectLabel: typeof filters.subject === 'string' ? filters.subject : candidate.subjects[0] || null,
+    subjectId: selectedSubjectId,
+    subjectLabel: selectedSubjectLabel,
     chapterLabel: typeof filters.chapterLabel === 'string' ? filters.chapterLabel : null,
     topicLabel: typeof filters.topicLabel === 'string' ? filters.topicLabel : typeof filters.query === 'string' ? filters.query : null,
     language: candidate.languages[0] || 'en',

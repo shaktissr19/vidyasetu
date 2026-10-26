@@ -207,7 +207,8 @@ export async function listLearningResources() {
     `SELECT lr.id, lr.public_slug, lr.title, lr.title_hi, lr.summary,lr.summary_hi,
             to_jsonb(lr)->>'difficulty' AS difficulty,to_jsonb(lr)->>'transcript' AS transcript,to_jsonb(lr)->>'alt_text' AS alt_text,
             lr.resource_type, lr.category, lr.visibility, lr.access_requirement, lr.review_status,
-            lr.language, lr.class_min, lr.class_max, lr.subject_id, sub.name AS subject_name, lr.licence,
+            lr.language, lr.class_min, lr.class_max, lr.subject_id, sub.name AS subject_name,
+            lr.subject_label,lr.chapter_label,lr.topic_label,lr.licence,
             lr.source_url, lr.external_url, lr.attribution_text,
             lr.is_featured_public, lr.published_at, lr.created_at,
             (SELECT COUNT(*)=6 FROM learning_quality_gate_reviews q WHERE q.entity_type='RESOURCE'::learning_quality_entity_type AND q.entity_id=lr.id
@@ -441,6 +442,32 @@ export async function updateLearningResourceStatus(
     );
 
     return updated;
+  });
+}
+
+/** Soft-delete resources by moving them to ARCHIVED, retaining their audit history and restore path. */
+export async function archiveLearningResources(resourceIds: UUID[], reviewerId: UUID) {
+  const ids = [...new Set(resourceIds)];
+  if (!ids.length || ids.length > 250) throw badRequest('Select between 1 and 250 resources to delete.');
+  return transaction(async (client) => {
+    const { rows } = await client.query<{ id: UUID; title: string; review_status: string }>(
+      `SELECT id,title,review_status FROM learning_resources WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+      [ids],
+    );
+    if (rows.length !== ids.length) throw Object.assign(new Error('One or more selected resources no longer exist. Refresh the Library and try again.'), { statusCode: 404 });
+    for (const resource of rows) assertReviewTransition(resource.review_status, 'ARCHIVED');
+    for (const resource of rows) {
+      await client.query(
+        `UPDATE learning_resources SET review_status='ARCHIVED'::learning_review_status WHERE id=$1::uuid`,
+        [resource.id],
+      );
+      await client.query(
+        `INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note)
+         VALUES($1::uuid,$2::uuid,$3::learning_review_status,'ARCHIVED'::learning_review_status,$4)`,
+        [resource.id,reviewerId,resource.review_status,'Removed from active Content Library by administrator; retained as archived for recovery.'],
+      );
+    }
+    return { archivedCount: rows.length, resourceIds: ids };
   });
 }
 
