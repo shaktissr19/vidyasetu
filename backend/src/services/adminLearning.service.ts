@@ -284,7 +284,16 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
     }
     const primaryConceptId = conceptMappings.find((mapping) => mapping.isPrimary !== false)?.conceptId || conceptMappings[0]?.conceptId;
     const { rows: [mappedConcept] } = primaryConceptId
-      ? await client.query<{ subject_id: UUID | null }>(`SELECT subject_id FROM learning_concepts WHERE id=$1::uuid`,[primaryConceptId])
+      ? await client.query<{ subject_id: UUID | null }>(
+          `SELECT COALESCE(lc.subject_id,(
+             SELECT s.id FROM subjects s
+             WHERE UPPER(s.code)=UPPER(lc.subject_code) OR UPPER(s.name)=UPPER(lc.subject_code)
+             ORDER BY CASE WHEN UPPER(s.code)=UPPER(lc.subject_code) THEN 0 ELSE 1 END
+             LIMIT 1
+           )) AS subject_id
+           FROM learning_concepts lc WHERE lc.id=$1::uuid`,
+          [primaryConceptId],
+        )
       : { rows: [] as Array<{ subject_id: UUID | null }> };
 
     const { rows: [resource] } = await client.query<ResourceIdRow>(
@@ -463,8 +472,8 @@ export async function reviewAndPublishLearningResource(resourceId: UUID, reviewe
     let previous=existing.review_status;
     for (const next of transitions) {
       await client.query(
-        `INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note)
-         VALUES($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5)`,
+        `INSERT INTO learning_resource_reviews(resource_id,reviewer_id,from_status,to_status,review_note,created_at)
+         VALUES($1::uuid,$2::uuid,$3::learning_review_status,$4::learning_review_status,$5,clock_timestamp())`,
         [resourceId,reviewerId,previous,next,'Reviewed and published from Content Library; intermediate governance transitions retained for audit.'],
       );
       await client.query(
