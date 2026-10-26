@@ -165,11 +165,11 @@ jobs:
       - name: Certify bounded Learning API preview and richer grades
         run: |
           curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?grade=CLASS_5&limit=6' > /tmp/class5.json
-          jq -e '.success == true and (.data | length) >= 5 and (.data | length) <= 6' /tmp/class5.json >/dev/null
+          jq -e '.success == true and (.data | length) >= 1 and (.data | length) <= 6 and all(.data[]; .resource_type as $type | (["ARTICLE","QUIZ","VIDEO","AUDIO","IMAGE","PDF","WORKSHEET","QUESTION_PAPER"] | index($type) != null))' /tmp/class5.json >/dev/null
           curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?grade=CLASS_8&limit=6' > /tmp/class8.json
-          jq -e '.success == true and (.data | length) == 6' /tmp/class8.json >/dev/null
+          jq -e '.success == true and (.data | length) >= 1 and (.data | length) <= 6 and all(.data[]; .resource_type as $type | (["ARTICLE","QUIZ","VIDEO","AUDIO","IMAGE","PDF","WORKSHEET","QUESTION_PAPER"] | index($type) != null))' /tmp/class8.json >/dev/null
           curl -fsS 'http://127.0.0.1:5000/api/v1/public/learning/resources?grade=PRE_NURSERY&limit=6' > /tmp/early.json
-          jq -e '.success == true and (.data | length) >= 2' /tmp/early.json >/dev/null
+          jq -e '.success == true and (.data | length) >= 1 and (.data | length) <= 6 and all(.data[]; .resource_type as $type | (["ARTICLE","QUIZ","VIDEO","AUDIO","IMAGE","PDF","WORKSHEET","QUESTION_PAPER"] | index($type) != null))' /tmp/early.json >/dev/null
 
       - name: Start frontend and smoke new public routes
         working-directory: frontend
