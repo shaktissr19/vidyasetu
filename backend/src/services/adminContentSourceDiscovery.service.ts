@@ -620,9 +620,6 @@ export async function stageDiscoveryCandidate(candidateId: UUID, adminId: UUID) 
       });
     });
   }
-  if (deliveryCapability(candidate).code === 'REFERENCE') {
-    throw appError('This result is source-only and cannot be added as playable Learning content. Select a result with an approved player or importable media file.');
-  }
   if (candidate.reference_only) {
     throw appError('This is a source-search reference, not a specific Learning item.');
   }

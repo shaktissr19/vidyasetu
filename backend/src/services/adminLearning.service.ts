@@ -282,6 +282,10 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
       );
       if (concepts.length !== uniqueConceptIds.length) throw badRequest('One or more selected canonical concepts are invalid.');
     }
+    const primaryConceptId = conceptMappings.find((mapping) => mapping.isPrimary !== false)?.conceptId || conceptMappings[0]?.conceptId;
+    const { rows: [mappedConcept] } = primaryConceptId
+      ? await client.query<{ subject_id: UUID | null }>(`SELECT subject_id FROM learning_concepts WHERE id=$1::uuid`,[primaryConceptId])
+      : { rows: [] as Array<{ subject_id: UUID | null }> };
 
     const { rows: [resource] } = await client.query<ResourceIdRow>(
       `INSERT INTO learning_resources
@@ -301,7 +305,7 @@ export async function createLearningResource(input: SaveLearningResourceInput, c
         input.summaryHi?.trim() || null, input.bodyMarkdown?.trim() || null,
         input.bodyMarkdownHi?.trim() || null, input.resourceType, input.category,
         access.visibility, requestedStatus, input.language || 'en', input.classMin || null,
-        input.classMax || null,input.subjectId||null,input.curriculumTopicId||null, source.id, input.sourceUrl?.trim() || null,
+        input.classMax || null,input.subjectId||mappedConcept?.subject_id||null,input.curriculumTopicId||null, source.id, input.sourceUrl?.trim() || null,
         input.sourceItemId?.trim() || null, input.licence, input.licenceUrl?.trim() || null,
         input.attributionText?.trim() || null, input.externalUrl?.trim() || null,
         input.fileKey?.trim() || null, input.thumbnailUrl?.trim() || null,
