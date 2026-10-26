@@ -17,6 +17,7 @@ const migrations = [
  '048_learning_content_factory_foundation.sql','049_learning_source_library_handoff.sql','050_unified_registration_role_linking.sql',
  '051_learning_content_pipeline.sql','052_learning_content_integration.sql','053_verified_syllabus_workspace.sql',
  '057_curriculum_topic_assets.sql','058_learning_asset_governance_analytics.sql','059_syllabus_content_handoff.sql','060_syllabus_e2e_manager.sql',
+ '061_youtube_verified_video_discovery.sql',
 ];
 async function sqlFile(file) {
  let sql = fs.readFileSync(path.join(root, file),'utf8').replace(/^\\.*$/gm,'').replace(/CREATE EXTENSION IF NOT EXISTS[^;]+;/g,'');

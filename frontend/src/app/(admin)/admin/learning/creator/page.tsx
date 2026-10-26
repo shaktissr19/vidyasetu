@@ -33,7 +33,7 @@ const secondaryButton = {
   color: '#14213D', cursor: 'pointer', fontWeight: 800, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
 } as const;
 const providerIcon: Record<CreatorDiscoveryProvider,string> = {
-  LOCAL: '📚', DIKSHA: '🇮🇳', NROER: '🏛️', CBSE: '🎓', NCERT_EPATHSHALA: '📖',
+  LOCAL: '📚', DIKSHA: '🇮🇳', YOUTUBE: '▶️', NROER: '🏛️', CBSE: '🎓', NCERT_EPATHSHALA: '📖',
   NIOS: '🏫', SWAYAM: '🎬', PHET: '🔬', OER_COMMONS: '🌍',
 };
 const mediaIcon: Record<CreatorDiscoveryMediaKind,string> = {
