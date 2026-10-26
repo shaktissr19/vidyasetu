@@ -10,6 +10,7 @@ import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 export type DiscoveryProvider =
   | 'LOCAL'
   | 'DIKSHA'
+  | 'YOUTUBE'
   | 'NROER'
   | 'CBSE'
   | 'NCERT_EPATHSHALA'
@@ -154,7 +155,7 @@ interface NormalizedCandidate {
 }
 
 const PROVIDERS: DiscoveryProvider[] = [
-  'LOCAL','DIKSHA','NROER','CBSE','NCERT_EPATHSHALA','NIOS','SWAYAM','PHET','OER_COMMONS',
+  'LOCAL','DIKSHA','YOUTUBE','NROER','CBSE','NCERT_EPATHSHALA','NIOS','SWAYAM','PHET','OER_COMMONS',
 ];
 
 function appError(message: string, statusCode = 400): Error & { statusCode: number } {
@@ -198,6 +199,9 @@ function asPositiveNumber(value: unknown): number | null {
 function mapLicence(rawValue: unknown): string {
   const raw = String(asString(rawValue) || '').toUpperCase().replace(/[–—]/g, '-').replace(/_/g, ' ');
   if (!raw) return 'OTHER';
+  // YouTube's licence is permission to use its official player, not to copy or
+  // re-host the underlying video. Preserve it as a separately reviewed grant.
+  if (raw.includes('YOUTUBE')) return 'PERMISSION_GRANTED';
   if (raw.includes('PUBLIC DOMAIN') || raw === 'CC0' || raw.includes('CC ZERO')) return 'PUBLIC_DOMAIN';
   if (raw.includes('CC BY-NC-ND') || raw.includes('CC BY NC ND')) return 'CC_BY_NC_ND';
   if (raw.includes('CC BY-NC-SA') || raw.includes('CC BY NC SA')) return 'CC_BY_NC_SA';
@@ -231,9 +235,30 @@ function safeMetadata(value: Record<string, unknown>): Record<string, unknown> {
   const fields = [
     'identifier','name','description','primaryCategory','resourceType','contentType','mimeType','gradeLevel','subject','medium','language',
     'license','licence','creator','author','organisation','publisher','attributions','copyright','channel','publishedOn','framework',
-    'duration','appIcon','posterImage','artifactUrl','artifactURL','downloadUrl','downloadURL','contentUrl','contentURL','streamingUrl','previewUrl','mediaType',
+    'duration','appIcon','posterImage','artifactUrl','artifactURL','downloadUrl','downloadURL','contentUrl','contentURL','streamingUrl','previewUrl','mediaType','embedUrl','embedURL','url',
   ];
   return Object.fromEntries(fields.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]));
+}
+
+/** Convert an explicit YouTube video URL to its official privacy-enhanced player. */
+function approvedYouTubeEmbedUrl(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string' || !value.trim()) continue;
+    try {
+      const url = new URL(value.trim());
+      if (url.protocol !== 'https:' || url.username || url.password || url.port) continue;
+      const host = url.hostname.toLowerCase();
+      let videoId: string | null = null;
+      if (host === 'youtu.be' || host === 'www.youtu.be') {
+        videoId = url.pathname.split('/').filter(Boolean)[0] || null;
+      } else if (['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host)) {
+        if (url.pathname === '/watch') videoId = url.searchParams.get('v');
+        else videoId = url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})\/?$/)?.[1] || null;
+      }
+      if (videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId)) return `https://www.youtube-nocookie.com/embed/${videoId}`;
+    } catch { /* Ignore malformed and non-YouTube metadata URLs. */ }
+  }
+  return null;
 }
 
 function applyCandidateFilters(input: DiscoverSourcesInput, candidates: NormalizedCandidate[]): NormalizedCandidate[] {
@@ -271,7 +296,7 @@ function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
   const publisher = firstText(raw.publisher, raw.organisation, raw.channel);
   const attributions = firstText(raw.attributions, raw.copyright);
   const attribution = [author, publisher, attributions].filter(Boolean).join(' · ') || null;
-  const mediaKind = normalizeMediaKind(raw.primaryCategory, raw.resourceType, raw.contentType, raw.mimeType, raw.mediaType, raw.artifactUrl, raw.artifactURL);
+  const mediaKind = normalizeMediaKind(raw.primaryCategory, raw.resourceType, raw.contentType, raw.mimeType, raw.mediaType, raw.artifactUrl, raw.artifactURL, raw.embedUrl, raw.embedURL, raw.streamingUrl, raw.previewUrl, raw.contentUrl, raw.contentURL, raw.url);
   const metadata = safeMetadata(raw);
   // Persist a canonical, policy-approved direct asset URL for the Library
   // review preview. Never expose a portal URL or a signed/query URL as media.
@@ -300,12 +325,12 @@ function dikshaCandidate(rawUnknown: unknown): NormalizedCandidate | null {
     mediaKind,
     durationSeconds: asPositiveNumber(raw.duration),
     thumbnailUrl: firstText(raw.appIcon, raw.posterImage),
-    // DIKSHA's streamingUrl/previewUrl values are media or portal URLs, not a
-    // guaranteed embeddable player URL. Treat artifactUrl as an import
-    // candidate and require a separate approved player URL for embeds. This
-    // prevents a DIKSHA login page or protected stream from being framed as a
-    // VidyaSetu player.
-    embedUrl: null,
+    // Some DIKSHA items wrap a public YouTube video. Render only an explicit
+    // YouTube video URL through the official player; never frame a DIKSHA page
+    // or raw media/protected stream URL.
+    embedUrl: mediaKind === 'VIDEO' ? approvedYouTubeEmbedUrl(
+      raw.embedUrl,raw.embedURL,raw.streamingUrl,raw.previewUrl,raw.contentUrl,raw.contentURL,raw.artifactUrl,raw.artifactURL,raw.downloadUrl,raw.downloadURL,raw.url,
+    ) : null,
     referenceOnly: false,
     metadata,
   };
@@ -522,6 +547,73 @@ async function discoverDiksha(input: DiscoverSourcesInput): Promise<NormalizedCa
   return hydrated;
 }
 
+function youtubeEnabled(): boolean {
+  return Boolean(process.env.YOUTUBE_DATA_API_KEY?.trim());
+}
+
+async function discoverYouTube(input: DiscoverSourcesInput): Promise<NormalizedCandidate[]> {
+  const apiKey = process.env.YOUTUBE_DATA_API_KEY?.trim();
+  if (!apiKey) throw appError('YouTube discovery needs YOUTUBE_DATA_API_KEY configured on the server', 503);
+  if (input.mediaKinds?.length && !input.mediaKinds.includes('VIDEO')) return [];
+
+  const queryText = [input.query.trim(), input.classNumber ? `Class ${input.classNumber}` : '', input.subject?.trim() || '', input.boardCode && input.boardCode !== 'COMMON' ? input.boardCode : '']
+    .filter(Boolean).join(' ');
+  const limit = Math.min(25, Math.max(1, input.limit || 12));
+  const search = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+    params: {
+      key: apiKey, part: 'snippet', type: 'video', q: queryText, maxResults: limit,
+      videoEmbeddable: 'true', videoSyndicated: 'true', safeSearch: 'strict',
+      ...(input.language ? { relevanceLanguage: input.language.slice(0, 2) } : {}),
+    }, timeout: 12000,
+  });
+  const ids = (Array.isArray(search.data?.items) ? search.data.items : [])
+    .map((item: any) => typeof item?.id?.videoId === 'string' ? item.id.videoId : null)
+    .filter((id: string | null): id is string => Boolean(id && /^[A-Za-z0-9_-]{11}$/.test(id)));
+  if (!ids.length) return [];
+
+  // Recheck eligibility with the video resource; search filters alone do not
+  // guarantee an item remains embeddable when it is selected for review.
+  const details = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+    params: { key: apiKey, part: 'snippet,status,contentDetails', id: ids.join(',') }, timeout: 12000,
+  });
+  const detailById = new Map<string, any>((Array.isArray(details.data?.items) ? details.data.items : [])
+    .filter((item: any) => item?.id && item?.status?.embeddable === true)
+    .map((item: any) => [String(item.id), item]));
+  const secondsFromIsoDuration = (duration: unknown): number | null => {
+    if (typeof duration !== 'string') return null;
+    const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+    if (!match) return null;
+    const seconds = Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+    return seconds > 0 ? seconds : null;
+  };
+  const searchItems = new Map<string, any>((search.data.items || []).map((item: any) => [String(item?.id?.videoId || ''), item]));
+  return applyCandidateFilters(input,ids.flatMap((id: string): NormalizedCandidate[] => {
+    const item = detailById.get(id);
+    if (!item) return [];
+    const snippet = item.snippet || searchItems.get(id)?.snippet || {};
+    const title = asString(snippet.title);
+    if (!title) return [];
+    const license = snippet.license === 'creativeCommon' ? 'CC BY' : 'YouTube Standard License (official player only)';
+    const embedUrl = `https://www.youtube-nocookie.com/embed/${id}`;
+    return [{
+      provider: 'YOUTUBE', sourceCode: 'YOUTUBE', sourceItemId: id, title,
+      description: asString(snippet.description), sourceUrl: `https://www.youtube.com/watch?v=${id}`,
+      primaryCategory: 'YouTube video', resourceType: 'VIDEO',
+      licenceCandidate: snippet.license === 'creativeCommon' ? 'CC_BY' : 'PERMISSION_GRANTED',
+      licenceRaw: license, attributionText: asString(snippet.channelTitle) || 'YouTube creator',
+      authorText: asString(snippet.channelTitle), publisherText: 'YouTube',
+      gradeLevels: input.classNumber ? [`Class ${input.classNumber}`] : [],
+      subjects: input.subject?.trim() ? [input.subject.trim()] : [],
+      languages: input.language ? [input.language] : [], canAdapt: snippet.license === 'creativeCommon',
+      canUseCommercially: snippet.license === 'creativeCommon', licenceVerified: false,
+      mediaKind: 'VIDEO', durationSeconds: secondsFromIsoDuration(item.contentDetails?.duration),
+      thumbnailUrl: asString(snippet.thumbnails?.high?.url) || asString(snippet.thumbnails?.medium?.url),
+      embedUrl, referenceOnly: false,
+      metadata: { youtubeVideoId: id, youtubeLicense: snippet.license || 'standard', embedOnly: true, channelId: snippet.channelId || null },
+    }];
+  }));
+}
+
 function templateUrl(template: string | null, connector: ConnectorRow, input: DiscoverSourcesInput): string {
   const raw = template || connector.homepage_url;
   return raw
@@ -582,6 +674,7 @@ async function discoverReference(input: DiscoverSourcesInput, provider: Discover
 async function discoverByProvider(input: DiscoverSourcesInput, provider: DiscoveryProvider): Promise<NormalizedCandidate[]> {
   if (provider === 'LOCAL') return discoverLocal(input);
   if (provider === 'DIKSHA') return discoverDiksha(input);
+  if (provider === 'YOUTUBE') return discoverYouTube(input);
   return discoverReference(input,provider);
 }
 
@@ -853,7 +946,7 @@ export async function sourceDiscoveryCapabilities() {
     providers: connectors.map((item) => ({
       code: item.provider,
       label: item.label,
-      enabled: item.enabled && (item.provider !== 'DIKSHA' || dikshaEnabled()),
+      enabled: item.enabled && (item.provider !== 'DIKSHA' || dikshaEnabled()) && (item.provider !== 'YOUTUBE' || youtubeEnabled()),
       requiresReview: item.requires_item_review,
       connectorMode: item.connector_mode,
       homepageUrl: item.homepage_url,
@@ -861,7 +954,7 @@ export async function sourceDiscoveryCapabilities() {
       requiresApiKey: item.requires_api_key,
       commercialPolicy: item.commercial_policy,
       licencePolicy: item.licence_policy,
-      statusNote: item.provider === 'DIKSHA' && !dikshaEnabled() ? 'Disabled by server configuration' : item.status_note,
+      statusNote: item.provider === 'DIKSHA' && !dikshaEnabled() ? 'Disabled by server configuration' : item.provider === 'YOUTUBE' && !youtubeEnabled() ? 'Set YOUTUBE_DATA_API_KEY on the backend to enable verified in-platform video search' : item.status_note,
     })),
     mediaKinds: [
       { code: 'ARTICLE' as const,label: 'Learn / Article' },

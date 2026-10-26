@@ -10,7 +10,7 @@ export type CreatorJobStatus =
   | 'READY_FOR_REVIEW' | 'APPROVED' | 'REJECTED' | 'MATERIALISED' | 'FAILED' | 'CANCELLED';
 export type CreatorLearningTarget = 'PUBLIC_LEARNING' | 'PRIVATE_LEARNING';
 export type CreatorDiscoveryProvider =
-  | 'LOCAL' | 'DIKSHA' | 'NROER' | 'CBSE' | 'NCERT_EPATHSHALA'
+  | 'LOCAL' | 'DIKSHA' | 'YOUTUBE' | 'NROER' | 'CBSE' | 'NCERT_EPATHSHALA'
   | 'NIOS' | 'SWAYAM' | 'PHET' | 'OER_COMMONS';
 export type CreatorDiscoveryMediaKind = 'ARTICLE' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'INTERACTIVE' | 'PDF' | 'COURSE' | 'LINK';
 export type CreatorConnectorMode = 'LOCAL_CATALOGUE' | 'LIVE_API' | 'REFERENCE_SEARCH';

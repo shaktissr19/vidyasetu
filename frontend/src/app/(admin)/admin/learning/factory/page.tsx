@@ -27,7 +27,7 @@ const panel = { padding: 20,borderRadius: 16 } as const;
 const button = { padding: '10px 16px',borderRadius: 10,border: 0,background: '#B54708',color: '#fff',fontWeight: 900,cursor: 'pointer' } as const;
 const secondary = { padding: '9px 14px',borderRadius: 10,border: '1px solid #CBD5E1',background: '#fff',color: '#14213D',fontWeight: 800,textDecoration: 'none',display: 'inline-flex',alignItems: 'center',gap: 6 } as const;
 const providerIcon: Record<CreatorDiscoveryProvider,string> = {
-  LOCAL: '📚',DIKSHA: '🇮🇳',NROER: '🏛️',CBSE: '🎓',NCERT_EPATHSHALA: '📖',NIOS: '🏫',SWAYAM: '🎬',PHET: '🔬',OER_COMMONS: '🌍',
+  LOCAL: '📚',DIKSHA: '🇮🇳',YOUTUBE: '▶️',NROER: '🏛️',CBSE: '🎓',NCERT_EPATHSHALA: '📖',NIOS: '🏫',SWAYAM: '🎬',PHET: '🔬',OER_COMMONS: '🌍',
 };
 const mediaIcon: Record<CreatorDiscoveryMediaKind,string> = {
   ARTICLE: '📖',VIDEO: '▶️',AUDIO: '🎧',IMAGE: '🖼️',INTERACTIVE: '🧩',PDF: '📄',COURSE: '🎓',LINK: '🔗',
@@ -61,11 +61,12 @@ export default function ContentFactoryPage() {
   const [chapterText,setChapterText] = useState('');
   const [topicText,setTopicText] = useState('');
   const [language,setLanguage] = useState<'English' | 'Hindi' | 'Bilingual'>('English');
-  const [providers,setProviders] = useState<CreatorDiscoveryProvider[]>(['LOCAL','DIKSHA']);
+  const [providers,setProviders] = useState<CreatorDiscoveryProvider[]>(['LOCAL','DIKSHA','YOUTUBE']);
   const [mediaKinds,setMediaKinds] = useState<CreatorDiscoveryMediaKind[]>(['ARTICLE','VIDEO']);
   const [publisher,setPublisher] = useState('');
   const [candidates,setCandidates] = useState<CreatorDiscoveryCandidate[]>([]);
   const [previewCandidateId,setPreviewCandidateId] = useState('');
+  const [resultFilter,setResultFilter] = useState<'ALL'|'PLAYABLE'|'UNPLAYABLE'>('ALL');
   const [runs,setRuns] = useState<Array<{ provider: CreatorDiscoveryProvider; count: number; status: 'COMPLETED' | 'FAILED'; error?: string }>>([]);
   const [staged,setStaged] = useState<Record<string,StageState>>({});
   const [selectedSources,setSelectedSources] = useState<CreatorSourceInput[]>([]);
@@ -136,12 +137,15 @@ export default function ContentFactoryPage() {
     : (topicText.trim() || chapterText.trim() || subject)).trim();
   const discovery = creatorOptionsQuery.data?.discovery;
   const providerConfigured = Boolean(creatorOptionsQuery.data?.provider?.configured);
+  const activeProviders = providers.filter((code) => (discovery?.providers || []).some((item) => item.code === code && item.enabled));
   const playableCandidates = candidates.filter((candidate) => ['LIBRARY','EMBED','IMPORT'].includes(candidate.delivery_capability?.code || ''));
   const sourceOnlyCandidates = candidates.filter((candidate) => !['LIBRARY','EMBED','IMPORT'].includes(candidate.delivery_capability?.code || ''));
+  const visiblePlayableCandidates = resultFilter === 'UNPLAYABLE' ? [] : playableCandidates;
+  const showUnplayableCandidates = resultFilter !== 'PLAYABLE' && sourceOnlyCandidates.length > 0;
 
   const discoverMutation = useMutation({
     mutationFn: () => discoverContentCreatorSources({
-      providers,
+      providers: activeProviders.length ? activeProviders : providers.filter((code) => code === 'LOCAL' || code === 'DIKSHA'),
       query: searchText,
       gradeCode,boardCode,conceptIds:useSyllabusTopics&&selectedCurriculumTopic?.concept_id?[selectedCurriculumTopic.concept_id]:(syllabusConcept && factoryQuery.data?.concepts.some(c=>c.id===syllabusConcept && c.grade_code===gradeCode && c.subject_id===subjectId && normalizedText(c.name)===normalizedText(topicText))?[syllabusConcept]:[]),academicYear:useSyllabusTopics?syllabusYear||null:null,curriculumMedium:useSyllabusTopics?curriculumMedium:null,curriculumTopicId:useSyllabusTopics?selectedCurriculumTopic?.id||null:null,subjectId:subjectId || null,chapterLabel:useSyllabusTopics?selectedCurriculumTopic?.chapter_title||null:chapterText||null,topicLabel:useSyllabusTopics?selectedCurriculumTopic?.title||null:topicText||null,
       classNumber: gradeCode.startsWith('CLASS_') ? classNumber : null,
@@ -154,6 +158,7 @@ export default function ContentFactoryPage() {
     onSuccess: (response) => {
       const result = response.data.data;
       setCandidates(result.candidates || []);
+      setResultFilter('ALL');
       setRuns(result.runs || []);
       const alreadyStaged: Record<string,StageState> = {};
       for (const item of result.candidates || []) {
@@ -330,12 +335,13 @@ export default function ContentFactoryPage() {
 
         <div className="admin-label" style={{ marginBottom: 6 }}>Sources</div>
         <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginBottom: 14 }}>
-          {(discovery?.providers || []).filter((item) => item.enabled).map((item) => {
-            const checked = providers.includes(item.code);
-            return <button key={item.code} type="button" onClick={() => toggleProvider(item.code)} style={{ ...secondary,borderColor: checked ? '#FF6B00' : '#CBD5E1',background: checked ? '#FFF4EC' : '#fff',cursor: 'pointer' }}>
-              <span>{checked ? '✓' : '○'}</span> {providerIcon[item.code]} {item.label}
+          {(discovery?.providers || []).map((item) => {
+            const checked = item.enabled && providers.includes(item.code);
+            return <button key={item.code} type="button" disabled={!item.enabled} title={item.enabled ? item.licencePolicy : item.statusNote || 'Not configured'} onClick={() => toggleProvider(item.code)} style={{ ...secondary,borderColor: checked ? '#FF6B00' : '#CBD5E1',background: checked ? '#FFF4EC' : '#fff',cursor: item.enabled ? 'pointer' : 'not-allowed',opacity: item.enabled ? 1 : .55 }}>
+              <span>{checked ? '✓' : item.enabled ? '○' : '🔒'}</span> {providerIcon[item.code]} {item.label}{!item.enabled && item.requiresApiKey ? ' (configure API key)' : ''}
             </button>;
           })}
+          {(discovery?.providers || []).filter((item) => !item.enabled && item.statusNote).map((item) => <span key={`${item.code}-note`} className="admin-muted" style={{ alignSelf: 'center',fontSize: 12 }}>{item.label}: {item.statusNote}</span>)}
         </div>
 
         <div className="admin-label" style={{ marginBottom: 6 }}>Content types</div>
@@ -371,8 +377,15 @@ export default function ContentFactoryPage() {
         {candidates.length > 0 && <div className={playableCandidates.length ? 'admin-success-note' : 'admin-note'} style={{ padding: 12, marginBottom: 12 }}>
           <strong>{playableCandidates.length} ready for VidyaSetu review</strong> · {sourceOnlyCandidates.length} source reference{sourceOnlyCandidates.length === 1 ? '' : 's'} do not currently have a supported in-platform player or importable file. Only ready items can enter the Library queue.
         </div>}
+        {candidates.length > 0 && <div role="group" aria-label="Filter search results by VidyaSetu playability" style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginBottom: 14 }}>
+          {([
+            ['ALL',`All results (${candidates.length})`],
+            ['PLAYABLE',`Playable in VidyaSetu (${playableCandidates.length})`],
+            ['UNPLAYABLE',`Not playable (${sourceOnlyCandidates.length})`],
+          ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={resultFilter===value} onClick={()=>setResultFilter(value)} style={{ ...secondary,cursor:'pointer',borderColor:resultFilter===value?'#FF6B00':'#CBD5E1',background:resultFilter===value?'#FFF4EC':'#fff' }}>{label}</button>)}
+        </div>}
         <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',gap: 12 }}>
-          {playableCandidates.map((candidate) => {
+          {visiblePlayableCandidates.map((candidate) => {
             const stage = staged[candidate.id] || (candidate.intake_id ? { kind: 'OER_INTAKE' as const,intakeId: candidate.intake_id } : undefined);
             const artifactUrl = typeof candidate.metadata?.artifactUrl === 'string' ? candidate.metadata.artifactUrl : null;
             const previewKind = ['VIDEO','AUDIO','IMAGE','PDF'].includes(candidate.media_kind || '') ? candidate.media_kind : null;
@@ -413,9 +426,9 @@ export default function ContentFactoryPage() {
             </article>;
           })}
         </div>
-        {sourceOnlyCandidates.length > 0 && <details style={{ marginTop: 14 }}>
-          <summary style={{ cursor: 'pointer', fontWeight: 800, color: '#475467' }}>Show source-only references ({sourceOnlyCandidates.length})</summary>
-          <p className="admin-muted" style={{ fontSize: 12 }}>These can help you find a topic, but cannot be saved or published until the provider supplies a public media file or an approved player VidyaSetu can render.</p>
+        {showUnplayableCandidates && <details open={resultFilter==='UNPLAYABLE'} style={{ marginTop: 14 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 800, color: '#475467' }}>{resultFilter==='UNPLAYABLE'?'Not playable in VidyaSetu':'Show not-playable source references'} ({sourceOnlyCandidates.length})</summary>
+          <p className="admin-muted" style={{ fontSize: 12 }}>These are search references only. They cannot be published until VidyaSetu has a supported player or an approved media file for them.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 8 }}>
             {sourceOnlyCandidates.map((candidate) => <article key={candidate.id} className="admin-panel-muted" style={{ padding: 12 }}>
               <strong>{candidate.title}</strong><div className="admin-muted" style={{ fontSize: 12, marginTop: 4 }}>{candidate.provider} · {candidate.media_kind || 'Unknown format'} · {candidate.delivery_capability?.label || 'Source only'}</div>
