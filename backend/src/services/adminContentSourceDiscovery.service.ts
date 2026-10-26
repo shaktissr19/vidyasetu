@@ -472,11 +472,11 @@ function dikshaReadContent(response: unknown): Record<string,unknown> | null {
 }
 
 async function hydrateDikshaMediaMetadata(candidate: NormalizedCandidate): Promise<NormalizedCandidate> {
-  if (!['VIDEO','AUDIO','IMAGE','PDF'].includes(candidate.mediaKind) || importableAssetUrl(candidate.metadata)) return candidate;
+  if (importableAssetUrl(candidate.metadata)) return candidate;
   try {
-    // Search hits can omit delivery metadata even when the public content-read
-    // record has it. Read only the selected media-type candidates; if DIKSHA
-    // does not return a direct supported asset, retain the safe source-only
+    // Search hits can omit both media type and delivery metadata even when the
+    // public content-read record has them. Hydrate item results without a
+    // direct asset; if DIKSHA does not return one, retain the safe source-only
     // classification and do not pretend its portal page is playable.
     const response=await axios.get(dikshaReadEndpoint().replace(/\/$/,'')+'/'+encodeURIComponent(candidate.sourceItemId),{
       headers:{Accept:'application/json'},timeout:3500,
