@@ -8,7 +8,7 @@ INSERT INTO learning_content_sources
   (id,code,name,source_kind,homepage_url,default_license,attribution_required,
    allow_rehosting_default,allow_adaptation_default,requires_item_license_check,notes)
 VALUES
-  (uuid_generate_v5(uuid_ns_url(),'vidyasetu-learning-source:YOUTUBE'),'YOUTUBE','YouTube','EXTERNAL_OFFICIAL',
+  ('83000000-0000-0000-0000-000000000061','YOUTUBE','YouTube','EXTERNAL_OFFICIAL',
    'https://www.youtube.com','EXTERNAL_LINK_ONLY',TRUE,FALSE,FALSE,TRUE,
    'Searches individual videos with the YouTube Data API and verifies embeddability. Playback is through YouTube’s privacy-enhanced official player; this grants no download, rehosting, adaptation, or subscriber paywall rights.')
 ON CONFLICT (code) DO UPDATE SET
