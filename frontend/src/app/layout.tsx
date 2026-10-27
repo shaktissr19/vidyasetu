@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import './globals.css';
 import Providers from '@/components/layout/Providers';
+import { MOBILE_NAV_THEME } from '../../../shared/ui/mobileNavigationTheme';
 
 export const metadata: Metadata = {
   title: 'VidyaSetu — Connected Education for India',
@@ -23,12 +24,20 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#FF6B00',
+  themeColor: MOBILE_NAV_THEME.orange,
 };
+
+const sharedThemeStyle = {
+  '--mobile-nav-bg': MOBILE_NAV_THEME.orange,
+  '--mobile-nav-edge': MOBILE_NAV_THEME.orangeEdge,
+  '--mobile-nav-ink': MOBILE_NAV_THEME.navy,
+  '--mobile-nav-active': MOBILE_NAV_THEME.cream,
+  '--mobile-nav-button-border': MOBILE_NAV_THEME.buttonBorder,
+} as CSSProperties;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="hi">
+    <html lang="hi" style={sharedThemeStyle}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

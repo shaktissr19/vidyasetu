@@ -18,6 +18,7 @@ import {
   SafeAreaView,
 } from "react-native-safe-area-context";
 import { WebView, type WebViewNavigation } from "react-native-webview";
+import { MOBILE_NAV_THEME } from "../shared/ui/mobileNavigationTheme";
 
 // Expo can point the app at a staging deployment for validation. Production
 // remains the default so an ordinary Expo Go build opens the live website.
@@ -393,6 +394,7 @@ function AppContent() {
   const [nativeUser, setNativeUser] = useState<NativeUser | null>(null);
   const [siteLanguage, setSiteLanguage] = useState<"en" | "hi">("hi");
   const [showTabScrollHint, setShowTabScrollHint] = useState(false);
+  const [tabContentFits, setTabContentFits] = useState(false);
 
   const tabs = nativeUser ? ROLE_TABS[nativeUser.role] : PUBLIC_TABS;
   const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : PUBLIC_MORE_PAGES;
@@ -494,7 +496,7 @@ function AppContent() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FF8A3D" />
+      <StatusBar barStyle="dark-content" backgroundColor={MOBILE_NAV_THEME.orange} />
       <View style={[styles.appHeader, compactHeader && styles.compactAppHeader]}>
         <Pressable
           accessibilityRole="button"
@@ -632,10 +634,14 @@ function AppContent() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabBar}
+            contentContainerStyle={[styles.tabBar, tabContentFits && styles.tabBarCentered]}
             accessibilityLabel="Primary app navigation"
             accessibilityHint="Swipe left or right to see more destinations."
-            onContentSizeChange={(contentWidth) => setShowTabScrollHint(contentWidth > windowWidth)}
+            onContentSizeChange={(contentWidth) => {
+              const fits = contentWidth <= windowWidth;
+              setTabContentFits(fits);
+              setShowTabScrollHint(!fits);
+            }}
             onScroll={({ nativeEvent }) => {
               const canScrollFurther = nativeEvent.contentOffset.x + nativeEvent.layoutMeasurement.width < nativeEvent.contentSize.width - 2;
               setShowTabScrollHint((current) => current === canScrollFurther ? current : canScrollFurther);
@@ -762,35 +768,35 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FF8A3D" },
-  tabBarSafeArea: { backgroundColor: "#FF8A3D" },
+  safe: { flex: 1, backgroundColor: MOBILE_NAV_THEME.orange },
+  tabBarSafeArea: { backgroundColor: MOBILE_NAV_THEME.orange },
   appHeader: {
     minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 8,
-    gap: 6, backgroundColor: "#FF8A3D", borderBottomWidth: 1, borderBottomColor: "#E7762C",
+    gap: 6, backgroundColor: MOBILE_NAV_THEME.orange, borderBottomWidth: 1, borderBottomColor: MOBILE_NAV_THEME.orangeEdge,
   },
-  compactAppHeader: { minHeight: 54, paddingHorizontal: 4, gap: 3 },
-  headerMenuButton: { width: 38, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#FFF3E8" },
-  compactHeaderMenuButton: { width: 32, height: 40 },
-  headerMenuIcon: { color: "#14213D", fontSize: 22, fontWeight: "800" },
+  compactAppHeader: { minHeight: 58, paddingHorizontal: 4, gap: 3 },
+  headerMenuButton: { width: 40, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: MOBILE_NAV_THEME.cream, borderWidth: 1, borderColor: MOBILE_NAV_THEME.buttonBorder },
+  compactHeaderMenuButton: { width: 34, height: 44 },
+  headerMenuIcon: { color: MOBILE_NAV_THEME.navy, fontSize: 22, fontWeight: "800" },
   brand: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1, minWidth: 0 },
   compactBrand: { gap: 4 },
-  brandMark: { width: 29, height: 29, borderRadius: 8, backgroundColor: "#14213D", alignItems: "center", justifyContent: "center" },
+  brandMark: { width: 29, height: 29, borderRadius: 8, backgroundColor: MOBILE_NAV_THEME.navy, alignItems: "center", justifyContent: "center" },
   compactBrandMark: { width: 27, height: 27, borderRadius: 7 },
   brandMarkText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900" },
-  brandText: { color: "#14213D", fontSize: 17, fontWeight: "900" },
+  brandText: { color: MOBILE_NAV_THEME.navy, fontSize: 17, fontWeight: "900" },
   compactBrandText: { fontSize: 14, flexShrink: 1 },
-  brandAccent: { color: "#14213D" },
+  brandAccent: { color: MOBILE_NAV_THEME.navy },
   headerActions: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4 },
   compactHeaderActions: { gap: 3 },
-  headerActionButton: { minHeight: 40, paddingHorizontal: 7, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#FFF7F0" },
+  headerActionButton: { minHeight: 44, paddingHorizontal: 7, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: MOBILE_NAV_THEME.cream, borderWidth: 1, borderColor: MOBILE_NAV_THEME.buttonBorder },
   compactHeaderActionButton: { paddingHorizontal: 5 },
-  headerActionText: { color: "#14213D", fontSize: 11, fontWeight: "800" },
+  headerActionText: { color: MOBILE_NAV_THEME.navy, fontSize: 12, fontWeight: "800" },
   languageButton: { minWidth: 38, paddingHorizontal: 6 },
-  createAccountButton: { backgroundColor: "#14213D", paddingHorizontal: 8 },
+  createAccountButton: { backgroundColor: MOBILE_NAV_THEME.navy, borderColor: MOBILE_NAV_THEME.navy, paddingHorizontal: 8 },
   createAccountText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
-  compactCreateAccountText: { fontSize: 9 },
-  headerLogoutButton: { borderWidth: 1, borderColor: "#14213D", backgroundColor: "#FFF7F0" },
-  headerLogoutText: { color: "#14213D" },
+  compactCreateAccountText: { fontSize: 10 },
+  headerLogoutButton: { borderWidth: 1, borderColor: MOBILE_NAV_THEME.navy, backgroundColor: MOBILE_NAV_THEME.cream },
+  headerLogoutText: { color: MOBILE_NAV_THEME.navy },
   webContainer: { flex: 1, backgroundColor: "#FFFFFF" },
   webView: { flex: 1, backgroundColor: "#FFFFFF" },
   loadingOverlay: {
@@ -833,18 +839,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#FF6B00",
+    backgroundColor: MOBILE_NAV_THEME.orange,
+    borderWidth: 1,
+    borderColor: MOBILE_NAV_THEME.orangeEdge,
   },
-  retryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  retryText: { color: MOBILE_NAV_THEME.navy, fontSize: 15, fontWeight: "800" },
   tabBarScroller: {
     position: "relative",
     minHeight: 66,
-    backgroundColor: "#FF8A3D",
+    backgroundColor: MOBILE_NAV_THEME.orange,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E66D24",
+    borderTopColor: MOBILE_NAV_THEME.orangeEdge,
   },
-  tabScrollHint: { position: "absolute", top: 0, right: 0, bottom: 0, width: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FF8A3D" },
-  tabScrollHintText: { color: "#14213D", fontSize: 25, fontWeight: "700", lineHeight: 28 },
+  tabScrollHint: { position: "absolute", top: 0, right: 0, bottom: 0, width: 22, alignItems: "center", justifyContent: "center", backgroundColor: MOBILE_NAV_THEME.orange },
+  tabScrollHintText: { color: MOBILE_NAV_THEME.navy, fontSize: 25, fontWeight: "700", lineHeight: 28 },
   tabBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -852,12 +860,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingTop: 5,
     gap: 3,
+    flexGrow: 1,
   },
-  tab: { flexGrow: 0, minWidth: 68, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 8 },
-  activeTab: { backgroundColor: "#FFF7F0" },
-  tabIcon: { color: "#14213D", fontSize: 18, lineHeight: 22 },
-  tabLabel: { color: "#14213D", fontSize: 11, fontWeight: "800", textAlign: "center" },
-  activeTabText: { color: "#14213D", fontWeight: "900" },
+  tabBarCentered: { justifyContent: "center" },
+  tab: { flexGrow: 0, minWidth: 72, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 8 },
+  activeTab: { backgroundColor: MOBILE_NAV_THEME.cream },
+  tabIcon: { color: MOBILE_NAV_THEME.navy, fontSize: 20, lineHeight: 23 },
+  tabLabel: { color: MOBILE_NAV_THEME.navy, fontSize: 12, fontWeight: "800", textAlign: "center" },
+  activeTabText: { color: MOBILE_NAV_THEME.navy, fontWeight: "900" },
   drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(13,27,62,0.48)" },
   drawerScrim: { ...StyleSheet.absoluteFill },
   menuScreen: { flex: 1, maxWidth: 400, width: "86%", backgroundColor: "#F5F8F9", elevation: 18, shadowColor: "#000000", shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 4, height: 0 } },
