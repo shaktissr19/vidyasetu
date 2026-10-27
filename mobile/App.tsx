@@ -5,11 +5,13 @@ import {
   FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import {
   SafeAreaProvider,
@@ -35,22 +37,20 @@ type NativeUser = { role: UserRole; name?: string };
 const PUBLIC_TABS: Page[] = [
   { label: "Home", path: "/", icon: "⌂" },
   { label: "Learn", path: "/learn", icon: "▤" },
-  { label: "Login", path: "/login", icon: "→" },
-  { label: "Create account", path: "/register", icon: "+" },
+  { label: "Students", path: "/for-students", icon: "🎓" },
+  { label: "Schools", path: "/for-schools", icon: "▦" },
+  { label: "Parents", path: "/for-parents", icon: "👪" },
+  { label: "Competitions", path: "/competition", icon: "☆" },
+  { label: "Communities", path: "/communities", icon: "◎" },
 ];
 
 const PUBLIC_MORE_PAGES: Page[] = [
   { section: "Explore VidyaSetu", label: "Learning library", path: "/learn/library", icon: "▤" },
   { section: "Explore VidyaSetu", label: "For students", path: "/for-students", icon: "◉" },
   { section: "Explore VidyaSetu", label: "For schools", path: "/for-schools", icon: "▦" },
-  { section: "Explore VidyaSetu", label: "For parents", path: "/for-parents", icon: "♡" },
+  { section: "Explore VidyaSetu", label: "For parents", path: "/for-parents", icon: "👪" },
   { section: "Explore VidyaSetu", label: "Competitions", path: "/competition", icon: "☆" },
   { section: "Explore VidyaSetu", label: "Communities", path: "/communities", icon: "◎" },
-  { section: "Explore VidyaSetu", label: "Platform administration", path: "/platform-admin", icon: "⚙" },
-];
-const PUBLIC_ACCOUNT_PAGES: Page[] = [
-  { section: "Account", label: "Login", path: "/login", icon: "→" },
-  { section: "Account", label: "Create account", path: "/register", icon: "+" },
 ];
 
 const ROLE_TABS: Record<UserRole, Page[]> = {
@@ -105,7 +105,7 @@ const ROLE_MORE_PAGES: Record<UserRole, Page[]> = {
   PARENT: [
     { section: "Child overview", label: "Overview", path: "/parent/dashboard", icon: "⌂" },
     { section: "Child overview", label: "Homework", path: "/parent/homework", icon: "✎" },
-    { section: "Child overview", label: "Learning support", path: "/parent/learning-support", icon: "♡" },
+    { section: "Child overview", label: "Learning support", path: "/parent/learning-support", icon: "👪" },
     { section: "Child overview", label: "Performance", path: "/parent/performance", icon: "▥" },
     { section: "Child overview", label: "Competitions & achievements", path: "/parent/achievements", icon: "☆" },
     { section: "School connection", label: "PTM & follow-up", path: "/parent/ptm", icon: "◷" },
@@ -199,9 +199,15 @@ const APP_LAYOUT_CSS = `
     padding-left: 12px !important; padding-right: 12px !important; gap: 8px !important;
     overflow: hidden !important;
   }
+  html.vidyasetu-native-app .global-topbar { display: none !important; }
   /* Native chrome is rendered by React Native so the website's wide desktop
      header cannot clip Dashboard/Logout or compete with the app menu. */
   html.vidyasetu-native-app header[style*="min-height: 66px"] { display: none !important; }
+  html.vidyasetu-native-app .mobile-bottom-nav { display: none !important; }
+  html.vidyasetu-native-app .role-mobile-toolbar,
+  html.vidyasetu-native-app .admin-mobile-toolbar,
+  html.vidyasetu-native-app .role-mobile-backdrop,
+  html.vidyasetu-native-app .admin-mobile-backdrop { display: none !important; }
   header[style*="min-height: 66px"] > nav {
     min-width: 0 !important; flex: 1 1 0 !important; justify-content: flex-start !important;
     overflow-x: auto !important; overflow-y: hidden !important;
@@ -359,7 +365,9 @@ const APP_LAYOUT_SCRIPT = `(function(){
         try{
           var saved=JSON.parse(localStorage.getItem('vidyasetu-auth')||'{}');
           var state=saved.state||{}; var user=state.user||null;
-          var value=JSON.stringify({type:'vidyasetu-auth',origin:location.origin,isLoggedIn:!!state.isLoggedIn,role:user&&user.role,name:user&&user.name||null});
+          var languageState=JSON.parse(localStorage.getItem('vidyasetu-lang')||'{}').state||{};
+          var language=languageState.lang==='en'?'en':'hi';
+          var value=JSON.stringify({type:'vidyasetu-auth',origin:location.origin,isLoggedIn:!!state.isLoggedIn,role:user&&user.role,name:user&&user.name||null,language:language});
           if(value!==last){last=value;window.ReactNativeWebView.postMessage(value);}
         }catch(_e){}
       };
@@ -371,6 +379,8 @@ const APP_LAYOUT_SCRIPT = `(function(){
 })();`;
 
 function AppContent() {
+  const { width: windowWidth } = useWindowDimensions();
+  const compactHeader = windowWidth < 420;
   const webView = useRef<WebView>(null);
   const loadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentUrl, setCurrentUrl] = useState(SITE_URL);
@@ -381,9 +391,11 @@ function AppContent() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
   const [nativeUser, setNativeUser] = useState<NativeUser | null>(null);
+  const [siteLanguage, setSiteLanguage] = useState<"en" | "hi">("hi");
+  const [showTabScrollHint, setShowTabScrollHint] = useState(false);
 
   const tabs = nativeUser ? ROLE_TABS[nativeUser.role] : PUBLIC_TABS;
-  const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : [...PUBLIC_MORE_PAGES, ...PUBLIC_ACCOUNT_PAGES];
+  const menuPages = nativeUser ? ROLE_MORE_PAGES[nativeUser.role] : PUBLIC_MORE_PAGES;
   const visibleMenuPages = menuPages.filter((page) =>
     `${page.section || ""} ${page.label}`.toLowerCase().includes(menuSearch.trim().toLowerCase()),
   );
@@ -444,6 +456,9 @@ function AppContent() {
   const openDashboard = () => {
     if (nativeUser) openPage(ROLE_TABS[nativeUser.role][0]);
   };
+  const toggleSiteLanguage = () => {
+    webView.current?.injectJavaScript(`(function(){var button=document.querySelector('button[aria-label="Switch language"]');if(button)button.click();return true;})();`);
+  };
   const logoutFromWebsite = () => {
     // Reuse the website's existing logout flow so the API, persisted auth state,
     // tracked session, and redirect all stay consistent with the web app.
@@ -479,21 +494,30 @@ function AppContent() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <View style={styles.appHeader}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FF8A3D" />
+      <View style={[styles.appHeader, compactHeader && styles.compactAppHeader]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open navigation menu"
+          accessibilityState={{ expanded: menuOpen }}
           onPress={openMenu}
-          style={styles.headerMenuButton}
+          style={[styles.headerMenuButton, compactHeader && styles.compactHeaderMenuButton]}
         >
-          <Text style={styles.headerMenuIcon}>☰</Text>
+          <Text style={styles.headerMenuIcon}>{menuOpen ? "×" : "☰"}</Text>
         </Pressable>
-        <Pressable accessibilityRole="link" accessibilityLabel="VidyaSetu home" onPress={() => openPage({ label: "Home", path: "/", icon: "⌂" })} style={styles.brand}>
-          <View style={styles.brandMark}><Text style={styles.brandMarkText}>V</Text></View>
-          <Text style={styles.brandText}>Vidya<Text style={styles.brandAccent}>Setu</Text></Text>
+        <Pressable accessibilityRole="link" accessibilityLabel="VidyaSetu home" onPress={() => openPage({ label: "Home", path: "/", icon: "⌂" })} style={[styles.brand, compactHeader && styles.compactBrand]}>
+          <View style={[styles.brandMark, compactHeader && styles.compactBrandMark]}><Text style={styles.brandMarkText}>V</Text></View>
+          <Text numberOfLines={1} style={[styles.brandText, compactHeader && styles.compactBrandText]}>Vidya<Text style={styles.brandAccent}>Setu</Text></Text>
         </Pressable>
-        <View style={styles.headerActions}>
+        <View style={[styles.headerActions, compactHeader && styles.compactHeaderActions]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={siteLanguage === "hi" ? "Switch language to English" : "भाषा हिंदी में बदलें"}
+            onPress={toggleSiteLanguage}
+            style={[styles.headerActionButton, styles.languageButton, compactHeader && styles.compactHeaderActionButton]}
+          >
+            <Text style={styles.headerActionText}>{siteLanguage === "hi" ? "EN" : "हिंदी"}</Text>
+          </Pressable>
           {nativeUser ? (
             <>
               <Pressable accessibilityRole="button" accessibilityLabel="Open my dashboard" onPress={openDashboard} style={styles.headerActionButton}>
@@ -504,9 +528,14 @@ function AppContent() {
               </Pressable>
             </>
           ) : (
-            <Pressable accessibilityRole="button" accessibilityLabel="Log in" onPress={() => openPage({ label: "Login", path: "/login", icon: "→" })} style={styles.headerActionButton}>
-              <Text style={styles.headerActionText}>Log in</Text>
-            </Pressable>
+            <>
+              <Pressable accessibilityRole="button" accessibilityLabel="Log in" onPress={() => openPage({ label: "Login", path: "/login", icon: "→" })} style={[styles.headerActionButton, compactHeader && styles.compactHeaderActionButton]}>
+                <Text style={styles.headerActionText}>Login</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Create account" onPress={() => openPage({ label: "Create account", path: "/register", icon: "+" })} style={[styles.headerActionButton, styles.createAccountButton, compactHeader && styles.compactHeaderActionButton]}>
+                <Text style={[styles.headerActionText, styles.createAccountText, compactHeader && styles.compactCreateAccountText]}>Create account</Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>
@@ -557,7 +586,9 @@ function AppContent() {
                 isLoggedIn?: boolean;
                 role?: string;
                 name?: string | null;
+                language?: "en" | "hi";
               };
+              if (message.language === "en" || message.language === "hi") setSiteLanguage(message.language);
               const roles: UserRole[] = ["STUDENT", "PARENT", "TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"];
               if (message.type !== "vidyasetu-auth" || message.origin !== SITE_ORIGIN || new URL(currentUrl).origin !== SITE_ORIGIN) return;
               if (!message.isLoggedIn || !roles.includes(message.role as UserRole)) {
@@ -598,7 +629,19 @@ function AppContent() {
 
       <SafeAreaView style={styles.tabBarSafeArea} edges={["bottom"]}>
         <View style={styles.tabBarScroller}>
-          <View style={styles.tabBar} accessibilityLabel="Primary app navigation">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabBar}
+            accessibilityLabel="Primary app navigation"
+            accessibilityHint="Swipe left or right to see more destinations."
+            onContentSizeChange={(contentWidth) => setShowTabScrollHint(contentWidth > windowWidth)}
+            onScroll={({ nativeEvent }) => {
+              const canScrollFurther = nativeEvent.contentOffset.x + nativeEvent.layoutMeasurement.width < nativeEvent.contentSize.width - 2;
+              setShowTabScrollHint((current) => current === canScrollFurther ? current : canScrollFurther);
+            }}
+            scrollEventThrottle={16}
+          >
           {tabs.map((page) => {
             const active = isPageActive(page) || (!page.path.includes("?") && activePath.startsWith(`${page.path}/`));
             return (
@@ -619,16 +662,8 @@ function AppContent() {
               </Pressable>
             );
           })}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open all pages"
-          onPress={openMenu}
-          style={[styles.tab, styles.menuTab]}
-        >
-          <Text style={styles.tabIcon}>☰</Text>
-          <Text style={styles.tabLabel}>Menu</Text>
-        </Pressable>
-          </View>
+          </ScrollView>
+          {showTabScrollHint && <View pointerEvents="none" style={styles.tabScrollHint}><Text style={styles.tabScrollHintText}>›</Text></View>}
         </View>
       </SafeAreaView>
 
@@ -727,24 +762,35 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  safe: { flex: 1, backgroundColor: "#FF8A3D" },
   tabBarSafeArea: { backgroundColor: "#FF8A3D" },
   appHeader: {
-    minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 10,
-    gap: 9, backgroundColor: "#FFFFFF", borderBottomWidth: 2, borderBottomColor: "#FF6B00",
+    minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 8,
+    gap: 6, backgroundColor: "#FF8A3D", borderBottomWidth: 1, borderBottomColor: "#E7762C",
   },
-  headerMenuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "#FFF3E8" },
-  headerMenuIcon: { color: "#A64200", fontSize: 22, fontWeight: "800" },
-  brand: { flexDirection: "row", alignItems: "center", gap: 7, flexShrink: 1, minWidth: 0 },
-  brandMark: { width: 31, height: 31, borderRadius: 9, backgroundColor: "#FF6B00", alignItems: "center", justifyContent: "center" },
+  compactAppHeader: { minHeight: 54, paddingHorizontal: 4, gap: 3 },
+  headerMenuButton: { width: 38, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#FFF3E8" },
+  compactHeaderMenuButton: { width: 32, height: 40 },
+  headerMenuIcon: { color: "#14213D", fontSize: 22, fontWeight: "800" },
+  brand: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1, minWidth: 0 },
+  compactBrand: { gap: 4 },
+  brandMark: { width: 29, height: 29, borderRadius: 8, backgroundColor: "#14213D", alignItems: "center", justifyContent: "center" },
+  compactBrandMark: { width: 27, height: 27, borderRadius: 7 },
   brandMarkText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900" },
-  brandText: { color: "#0D1B3E", fontSize: 19, fontWeight: "900" },
-  brandAccent: { color: "#FF6B00" },
-  headerActions: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 6 },
-  headerActionButton: { minHeight: 40, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#F5F7FA" },
-  headerActionText: { color: "#0D1B3E", fontSize: 12, fontWeight: "800" },
-  headerLogoutButton: { borderWidth: 1, borderColor: "#FF6B00", backgroundColor: "#FFFFFF" },
-  headerLogoutText: { color: "#B54708" },
+  brandText: { color: "#14213D", fontSize: 17, fontWeight: "900" },
+  compactBrandText: { fontSize: 14, flexShrink: 1 },
+  brandAccent: { color: "#14213D" },
+  headerActions: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4 },
+  compactHeaderActions: { gap: 3 },
+  headerActionButton: { minHeight: 40, paddingHorizontal: 7, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#FFF7F0" },
+  compactHeaderActionButton: { paddingHorizontal: 5 },
+  headerActionText: { color: "#14213D", fontSize: 11, fontWeight: "800" },
+  languageButton: { minWidth: 38, paddingHorizontal: 6 },
+  createAccountButton: { backgroundColor: "#14213D", paddingHorizontal: 8 },
+  createAccountText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
+  compactCreateAccountText: { fontSize: 9 },
+  headerLogoutButton: { borderWidth: 1, borderColor: "#14213D", backgroundColor: "#FFF7F0" },
+  headerLogoutText: { color: "#14213D" },
   webContainer: { flex: 1, backgroundColor: "#FFFFFF" },
   webView: { flex: 1, backgroundColor: "#FFFFFF" },
   loadingOverlay: {
@@ -791,21 +837,23 @@ const styles = StyleSheet.create({
   },
   retryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   tabBarScroller: {
-    minHeight: 62,
+    position: "relative",
+    minHeight: 66,
     backgroundColor: "#FF8A3D",
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#E66D24",
   },
+  tabScrollHint: { position: "absolute", top: 0, right: 0, bottom: 0, width: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FF8A3D" },
+  tabScrollHintText: { color: "#14213D", fontSize: 25, fontWeight: "700", lineHeight: 28 },
   tabBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
-    minHeight: 62,
-    paddingHorizontal: 4,
-    paddingTop: 4,
+    minHeight: 66,
+    paddingHorizontal: 8,
+    paddingTop: 5,
+    gap: 3,
   },
-  tab: { flex: 1, minWidth: 0, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 2 },
-  menuTab: { backgroundColor: "rgba(20,33,61,0.08)" },
+  tab: { flexGrow: 0, minWidth: 68, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 8 },
   activeTab: { backgroundColor: "#FFF7F0" },
   tabIcon: { color: "#14213D", fontSize: 18, lineHeight: 22 },
   tabLabel: { color: "#14213D", fontSize: 11, fontWeight: "800", textAlign: "center" },

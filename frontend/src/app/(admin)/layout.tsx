@@ -76,7 +76,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen admin-shell">
-      <GlobalTopbar />
+      <GlobalTopbar mobileMenuOpen={mobileNavOpen} mobileMenuControlsId="admin-navigation" onMobileMenuToggle={() => setMobileNavOpen((open) => !open)} />
       <div className="dash-layout">
         <DashSidebar
           id="admin-navigation"
@@ -87,7 +87,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           menuItems={menu}
         />
         <main className="dash-main admin-main">
-          <div className="admin-mobile-toolbar"><button type="button" aria-expanded={mobileNavOpen} aria-controls="admin-navigation" onClick={() => setMobileNavOpen((open) => !open)}>{mobileNavOpen ? '✕ Close menu' : '☰ Admin menu'}</button></div>
           {mobileNavOpen && <button type="button" className="admin-mobile-backdrop" aria-label="Close admin navigation" onClick={() => setMobileNavOpen(false)} />}
           {pathname.startsWith('/admin/learning') && pathname !== '/admin/learning/syllabus' && <nav aria-label="Content workspace" style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 16px',background:'#fff',borderBottom:'1px solid #DCE3EE'}}>{[
  ['/admin/learning/syllabus','Syllabus'],['/admin/learning/factory','1 · Find content'],['/admin/learning/pipeline',`2 · Prepare & rights (${sourceReviewCount})`],['/admin/learning','3 · Review & publish'],['/admin/learning/practice','Questions & tests'],['/admin/learning/coverage','Coverage'],['/admin/learning/imports','Bulk records']

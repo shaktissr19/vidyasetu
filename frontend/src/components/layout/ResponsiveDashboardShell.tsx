@@ -40,7 +40,7 @@ export default function ResponsiveDashboardShell({
 
   return (
     <div className={`responsive-dashboard-shell flex flex-col min-h-screen ${shellClassName}`.trim()}>
-      <GlobalTopbar />
+      <GlobalTopbar mobileMenuOpen={menuOpen} mobileMenuControlsId="role-navigation" onMobileMenuToggle={() => setMenuOpen((open) => !open)} />
       <div className="dash-layout">
         <DashSidebar
           id="role-navigation"
@@ -51,16 +51,6 @@ export default function ResponsiveDashboardShell({
           menuItems={menuItems}
         />
         <main className={`dash-main ${mainClassName}`.trim()}>
-          <div className="role-mobile-toolbar">
-            <button
-              type="button"
-              aria-expanded={menuOpen}
-              aria-controls="role-navigation"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              {menuOpen ? 'Close menu' : `☰ ${menuLabel}`}
-            </button>
-          </div>
           {menuOpen && (
             <button
               type="button"
