@@ -311,7 +311,7 @@ async function getConnectors(): Promise<ConnectorRow[]> {
     `SELECT c.*,s.code AS source_code,s.default_license::text
      FROM learning_source_connectors c
      LEFT JOIN learning_content_sources s ON s.id=c.source_id
-     WHERE c.provider <> 'YOUTUBE'
+     WHERE c.provider::text <> 'YOUTUBE'
      ORDER BY CASE c.provider
        WHEN 'LOCAL' THEN 1 WHEN 'DIKSHA' THEN 2 WHEN 'NROER' THEN 3 WHEN 'CBSE' THEN 4
        WHEN 'NCERT_EPATHSHALA' THEN 5 WHEN 'NIOS' THEN 6 WHEN 'SWAYAM' THEN 7
