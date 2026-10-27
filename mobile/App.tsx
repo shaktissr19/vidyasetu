@@ -17,7 +17,10 @@ import {
 } from "react-native-safe-area-context";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
-const SITE_URL = "https://vidyasetu.sbs";
+// Expo can point the app at a staging deployment for validation. Production
+// remains the default so an ordinary Expo Go build opens the live website.
+const SITE_URL = (process.env.EXPO_PUBLIC_WEB_URL || "https://vidyasetu.sbs").replace(/\/+$/, "");
+const SITE_ORIGIN = new URL(SITE_URL).origin;
 
 type Page = {
   label: string;
@@ -33,6 +36,7 @@ const PUBLIC_TABS: Page[] = [
   { label: "Home", path: "/", icon: "⌂" },
   { label: "Learn", path: "/learn", icon: "▤" },
   { label: "Login", path: "/login", icon: "→" },
+  { label: "Create account", path: "/register", icon: "+" },
 ];
 
 const PUBLIC_MORE_PAGES: Page[] = [
@@ -348,7 +352,7 @@ const APP_LAYOUT_SCRIPT = `(function(){
     var css=${JSON.stringify(APP_LAYOUT_CSS)};
     if(style.textContent!==css) style.textContent=css;
     document.documentElement.classList.add('vidyasetu-native-app');
-    if(location.origin==='https://vidyasetu.sbs' && window.ReactNativeWebView){
+    if(location.origin===${JSON.stringify(SITE_ORIGIN)} && window.ReactNativeWebView){
       if(window.__vidyasetuNativeAuthTimer) clearInterval(window.__vidyasetuNativeAuthTimer);
       var last='';
       var sendAuth=function(){
@@ -444,8 +448,8 @@ function AppContent() {
     // Reuse the website's existing logout flow so the API, persisted auth state,
     // tracked session, and redirect all stay consistent with the web app.
     webView.current?.injectJavaScript(`(function(){
-      var button=Array.from(document.querySelectorAll('button')).find(function(item){return item.textContent.trim()==='Logout';});
-      if(button){button.click();return true;}
+      var action=Array.from(document.querySelectorAll('button,a,[role="button"]')).find(function(item){return /^log\\s*out$/i.test((item.textContent||'').replace(/\\s+/g,' ').trim());});
+      if(action){action.click();return true;}
       window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'vidyasetu-logout-unavailable'}));
       return false;
     })(); true;`);
@@ -555,7 +559,7 @@ function AppContent() {
                 name?: string | null;
               };
               const roles: UserRole[] = ["STUDENT", "PARENT", "TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"];
-              if (message.type !== "vidyasetu-auth" || message.origin !== SITE_URL || new URL(currentUrl).origin !== SITE_URL) return;
+              if (message.type !== "vidyasetu-auth" || message.origin !== SITE_ORIGIN || new URL(currentUrl).origin !== SITE_ORIGIN) return;
               if (!message.isLoggedIn || !roles.includes(message.role as UserRole)) {
                 setNativeUser(null);
                 return;
@@ -724,7 +728,7 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
-  tabBarSafeArea: { backgroundColor: "#B54708" },
+  tabBarSafeArea: { backgroundColor: "#FF8A3D" },
   appHeader: {
     minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 10,
     gap: 9, backgroundColor: "#FFFFFF", borderBottomWidth: 2, borderBottomColor: "#FF6B00",
@@ -788,9 +792,9 @@ const styles = StyleSheet.create({
   retryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   tabBarScroller: {
     minHeight: 62,
-    backgroundColor: "#B54708",
+    backgroundColor: "#FF8A3D",
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#963A06",
+    borderTopColor: "#E66D24",
   },
   tabBar: {
     flexDirection: "row",
@@ -801,11 +805,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   tab: { flex: 1, minWidth: 0, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 12, paddingHorizontal: 2 },
-  menuTab: { backgroundColor: "rgba(255,255,255,0.12)" },
-  activeTab: { backgroundColor: "#FFFFFF" },
-  tabIcon: { color: "#FFFFFF", fontSize: 18, lineHeight: 22 },
-  tabLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "700", textAlign: "center" },
-  activeTabText: { color: "#8F3607", fontWeight: "900" },
+  menuTab: { backgroundColor: "rgba(20,33,61,0.08)" },
+  activeTab: { backgroundColor: "#FFF7F0" },
+  tabIcon: { color: "#14213D", fontSize: 18, lineHeight: 22 },
+  tabLabel: { color: "#14213D", fontSize: 11, fontWeight: "800", textAlign: "center" },
+  activeTabText: { color: "#14213D", fontWeight: "900" },
   drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(13,27,62,0.48)" },
   drawerScrim: { ...StyleSheet.absoluteFill },
   menuScreen: { flex: 1, maxWidth: 400, width: "86%", backgroundColor: "#F5F8F9", elevation: 18, shadowColor: "#000000", shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 4, height: 0 } },
