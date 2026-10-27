@@ -174,7 +174,7 @@ sed -i 's#127\.0\.0\.1:3001#127.0.0.1:3000#g; s#127\.0\.0\.1:5001#127.0.0.1:5000
 nginx -t
 systemctl reload nginx
 sleep 2
-curl -kfsS https://api.vidyasetu.sbs/health | jq -e '.status == "ok"' >/dev/null
+curl -kfsS https://vidyasetu.sbs/api/v1/health | jq -e '.status == "ok"' >/dev/null
 curl -kfsSI https://vidyasetu.sbs/student >/dev/null
 
 log "12/13 Verify seeded Student through the public HTTPS route"

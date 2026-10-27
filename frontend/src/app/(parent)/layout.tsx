@@ -2,8 +2,7 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import GlobalTopbar from '@/components/layout/GlobalTopbar';
-import DashSidebar from '@/components/layout/DashSidebar';
+import ResponsiveDashboardShell from '@/components/layout/ResponsiveDashboardShell';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 
@@ -37,5 +36,11 @@ export default function ParentLayout({ children }: { children: ReactNode }) {
     if (user?.role && user.role !== 'PARENT') router.replace('/login?role=parent');
   }, [isLoggedIn, user, router]);
   if (!isLoggedIn) return null;
-  return <div className="flex flex-col min-h-screen"><GlobalTopbar /><div className="dash-layout"><DashSidebar accentColor="var(--forest)" profile={{avatar:'👩',name:user?.name||'Parent',subtitle:t('अभिभावक पोर्टल','Parent Portal'),badge:'✅ Verified'}} menuItems={MENU(t)} /><main className="dash-main parent-main">{children}</main></div></div>;
+  return <ResponsiveDashboardShell
+    accentColor="var(--forest)"
+    profile={{ avatar: '👩', name: user?.name || 'Parent', subtitle: t('अभिभावक पोर्टल', 'Parent Portal'), badge: '✅ Verified' }}
+    menuItems={MENU(t)}
+    mainClassName="parent-main"
+    menuLabel="Parent menu"
+  >{children}</ResponsiveDashboardShell>;
 }

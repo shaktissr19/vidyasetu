@@ -192,26 +192,34 @@ FRONTEND_URL=https://vidyasetu.sbs
 
 **frontend/.env.local:**
 ```env
-NEXT_PUBLIC_API_URL=https://api.vidyasetu.sbs/api/v1
+NEXT_PUBLIC_API_URL=https://vidyasetu.sbs/api/v1
 ```
+
+The web client uses the same-origin `/api/v1` route. This keeps browser requests on the VidyaSetu website host and avoids relying on an API subdomain that may not have a matching DNS and reverse-proxy route.
 
 ### DNS Setup (vidyasetu.sbs)
 ```
-A    @              → your_server_ip     (frontend → port 3000)
-A    api            → your_server_ip     (backend  → port 5000)
+A    @              → your_server_ip
+A    www            → your_server_ip
 ```
 
 ### Nginx reverse proxy config:
 ```nginx
 server {
     server_name vidyasetu.sbs www.vidyasetu.sbs;
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
     location / { proxy_pass http://localhost:3000; }
 }
-server {
-    server_name api.vidyasetu.sbs;
-    location / { proxy_pass http://localhost:5000; }
-}
 ```
+
+Do not set a client API URL to `https://api.vidyasetu.sbs` unless that hostname has its own DNS record, TLS certificate, and backend proxy.
 
 ---
 

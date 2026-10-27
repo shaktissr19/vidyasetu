@@ -39,7 +39,7 @@ interface NotificationReadRow extends QueryResultRow {
 }
 
 function providerError(message: string): Error & { statusCode: number } {
-  return Object.assign(new Error(message), { statusCode: 503 });
+  return Object.assign(new Error(message), { statusCode: 503, apiCode: 'OTP_SMS_UNAVAILABLE' });
 }
 
 function maskedMobile(mobile: string): string {
