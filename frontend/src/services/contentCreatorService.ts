@@ -351,10 +351,6 @@ export interface AddDiscoveredContentToLibraryPayload {
   title?: string;
   visibility: 'PUBLIC' | 'REGISTERED' | 'CLASS_ONLY';
   accessRequirement: 'PUBLIC' | 'REGISTERED' | 'SUBSCRIBER';
-  licenceCandidate: string;
-  licenceUrl?: string | null;
-  attributionText: string;
-  rightsEvidenceUrl?: string | null;
   permissionConfirmed: boolean;
 }
 

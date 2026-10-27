@@ -51,8 +51,10 @@ ADMIN_ID="$(psqlq "SELECT id FROM users WHERE mobile='$ADMIN_MOBILE' LIMIT 1;")"
 log "Admin options expose all governed source connectors and video filters"
 OPTIONS="$(curl -fsS "$API_BASE/admin/learning/creator/options" "${AUTH[@]}")"
 jq -e '.data.discovery.providers|length>=9' <<<"$OPTIONS" >/dev/null || fail "Source registry not exposed to Admin UI"
+jq -e '[.data.discovery.providers[].code] | index("YOUTUBE")==null' <<<"$OPTIONS" >/dev/null || fail "YouTube must not be exposed as a VidyaSetu learning source"
 jq -e '[.data.discovery.providers[].code] | (index("NROER")!=null and index("CBSE")!=null and index("NCERT_EPATHSHALA")!=null and index("NIOS")!=null and index("SWAYAM")!=null and index("PHET")!=null and index("OER_COMMONS")!=null)' <<<"$OPTIONS" >/dev/null || fail "Expected external source options missing"
 jq -e '[.data.discovery.mediaKinds[].code] | index("VIDEO")!=null and index("AUDIO")!=null and index("INTERACTIVE")!=null' <<<"$OPTIONS" >/dev/null || fail "Watch/Listen/Explore media filters missing"
+expect_status 400 "$TMP_DIR/youtube-disabled.json" -X POST "$API_BASE/admin/learning/creator/discovery/search" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"provider":"YOUTUBE","query":"Class 8 Science","classNumber":8,"mediaKinds":["VIDEO"]}'
 
 log "Discover governed VidyaSetu source locally"
 DISCOVERY="$(curl -fsS -X POST "$API_BASE/admin/learning/creator/discovery/search" "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"provider":"LOCAL","query":"Work Ethic","classNumber":8,"limit":10}')"

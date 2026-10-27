@@ -42,12 +42,28 @@ export async function scanImportedAsset(bytes: Buffer): Promise<void> {
 }
 
 export function publicAddress(address: string): boolean {
-  // Deliberately require globally routable IPv4; reject IPv6 and reserved/mapped/private ranges.
+  // Imports are pinned to IPv4 below. Reject private, link-local, documentation,
+  // benchmarking, multicast and otherwise reserved IPv4 ranges.
   if (isIP(address) !== 4) return false;
   const [a,b] = address.split('.').map(Number);
-  return a !== 0 && a !== 10 && a !== 127 && a < 224 && a !== 169 && a !== 192
-    && !(a === 172 && b >= 16 && b <= 31) && !(a === 100 && b >= 64 && b <= 127)
-    && !(a === 198 && (b === 18 || b === 19 || b === 51)) && !(a === 203 && b === 0);
+  const c = Number(address.split('.')[2]);
+  if (a === 0 || a === 10 || a === 127 || a >= 224 || a === 192 && b === 168) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 192 && b === 0 && (c === 0 || c === 2)) return false;
+  if (a === 192 && b === 88 && c === 99) return false;
+  if (a === 198 && (b === 18 || b === 19)) return false;
+  if (a === 198 && b === 51 && c === 100) return false;
+  if (a === 203 && b === 0 && c === 113) return false;
+  if (a === 255) return false;
+  return true;
+}
+
+export function choosePublicIpv4(addresses: Array<{ address: string; family: number }>): string | null {
+  const ipv4 = addresses.filter((entry) => entry.family === 4);
+  if (!ipv4.length || ipv4.some((entry) => !publicAddress(entry.address))) return null;
+  return ipv4[0].address;
 }
 
 export function inspectImportedBytes(bytes: Buffer, kind: string, mime: string) {
@@ -67,9 +83,11 @@ export function inspectImportedBytes(bytes: Buffer, kind: string, mime: string) 
 
 export async function downloadLicensedAsset(raw: string, kind: string, allowedHosts?: string) {
   const url = approvedAssetUrl(raw, allowedHosts);
-  const addresses = await lookup(url.hostname,{ all: true });
-  if (!addresses.length || addresses.some(x => !publicAddress(x.address))) throw fail('Provider host resolves to a private or unsupported address');
-  const address = addresses[0].address;
+  // Resolve only A records. Ignore IPv6 answers because the importer pins an
+  // IPv4 socket; still reject a hostname if any IPv4 answer is non-public.
+  const addresses = await lookup(url.hostname,{ all: true, family: 4, verbatim: true }).catch(() => []);
+  const address = choosePublicIpv4(addresses);
+  if (!address) throw fail('Provider host has no safe public IPv4 address for media import');
   const agent = new Agent({ family:4, lookup: (_hostname,_options,callback) => callback(null,address,4) });
   const requestedLimit = Number(process.env.LEARNING_IMPORT_MAX_BYTES || 50 * 1024 * 1024);
   const maxBytes = Number.isFinite(requestedLimit) ? Math.min(150 * 1024 * 1024,Math.max(1024,requestedLimit)) : 50 * 1024 * 1024;
@@ -86,12 +104,12 @@ export async function downloadLicensedAsset(raw: string, kind: string, allowedHo
 export function deliveryCapability(item: { resource_id?: unknown; reference_only?: boolean; media_kind?: string | null; embed_url?: string | null; metadata?: Record<string,unknown> }) {
   if (item.resource_id) return { code:'LIBRARY',label:'Already in VidyaSetu Library' };
   if (item.reference_only) return { code:'REFERENCE',label:'Provider search only — choose an individual item' };
-  if (item.embed_url) { try { assertOfficialEmbedUrl(item.embed_url); return { code:'EMBED',label:'Official player available — rights review required' }; } catch { /* Raw streaming URLs are not official players. */ } }
   const asset = importableAssetUrl(item.metadata);
   // Only media types rendered by LearningAsset can be offered as in-platform
   // previews/imports. A source article, course, ECML package or portal URL must
   // not be labelled playable just because discovery returned artifactUrl.
   if (['VIDEO','AUDIO','IMAGE','PDF'].includes(String(item.media_kind || '').toUpperCase()) && asset) return { code:'IMPORT',label:'Media file available — review and import into VidyaSetu' };
+  if (item.embed_url) { try { assertOfficialEmbedUrl(item.embed_url); return { code:'EMBED',label:'Official player available — rights review required' }; } catch { /* Raw streaming URLs are not official players. */ } }
   return { code:'REFERENCE',label:'Delivery needs configuration — source page only' };
 }
 

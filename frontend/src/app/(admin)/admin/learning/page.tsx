@@ -86,10 +86,6 @@ export default function AdminContentLibraryPage() {
   const [subjectFilter,setSubjectFilter] = useState('');
   const [selectedIntakeId,setSelectedIntakeId] = useState('');
   const [intakeQueueOpen,setIntakeQueueOpen] = useState(false);
-  const [intakeLicence,setIntakeLicence] = useState('OTHER');
-  const [intakeLicenceUrl,setIntakeLicenceUrl] = useState('');
-  const [intakeAttribution,setIntakeAttribution] = useState('');
-  const [intakeEvidenceUrl,setIntakeEvidenceUrl] = useState('');
   const [intakeRightsConfirmed,setIntakeRightsConfirmed] = useState(false);
   const [selectedResource, setSelectedResource] = useState<LearningStudioResource | null>(null);
   const [selectedResourceIds,setSelectedResourceIds] = useState<string[]>([]);
@@ -117,14 +113,7 @@ export default function AdminContentLibraryPage() {
     const match = requested ? resourcesQuery.data?.find((item) => item.id === requested) : null;
     if (match) setSelectedResource(match);
   },[resourcesQuery.data]);
-  useEffect(() => {
-    if (!selectedIntake) return;
-    setIntakeLicence(selectedIntake.licence_candidate || 'OTHER');
-    setIntakeAttribution(selectedIntake.attribution_text || '');
-    setIntakeEvidenceUrl(selectedIntake.rights_evidence_url || selectedIntake.source_url || '');
-    setIntakeLicenceUrl(selectedIntake.licence_url || '');
-    setIntakeRightsConfirmed(false);
-  },[selectedIntake?.id]);
+  useEffect(() => { setIntakeRightsConfirmed(false); },[selectedIntake?.id]);
   const addDiscoveredMutation = useMutation({
     mutationFn: () => {
       if (!selectedIntake?.discovery_candidate_id) throw new Error('Select an item from Content Factory first');
@@ -135,8 +124,7 @@ export default function AdminContentLibraryPage() {
         // in the Library publication panel, immediately before publishing.
         visibility:'CLASS_ONLY',
         accessRequirement:'REGISTERED',
-        licenceCandidate:intakeLicence,licenceUrl:intakeLicenceUrl.trim()||null,attributionText:intakeAttribution.trim(),
-        rightsEvidenceUrl:intakeEvidenceUrl.trim()||selectedIntake.source_url,permissionConfirmed:true,
+        permissionConfirmed:true,
       });
     },
     onSuccess:async(response)=>{
@@ -302,6 +290,15 @@ export default function AdminContentLibraryPage() {
   const intakeEmbedUrl = selectedIntake?.discovered_embed_url || null;
   const intakeSafeEmbedUrl = approvedEmbedUrl(intakeEmbedUrl);
   const intakeHasPlayableMedia = Boolean(intakeSafeEmbedUrl || canRenderDiscoveredAsset(intakeArtifactUrl));
+  const intakeLicence = selectedIntake?.licence_candidate || 'OTHER';
+  const intakeLicenceUsable = intakeLicence !== 'OTHER'
+    && !(canRenderDiscoveredAsset(intakeArtifactUrl) && intakeLicence === 'EXTERNAL_LINK_ONLY');
+  const intakeRightsReady = Boolean(intakeLicenceUsable && selectedIntake?.attribution_text?.trim() && selectedIntake?.source_url);
+
+  function showLibraryStatus(filter: typeof workflowFilter) {
+    setWorkflowFilter(filter);setPublicationFilter('ALL');setReviewFilter('ALL');setSelectedResourceIds([]);setSelectedResource(null);
+    requestAnimationFrame(()=>document.getElementById('content-library-items')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  }
 
   return (
     <div className="admin-page" style={{ padding: 8 }}>
@@ -321,7 +318,7 @@ export default function AdminContentLibraryPage() {
           {label:'In review',value:reviewCount,filter:'IN_REVIEW' as const},
           {label:'Published',value:publishedCount,filter:'PUBLISHED' as const},
           {label:'Archived',value:archivedCount,filter:'ARCHIVED' as const},
-        ].map((card) => <button key={card.label} type="button" aria-pressed={workflowFilter===card.filter} onClick={()=>{setWorkflowFilter(card.filter);setPublicationFilter('ALL');setReviewFilter('ALL');setSelectedResourceIds([]);setSelectedResource(null);}} className="admin-panel" style={{padding:15,textAlign:'left',cursor:'pointer',border:workflowFilter===card.filter?'2px solid #FF6B00':'1px solid #E2E8F0',background:workflowFilter===card.filter?'#FFF7ED':'#FFFFFF'}}><div style={{fontSize:26,fontWeight:900,color:'#14213D'}}>{card.value}</div><div style={{color:'#475467',fontSize:12,marginTop:3}}>{card.label}</div></button>)}
+        ].map((card) => <button key={card.label} type="button" aria-label={`Show ${card.value} ${card.label.toLowerCase()} items`} aria-controls="content-library-items" aria-pressed={workflowFilter===card.filter} onClick={()=>showLibraryStatus(card.filter)} className="admin-panel" style={{padding:15,textAlign:'left',cursor:'pointer',border:workflowFilter===card.filter?'2px solid #FF6B00':'1px solid #E2E8F0',background:workflowFilter===card.filter?'#FFF7ED':'#FFFFFF'}}><div style={{fontSize:26,fontWeight:900,color:'#14213D'}}>{card.value}</div><div style={{color:'#475467',fontSize:12,marginTop:3}}>{card.label} · View items</div></button>)}
         {pendingDiscovered.length>0&&<button type="button" className="admin-panel" onClick={()=>{setIntakeQueueOpen(true);requestAnimationFrame(()=>document.getElementById('factory-review-queue')?.scrollIntoView({behavior:'smooth',block:'start'}));}} style={{padding:15,textAlign:'left',cursor:'pointer',border:'1px solid #E2E8F0',background:'#FFFFFF'}}><div style={{fontSize:26,fontWeight:900,color:'#14213D'}}>{pendingDiscovered.length}</div><div style={{color:'#475467',fontSize:12,marginTop:3}}>Factory review queue</div></button>}
       </div>
 
@@ -335,24 +332,25 @@ export default function AdminContentLibraryPage() {
             <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}><div><h3 style={{margin:'0 0 4px'}}>{selectedIntake.title}</h3><p className="admin-muted" style={{margin:0}}>{selectedIntake.source_name} · {intakeMediaKind||'Learning media'} · {selectedIntake.licence_candidate||'Rights review needed'}</p></div><span className="admin-chip">Not published</span></div>
             {intakeMediaKind && intakeHasPlayableMedia && <div style={{marginTop:12}}><LearningAsset title={selectedIntake.title} kind={intakeMediaKind} contentUrl={intakeArtifactUrl} embedUrl={intakeSafeEmbedUrl} altText={selectedIntake.title} /></div>}
             {!intakeHasPlayableMedia && <div className="admin-note" role="status" style={{padding:12,marginTop:12}}><strong>This is a source reference, not playable Library content.</strong> It was selected before VidyaSetu could verify an in-platform player or public media file. It cannot be added or published as-is.<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:9}}><a href={selectedIntake.source_url} target="_blank" rel="noreferrer" style={{color:'#9A3B00',fontWeight:800}}>Inspect the original source ↗</a><button type="button" className="btn-secondary" disabled={discardUnsupportedMutation.isPending} onClick={()=>discardUnsupportedMutation.mutate()}>{discardUnsupportedMutation.isPending?'Removing…':'Remove from review queue'}</button></div></div>}
-            <div className="admin-muted" style={{fontSize:13,lineHeight:1.6,marginTop:8}}>Class: {selectedIntake.class_hint||selectedIntake.discovery_context?.gradeCodes?.join(', ')||'From search'} · Board: {selectedIntake.board_hint||selectedIntake.discovery_context?.boardCodes?.join(', ')||'From search'} · Subject: {selectedIntake.subject_hint||selectedIntake.discovery_context?.subjectLabel||'From search'}<br/>Topic: {selectedIntake.discovery_context?.topicLabel||selectedIntake.discovery_context?.chapterLabel||'Not mapped to a syllabus topic'}{selectedIntake.source_code==='YOUTUBE'&&<><br/>YouTube licence: {selectedIntake.discovery_metadata?.youtubeLicense||'Unverified'} · Audience setting: {selectedIntake.discovery_metadata?.youtubeMadeForKids===true?'Made for Kids':selectedIntake.discovery_metadata?.youtubeMadeForKids===false?'Not designated Made for Kids':'Not confirmed'}<br/><span>This audience flag is not a suitability rating. VidyaSetu does not track playback inside the YouTube player; review age suitability and the video itself before adding it.</span></>}</div>
+            <div className="admin-muted" style={{fontSize:13,lineHeight:1.6,marginTop:8}}>Class: {selectedIntake.class_hint||selectedIntake.discovery_context?.gradeCodes?.join(', ')||'From search'} · Board: {selectedIntake.board_hint||selectedIntake.discovery_context?.boardCodes?.join(', ')||'From search'} · Subject: {selectedIntake.subject_hint||selectedIntake.discovery_context?.subjectLabel||'From search'}<br/>Topic: {selectedIntake.discovery_context?.topicLabel||selectedIntake.discovery_context?.chapterLabel||'Not mapped to a syllabus topic'}</div>
             {intakeHasPlayableMedia && selectedIntake.source_url&&<p style={{margin:'8px 0'}}><a href={selectedIntake.source_url} target="_blank" rel="noreferrer" style={{color:'#9A3B00',fontWeight:800}}>Inspect source and rights evidence ↗</a></p>}
             {intakeHasPlayableMedia && <>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginTop:12}}>
-              <label className="admin-label">Licence<select className="admin-select" value={intakeLicence} onChange={(event)=>setIntakeLicence(event.target.value)}>{['CC_BY','CC_BY_SA','CC_BY_NC','CC_BY_NC_SA','CC_BY_ND','CC_BY_NC_ND','PUBLIC_DOMAIN','PERMISSION_GRANTED','EXTERNAL_LINK_ONLY','OTHER'].map((value)=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
-              <label className="admin-label">Attribution<input className="admin-input" value={intakeAttribution} onChange={(event)=>setIntakeAttribution(event.target.value)} placeholder="Creator / publisher credit" /></label>
-              <label className="admin-label">Rights evidence<input className="admin-input" value={intakeEvidenceUrl} onChange={(event)=>setIntakeEvidenceUrl(event.target.value)} placeholder="Source page showing licence and reuse terms" /></label>
+            <div className="admin-panel-muted" style={{padding:12,marginTop:12}}>
+              <strong>Reuse rights · {intakeLicence.replaceAll('_',' ')}</strong>
+              <div className="admin-muted" style={{fontSize:12,marginTop:4}}>Creator / publisher: {selectedIntake.attribution_text||'Not provided by source'}</div>
+              {selectedIntake.source_url&&<a href={selectedIntake.source_url} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,color:'#9A3B00',fontWeight:800}}>Review source and rights evidence ↗</a>}
+              {!intakeRightsReady&&<p role="status" className="admin-note" style={{padding:9,margin:'8px 0 0'}}>This source does not provide a reusable licence and creator credit. Choose a licensed result or create/upload original content.</p>}
             </div>
-            <label style={{display:'flex',gap:8,alignItems:'start',marginTop:12,fontSize:13}}><input type="checkbox" checked={intakeRightsConfirmed} onChange={(event)=>setIntakeRightsConfirmed(event.target.checked)} /><span>I checked the item’s rights and confirmed the content plays inside VidyaSetu without requiring the learner to sign in to the source.</span></label>
-            <p className="admin-muted" style={{fontSize:12,margin:'10px 0 0'}}>New Library drafts start private. Choose public or class/subscription access in the Library when you are ready to publish.</p>
-            <button type="button" className="btn-primary" disabled={addDiscoveredMutation.isPending||!intakeRightsConfirmed} onClick={()=>addDiscoveredMutation.mutate()} style={{marginTop:12}}>{addDiscoveredMutation.isPending?'Preparing VidyaSetu playback…':'Add reviewed item to Library draft'}</button>
+            {intakeRightsReady&&<label style={{display:'flex',gap:8,alignItems:'start',marginTop:12,fontSize:13}}><input type="checkbox" checked={intakeRightsConfirmed} onChange={(event)=>setIntakeRightsConfirmed(event.target.checked)} /><span>I verified this item’s rights on the source page and confirm VidyaSetu may show it in the selected learner context.</span></label>}
+            <p className="admin-muted" style={{fontSize:12,margin:'10px 0 0'}}>The source licence and creator credit are carried into the draft automatically. It stays private until you choose an audience and publish from the Library.</p>
+            <button type="button" className="btn-primary" disabled={addDiscoveredMutation.isPending||!intakeRightsConfirmed||!intakeRightsReady} onClick={()=>addDiscoveredMutation.mutate()} style={{marginTop:12}}>{addDiscoveredMutation.isPending?'Preparing VidyaSetu playback…':'Add to Library draft'}</button>
             </>}
           </div> : <div className="admin-panel-muted" style={{padding:18}}>Select a discovered item to review it here.</div>}
         </div>
         </div>
       </details>}
 
-      <section className="admin-panel" style={{ padding: 20, marginBottom: 16 }}>
+      <section id="content-library-items" className="admin-panel" style={{ padding: 20, marginBottom: 16, scrollMarginTop: 90 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><div><h2 style={{ margin: 0 }}>Review & Publish</h2><label className="admin-label">Search Library<input className="admin-input" value={librarySearch} onChange={(event) => {setLibrarySearch(event.target.value);setSelectedResourceIds([]);setSelectedResource(null);}} placeholder="Title, format, difficulty or status" /></label><p className="admin-muted" style={{ marginTop: 4 }}>Choose the audience, check the learner preview, then publish in one action. Review history is recorded automatically.</p></div></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginTop: 14 }}>
           <label className="admin-label">Library status<select className="admin-select" value={workflowFilter} onChange={(event)=>{setWorkflowFilter(event.target.value as typeof workflowFilter);setSelectedResourceIds([]);setSelectedResource(null);}}><option value="ACTIVE">All active content</option><option value="ALL">Include archived</option><option value="DRAFT">Drafts</option><option value="IN_REVIEW">In review</option><option value="PUBLISHED">Published</option><option value="ARCHIVED">Archived</option></select></label>

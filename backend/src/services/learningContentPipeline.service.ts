@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
-import { assertOfficialEmbedUrl, assertLearningRightsPolicy, assertLearningAssetType, assertProviderEmbedAccess } from './learningDeliveryPolicy';
+import { assertOfficialEmbedUrl, assertLearningRightsPolicy, assertLearningAssetType } from './learningDeliveryPolicy';
 import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
 export type PipelineMediaKind =
@@ -278,7 +278,7 @@ function validateStage(input: StagePipelineInput, source: SourceRow): {
   const sourceUrl = normalizeHttpsUrl(input.sourceUrl, 'Original source URL');
   const embedUrl = normalizeHttpsUrl(input.embedUrl, 'Embed URL');
   if (input.deliveryMode === 'OFFICIAL_EMBED' && embedUrl) {
-    try { assertOfficialEmbedUrl(embedUrl); assertProviderEmbedAccess(embedUrl,input.accessRequirement); } catch (error) { throw appError((error as Error).message); }
+    try { assertOfficialEmbedUrl(embedUrl); } catch (error) { throw appError((error as Error).message); }
   }
   if (input.visibility === 'SCHOOL_ONLY') throw appError('School-specific delivery is not integrated yet; use registered/class audience');
   if (input.mediaKind === 'INTERACTIVE' && ['LICENSED_REHOST','VIDYASETU_ORIGINAL'].includes(input.deliveryMode)) throw appError('Interactive activities require an approved official embed. Executable uploads are not supported');

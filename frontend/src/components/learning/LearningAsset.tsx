@@ -9,8 +9,7 @@ export function approvedEmbedUrl(raw?: string | null): string | null {
     const url = new URL(raw);
     if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return null;
     const host = url.hostname.toLowerCase();
-    const builtIn = ((host === 'www.youtube-nocookie.com' || host === 'www.youtube.com') && /^\/embed\/[a-zA-Z0-9_-]+$/.test(url.pathname))
-      || (host === 'player.vimeo.com' && /^\/video\/\d+$/.test(url.pathname))
+    const builtIn = (host === 'player.vimeo.com' && /^\/video\/\d+$/.test(url.pathname))
       || (host === 'phet.colorado.edu' && /^\/sims\//.test(url.pathname));
     const configured = (process.env.NEXT_PUBLIC_LEARNING_EMBED_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
     if (!builtIn && !configured.includes(host)) return null;
@@ -30,12 +29,9 @@ export default function LearningAsset({ title, kind, contentUrl, embedUrl, altTe
   const safeEmbed = approvedEmbedUrl(embedUrl);
   const [playerLoaded,setPlayerLoaded] = useState(false);
   useEffect(() => { setPlayerLoaded(false); },[safeEmbed]);
-  const youtube = Boolean(safeEmbed?.includes('youtube.com/') || safeEmbed?.includes('youtube-nocookie.com/'));
   return <section aria-label={`${title} learning media`} style={{ marginBottom: 24 }}>
     {embedUrl && !safeEmbed && <p role="status">This provider URL is not an approved in-page player, so it will not be opened here.</p>}
-    {safeEmbed && !playerLoaded && <div><p>This player loads content from its provider, which may use cookies and show branding or ads.</p><button type="button" onClick={() => setPlayerLoaded(true)} className="btn-primary">Load official player</button>
-      {youtube && <p><small>By loading this YouTube player, you agree to <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube’s terms</a>. See <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google’s privacy policy</a>.</small></p>}
-    </div>}
+    {safeEmbed && !playerLoaded && <div><p>This player loads content from its provider, which may use cookies and show provider branding.</p><button type="button" onClick={() => setPlayerLoaded(true)} className="btn-primary">Load official player</button></div>}
     {safeEmbed && playerLoaded && <iframe title={`${title} official player`} src={safeEmbed} loading="lazy"
       sandbox="allow-scripts allow-same-origin allow-presentation" referrerPolicy="strict-origin-when-cross-origin"
       allow="fullscreen; picture-in-picture; encrypted-media" allowFullScreen
