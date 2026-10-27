@@ -138,8 +138,8 @@ test('changing Library access cannot bypass external licence policy',async () =>
  await assert.rejects(admin.updateLearningResourceAccessPolicy(result.resourceId,'REGISTERED','SUBSCRIBER'),/commercial-use/);
 });
 
-test('YouTube embedding stays free regardless of content licence',async () => {
- await assert.rejects(pipeline.stageContent({...base,sourceCode:'DIKSHA',sourceUrl:'https://diksha.gov.in/youtube',mediaKind:'VIDEO',deliveryMode:'OFFICIAL_EMBED',embedUrl:'https://www.youtube-nocookie.com/embed/abc',licenceCandidate:'CC_BY',accessRequirement:'SUBSCRIBER',visibility:'REGISTERED'},adminId),/YouTube embedded playback/);
+test('YouTube players are rejected from VidyaSetu learning content',async () => {
+ await assert.rejects(pipeline.stageContent({...base,sourceCode:'DIKSHA',sourceUrl:'https://diksha.gov.in/youtube',mediaKind:'VIDEO',deliveryMode:'OFFICIAL_EMBED',embedUrl:'https://www.youtube-nocookie.com/embed/abc',licenceCandidate:'CC_BY',accessRequirement:'SUBSCRIBER',visibility:'REGISTERED'},adminId),/YouTube is not supported/);
 });
 test('safe draft correction records history and clears prior manual approvals',async () => {
  const staged=await pipeline.stageContent({...base,title:'Correctable lesson'},adminId);
@@ -202,7 +202,10 @@ test('acquisition rejects unsafe URLs, addresses, disguises and unsupported deli
  assert.equal(acquisition.publicAddress('8.8.8.8'),true);
  assert.throws(()=>acquisition.inspectImportedBytes(Buffer.from('<html>login</html>'),'PDF','application/pdf'),/bytes do not match/);
  assert.equal(acquisition.deliveryCapability({embed_url:'https://obj.diksha.gov.in/video.mp4'}).code,'REFERENCE');
- assert.equal(acquisition.deliveryCapability({embed_url:'https://www.youtube.com/embed/abc123'}).code,'EMBED');
+ assert.equal(acquisition.choosePublicIpv4([{address:'2606:4700:4700::1111',family:6},{address:'8.8.8.8',family:4}]),'8.8.8.8');
+ assert.equal(acquisition.choosePublicIpv4([{address:'8.8.8.8',family:4},{address:'10.0.0.1',family:4}]),null);
+ assert.equal(acquisition.choosePublicIpv4([{address:'2606:4700:4700::1111',family:6}]),null);
+ assert.equal(acquisition.deliveryCapability({embed_url:'https://www.youtube.com/embed/abc123'}).code,'REFERENCE');
  assert.equal(acquisition.deliveryCapability({media_kind:'PDF',metadata:{artifactUrl:'https://obj.diksha.gov.in/file.pdf'}}).code,'IMPORT');
  assert.equal(acquisition.deliveryCapability({resource_id:'existing'}).code,'LIBRARY');
 });
@@ -236,18 +239,19 @@ test('curriculum topic creation is auditable, deduplicated and remains a curricu
  const audit=await db.query("SELECT * FROM audit_log WHERE entity_type='learning_concept' AND entity_id=$1",[first.id]);assert.equal(audit.rows.length,1);
  await assert.rejects(pipeline.createCurriculumTopic({...input,gradeCode:'INVALID'},adminId),/valid grade/);
 });
-test('search curriculum and media details follow a candidate into the prepare queue',async()=>{
+test('DIKSHA playable media follows syllabus context into a VidyaSetu-hosted Library draft',async()=>{
  const subject=(await db.query('SELECT id FROM subjects LIMIT 1')).rows[0];
  const found=await discovery.discoverSources({provider:'LOCAL',query:'Unique UKG searchable',gradeCode:'UKG',boardCode:'COMMON',subjectId:subject.id,chapterLabel:'Counting',topicLabel:'Objects',language:'hi'},adminId);
  // Use a local discovery fixture to avoid making real provider requests.
  const candidate=found.candidates[0];assert.ok(candidate);
- await db.query("UPDATE learning_source_discovery_candidates SET resource_id=NULL,provider='DIKSHA',source_code='DIKSHA',source_url='https://diksha.gov.in/context-fixture',source_item_id='context-fixture',media_kind='VIDEO',embed_url='https://www.youtube-nocookie.com/embed/context-fixture',metadata=$2::jsonb WHERE id=$1",[candidate.id,JSON.stringify({artifactUrl:'https://obj.diksha.gov.in/context.mp4'})]);
+ await db.query("UPDATE learning_source_discovery_candidates SET resource_id=NULL,provider='DIKSHA',source_code='DIKSHA',source_url='https://diksha.gov.in/context-fixture',source_item_id='context-fixture',media_kind='PDF',embed_url='https://www.youtube-nocookie.com/embed/context-fixture',licence_candidate='CC_BY',licence_raw='CC BY 4.0',attribution_text='Fixture creator · CC BY 4.0',metadata=$2::jsonb WHERE id=$1",[candidate.id,JSON.stringify({artifactUrl:'https://obj.diksha.gov.in/context.pdf'})]);
  const staged=await discovery.stageDiscoveryCandidate(candidate.id,adminId);
  const queue=await pipeline.listPipelineQueue();const item=queue.find(row=>row.id===staged.intakeId);assert.ok(item);
- assert.equal(item.discovered_asset_url,'https://obj.diksha.gov.in/context.mp4');assert.equal(item.discovery_context.subjectId,subject.id);assert.equal(item.discovery_context.chapterLabel,'Counting');assert.equal(item.discovery_context.topicLabel,'Objects');assert.equal(item.discovered_language,'hi');
- const added=await discovery.addDiscoveredContentToLibrary(candidate.id,{title:'Reviewed VidyaSetu title',visibility:'PUBLIC',accessRequirement:'PUBLIC',licenceCandidate:'CC_BY',attributionText:'Fixture creator · CC BY',rightsEvidenceUrl:'https://diksha.gov.in/context-fixture',permissionConfirmed:true},adminId);
+ assert.equal(item.discovered_asset_url,'https://obj.diksha.gov.in/context.pdf');assert.equal(item.discovered_embed_url,null);assert.equal(item.discovery_context.subjectId,subject.id);assert.equal(item.discovery_context.chapterLabel,'Counting');assert.equal(item.discovery_context.topicLabel,'Objects');assert.equal(item.discovered_language,'hi');
+ const added=await discovery.addDiscoveredContentToLibrary(candidate.id,{title:'Reviewed VidyaSetu title',visibility:'PUBLIC',accessRequirement:'PUBLIC',permissionConfirmed:true},adminId);
  const resource=(await db.query('SELECT * FROM learning_resources WHERE id=$1',[added.resourceId])).rows[0];
- assert.equal(resource.title,'Reviewed VidyaSetu title');assert.equal(resource.review_status,'DRAFT');assert.equal(resource.delivery_mode,'OFFICIAL_EMBED');assert.equal(resource.external_url,'https://www.youtube-nocookie.com/embed/context-fixture');assert.equal(resource.source_url,'https://diksha.gov.in/context-fixture');assert.equal(resource.subject_id,subject.id);assert.equal(resource.topic_label,'Objects');
+ assert.equal(resource.title,'Reviewed VidyaSetu title');assert.equal(resource.review_status,'DRAFT');assert.equal(resource.delivery_mode,'LICENSED_REHOST');assert.equal(resource.external_url,null);assert.equal(resource.source_url,'https://diksha.gov.in/context-fixture');assert.equal(resource.subject_id,subject.id);assert.equal(resource.topic_label,'Objects');assert.equal(Boolean(resource.file_key),true);
+ const linked=(await db.query('SELECT resource_id FROM learning_source_discovery_candidates WHERE id=$1',[candidate.id])).rows[0];assert.equal(linked.resource_id,resource.id);
 });
 test('verified syllabus is hidden until approval, preserves gaps and protects school profiles',async()=>{
  const subject=(await db.query('SELECT id FROM subjects LIMIT 1')).rows[0];

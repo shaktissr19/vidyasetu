@@ -26,14 +26,23 @@ import { apiErrorText } from '@/utils/errors';
 const panel = { padding: 20,borderRadius: 16 } as const;
 const button = { padding: '10px 16px',borderRadius: 10,border: 0,background: '#B54708',color: '#fff',fontWeight: 900,cursor: 'pointer' } as const;
 const secondary = { padding: '9px 14px',borderRadius: 10,border: '1px solid #CBD5E1',background: '#fff',color: '#14213D',fontWeight: 800,textDecoration: 'none',display: 'inline-flex',alignItems: 'center',gap: 6 } as const;
-const providerIcon: Record<CreatorDiscoveryProvider,string> = {
-  LOCAL: '📚',DIKSHA: '🇮🇳',YOUTUBE: '▶️',NROER: '🏛️',CBSE: '🎓',NCERT_EPATHSHALA: '📖',NIOS: '🏫',SWAYAM: '🎬',PHET: '🔬',OER_COMMONS: '🌍',
+const providerIcon: Partial<Record<CreatorDiscoveryProvider,string>> = {
+  LOCAL: '📚',DIKSHA: '🇮🇳',NROER: '🏛️',CBSE: '🎓',NCERT_EPATHSHALA: '📖',NIOS: '🏫',SWAYAM: '🎬',PHET: '🔬',OER_COMMONS: '🌍',
 };
 const mediaIcon: Record<CreatorDiscoveryMediaKind,string> = {
   ARTICLE: '📖',VIDEO: '▶️',AUDIO: '🎧',IMAGE: '🖼️',INTERACTIVE: '🧩',PDF: '📄',COURSE: '🎓',LINK: '🔗',
 };
 
 type StageState = { kind: 'GOVERNED_RESOURCE' | 'OER_INTAKE'; intakeId?: string; resourceId?: string };
+const FACTORY_SESSION_KEY = 'vs_admin_content_factory_search_v1';
+interface SavedFactorySearch {
+  syllabusMode: 'SYLLABUS'|'EXPLORE'; curriculumTopicId: string; curriculumMedium: 'en'|'hi'; syllabusConcept: string; syllabusYear: string;
+  gradeCode: string; classNumber: number; boardCode: string; subjectId: string; chapterText: string; topicText: string;
+  language: 'English'|'Hindi'|'Bilingual'; providers: CreatorDiscoveryProvider[]; mediaKinds: CreatorDiscoveryMediaKind[]; publisher: string;
+  candidates: CreatorDiscoveryCandidate[]; previewCandidateId: string; resultFilter: 'ALL'|'PLAYABLE'|'UNPLAYABLE';
+  runs: Array<{ provider: CreatorDiscoveryProvider; count: number; status: 'COMPLETED'|'FAILED'; error?: string }>;
+  staged: Record<string,StageState>;
+}
 
 function durationText(seconds?: number | null) {
   if (!seconds) return '';
@@ -61,7 +70,7 @@ export default function ContentFactoryPage() {
   const [chapterText,setChapterText] = useState('');
   const [topicText,setTopicText] = useState('');
   const [language,setLanguage] = useState<'English' | 'Hindi' | 'Bilingual'>('English');
-  const [providers,setProviders] = useState<CreatorDiscoveryProvider[]>(['LOCAL','DIKSHA','YOUTUBE']);
+  const [providers,setProviders] = useState<CreatorDiscoveryProvider[]>(['LOCAL','DIKSHA']);
   const [mediaKinds,setMediaKinds] = useState<CreatorDiscoveryMediaKind[]>(['ARTICLE','VIDEO']);
   const [publisher,setPublisher] = useState('');
   const [candidates,setCandidates] = useState<CreatorDiscoveryCandidate[]>([]);
@@ -74,6 +83,7 @@ export default function ContentFactoryPage() {
   const [title,setTitle] = useState('');
   const [createdJobId,setCreatedJobId] = useState('');
   const [createdJobStatus,setCreatedJobStatus] = useState('');
+  const [sessionRestored,setSessionRestored] = useState(false);
 
   useEffect(()=>{
     const p=new URLSearchParams(window.location.search);
@@ -88,6 +98,33 @@ export default function ContentFactoryPage() {
     setCurriculumMedium((p.get('medium')==='hi'?'hi':'en'));
     setSyllabusConcept(p.get('concept')||'');setSyllabusYear(p.get('year')||'');
   },[]);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const cameFromCurriculum=['grade','board','subject','chapter','topic','topicId','mode'].some((key)=>params.has(key));
+    if(cameFromCurriculum){window.sessionStorage.removeItem(FACTORY_SESSION_KEY);setSessionRestored(true);return;}
+    try {
+      const raw=window.sessionStorage.getItem(FACTORY_SESSION_KEY);
+      if(raw){
+        const saved=JSON.parse(raw) as SavedFactorySearch;
+        if(Array.isArray(saved.candidates)){
+          setSyllabusMode(saved.syllabusMode||'SYLLABUS');setCurriculumTopicId(saved.curriculumTopicId||'');setCurriculumMedium(saved.curriculumMedium||'en');
+          setSyllabusConcept(saved.syllabusConcept||'');setSyllabusYear(saved.syllabusYear||'');setGradeCode(saved.gradeCode||'CLASS_5');
+          setClassNumber(Number(saved.classNumber)||5);setBoardCode(saved.boardCode||'COMMON');setSubjectId(saved.subjectId||'');
+          setChapterText(saved.chapterText||'');setTopicText(saved.topicText||'');setLanguage(saved.language||'English');
+          setProviders((saved.providers||['LOCAL','DIKSHA']).filter((provider)=>provider!=='YOUTUBE'));
+          setMediaKinds(saved.mediaKinds?.length?saved.mediaKinds:['ARTICLE','VIDEO']);setPublisher(saved.publisher||'');
+          setCandidates(saved.candidates);setPreviewCandidateId(saved.previewCandidateId||'');setResultFilter(saved.resultFilter||'ALL');
+          setRuns(saved.runs||[]);setStaged(saved.staged||{});
+        }
+      }
+    } catch { window.sessionStorage.removeItem(FACTORY_SESSION_KEY); }
+    setSessionRestored(true);
+  },[]);
+  useEffect(()=>{
+    if(!sessionRestored)return;
+    const saved:SavedFactorySearch={syllabusMode,curriculumTopicId,curriculumMedium,syllabusConcept,syllabusYear,gradeCode,classNumber,boardCode,subjectId,chapterText,topicText,language,providers:providers.filter((provider)=>provider!=='YOUTUBE'),mediaKinds,publisher,candidates,previewCandidateId,resultFilter,runs,staged};
+    window.sessionStorage.setItem(FACTORY_SESSION_KEY,JSON.stringify(saved));
+  },[sessionRestored,syllabusMode,curriculumTopicId,curriculumMedium,syllabusConcept,syllabusYear,gradeCode,classNumber,boardCode,subjectId,chapterText,topicText,language,providers,mediaKinds,publisher,candidates,previewCandidateId,resultFilter,runs,staged]);
   const factoryQuery = useQuery({ queryKey: ['content-factory-options'],queryFn: () => getContentFactoryOptions().then((r) => r.data.data) });
   const creatorOptionsQuery = useQuery({ queryKey: ['content-creator-options'],queryFn: () => getContentCreatorOptions().then((r) => r.data.data) });
   const queueQuery = useQuery({ queryKey: ['content-factory-queue-counts'],queryFn: () => getContentFactoryQueueCounts().then((r) => r.data.data),refetchInterval: 30000 });
@@ -237,6 +274,11 @@ export default function ContentFactoryPage() {
   function toggleProvider(code: CreatorDiscoveryProvider) {
     setProviders((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current,code]);
   }
+  function clearSearch() {
+    setCandidates([]);setRuns([]);setStaged({});setPreviewCandidateId('');setResultFilter('ALL');setPublisher('');
+    setChapterText('');setTopicText('');setSyllabusConcept('');
+    if(syllabusMode==='SYLLABUS')setCurriculumTopicId('');
+  }
   function toggleMedia(code: CreatorDiscoveryMediaKind) {
     setMediaKinds((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current,code]);
   }
@@ -335,13 +377,13 @@ export default function ContentFactoryPage() {
 
         <div className="admin-label" style={{ marginBottom: 6 }}>Sources</div>
         <div style={{ display: 'flex',gap: 8,flexWrap: 'wrap',marginBottom: 14 }}>
-          {(discovery?.providers || []).map((item) => {
+          {(discovery?.providers || []).filter((item)=>item.code!=='YOUTUBE').map((item) => {
             const checked = item.enabled && providers.includes(item.code);
             return <button key={item.code} type="button" disabled={!item.enabled} title={item.enabled ? item.licencePolicy : item.statusNote || 'Not configured'} onClick={() => toggleProvider(item.code)} style={{ ...secondary,borderColor: checked ? '#FF6B00' : '#CBD5E1',background: checked ? '#FFF4EC' : '#fff',cursor: item.enabled ? 'pointer' : 'not-allowed',opacity: item.enabled ? 1 : .55 }}>
               <span>{checked ? '✓' : item.enabled ? '○' : '🔒'}</span> {providerIcon[item.code]} {item.label}{!item.enabled && item.requiresApiKey ? ' (configure API key)' : ''}
             </button>;
           })}
-          {(discovery?.providers || []).filter((item) => !item.enabled && item.statusNote).map((item) => <span key={`${item.code}-note`} className="admin-muted" style={{ alignSelf: 'center',fontSize: 12 }}>{item.label}: {item.statusNote}</span>)}
+          {(discovery?.providers || []).filter((item) => item.code!=='YOUTUBE'&&!item.enabled&&item.statusNote).map((item) => <span key={`${item.code}-note`} className="admin-muted" style={{ alignSelf: 'center',fontSize: 12 }}>{item.label}: {item.statusNote}</span>)}
         </div>
 
         <div className="admin-label" style={{ marginBottom: 6 }}>Content types</div>
@@ -367,12 +409,12 @@ export default function ContentFactoryPage() {
         </div>
 
         {runs.length > 0 && <div style={{ display: 'grid',gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))',gap: 8,marginTop: 14 }}>
-          {runs.map((run) => <div key={`${run.provider}-${run.status}`} className={run.status === 'FAILED' ? 'admin-note' : 'admin-success-note'} style={{ padding: 10 }}><strong>{providerIcon[run.provider]} {run.provider}</strong><div>{run.status === 'FAILED' ? 'Connector failed' : `${run.count} result(s)`}</div>{run.error && <small>{run.error}</small>}</div>)}
+          {runs.filter((run)=>run.provider!=='YOUTUBE').map((run) => <div key={`${run.provider}-${run.status}`} className={run.status === 'FAILED' ? 'admin-note' : 'admin-success-note'} style={{ padding: 10 }}><strong>{providerIcon[run.provider]||'🌐'} {run.provider}</strong><div>{run.status === 'FAILED' ? 'Connector failed' : `${run.count} result(s)`}</div>{run.error && <small>{run.error}</small>}</div>)}
         </div>}
       </section>
 
       <section className="admin-panel" style={{ ...panel,marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}><span className="admin-step">3</span>Select a useful result</h2>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}><h2 style={{ marginTop: 0 }}><span className="admin-step">3</span>Select a useful result</h2>{(candidates.length>0||runs.length>0)&&<button type="button" style={secondary} onClick={clearSearch}>Clear search</button>}</div>
         {!candidates.length && <div className="admin-panel-muted" style={{ padding: 16 }}>No results loaded yet. Search above. Select a playable result to open its review card in Content Library.</div>}
         {candidates.length > 0 && <div className={playableCandidates.length ? 'admin-success-note' : 'admin-note'} style={{ padding: 12, marginBottom: 12 }}>
           <strong>{playableCandidates.length} ready for VidyaSetu review</strong> · {sourceOnlyCandidates.length} source reference{sourceOnlyCandidates.length === 1 ? '' : 's'} do not currently have a supported in-platform player or importable file. Only ready items can enter the Library queue.

@@ -6,9 +6,11 @@ export function assertOfficialEmbedUrl(raw: string, extraHosts = process.env.LEA
     throw new Error('Official players must use HTTPS without credentials or a custom port');
   }
   const host = url.hostname.toLowerCase();
+  if (['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com','youtu.be','www.youtu.be'].includes(host)) {
+    throw new Error('YouTube is not supported as a VidyaSetu learning player. Use licensed media hosted by VidyaSetu or another approved player.');
+  }
   const approved = extraHosts.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
-  const builtIn = ((host === 'www.youtube-nocookie.com' || host === 'www.youtube.com') && /^\/embed\/[a-zA-Z0-9_-]+$/.test(url.pathname))
-    || (host === 'player.vimeo.com' && /^\/video\/\d+$/.test(url.pathname))
+  const builtIn = (host === 'player.vimeo.com' && /^\/video\/\d+$/.test(url.pathname))
     || (host === 'phet.colorado.edu' && /^\/sims\//.test(url.pathname));
   if (!builtIn && !approved.includes(host)) throw new Error('Player host/path is not approved for embedding. Use an approved player or a licensed upload');
   url.hash = '';
@@ -28,17 +30,9 @@ export function assertLearningRightsPolicy(input: {
   }
   if (input.licence === 'VIDYASETU_ORIGINAL' || input.licence === 'OTHER') throw new Error('External content needs a concrete item-level licence or link-only permission');
   if (!input.evidenceUrl?.trim()) throw new Error('Record the exact item-level rights/embedding evidence URL');
-  if (input.deliveryMode === 'OFFICIAL_EMBED' && input.embedUrl) assertProviderEmbedAccess(input.embedUrl,input.accessRequirement);
   if (input.deliveryMode === 'LICENSED_REHOST' && input.licence === 'EXTERNAL_LINK_ONLY') throw new Error('Link-only permission does not allow rehosting');
   if (input.accessRequirement === 'SUBSCRIBER' && (input.licence.includes('_NC') || input.licence === 'EXTERNAL_LINK_ONLY')) {
     throw new Error('Subscriber delivery requires verified commercial-use permission; non-commercial or link-only rights are insufficient');
-  }
-}
-
-export function assertProviderEmbedAccess(embedUrl: string, accessRequirement: string): void {
-  const host = new URL(embedUrl).hostname;
-  if (['www.youtube.com','www.youtube-nocookie.com'].includes(host) && accessRequirement === 'SUBSCRIBER') {
-    throw new Error('YouTube embedded playback cannot be sold behind subscriber access. Use free access or separately licensed hosted media');
   }
 }
 
