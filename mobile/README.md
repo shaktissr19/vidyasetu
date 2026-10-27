@@ -15,7 +15,9 @@ The app starts at the public VidyaSetu home page. Native navigation links provid
 
 The website continues to provide the content and behavior for each route. This is a web-backed app prototype, not a separate native rewrite of every screen. Native versions of high-use student workflows can be added progressively while reusing the existing backend.
 
-The app uses the website's orange brand header once, with a light app-native bottom bar and an orange selected state. Signed-out users get Home, Learn, Login, and **More**; after login, primary destinations and **More** change to the user's role (Student, Parent, Teacher, School Admin, or Super Admin). The app reads only the role/name from the website's persisted session for navigation; the website and backend continue to enforce access. On phones, hero photos appear before their copy, call-to-action buttons stack at a comfortable touch size, and Login and Create Account remain available while signed out. On tablets, the website's top links can scroll horizontally. These app-only layout rules do not change the public website or its APIs.
+The native header and bottom bar stay visible above the WebView on every page. The bottom bar uses the approved softer orange (`#FF8A3D`) with navy labels. Signed-out users get Home, Learn, Login, Create Account, and **Menu**; after login, primary destinations and **Menu** change to the user's role (Student, Parent, Teacher, School Admin, or Super Admin). The app reads only role/name from the website's persisted session for navigation; the website and backend continue to enforce access. On phones, hero photos appear before their copy and call-to-action buttons stack at a comfortable touch size. The website continues to provide screen content and functionality inside the WebView, so web changes appear in the app when the selected deployment is updated. These app-only layout rules do not change the public website or its APIs.
+
+By default, the app opens `https://vidyasetu.sbs`. To validate a web change before production deployment, set `EXPO_PUBLIC_WEB_URL` in `mobile/.env` to the staging site URL, then restart Expo with a cleared cache. The mobile WebView does not make a separate native implementation of website APIs; login, content-library filtering, review, publish, and archive actions all use the website's existing UI and API session.
 
 ## Test with Expo Go
 
@@ -28,7 +30,7 @@ No VPS deployment is needed for this app preview. It opens the already-hosted we
 
 If the device cannot connect over the same Wi-Fi, use `npx expo start --tunnel --clear`. The project includes the tunnel dependency; install project dependencies with `npm install` first. Do not install `@expo/ngrok` globally.
 
-For a quick check, open Home, Learn, Students, Schools, Parents, Login, and **More**; open Create Account from More; swipe the bottom row on a phone; and test a public page while signed out. Authenticated API workflows still require a valid VidyaSetu account and should be checked with the appropriate account role.
+For a quick check, open Home and Learn, verify Login and Create Account are visible in the bottom bar, then open Menu and visit each role's workspace destinations. Test login/logout, dashboard loading, a syllabus page, Content Factory, Content Library filters, publish/archive/restore actions, and retry/back navigation. Repeat on the iPad and a narrow phone. Authenticated APIs require test accounts and should be checked with each role using `e2e/role-api-smoke.cjs` plus device verification; the script checks initial login/dashboard APIs, not all write actions.
 
 ## Build profiles
 
