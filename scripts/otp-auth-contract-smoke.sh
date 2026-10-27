@@ -48,6 +48,8 @@ require_text "$RATE_LIMIT" 'max: 5' 'OTP send limit must permit five successful 
 require_text "$RATE_LIMIT" 'skipFailedRequests: true' 'Failed SMS/provider requests must not consume OTP send quota'
 require_text "$RATE_LIMIT" 'Too many OTP requests. Try again in 10 minutes.' 'OTP rate-limit message must match the new window'
 require_text "$ERROR_HANDLER" 'The requested service is temporarily unavailable. Please try again shortly.' 'Production HTTP 503 responses must return a safe, service-neutral message'
+require_text "$ERROR_HANDLER" "appError.apiCode === 'OTP_SMS_UNAVAILABLE'" 'Only SMS provider failures may expose the actionable OTP service message'
+require_text "$SMS_SERVICE" "apiCode: 'OTP_SMS_UNAVAILABLE'" 'SMS provider errors must be explicitly identified for safe production messaging'
 require_text "$ERROR_HANDLER" "status === 503 ? 'SERVICE_UNAVAILABLE'" 'HTTP 503 must expose a stable service-unavailable API code'
 
 printf '==> SMS provider contract\n'
