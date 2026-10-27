@@ -61,6 +61,14 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
 
   useEffect(() => { setSection(initialSection); }, [initialSection]);
   useEffect(() => {
+    if (!sidebarOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSidebarOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [sidebarOpen]);
+  useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('vs_access_token') : null;
     if (!token) router.replace('/login');
   }, [router]);
@@ -132,9 +140,14 @@ export default function StudentPortal({ initialSection = 'dashboard' }: StudentP
   return <div className={styles.shell}>
     <GlobalTopbar />
     {usingOfflineSnapshot && <div style={{ margin: '10px 18px 0', padding: '10px 14px', borderRadius: 10, background: '#FFF7E8', border: '1px solid #F7D79A', color: '#6B4A0B', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}><span>📶 You are viewing the last saved Student dashboard. Saved lessons and queued learning progress remain available in Offline Mode.</span><button className={styles.secondary} onClick={() => goSection('offline')}>Open Offline Mode</button></div>}
+    <div className={styles.mobileToolbar}>
+      <button type="button" aria-expanded={sidebarOpen} aria-controls="student-navigation" onClick={() => setSidebarOpen((open) => !open)}>
+        {sidebarOpen ? 'Close menu' : '☰ Student menu'}
+      </button>
+    </div>
     <div className={styles.layout}>
-      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
-        <button className={styles.mobileMenu} onClick={() => setSidebarOpen(v => !v)} aria-label="Toggle Student menu">☰ Student Menu</button>
+      {sidebarOpen && <button type="button" className={styles.sidebarBackdrop} aria-label="Close Student navigation" onClick={() => setSidebarOpen(false)} />}
+      <aside id="student-navigation" className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.profile}><div className={styles.avatar}>{student?.name?.toLowerCase().includes('priya') ? '👧' : '👦'}</div><div className={styles.profileName}>{student?.name || user?.name || 'Student'}</div><div className={styles.profileMeta}>{student?.classLabel || `Class ${student?.gradeLevel || '—'}`}{student?.schoolName ? ` · ${student.schoolName}` : ''}</div><div className={styles.xpPill} style={{ background: '#EEF4FF', color: '#0D1B3E' }}>ID: {student?.studentCode || '—'}</div>{student?.schoolLinkStatus === 'PENDING' && <div className={styles.profileMeta} style={{ marginTop: 7 }}>⏳ School approval pending</div>}{student?.schoolLinkStatus === 'APPROVED' && <div className={styles.profileMeta} style={{ marginTop: 7 }}>✅ School verified</div>}</div>
         <nav className={styles.sideNav} aria-label="Student module">{MENU.flatMap(([id, icon, label]) => [<button key={id} className={`${styles.sideButton} ${section === id ? styles.sideButtonActive : ''}`} onClick={() => goSection(id)}><span className={styles.sideIcon}>{icon}</span>{label}</button>, ...(id === 'subjects' ? [<button key="syllabus" type="button" className={styles.sideButton} onClick={() => { setSidebarOpen(false); router.push('/syllabus'); }}><span className={styles.sideIcon}>📋</span>My Syllabus</button>] : [])])}</nav>
       </aside>

@@ -16,6 +16,9 @@ require_file scripts/parent-admin-production-smoke.sh
 require_file scripts/deploy-main-native.sh
 require_file scripts/configure-syllabus-upload-nginx.sh
 require_file frontend/src/lib/sessionPolicy.ts
+require_file frontend/src/components/layout/ResponsiveDashboardShell.tsx
+require_file frontend/src/components/student/StudentPortal.tsx
+require_file frontend/src/components/student/StudentPortal.module.css
 require_file backend/src/routes/auth.routes.ts
 require_file backend/src/routes/parent.routes.ts
 require_file backend/src/routes/school.routes.ts
@@ -47,6 +50,12 @@ done
 
 require_text frontend/src/lib/sessionPolicy.ts 'SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000'
 require_text frontend/src/lib/sessionPolicy.ts 'SESSION_RETURN_GRACE_MS = 5 * 60 * 1000'
+require_text frontend/src/components/layout/ResponsiveDashboardShell.tsx 'aria-controls="role-navigation"'
+require_text frontend/src/components/layout/ResponsiveDashboardShell.tsx "event.key === 'Escape'"
+require_text frontend/src/components/student/StudentPortal.tsx 'aria-controls="student-navigation"'
+require_text frontend/src/components/student/StudentPortal.tsx 'Close Student navigation'
+require_text frontend/src/app/globals.css '@media (max-width: 1024px)'
+require_text frontend/src/app/globals.css 'role-sidebar-open'
 require_text backend/src/routes/auth.routes.ts "router.post('/logout'"
 require_text backend/.env.example 'JWT_ACCESS_EXPIRY=10m'
 
@@ -63,5 +72,6 @@ require_text scripts/deploy-main-native.sh 'bash scripts/cross-role-production-s
 require_text scripts/deploy-main-native.sh 'WEB_BASE=https://vidyasetu.sbs API_BASE=https://vidyasetu.sbs/api/v1 bash scripts/cross-role-production-smoke.sh'
 require_text scripts/deploy-main-native.sh 'bash "$RELEASE_DIR/scripts/configure-syllabus-upload-nginx.sh"'
 require_text scripts/configure-syllabus-upload-nginx.sh 'client_max_body_size ${LIMIT_MEGABYTES}m;'
+require_text scripts/native-vps-cutover.sh 'https://vidyasetu.sbs/api/v1/health'
 
 printf 'Module 6 cross-role contract certification passed.\n'

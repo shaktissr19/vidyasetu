@@ -2,8 +2,7 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import GlobalTopbar from '@/components/layout/GlobalTopbar';
-import DashSidebar from '@/components/layout/DashSidebar';
+import ResponsiveDashboardShell from '@/components/layout/ResponsiveDashboardShell';
 import useAuthStore from '@/store/authStore';
 import useLanguageStore from '@/store/languageStore';
 
@@ -62,5 +61,10 @@ export default function SchoolLayout({ children }: { children: ReactNode }) {
   }, [isLoggedIn, user, router]);
   if (!isLoggedIn || (user?.role && !['SCHOOL_ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(user.role))) return null;
   const isTeacher = user?.role === 'TEACHER';
-  return <div className="flex flex-col min-h-screen"><GlobalTopbar /><div className="dash-layout"><DashSidebar accentColor="var(--saffron)" profile={{avatar:isTeacher?'👩‍🏫':'🏫',name:user?.name||(isTeacher?'Teacher':'School Admin'),subtitle:isTeacher?'Teacher':'School Administrator',badge:isTeacher?'📚 Staff':'✅ Verified'}} menuItems={(isTeacher?TEACHER_MENU:ADMIN_MENU)(t)} /><main className="dash-main">{children}</main></div></div>;
+  return <ResponsiveDashboardShell
+    accentColor="var(--saffron)"
+    profile={{ avatar: isTeacher ? '👩‍🏫' : '🏫', name: user?.name || (isTeacher ? 'Teacher' : 'School Admin'), subtitle: isTeacher ? 'Teacher' : 'School Administrator', badge: isTeacher ? '📚 Staff' : '✅ Verified' }}
+    menuItems={(isTeacher ? TEACHER_MENU : ADMIN_MENU)(t)}
+    menuLabel={isTeacher ? 'Teacher menu' : 'School menu'}
+  >{children}</ResponsiveDashboardShell>;
 }

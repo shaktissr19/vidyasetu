@@ -200,15 +200,20 @@
   .admin-shell .admin-page [style*="grid-template-columns: minmax(360px"] { grid-template-columns: 1fr !important; }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .admin-shell .global-topbar { padding: 7px 8px; gap: 5px; }
   .admin-shell .global-topbar-dashboard { display: none !important; }
   .admin-shell .global-topbar-actions { gap: 6px !important; }
-  .admin-shell .dash-layout { height: calc(100dvh - 68px); min-height: calc(100dvh - 68px); overflow: hidden; }
-  .admin-shell .dash-sidebar { position: fixed !important; z-index: 1100; top: 68px; bottom: 0; left: 0; width: min(290px, 86vw); transform: translateX(-105%); transition: transform .2s ease; box-shadow: 12px 0 32px rgba(4,12,30,.3); }
+  .admin-shell .dash-layout { height: calc(100dvh - var(--dashboard-topbar-height, 68px)); min-height: calc(100dvh - var(--dashboard-topbar-height, 68px)); overflow: hidden; }
+  .admin-shell .dash-sidebar { top: var(--dashboard-topbar-height, 68px); }
   .admin-shell .dash-sidebar.admin-sidebar-open { transform: translateX(0); }
   .admin-shell .admin-main { width: 100%; padding: 16px; }
   .admin-shell .admin-mobile-toolbar { display: block; position: relative; z-index: 1095; margin: -16px -16px 14px; padding: 9px 16px; background: #F3F6FA; border-bottom: 1px solid #C9D6E7; }
   .admin-shell .admin-mobile-toolbar button { min-height: 40px; padding: 8px 12px; border: 1px solid #E85C00; border-radius: 9px; background: #FF6500; color: #14213D; font: inherit; font-weight: 800; }
   .admin-shell .admin-mobile-backdrop { display: block; position: fixed; z-index: 1090; inset: 68px 0 0; border: 0; background: rgba(6,14,32,.48); }
+}
+
+@media (max-width: 480px) {
+  .admin-shell .admin-mobile-toolbar { margin: -14px -14px 12px; padding: 8px 14px; }
+  .admin-shell .admin-mobile-backdrop { inset: var(--dashboard-topbar-height, 88px) 0 0; }
 }
