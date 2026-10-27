@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { UserRole } from '@vidyasetu/contracts';
 import useAuthStore from '@/store/authStore';
@@ -18,7 +18,17 @@ const NAV: ReadonlyArray<readonly [string, string]> = [
   ['Parents', '/for-parents'],
   ['Competitions', '/competition'],
   ['Communities', '/communities'],
-  ['Platform Admin', '/platform-admin'],
+];
+
+const PLATFORM_ADMIN_NAV = ['Platform Admin', '/platform-admin'] as const;
+const MOBILE_NAV: ReadonlyArray<readonly [string, string, string]> = [
+  ['Home', '/', '⌂'],
+  ['Learn', '/learn', '▤'],
+  ['Students', '/for-students', '🎓'],
+  ['Schools', '/for-schools', '▦'],
+  ['Parents', '/for-parents', '👪'],
+  ['Competitions', '/competition', '☆'],
+  ['Communities', '/communities', '◎'],
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -40,12 +50,29 @@ function notificationPath(role?: UserRole): string {
   return '/notification-center';
 }
 
-export default function GlobalTopbar() {
+interface GlobalTopbarProps {
+  mobileMenuOpen?: boolean;
+  mobileMenuControlsId?: string;
+  onMobileMenuToggle?: () => void;
+}
+
+export default function GlobalTopbar({ mobileMenuOpen, mobileMenuControlsId, onMobileMenuToggle }: GlobalTopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoggedIn, refreshToken, logout } = useAuthStore();
   const { lang, toggleLang } = useLanguageStore();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [siteMenuOpen, setSiteMenuOpen] = useState(false);
+  const controlledMenu = typeof onMobileMenuToggle === 'function';
+  const menuOpen = controlledMenu ? Boolean(mobileMenuOpen) : siteMenuOpen;
+  const toggleMenu = () => {
+    if (onMobileMenuToggle) onMobileMenuToggle();
+    else setSiteMenuOpen((open) => !open);
+  };
+  useEffect(() => setSiteMenuOpen(false), [pathname]);
+  const navItems = isLoggedIn && user?.role === 'SUPER_ADMIN' ? [...NAV, PLATFORM_ADMIN_NAV] : NAV;
+  const mobileNavItems = isLoggedIn && user?.role === 'SUPER_ADMIN'
+    ? [...MOBILE_NAV, ['Platform Admin', '/platform-admin', '⚙'] as const]
+    : MOBILE_NAV;
 
   const notificationsQuery = useQuery({
     queryKey: ['notification-unread-count'],
@@ -66,26 +93,27 @@ export default function GlobalTopbar() {
   }
 
   return (
-    <header className={`global-topbar${pathname.startsWith('/admin') ? ' global-topbar-admin' : ''}`}>
-      <Link href="/" className="global-topbar-brand">
-        <div className="global-topbar-brand-icon">V</div>
-        <div className="global-topbar-brand-name">
-          Vidya<span>Setu</span>
-        </div>
-      </Link>
+    <>
+      <header className={`global-topbar${pathname.startsWith('/admin') ? ' global-topbar-admin' : ''}`}>
+        <button className="global-topbar-control global-topbar-menu-toggle" type="button" aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menuOpen} aria-controls={mobileMenuControlsId || (controlledMenu ? undefined : 'global-main-navigation')} onClick={toggleMenu}><span aria-hidden="true">{menuOpen ? '×' : '☰'}</span></button>
+        <Link href="/" className="global-topbar-brand">
+          <div className="global-topbar-brand-icon">V</div>
+          <div className="global-topbar-brand-name">
+            Vidya<span>Setu</span>
+          </div>
+        </Link>
 
-      <button className="global-topbar-control global-topbar-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="global-main-navigation" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? '✕ Close' : '☰ Menu'}</button>
-      <nav id="global-main-navigation" className={`global-topbar-nav${menuOpen ? ' is-open' : ''}`} aria-label="Main navigation">
-        {NAV.map(([label, href]) => {
+        <nav id="global-main-navigation" className={`global-topbar-nav${menuOpen && !controlledMenu ? ' is-open' : ''}`} aria-label="Main navigation">
+          {navItems.map(([label, href]) => {
           const active = isActive(pathname, href);
           return (
-            <Link key={href} href={href} className={`global-topbar-link${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => setMenuOpen(false)}>{label}</Link>
+            <Link key={href} href={href} className={`global-topbar-link${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => setSiteMenuOpen(false)}>{label}</Link>
           );
-        })}
-      </nav>
+          })}
+        </nav>
 
-      <div className="global-topbar-actions">
-        <button className="global-topbar-control" onClick={toggleLang}>
+        <div className="global-topbar-actions">
+        <button className="global-topbar-control global-topbar-language" aria-label="Switch language" onClick={toggleLang}>
           {lang === 'hi' ? 'EN' : 'हिंदी'}
         </button>
         {isLoggedIn ? (
@@ -112,7 +140,21 @@ export default function GlobalTopbar() {
             <button className="global-topbar-control global-topbar-create" onClick={() => router.push('/register')}>Create Account</button>
           </>
         )}
-      </div>
-    </header>
+        </div>
+      </header>
+      <nav className="mobile-bottom-nav" aria-label="Quick navigation">
+        <div className="mobile-bottom-nav-track">
+          {mobileNavItems.map(([label, href, icon]) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link key={href} href={href} className={`mobile-bottom-nav-link${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined}>
+                <span className="mobile-bottom-nav-icon" aria-hidden="true">{icon}</span>
+                <span className="mobile-bottom-nav-label">{label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

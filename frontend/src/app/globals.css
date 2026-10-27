@@ -104,6 +104,13 @@ body { font-family: 'Noto Sans', sans-serif; background: var(--white); color: va
 .global-topbar-create:hover { background: #213657; color: #FFFFFF; }
 .global-topbar-notifications { width: 40px; padding: 5px; font-size: 17px; }
 .global-topbar-notification-count { position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; background: #13264A; color: #FFFFFF; border: 2px solid #FFFFFF; font-size: 10px; font-weight: 900; line-height: 1; }
+.mobile-bottom-nav { display: none; }
+.mobile-bottom-nav-track { display: flex; align-items: center; width: 100%; gap: 4px; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x; scrollbar-width: none; padding: 5px 8px; }
+.mobile-bottom-nav-track::-webkit-scrollbar { display: none; }
+.mobile-bottom-nav-link { display: flex; flex: 0 0 auto; min-width: 72px; min-height: 54px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 3px 8px; border-radius: 13px; color: #14213D; text-decoration: none; white-space: nowrap; }
+.mobile-bottom-nav-link.active { background: #FFF7F0; }
+.mobile-bottom-nav-icon { font-size: 19px; line-height: 23px; }
+.mobile-bottom-nav-label { font-size: 11px; line-height: 15px; font-weight: 800; }
 .role-mobile-toolbar { display: none; }
 .role-mobile-backdrop { display: none; }
 .responsive-dashboard-shell .dash-main > *,
@@ -115,16 +122,21 @@ img, video, iframe { max-width: 100%; }
 @media (max-width: 1100px) {
   .global-topbar-nav { display: none !important; }
   .global-topbar-nav.is-open { display: flex !important; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; padding: 8px 12px; background: var(--topbar-bg); box-shadow: 0 8px 18px rgba(13,27,62,.18); }
-  .global-topbar-menu-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .global-topbar-menu-toggle { display: inline-flex; flex: 0 0 40px; width: 40px; min-width: 40px; min-height: 40px; align-items: center; justify-content: center; padding: 0; font-size: 21px; }
+  .mobile-bottom-nav { display: block; position: fixed; z-index: 1000; right: 0; bottom: 0; left: 0; padding-bottom: env(safe-area-inset-bottom, 0px); background: #FF8A3D; border-top: 1px solid #E7762C; box-shadow: 0 -3px 14px rgba(13,27,62,.12); }
+  .mobile-bottom-nav-track { scroll-behavior: smooth; }
+  body { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+  .responsive-dashboard-shell .dash-main, .admin-shell .admin-main { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 760px) {
-  .global-topbar { min-height: 62px; padding: 7px 8px; gap: 5px; }
-  .global-topbar-brand-name { font-size: 19px; }
+  .global-topbar { min-height: 58px; padding: 6px 8px; gap: 5px; }
+  .global-topbar-brand { gap: 5px; }
+  .global-topbar-brand-name { font-size: 18px; }
   .global-topbar-brand-icon { width: 32px; height: 32px; }
   .global-topbar-nav { display: none; }
   .global-topbar-link { padding: 11px 12px; }
   .global-topbar-actions { margin-left: auto; gap: 4px; }
-  .global-topbar-control { min-height: 34px; padding: 6px 7px; font-size: 11px; }
+  .global-topbar-control { min-height: 38px; padding: 6px 8px; font-size: 11px; }
   .global-topbar-dashboard { display: none; }
   .global-topbar-notifications { width: 34px; min-width: 34px; }
 }
@@ -185,29 +197,42 @@ img, video, iframe { max-width: 100%; }
 }
 @media (max-width: 480px) {
   .responsive-dashboard-shell,
-  .admin-shell { --dashboard-topbar-height: 88px; }
+  .admin-shell { --dashboard-topbar-height: 58px; }
   .global-topbar {
-    --dashboard-topbar-height: 88px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 40px 36px;
+    --dashboard-topbar-height: 58px;
+    display: flex;
+    flex-wrap: nowrap;
     height: var(--dashboard-topbar-height);
     min-height: var(--dashboard-topbar-height);
-    gap: 0 6px;
-    padding: 5px 9px;
+    gap: 4px;
+    padding: 5px 6px;
   }
   .global-topbar-brand { min-width: 0; }
-  .global-topbar-brand-name { font-size: 19px; }
-  .global-topbar-brand-icon { width: 32px; height: 32px; }
-  .global-topbar-menu-toggle { min-height: 34px; padding: 5px 8px; font-size: 11px; }
-  .global-topbar-actions { grid-column: 1 / -1; justify-content: flex-end; gap: 5px; }
-  .global-topbar-control { min-height: 32px; padding: 5px 8px; font-size: 11px; }
+  .global-topbar-brand-name { font-size: 16px; }
+  .global-topbar-brand-icon { width: 29px; height: 29px; }
+  .global-topbar-menu-toggle { flex-basis: 34px; width: 34px; min-width: 34px; min-height: 38px; padding: 0; font-size: 19px; }
+  .global-topbar-actions { flex: 0 0 auto; justify-content: flex-end; gap: 3px; }
+  .global-topbar-control { min-height: 38px; padding: 5px 6px; font-size: 10px; }
+  .global-topbar-language { min-width: 32px; }
+  .global-topbar-login { min-width: 42px; }
+  .global-topbar-create { min-width: 76px; }
   .global-topbar-notifications { width: 34px; min-width: 34px; }
   .global-topbar-nav.is-open { top: 100%; }
   .responsive-dashboard-shell .dash-main,
   .admin-shell .admin-main { padding: 14px; }
   .responsive-dashboard-shell .role-mobile-toolbar,
   .admin-shell .admin-mobile-toolbar { margin: -14px -14px 12px; padding: 8px 14px; }
+}
+@media (max-width: 760px) {
+  .mobile-bottom-nav::after { content: '›'; position: absolute; top: 0; right: 0; bottom: env(safe-area-inset-bottom, 0px); display: grid; width: 24px; place-items: center; background: linear-gradient(90deg, rgba(255,138,61,0), #FF8A3D 58%); color: #14213D; font-size: 24px; font-weight: 700; pointer-events: none; }
+}
+@media (max-width: 360px) {
+  .global-topbar { gap: 3px; padding-right: 4px; padding-left: 4px; }
+  .global-topbar-brand-name { font-size: 14px; }
+  .global-topbar-brand-icon { width: 27px; height: 27px; }
+  .global-topbar-menu-toggle { flex-basis: 31px; width: 31px; min-width: 31px; }
+  .global-topbar-control { padding-right: 4px; padding-left: 4px; font-size: 9px; }
+  .global-topbar-create { min-width: 70px; }
 }
 .toast-success { background: var(--navy) !important; color: white !important; font-family: 'Noto Sans', sans-serif !important; border-radius: 30px !important; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
