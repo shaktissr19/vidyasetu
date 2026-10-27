@@ -59,7 +59,9 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
   const isServiceUnavailable = status === 503;
   const message = process.env.NODE_ENV === 'production' && isServerError
     ? isServiceUnavailable
-      ? 'The requested service is temporarily unavailable. Please try again shortly.'
+      ? appError.apiCode === 'OTP_SMS_UNAVAILABLE'
+        ? 'OTP SMS service is temporarily unavailable. Please try again shortly.'
+        : 'The requested service is temporarily unavailable. Please try again shortly.'
       : 'Internal server error'
     : appError.message || 'Internal server error';
   const code = appError.apiCode
