@@ -382,7 +382,10 @@ const APP_LAYOUT_SCRIPT = `(function(){
 function AppContent() {
   const { width: windowWidth } = useWindowDimensions();
   const compactHeader = windowWidth < 420;
-  const webView = useRef<WebView>(null);
+  // react-native-webview 14 declares its generic parameter as `undefined` by
+  // default, which collapses its prop intersection to `never` under SDK 58's
+  // strict React Native types. Use the package's intended generic escape hatch.
+  const webView = useRef<WebView<any>>(null);
   const loadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentUrl, setCurrentUrl] = useState(SITE_URL);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -496,7 +499,7 @@ function AppContent() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={MOBILE_NAV_THEME.orange} />
+      <StatusBar barStyle="dark-content" />
       <View style={[styles.appHeader, compactHeader && styles.compactAppHeader]}>
         <Pressable
           accessibilityRole="button"
@@ -542,7 +545,7 @@ function AppContent() {
         </View>
       </View>
       <View style={styles.webContainer}>
-        <WebView
+        <WebView<any>
           ref={webView}
           source={{ uri: SITE_URL }}
           style={styles.webView}
@@ -559,28 +562,28 @@ function AppContent() {
             finishLoading();
           }}
           onLoad={() => setFailed(false)}
-          onLoadProgress={({ nativeEvent }) => {
+          onLoadProgress={({ nativeEvent }: { nativeEvent: { progress: number } }) => {
             if (nativeEvent.progress >= 1) finishLoading();
           }}
-          onError={({ nativeEvent }) => {
+          onError={({ nativeEvent }: { nativeEvent: { description?: string } }) => {
             finishLoading();
             setLoadError(nativeEvent.description || "VidyaSetu could not load this page. Check your connection and retry.");
             setFailed(true);
           }}
-          onHttpError={({ nativeEvent }) => {
+          onHttpError={({ nativeEvent }: { nativeEvent: { url: string; statusCode: number } }) => {
             if (nativeEvent.url === currentUrl) {
               finishLoading();
               setLoadError(`The page returned an HTTP ${nativeEvent.statusCode} error. Try again in a moment.`);
               setFailed(true);
             }
           }}
-          onNavigationStateChange={(navigation) => {
+          onNavigationStateChange={(navigation: WebViewNavigation) => {
             onNavigationStateChange(navigation);
             if (navigation.loading === false) {
               finishLoading();
             }
           }}
-          onMessage={(event) => {
+          onMessage={(event: { nativeEvent: { data: string } }) => {
             try {
               const message = JSON.parse(event.nativeEvent.data) as {
                 type?: string;

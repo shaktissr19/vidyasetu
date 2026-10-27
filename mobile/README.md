@@ -28,7 +28,9 @@ By default, the app opens `https://vidyasetu.sbs`. To validate a web change befo
 
 No VPS deployment is needed for this app preview. It opens the already-hosted website at `https://vidyasetu.sbs`.
 
-If the device cannot connect over the same Wi-Fi, use `npx expo start --tunnel --clear`. The project includes the tunnel dependency; install project dependencies with `npm install` first. Do not install `@expo/ngrok` globally.
+If the device cannot connect over the same Wi-Fi, run `npm run start:tunnel`. This pins Expo SDK 58 to its included legacy ngrok tunnel and avoids the newer Expo account-based tunnel. The project includes the tunnel dependency; install project dependencies with `npm ci` first. Do not install `@expo/ngrok` globally.
+
+Expo Go and the app must use the same SDK. This project targets SDK 58. If Expo Go reports another SDK version, do not scan the QR code; update Expo Go to SDK 58 or use a development build compatible with this project.
 
 For a quick check, open Home and Learn, verify Login and Create Account are visible in the bottom bar, then open Menu and visit each role's workspace destinations. Test login/logout, dashboard loading, a syllabus page, Content Factory, Content Library filters, publish/archive/restore actions, and retry/back navigation. Repeat on the iPad and a narrow phone. Authenticated APIs require test accounts and should be checked with each role using `e2e/role-api-smoke.cjs` plus device verification; the script checks initial login/dashboard APIs, not all write actions.
 
