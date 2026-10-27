@@ -22,3 +22,9 @@
 }
 .layout { min-height: calc(100dvh - var(--student-topbar-height)); padding-top: 0; }
 .main { min-height: calc(100dvh - var(--student-topbar-height)); }
+
+/* Match the shared card surface while retaining the student portal's distinct module layout. */
+.stat,.card,.subjectCard,.chapter,.contentItem,.chat,.doubt,.examCard,.calDay,.badge,.leaderRow,.empty {
+  border-color: var(--surface-border, #D5DFEA);
+  box-shadow: var(--surface-shadow, 0 4px 16px rgba(13,27,62,.06));
+}

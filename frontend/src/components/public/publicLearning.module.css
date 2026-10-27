@@ -39,7 +39,7 @@
 .statCard small{display:block;margin-top:2px;color:#738097;font-size:11px;font-weight:750}
 
 .section{padding:64px 24px;background:#f7f9fc}
-.sectionAlt{padding:64px 24px;background:#fff}
+.sectionAlt{padding:64px 24px;background:var(--page-bg,#f4f7fb)}
 .sectionAlt#browse{scroll-margin-top:96px}
 .sectionHeader{max-width:860px;margin-bottom:26px}
 .sectionHeader h2,.resultsHeader h2{font-size:34px;letter-spacing:-.028em;margin:0 0 9px;color:#0d1b3e;line-height:1.16}

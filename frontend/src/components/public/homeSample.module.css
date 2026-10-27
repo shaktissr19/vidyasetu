@@ -170,7 +170,7 @@
 
 .modulesSection {
   padding: 18px 0 28px;
-  background: #fff;
+  background: var(--page-bg, #F3F6FA);
 }
 
 .wideShell {

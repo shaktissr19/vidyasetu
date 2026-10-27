@@ -5,7 +5,7 @@ import SessionExpiryNotice from '@/components/auth/SessionExpiryNotice';
 
 function AuthLoading() {
   return (
-    <div className="min-h-[calc(100vh-66px)] flex items-center justify-center" style={{ background: 'var(--white)' }}>
+    <div className="min-h-[calc(100vh-66px)] flex items-center justify-center" style={{ background: 'var(--page-bg)' }}>
       <div className="text-sm font-semibold" style={{ color: 'var(--slate)' }}>Loading VidyaSetu…</div>
     </div>
   );
