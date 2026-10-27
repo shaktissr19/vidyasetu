@@ -7,6 +7,34 @@ import { query, transaction } from '../config/db';
 import * as practiceService from './adminLearningPractice.service';
 import { requirePublishedSyllabusTopic } from './syllabusContentLink.service';
 
+interface YouTubeSnippet {
+  title?: unknown;
+  description?: unknown;
+  license?: unknown;
+  channelTitle?: unknown;
+  channelId?: unknown;
+  thumbnails?: {
+    high?: { url?: unknown };
+    medium?: { url?: unknown };
+  };
+}
+
+interface YouTubeSearchItem {
+  id?: { videoId?: unknown };
+  snippet?: YouTubeSnippet;
+}
+
+interface YouTubeVideoItem {
+  id?: unknown;
+  status?: { embeddable?: unknown };
+  snippet?: YouTubeSnippet;
+  contentDetails?: { duration?: unknown };
+}
+
+interface YouTubeListResponse<TItem> {
+  items?: TItem[];
+}
+
 export type DiscoveryProvider =
   | 'LOCAL'
   | 'DIKSHA'
@@ -559,7 +587,7 @@ async function discoverYouTube(input: DiscoverSourcesInput): Promise<NormalizedC
   const queryText = [input.query.trim(), input.classNumber ? `Class ${input.classNumber}` : '', input.subject?.trim() || '', input.boardCode && input.boardCode !== 'COMMON' ? input.boardCode : '']
     .filter(Boolean).join(' ');
   const limit = Math.min(25, Math.max(1, input.limit || 12));
-  const search = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+  const search = await axios.get<YouTubeListResponse<YouTubeSearchItem>>('https://www.googleapis.com/youtube/v3/search', {
     params: {
       key: apiKey, part: 'snippet', type: 'video', q: queryText, maxResults: limit,
       videoEmbeddable: 'true', videoSyndicated: 'true', safeSearch: 'strict',
@@ -567,18 +595,18 @@ async function discoverYouTube(input: DiscoverSourcesInput): Promise<NormalizedC
     }, timeout: 12000,
   });
   const ids = (Array.isArray(search.data?.items) ? search.data.items : [])
-    .map((item: any) => typeof item?.id?.videoId === 'string' ? item.id.videoId : null)
+    .map((item) => typeof item?.id?.videoId === 'string' ? item.id.videoId : null)
     .filter((id: string | null): id is string => Boolean(id && /^[A-Za-z0-9_-]{11}$/.test(id)));
   if (!ids.length) return [];
 
   // Recheck eligibility with the video resource; search filters alone do not
   // guarantee an item remains embeddable when it is selected for review.
-  const details = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+  const details = await axios.get<YouTubeListResponse<YouTubeVideoItem>>('https://www.googleapis.com/youtube/v3/videos', {
     params: { key: apiKey, part: 'snippet,status,contentDetails', id: ids.join(',') }, timeout: 12000,
   });
-  const detailById = new Map<string, any>((Array.isArray(details.data?.items) ? details.data.items : [])
-    .filter((item: any) => item?.id && item?.status?.embeddable === true)
-    .map((item: any) => [String(item.id), item]));
+  const detailById = new Map<string, YouTubeVideoItem>((Array.isArray(details.data?.items) ? details.data.items : [])
+    .filter((item) => item?.id && item?.status?.embeddable === true)
+    .map((item) => [String(item.id), item] as const));
   const secondsFromIsoDuration = (duration: unknown): number | null => {
     if (typeof duration !== 'string') return null;
     const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
@@ -586,7 +614,7 @@ async function discoverYouTube(input: DiscoverSourcesInput): Promise<NormalizedC
     const seconds = Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
     return seconds > 0 ? seconds : null;
   };
-  const searchItems = new Map<string, any>((search.data.items || []).map((item: any) => [String(item?.id?.videoId || ''), item]));
+  const searchItems = new Map<string, YouTubeSearchItem>((search.data.items || []).map((item) => [String(item?.id?.videoId || ''), item] as const));
   return applyCandidateFilters(input,ids.flatMap((id: string): NormalizedCandidate[] => {
     const item = detailById.get(id);
     if (!item) return [];
