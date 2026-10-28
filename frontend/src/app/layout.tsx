@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: MOBILE_NAV_THEME.orange,
+  themeColor: '#FFFFFF',
 };
 
 const sharedThemeStyle = {
