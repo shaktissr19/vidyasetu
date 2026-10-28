@@ -776,10 +776,10 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   tabBarSafeArea: { backgroundColor: MOBILE_NAV_THEME.orange },
   appHeader: {
-    minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 8,
+    minHeight: 52, flexDirection: "row", alignItems: "center", paddingHorizontal: 8,
     gap: 6, backgroundColor: MOBILE_NAV_THEME.orange, borderBottomWidth: 1, borderBottomColor: MOBILE_NAV_THEME.orangeEdge,
   },
-  compactAppHeader: { minHeight: 58, paddingHorizontal: 4, gap: 3 },
+  compactAppHeader: { minHeight: 52, paddingHorizontal: 4, gap: 3 },
   headerMenuButton: { width: 40, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: MOBILE_NAV_THEME.cream, borderWidth: 1, borderColor: MOBILE_NAV_THEME.buttonBorder },
   compactHeaderMenuButton: { width: 34, height: 44 },
   headerMenuIcon: { color: MOBILE_NAV_THEME.navy, fontSize: 22, fontWeight: "800" },
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
   retryText: { color: MOBILE_NAV_THEME.navy, fontSize: 15, fontWeight: "800" },
   tabBarScroller: {
     position: "relative",
-    minHeight: 52,
+    minHeight: 44,
     backgroundColor: MOBILE_NAV_THEME.orange,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: MOBILE_NAV_THEME.orangeEdge,
@@ -861,9 +861,9 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 52,
+    minHeight: 44,
     paddingHorizontal: 8,
-    paddingTop: 3,
+    paddingTop: 0,
     gap: 3,
     flexGrow: 1,
   },
