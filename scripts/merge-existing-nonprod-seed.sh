@@ -114,6 +114,13 @@ const password = () => `VSqa!${crypto.randomBytes(18).toString('base64url')}9`;
 (async () => {
   const { rows: [database] } = await pool.query('SELECT current_database() AS name');
   if (database.name !== target) throw new Error(`Refusing to provision accounts in ${database.name}; expected ${target}`);
+  const envPath = path.join(process.env.CREDENTIALS_DIR, 'api-test.env');
+  if (fs.existsSync(envPath)) {
+    const firstLine = fs.readFileSync(envPath, 'utf8').split(/\r?\n/, 1)[0];
+    if (!firstLine.includes(`for ${target}.`)) throw new Error(`Existing credentials file does not identify target ${target}; refusing to overwrite it.`);
+    console.log(`Preserving existing automation credentials for ${target}: ${envPath}`);
+    return;
+  }
   const output = [];
   for (const account of accounts) {
     const { rows } = await pool.query('SELECT id, role, username, mobile FROM users WHERE id=$1', [account.id]);
@@ -132,7 +139,6 @@ const password = () => `VSqa!${crypto.randomBytes(18).toString('base64url')}9`;
     ...output.flatMap((entry) => [`E2E_${entry.key}_IDENTIFIER=${entry.identifier}`, `E2E_${entry.key}_PASSWORD=${entry.password}`]),
     '',
   ].join('\n');
-  const envPath = path.join(process.env.CREDENTIALS_DIR, 'api-test.env');
   fs.writeFileSync(envPath, env, { mode: 0o600 });
   fs.chmodSync(envPath, 0o600);
   console.log(`Generated automation login settings for ${target}: ${envPath}`);
