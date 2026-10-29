@@ -450,12 +450,12 @@
 }
 
 /* Make the Home audience cards and their hierarchy readable at first glance. */
-.modulesSection { background: #dce5ef; }
+.modulesSection { background: #B0B7BF; }
 .moduleHeading h2 { font-size: 30px; line-height: 1.1; }
 .eyebrow { font-size: 14px; font-weight: 900; }
-.moduleHeading p { color: #40516a; font-size: 16px; line-height: 1.5; font-weight: 600; }
+.moduleHeading p { color: #263954; font-size: 16px; line-height: 1.5; font-weight: 600; }
 .moduleCard { border-color: #91a5bc; background: #fff; box-shadow: 0 12px 28px rgba(19,40,73,.11); }
-.moduleMedia { background: #e5ecf4; }
+.moduleMedia { background: #B7BDC3; }
 .moduleBody { background: #fff; padding: 17px 18px 18px; }
 .moduleBody strong { font-size: 18px; font-weight: 800; }
 .moduleBody p { color: #40516a; font-size: 15px; line-height: 1.55; }
@@ -473,7 +473,7 @@
 }
 
 /* Keep Home card surfaces distinct from the cool section background. */
-.modulesSection { background: #dce5ef; }
+.modulesSection { background: #B0B7BF; }
 .moduleCard { border-color: #91a5bc; box-shadow: 0 12px 28px rgba(19,40,73,.11); }
 .moduleBody { background: #fff; }
 .moduleBody p { color: #40516a; }
