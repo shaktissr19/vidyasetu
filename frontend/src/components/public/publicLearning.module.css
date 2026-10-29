@@ -229,9 +229,9 @@
 }
 
 /* Learn uses the same cool canvas and clear white card surfaces as Home. */
-.page { background: #dce5ef; }
-.section { background: #e5ecf4; }
-.sectionAlt { background: #dce5ef; }
+.page { background: #B0B7BF; }
+.section { background: #B7BDC3; }
+.sectionAlt { background: #B0B7BF; }
 .resourceCard,.loadingCard,.featureCard,.boardCard,.browsePanel {
   border-color: #91a5bc;
   box-shadow: 0 12px 28px rgba(16,35,68,.11);
@@ -248,6 +248,7 @@
 .eyebrow { color: #A43A00; font-size: 14px; font-weight: 900; letter-spacing: .13em; }
 .sectionHeader h2,.resultsHeader h2 { font-weight: 850; }
 .sectionHeader p,.resultsHeader p { color: #40516a; font-size: 17px; font-weight: 550; }
+.sectionHeader p,.resultsHeader p { color: #263954; }
 .visualCard strong { font-size: 16px; font-weight: 800; }
 .visualCard small { color: #40516a; font-size: 13px; }
 .stageTab { font-size: 14px; }
