@@ -33,6 +33,7 @@ command -v psql >/dev/null || fail "psql is not installed"
 command -v node >/dev/null || fail "Node.js is not installed"
 
 [[ -n "$TARGET_DB" ]] || fail "Set TARGET_DB to the exact existing non-production database name. This script will not guess."
+[[ "$TARGET_DB" =~ ^[A-Za-z0-9_-]+$ ]] || fail "TARGET_DB may contain only letters, digits, underscores, or hyphens."
 [[ "$CONFIRM_NONPRODUCTION_DB" == "$TARGET_DB" ]] || fail "Set CONFIRM_NONPRODUCTION_DB to the same exact name after verifying TARGET_DB is non-production."
 
 DB_HOST="$(read_env_value DB_HOST)"; DB_HOST="${DB_HOST:-127.0.0.1}"
