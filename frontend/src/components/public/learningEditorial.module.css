@@ -26,3 +26,35 @@
 .resourceBody p,.resourceFacts span { color: #45546d; }
 .categorySection,.learningTypeSection { border-color: #c4d1df; box-shadow: 0 8px 22px rgba(16,35,68,.045); }
 .clearButton { color: #A43A00; }
+
+/* Public Learning's main canvas, catalogue and smaller labels meet the same standard. */
+.page,.cataloguePage { background: #dce5ef; }
+.browseSection,.practiceSection,.catalogueBody { background: #e5ecf4; }
+.resourcesSection,.developmentSection { background: #dce5ef; }
+.kicker,.eyebrow,.pathKicker { font-size: 14px; font-weight: 900; }
+.sectionHeading p,.resultsHeading p,.developmentHeading p { color: #40516a; font-size: 17px; font-weight: 550; }
+.sectionHeading h2,.resultsHeading h2,.developmentHeading h2 { font-weight: 800; }
+.stageButton,.stageActive { font-size: 14px; }
+.filterRow label>span,.categoryHeading>div>span { color: #40516a; font-size: 13px; }
+.filterSummary,.filterSummary>span { color: #40516a; font-size: 13px; }
+.categoryHeading p { color: #40516a; font-size: 15px; }
+.categoryCard { background: #fff; border-color: #91a5bc; box-shadow: 0 10px 24px rgba(18,46,78,.1); }
+.categoryCard strong { font-size: 15px; font-weight: 800; }
+.categoryCard span { color: #40516a; font-size: 13px; }
+.resourceCard,.practiceCard,.pillarCard,.errorState,.emptyState,.skeletonCard {
+  border-color: #91a5bc;
+  box-shadow: 0 12px 28px rgba(20,50,80,.11);
+}
+.resourceCard { background: #fff; }
+.resourceBody { background: #fff; }
+.resourceBody h3 { font-size: 22px; font-weight: 800; }
+.resourceBody p,.practiceCard p,.pillarCard p { color: #40516a; font-size: 15px; line-height: 1.65; }
+.resourceFacts span { color: #33465f; font-size: 13px; }
+.resourceLink,.pillarCard strong,.practiceCard strong { font-size: 14px; }
+.practiceCard { background: #fff; }
+.practiceCard>span,.pillarCard>span { font-size: 13px; font-weight: 900; }
+.practiceCard div { color: #40516a; font-size: 14px; }
+.pillarCard { background: #fff; }
+.catalogueToolbar span,.updating { color: #40516a; font-size: 14px; }
+.catalogueHero p { font-size: 17px; }
+.catalogueBack { font-size: 14px; }
