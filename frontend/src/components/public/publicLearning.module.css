@@ -228,10 +228,41 @@
   .statsGrid{grid-template-columns:1fr}.visualGrid{grid-template-columns:1fr}.categoryTabs{grid-template-columns:1fr}
 }
 
-/* Raise card and supporting-text contrast on public learning sections. */
-.page { background: #edf2f8; }
-.resourceCard { border-color: #c7d3e1; box-shadow: 0 10px 28px rgba(16,35,68,.09); }
-.resourceBody p,.practiceCard p,.practiceCard div,.featureCard p { color: #4c5b73; }
-.empty { border-color: #aebdcd; background: #fff; color: #4c5b73; }
-.featureCard { border-color: #c6d2df; box-shadow: 0 8px 24px rgba(31,57,91,.07); }
-.eyebrow { color: #A43A00; }
+/* Learn uses the same cool canvas and clear white card surfaces as Home. */
+.page { background: #dce5ef; }
+.section { background: #e5ecf4; }
+.sectionAlt { background: #dce5ef; }
+.resourceCard,.loadingCard,.featureCard,.boardCard,.browsePanel {
+  border-color: #91a5bc;
+  box-shadow: 0 12px 28px rgba(16,35,68,.11);
+}
+.resourceCard,.loadingCard,.boardCard { background: #fff; }
+.resourceBody p,.practiceCard p,.practiceCard div,.featureCard p { color: #40516a; }
+.resourceBody p,.featureCard p { font-size: 15px; line-height: 1.65; }
+.resourceFacts { color: #40516a; font-size: 12px; }
+.resourceEyebrow { font-size: 12px; }
+.resourceCard h3 { font-weight: 800; }
+.empty { border-color: #91a4ba; background: #fff; color: #354862; font-size: 15px; }
+.featureCard { border-color: #91a5bc; box-shadow: 0 12px 28px rgba(31,57,91,.1); }
+.featureCard h3 { font-weight: 800; }
+.eyebrow { color: #A43A00; font-size: 14px; font-weight: 900; letter-spacing: .13em; }
+.sectionHeader h2,.resultsHeader h2 { font-weight: 850; }
+.sectionHeader p,.resultsHeader p { color: #40516a; font-size: 17px; font-weight: 550; }
+.visualCard strong { font-size: 16px; font-weight: 800; }
+.visualCard small { color: #40516a; font-size: 13px; }
+.stageTab { font-size: 14px; }
+.className { font-size: 16px; }
+.classCount { color: #4c5b73; font-size: 12px; }
+.publicField { color: #40516a; font-size: 12px; }
+.filterSectionHeading span { color: #40516a; font-size: 12px; }
+.filterSectionHeading strong { font-size: 18px; font-weight: 800; }
+.filterSectionHeading small { color: #4c5b73; font-size: 13px; }
+.categoryTab strong { font-size: 13px; font-weight: 800; }
+.categoryTab small { color: #4c5b73; font-size: 11px; }
+.resultCount { color: #40516a; font-size: 13px; }
+.badge,.featuredBadge { font-size: 10px; }
+.sourceTrust { color: #40516a; font-size: 11px; }
+.pill { color: #40516a; font-size: 11px; }
+.cardCta { font-size: 12px; }
+.note { color: #40516a; font-size: 14px; }
+.muted { color: #40516a; font-size: 15px; }
