@@ -56,3 +56,19 @@
 .empty { border-color: #91a4ba; color: #354862; background: #fff; }
 .smallLink { font-size: 14px; }
 .sectionHeader { margin-bottom: 38px; }
+
+/* Public card surfaces use VidyaSetu blue with readable light text. */
+.capCard,.schoolCard,.audienceCard,.previewCard,.step,.proof,.loginRibbon,.empty {
+  background: #456184;
+  border-color: #456184;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(13,27,62,.16);
+}
+.capCard h3,.schoolName,.audienceCard strong,.previewCard h3,.step h3,.loginRibbon strong,.empty strong { color: #fff; }
+.capCard p,.capCard .bulletList li,.schoolMeta,.audienceCard p,.previewCard p,.step p,.loginRibbon .muted,.empty p,.empty { color: #edf3fa; }
+.miniStat { background: rgba(255,255,255,.12); color: #fff; }
+.miniStat span { color: #edf3fa; }
+.badge { background: rgba(255,255,255,.18); color: #fff; }
+.bulletList li:before { color: #A8F0BB; }
+.smallLink { color: #FFD3B0; }
+.notice { background: #456184; border-color: #456184; color: #fff; }

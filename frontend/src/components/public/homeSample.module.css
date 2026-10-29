@@ -496,3 +496,13 @@
   .moduleMedia { aspect-ratio: 2.1 / 1; }
   .moduleBody { min-height: 0; }
 }
+
+/* Home audience cards use the same blue surface as the public modules. */
+.moduleCard { background: #456184; border-color: #456184; color: #fff; }
+.moduleBody { background: #456184; color: #fff; }
+.moduleBody strong,.moduleBody p { color: #fff; }
+.moduleExplore { background: #FF8A3D; color: #14213D; }
+.statsStrip { background: #456184; border-color: #456184; box-shadow: 0 12px 28px rgba(13,27,62,.16); }
+.statCopy strong,.statCopy b,.statCopy small { color: #fff !important; }
+.stat:not(:last-child)::after { background: rgba(255,255,255,.25); }
+.stat:nth-child(-n+2) { border-color: rgba(255,255,255,.25); }

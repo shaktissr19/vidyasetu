@@ -66,7 +66,8 @@ export async function list(_req: Request, res: Response, next: NextFunction): Pr
       `SELECT id,title,title_hi,description,type,status,class_names,subject_codes,total_questions,duration_mins,
               marks_per_question,negative_marks,registration_start,registration_end,start_time,end_time,
               results_at,prize_pool,banner_url
-       FROM exams WHERE status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED')
+       FROM exams WHERE school_id IS NULL
+         AND status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED')
          AND type IN ('OLYMPIAD','MOCK','PRACTICE') ORDER BY start_time ASC LIMIT 30`,
     );
     return R.ok(res, rows);

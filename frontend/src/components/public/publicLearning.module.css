@@ -194,6 +194,33 @@
 .tinyButton{border:1px solid rgba(255,255,255,.15);background:transparent;color:#dfe7f7;padding:6px 8px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;text-decoration:none}.tinyButton:hover{border-color:#ff8d32;color:#ffb27a}
 .adminPanel .badge{background:#162440;color:#cfe0ff}.adminPanel .pill{background:#17233d;color:#b9c7de;border-color:#22304d}
 
+/* Public Learning cards use the shared blue surface with light readable type. */
+.page .visualCard,.page .statCard,.page .browsePanel,.page .classButton,.page .learningTypeSection,
+.page .categoryTab,.page .resourceCard,.page .loadingCard,.page .empty,.page .featureCard,.page .boardCard,
+.page .sourceCard,.page .practiceIcon,.article .sourceBox,.article .cta {
+  background: #456184;
+  border-color: #456184;
+  color: #fff;
+}
+.page .visualCard strong,.page .visualCard small,.page .statCard strong,.page .statCard small,.page .classButton,
+.page .categoryTab,.page .categoryTab strong,.page .categoryTab small,.page .resourceCard h3,.page .resourceCard p,
+.page .resourceFacts,.page .resourceEyebrow,.page .resourceFooter,.page .sourceTrust,.page .cardCta,
+.page .featureCard h3,.page .featureCard p,.page .boardCard strong,.page .boardCard span,.page .empty,.page .empty strong,
+.page .sourceCard.light,.page .sourceCard.light p,.article .sourceBox,.article .cta,.article .cta p { color: #fff; }
+.page .resourceMedia,.page .resourceFooter { background: #456184; border-color: rgba(255,255,255,.24); }
+.page .resourceIconWrap,.page .categoryIcon,.page .featureIcon,.page .practiceIcon { background: rgba(255,255,255,.16); color: #fff; border-color: rgba(255,255,255,.22); }
+.page .pill,.page .badge,.page .featuredBadge,.page .resourceFacts span { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.22); color: #fff; }
+.page .resourceCard .cardCta,.page .resourceCard .resourceEyebrow { color: #FFD3B0; }
+.page .classActive { background: #FF8A3D !important; border-color: #FF8A3D !important; color: #14213D !important; }
+.article .learningMarkdown { color: #fff; }
+.article .learningMarkdown h1,.article .learningMarkdown h2,.article .learningMarkdown h3,.article .learningMarkdown h4,.article .learningMarkdown h5,.article .learningMarkdown h6 { color: #fff; }
+.article .learningMarkdown a { color: #FFD3B0; }
+.article .learningMarkdown code { background: rgba(255,255,255,.16); color: #fff; }
+.article .learningMarkdown hr { border-top-color: rgba(255,255,255,.25); }
+.article .resourceCard { background: #456184; }
+.page .article { background: #456184; border: 1px solid #456184; border-radius: 20px; color: #fff; }
+.page .article h1,.page .article h2,.page .article p,.page .article .muted { color: #fff; }
+
 @media(max-width:1120px){
   .heroGrid{grid-template-columns:1fr}.heroVisual{min-height:auto}
   .classGrid{grid-template-columns:repeat(6,1fr)}
@@ -267,3 +294,58 @@
 .cardCta { font-size: 12px; }
 .note { color: #40516a; font-size: 14px; }
 .muted { color: #40516a; font-size: 15px; }
+
+/* Public learning cards use one blue surface after the legacy white-card rules. */
+.page .visualCard,
+.page .statCard,
+.page .browsePanel,
+.page .classButton,
+.page .learningTypeSection,
+.page .categoryTab,
+.page .resourceCard,
+.page .loadingCard,
+.page .empty,
+.page .featureCard,
+.page .boardCard,
+.page .sourceCard,
+.page .practiceIcon,
+.page .article .sourceBox,
+.page .article .cta {
+  background: #456184;
+  border-color: #456184;
+  color: #fff;
+}
+.page .visualCard strong,
+.page .visualCard small,
+.page .statCard strong,
+.page .statCard span,
+.page .browsePanel h2,
+.page .browsePanel p,
+.page .classButton,
+.page .categoryTab strong,
+.page .categoryTab small,
+.page .resourceCard h2,
+.page .resourceCard h3,
+.page .resourceCard p,
+.page .resourceCard span,
+.page .featureCard h2,
+.page .featureCard h3,
+.page .featureCard p,
+.page .boardCard h2,
+.page .boardCard h3,
+.page .boardCard p,
+.page .sourceCard h2,
+.page .sourceCard h3,
+.page .sourceCard p,
+.page .article .sourceBox,
+.page .article .cta,
+.page .article .cta p { color: #fff; }
+.page .resourceCard,.page .loadingCard,.page .boardCard,.page .featureCard { box-shadow: 0 12px 28px rgba(13,27,62,.16); }
+.page .resourceMedia,.page .resourceFooter,.page .resourceBody,.page .categoryIcon,.page .featureIcon,
+.page .practiceIcon,.page .resourceIconWrap,.page .pill,.page .badge,.page .featuredBadge,
+.page .resourceFacts span { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.24); }
+.page .publicField input,.page .publicField select,.page .filterPanel input,.page .filterPanel select { background-color: #fff; color: #14213D; }
+.page .stageTab { background: #14213D; border-color: #14213D; color: #fff; }
+.page .stageTabActive { background: #FF8A3D; border-color: #FF8A3D; color: #14213D; }
+.page .classActive { background: #FF8A3D !important; border-color: #FF8A3D !important; color: #14213D !important; }
+.page .categoryTabActive { background: #456184 !important; border-color: rgba(255,255,255,.35) !important; color: #fff !important; }

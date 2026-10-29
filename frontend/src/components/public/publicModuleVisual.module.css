@@ -133,3 +133,10 @@
 @media(max-width:1180px) { .quickCard { min-height: 150px; } }
 @media(max-width:720px) { .quickCard { min-height: 142px; padding: 12px; } }
 @media(max-width:440px) { .quickCard { min-height: 0; } }
+
+/* Keep role page cards on the selected shared surface color. */
+.quickCard,.metricCard,.metricError { background: #456184; border-color: #456184; color: #fff; }
+.quickCard strong,.quickCard p,.quickCard span,.metricCard span { color: #fff; }
+.quickIcon { background: rgba(255,255,255,.16); color: #fff; box-shadow: none; }
+.metricCard strong { color: #FFB477; }
+.metricError button { background: #14213D; border-color: #14213D; color: #fff; }

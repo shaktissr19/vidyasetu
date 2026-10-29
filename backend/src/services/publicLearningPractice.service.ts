@@ -10,7 +10,7 @@ export interface PublicAssessmentFilters {
 
 export async function listPublicAssessments(filters: PublicAssessmentFilters = {}) {
   const values: unknown[] = [];
-  const conditions = ["la.visibility='PUBLIC'", "la.review_status='PUBLISHED'"];
+  const conditions = ["la.visibility='PUBLIC'", "la.access_requirement='PUBLIC'", "la.review_status='PUBLISHED'"];
   if (filters.className) {
     values.push(filters.className);
     const p = values.length;
@@ -63,7 +63,7 @@ export async function getPublicAssessment(slug: string) {
      LEFT JOIN subjects sub ON sub.id=la.subject_id
      LEFT JOIN learning_assessment_boards lab ON lab.assessment_id=la.id
      LEFT JOIN education_boards eb ON eb.id=lab.board_id
-     WHERE la.public_slug=$1 AND la.visibility='PUBLIC' AND la.review_status='PUBLISHED'
+     WHERE la.public_slug=$1 AND la.visibility='PUBLIC' AND la.access_requirement='PUBLIC' AND la.review_status='PUBLISHED'
      GROUP BY la.id,sub.id`, [slug],
   );
   if (!assessment) throw Object.assign(new Error('Public practice assessment not found'), { statusCode: 404 });
