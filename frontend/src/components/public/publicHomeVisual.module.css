@@ -437,14 +437,55 @@
   .listCard span { text-align:left; }
 }
 
+/* Public Home: distinct page canvas, bright cards, and readable section type. */
+.page { background: #B0B7BF; }
+.modulesSection,.journeySection,.whySection { background: #B0B7BF; }
+.benefitsSection,.liveSection { background: #B7BDC3; }
+.discoverySection { background: linear-gradient(180deg, #B2BAC2 0%, #B6BEB3 100%); }
+.finalCta { background: #B0B7BF; }
+.centerHeading > span,.sectionIntro > span,.sectionIntroCompact > span,.finalCtaInner span {
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+.centerHeading p,.sectionIntro p,.sectionIntroCompact p { color: #263954; font-size: 17px; font-weight: 550; line-height: 1.65; }
+.centerHeading > span,.sectionIntro > span,.sectionIntroCompact > span { color: #6b2b00; }
+.moduleCard,.benefitCard,.discoveryCard,.journeyCard,.listCard,.whyCard {
+  border-color: #91a5bc;
+  box-shadow: 0 12px 28px rgba(13,27,62,.11);
+}
+.moduleCard { background: #fff; }
+.moduleBody { background: #fff; }
+.moduleBody p,.discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #40516a; font-size: 15px; line-height: 1.6; }
+.moduleBody strong { font-size: 23px; font-weight: 800; }
+.moduleBody > span,.sectionAction a,.inlineLink { font-size: 14px; font-weight: 900; }
+.benefitCard { background: #fff; }
+.benefitCard p { color: #40516a; font-size: 15px; line-height: 1.6; }
+.discoveryCard { background: #fff; }
+.discoveryMeta { font-size: 13px; font-weight: 900; }
+.discoveryCard h3 { font-size: 23px; font-weight: 800; }
+.discoveryBody > span { font-size: 14px; }
+.journeyCard { background: #fff; }
+.journeyCard h3 { font-size: 21px; font-weight: 800; }
+.liveGrid .sectionIntro p { color: #263954; }
+.listCard { background: #fff; }
+.listCard strong { font-size: 16px; font-weight: 800; }
+.listCard span { font-size: 14px; }
+.whyCard { background: #fff; }
+.whyCard strong { font-size: 19px; font-weight: 800; }
+.whyCard p { font-size: 14px; }
+.heroBenefits span { font-size: 13px; }
+.liveEmpty { color: #354862; font-size: 15px; }
+
 /* Public Home cards need a clear surface against the neutral page canvas. */
-.page { background: #edf2f8; }
-.discoveryCard { border-color: color-mix(in srgb, var(--discovery-accent) 30%, #c6d3e2); box-shadow: 0 14px 33px rgba(13,27,62,.11); }
+.page { background: #B0B7BF; }
+.discoveryCard { border-color: #91a5bc; box-shadow: 0 14px 33px rgba(13,27,62,.11); }
 .discoveryBody { background: #fff; }
-.discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #4c5b73; }
-.journeyCard,.listCard { border-color: #c9d5e2; background: #fff; }
-.listCard { box-shadow: 0 5px 14px rgba(13,27,62,.045); }
-.whyCard { border-color: #c9d5e2; box-shadow: 0 8px 20px rgba(13,27,62,.06); }
+.discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #40516a; }
+.journeyCard,.listCard { border-color: #91a5bc; background: #fff; }
+.listCard { box-shadow: 0 12px 28px rgba(13,27,62,.11); }
+.whyCard { border-color: #91a5bc; box-shadow: 0 12px 28px rgba(13,27,62,.11); }
 .whyCard strong { color: #14213d; }
 .orange { --accent: #A43A00; }
 .rose { --accent: #A9274B; }
