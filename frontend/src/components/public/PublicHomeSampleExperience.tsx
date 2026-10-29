@@ -34,7 +34,7 @@ const MODULES = [
   { title: 'Parents', copy: 'Monitor progress and stay connected with schools', href: '/for-parents', tone: sample.violet, image: MODULE_IMAGES.parent },
   { title: 'Learning', copy: 'Access public resources for all grades', href: '/learn', tone: sample.orange, image: MODULE_IMAGES.learn },
   { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', tone: sample.rose, image: MODULE_IMAGES.competition },
-  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal },
+  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal, image: HERO_IMAGES.communities },
 ];
 
 const JOURNEY = [
@@ -157,9 +157,11 @@ export default function PublicHomeSampleExperience() {
                   {module.image ? <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 820px) 100vw, (max-width: 1180px) 33vw, 33vw" style={{ objectFit: 'cover', objectPosition: 'center' }} /> : <div className={sample.moduleVisualFallback}><Users size={46} strokeWidth={1.5} /></div>}
                 </div>
                 <div className={sample.moduleBody}>
-                  <strong>{module.title}</strong>
+                  <div className={sample.moduleTitleRow}>
+                    <strong>{module.title}</strong>
+                    <span className={sample.moduleExplore}>Explore</span>
+                  </div>
                   <p>{module.copy}</p>
-                  <span>Explore</span>
                 </div>
               </Link>
             ))}

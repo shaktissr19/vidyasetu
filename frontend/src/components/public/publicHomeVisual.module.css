@@ -403,7 +403,7 @@
 .ctaActions a { padding:12px 18px; border-radius:10px; text-decoration:none; font-weight:850; }
 .ctaActions a:first-child { background:#FF8A3D; color:#14213D; }
 .finalCtaInner span { color:#FFC299; }
-.ctaActions a:last-child { background:#fff; color:#10264f; }
+.ctaActions a:last-child { background:#14213D; color:#fff; border:1px solid rgba(255,255,255,.55); }
 .footer { text-align:center; padding:24px; color:#6b7488; font-size:12px; background:#f8fafc; }
 
 @media(max-width:1050px) {
@@ -438,11 +438,11 @@
 }
 
 /* Public Home: distinct page canvas, bright cards, and readable section type. */
-.page { background: #B0B7BF; }
-.modulesSection,.journeySection,.whySection { background: #B0B7BF; }
-.benefitsSection,.liveSection { background: #B7BDC3; }
-.discoverySection { background: linear-gradient(180deg, #B2BAC2 0%, #B6BEB3 100%); }
-.finalCta { background: #B0B7BF; }
+.page { background: #DCE5EF; }
+.modulesSection,.journeySection,.whySection { background: #DCE5EF; }
+.benefitsSection,.liveSection { background: #E5ECF4; }
+.discoverySection { background: linear-gradient(180deg, #DCE5EF 0%, #E5ECF4 100%); }
+.finalCta { background: #DCE5EF; }
 .centerHeading > span,.sectionIntro > span,.sectionIntroCompact > span,.finalCtaInner span {
   font-size: 14px;
   line-height: 1.3;
@@ -479,7 +479,7 @@
 .liveEmpty { color: #354862; font-size: 15px; }
 
 /* Public Home cards need a clear surface against the neutral page canvas. */
-.page { background: #B0B7BF; }
+.page { background: #DCE5EF; }
 .discoveryCard { border-color: #91a5bc; box-shadow: 0 14px 33px rgba(13,27,62,.11); }
 .discoveryBody { background: #fff; }
 .discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #40516a; }

@@ -30,7 +30,7 @@ export default function CompetitionPage() {
   const [lbExamId, setLbExamId] = useState<string | null>(null);
   const activeLbExamId = lbExamId || '';
 
-  const { data: exams = [], isLoading, refetch } = useQuery({
+  const { data: exams = [], isLoading, isError: examsError, refetch } = useQuery({
     queryKey: ['competition-discovery-v2', isStudent ? 'student' : 'public'],
     queryFn: () => (isStudent ? listMyExams() : listCompetitions()).then((response) => response.data.data),
   });
@@ -83,6 +83,12 @@ export default function CompetitionPage() {
 
         {isLoading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>{[...Array(3)].map((_, index) => <CardSkeleton key={index} />)}</div>
+        ) : examsError ? (
+          <div className="card" role="alert" style={{ textAlign: 'center', padding: 40 }}>
+            <h2 className="font-display" style={{ fontWeight: 800, color: 'var(--navy)' }}>Competitions could not be loaded</h2>
+            <p style={{ color: 'var(--slate)', marginTop: 8 }}>The public competition service is temporarily unavailable. Please try again.</p>
+            <button className="btn-primary" type="button" onClick={() => void refetch()} style={{ marginTop: 16 }}>Try again</button>
+          </div>
         ) : exams.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: 40 }}>
             <div style={{ fontSize: 38, marginBottom: 10 }}>🏆</div>

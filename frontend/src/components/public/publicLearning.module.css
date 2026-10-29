@@ -78,8 +78,8 @@
 .gradeSenior{background:#fff6fa}.gradeSenior:before{background:#d66f9f}
 
 .coverageRetry{margin-top:14px;border:1px solid #f0ddcb;background:#fff9f4;border-radius:13px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#8a5a35;font-size:11px}
-.coverageRetry button,.retryButton{appearance:none;border:1px solid #e7c5a7;background:#fff;color:#c95d10;border-radius:10px;padding:8px 10px;font-weight:850;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
-.coverageRetry button:hover,.retryButton:hover{background:#fff2e7}
+.coverageRetry button,.retryButton{appearance:none;border:1px solid #14213D;background:#14213D;color:#fff;border-radius:10px;padding:8px 10px;font-weight:850;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.coverageRetry button:hover,.retryButton:hover{background:#20365f}
 
 .boardFilterRow{margin-top:22px;border-top:1px solid #e4eaf2;padding-top:21px;display:grid;grid-template-columns:minmax(240px,1fr) minmax(320px,1.6fr) auto;gap:12px;align-items:end}
 .publicField{display:flex;flex-direction:column;gap:7px;color:#68758b;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
@@ -88,8 +88,8 @@
 .filterSummary{min-height:46px;border-radius:12px;background:#eef4fb;border:1px solid #dce6f1;padding:10px 13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#5f6c83;font-size:11px}
 .filterSummary strong{color:#14264b}.filterSummary span:not(.summaryLabel){background:rgba(255,255,255,.72);padding:4px 7px;border-radius:999px}
 .summaryLabel{text-transform:uppercase;letter-spacing:.09em;font-size:9px;font-weight:900;color:#8995a8}
-.clearButton{appearance:none;border:1px solid #f0c4a2;background:#fff6ee;color:#d85b03;border-radius:12px;padding:11px 15px;font-weight:900;cursor:pointer;min-height:46px}
-.clearButton:hover{background:#ffead8}
+.clearButton{appearance:none;border:1px solid #14213D;background:#14213D;color:#fff;border-radius:12px;padding:11px 15px;font-weight:900;cursor:pointer;min-height:46px}
+.clearButton:hover{background:#20365f}
 
 .learningTypeSection{margin-top:22px;padding:21px;border-radius:20px;background:rgba(255,255,255,.78);border:1px solid #e2e8f0}
 .filterSectionHeading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:14px}
@@ -183,7 +183,7 @@
 .muted{color:#68758a;font-size:13px;line-height:1.6}
 .article .resourceCard{padding:22px;min-height:auto}.article .resourceCard p{display:block;-webkit-line-clamp:unset;overflow:visible}
 .sourceBox{margin-top:36px;padding:18px;border-radius:14px;background:#f2f6fb;border:1px solid #dfe7f1;color:#5d687e;font-size:13px;line-height:1.6}
-.cta{margin-top:40px;background:linear-gradient(135deg,#fff0e5,#eef7ff);border:1px solid #f3d9c5;border-radius:22px;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:18px}.cta strong{font-size:22px}.cta .secondary{color:#173154;border-color:#d4dfec;background:#fff}
+.cta{margin-top:40px;background:linear-gradient(135deg,#fff0e5,#eef7ff);border:1px solid #f3d9c5;border-radius:22px;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:18px}.cta strong{font-size:22px}.cta .secondary{color:#fff;border-color:#14213D;background:#14213D}
 
 .studio{padding:28px}
 .adminGrid{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:22px}
@@ -229,9 +229,9 @@
 }
 
 /* Learn uses the same cool canvas and clear white card surfaces as Home. */
-.page { background: #B0B7BF; }
-.section { background: #B7BDC3; }
-.sectionAlt { background: #B0B7BF; }
+.page { background: #DCE5EF; }
+.section { background: #E5ECF4; }
+.sectionAlt { background: #DCE5EF; }
 .resourceCard,.loadingCard,.featureCard,.boardCard,.browsePanel {
   border-color: #91a5bc;
   box-shadow: 0 12px 28px rgba(16,35,68,.11);

@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
 import { HERO_IMAGES, HERO_POSITIONS } from '@/components/public/heroAssets';
-import { getPublicSchools, type PublicSchool } from '@/services/publicService';
+import { getPublicOverview, getPublicSchools, type PublicOverview, type PublicSchool } from '@/services/publicService';
 import styles from './publicExperience.module.css';
 import visualStyles from './publicModuleVisual.module.css';
 
@@ -142,18 +143,27 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [query, setQuery] = useState('');
   const [loadingSchools, setLoadingSchools] = useState(Boolean(config.schoolDirectory));
+  const [schoolLoadError, setSchoolLoadError] = useState(false);
+  const [schoolReload, setSchoolReload] = useState(0);
   const story = storyFor(config);
+  const overviewQuery = useQuery<PublicOverview>({
+    queryKey: ['public-overview'],
+    queryFn: () => getPublicOverview().then((response) => response.data.data),
+    staleTime: 60_000,
+    retry: 1,
+  });
 
   useEffect(() => {
     if (!config.schoolDirectory) return;
     let active = true;
     setLoadingSchools(true);
+    setSchoolLoadError(false);
     getPublicSchools()
       .then((response) => { if (active) setSchools(response.data.data || []); })
-      .catch(() => { if (active) setSchools([]); })
+      .catch(() => { if (active) { setSchools([]); setSchoolLoadError(true); } })
       .finally(() => { if (active) setLoadingSchools(false); });
     return () => { active = false; };
-  }, [config.schoolDirectory]);
+  }, [config.schoolDirectory, schoolReload]);
 
   const filteredSchools = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -184,6 +194,25 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
 
       <section className={visualStyles.quickSection} aria-label={`${config.audience} highlights`}>
         <div className={styles.shell}>
+          {config.metrics.length > 0 && (
+            <div className={visualStyles.metricWrap} aria-label={`${config.audience} platform metrics`}>
+              {overviewQuery.isError ? (
+                <div className={visualStyles.metricError} role="status">
+                  <span>Platform totals are temporarily unavailable.</span>
+                  <button type="button" onClick={() => void overviewQuery.refetch()}>Try again</button>
+                </div>
+              ) : (
+                <div className={visualStyles.metricGrid} aria-live="polite">
+                  {config.metrics.map((item) => (
+                    <div className={visualStyles.metricCard} key={item.key}>
+                      <strong>{overviewQuery.isPending ? '…' : new Intl.NumberFormat('en-IN').format(overviewQuery.data?.[item.key] ?? 0)}</strong>
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className={visualStyles.quickGrid}>
             {config.capabilities.slice(0, 6).map((capability, index) => (
               <Link className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href={capabilityHref(config, capability)} key={capability.title}>
@@ -238,7 +267,9 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
           <div className={styles.shell}>
             <div className={styles.sectionHeader}><h2>Schools currently on VidyaSetu</h2><p>Browse active institution records by school name, board, district or state. Only safe institution-level information is shown publicly.</p></div>
             <div className={styles.directoryTools}><input className={styles.search} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by school, board, district or state" aria-label="Search VidyaSetu schools" /></div>
-            {loadingSchools ? <div className={styles.empty}>Loading active schools…</div> : filteredSchools.length === 0 ? <div className={styles.empty}>No active school matches this search.</div> : (
+            {loadingSchools ? <div className={styles.empty} role="status">Loading active schools…</div> : schoolLoadError ? (
+              <div className={styles.empty} role="alert"><strong>The school directory could not be loaded.</strong><button className={styles.primary} type="button" onClick={() => setSchoolReload((value) => value + 1)}>Try again</button></div>
+            ) : filteredSchools.length === 0 ? <div className={styles.empty}>No active school matches this search.</div> : (
               <div className={styles.schoolGrid}>
                 {filteredSchools.map((school) => (
                   <article className={styles.schoolCard} key={school.id}>
