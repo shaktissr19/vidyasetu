@@ -112,7 +112,10 @@ async function main(): Promise<void> {
 
   const verified = await verifyDocument(document.verification_code);
   assert(verified.verified === true, 'Issued document did not verify as valid');
-  assert(verified.documentNumber === document.document_number, 'Verification returned wrong document number');
+  assert(verified.title === document.title, 'Verification returned the wrong document title');
+  assert(!('documentNumber' in verified), 'Public verification exposed the private document number');
+  assert(!('studentName' in verified) && !('studentCode' in verified), 'Public verification exposed student identity');
+  assert(!('classLabel' in verified) && !('schoolName' in verified), 'Public verification exposed private school records');
 
   const revoked = await revokeDocument(fixture.school_id, fixture.admin_user_id, document.id, 'Certification revocation test');
   assert(revoked.status === 'REVOKED', 'Issued document was not revoked');
