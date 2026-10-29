@@ -106,13 +106,13 @@ main:not(.admin-main) :is(section,article,div)[class~="bg-white"][class~="rounde
 .global-topbar-menu-toggle { display: none; }
 .global-topbar-link { color: var(--topbar-ink); text-decoration: none; white-space: nowrap; padding: 9px 10px; border-radius: 9px; font-size: 13px; font-weight: 750; transition: background .15s ease,color .15s ease; }
 .global-topbar-link:hover { color: var(--topbar-ink); background: var(--topbar-soft); }
-.global-topbar-link.active { color: var(--topbar-ink); background: var(--topbar-soft); box-shadow: inset 0 -2px 0 #D95700; }
+.global-topbar-link.active { color: #FFFFFF; background: var(--topbar-ink); box-shadow: inset 0 -2px 0 #FF8A3D; }
 .global-topbar-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
-.global-topbar-control { appearance: none; -webkit-appearance: none; position: relative; min-height: 44px; padding: 8px 12px; border: 1px solid var(--mobile-nav-button-border, #C8CFD8); border-radius: 9px; background: var(--topbar-soft); color: var(--topbar-ink); font: 800 13px 'Noto Sans',sans-serif; cursor: pointer; white-space: nowrap; }
-.global-topbar-control:hover { background: #FFFFFF; border-color: var(--topbar-ink); }
+.global-topbar-control { appearance: none; -webkit-appearance: none; position: relative; min-height: 44px; padding: 8px 12px; border: 1px solid var(--topbar-ink); border-radius: 9px; background: var(--topbar-ink); color: #FFFFFF; font: 800 13px 'Noto Sans',sans-serif; cursor: pointer; white-space: nowrap; }
+.global-topbar-control:hover { background: #213657; border-color: #213657; color: #FFFFFF; }
 .global-topbar-control:focus-visible, .global-topbar-link:focus-visible, .global-topbar-brand:focus-visible { outline: 3px solid var(--topbar-ink); outline-offset: 2px; }
-.global-topbar-dashboard { background: var(--topbar-soft); }
-.global-topbar-logout { background: var(--topbar-soft); border: 2px solid rgba(20,33,61,.38); color: var(--topbar-ink); }
+.global-topbar-dashboard { background: var(--topbar-ink); color: #FFFFFF; }
+.global-topbar-logout { background: var(--topbar-ink); border: 1px solid var(--topbar-ink); color: #FFFFFF; }
 .global-topbar-create { background: var(--topbar-ink); color: #FFFFFF; border-color: var(--topbar-ink); }
 .global-topbar-create:hover { background: #213657; color: #FFFFFF; }
 .global-topbar-notifications { width: 40px; padding: 5px; font-size: 17px; }
@@ -126,7 +126,7 @@ main:not(.admin-main) :is(section,article,div)[class~="bg-white"][class~="rounde
 .mobile-bottom-nav-label { font-size: 12px; line-height: 15px; font-weight: 800; }
 .role-mobile-toolbar { display: none; }
 .role-mobile-backdrop { display: none; }
-.public-competition-page { min-height: 100vh; background: #B0B7BF; }
+.public-competition-page { min-height: 100vh; background: #DCE5EF; }
 .public-competition-page #competition-list .card {
   background: #FFFFFF;
   border: 1px solid #91A5BC !important;

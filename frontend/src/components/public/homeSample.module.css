@@ -177,9 +177,9 @@
 
 .secondary {
   min-width: 165px;
-  color: #182b4b;
-  background: rgba(255,255,255,.93);
-  border: 1px solid #f0b888;
+  color: #FFFFFF;
+  background: #14213D;
+  border: 1px solid #14213D;
 }
 
 .primary:focus-visible,
@@ -381,7 +381,6 @@
   .moduleBody { min-height: 125px; padding: 14px; }
   .moduleBody strong { font-size: 16px; }
   .moduleBody p { font-size: 13px; }
-  .moduleBody > span { font-size: 13px; }
   .statsStrip { grid-template-columns: repeat(2, 1fr); }
   .stat:nth-child(2)::after { display:none; }
   .stat:nth-child(-n+2) { border-bottom:1px solid #eceff3; }
@@ -425,7 +424,8 @@
   .moduleBody { min-height:115px; padding:11px; }
   .moduleBody strong { font-size:15px; }
   .moduleBody p { font-size:13px; }
-  .moduleBody > span { font-size:13px; }
+  .moduleExplore { min-height:44px; padding:0 10px; font-size:13px; }
+  .moduleExplore { min-height:44px; padding:0 11px; font-size:13px; }
   .moduleVisualFallback { min-height: 100%; }
   .statsStrip { margin-top:22px; grid-template-columns:1fr; }
   .stat { justify-content:flex-start; min-height:76px; }
@@ -450,16 +450,18 @@
 }
 
 /* Make the Home audience cards and their hierarchy readable at first glance. */
-.modulesSection { background: #B0B7BF; }
+.modulesSection { background: #DCE5EF; }
 .moduleHeading h2 { font-size: 30px; line-height: 1.1; }
 .eyebrow { font-size: 14px; font-weight: 900; }
 .moduleHeading p { color: #263954; font-size: 16px; line-height: 1.5; font-weight: 600; }
 .moduleCard { border-color: #91a5bc; background: #fff; box-shadow: 0 12px 28px rgba(19,40,73,.11); }
-.moduleMedia { background: #B7BDC3; }
+.moduleMedia { background: #E5ECF4; }
 .moduleBody { background: #fff; padding: 17px 18px 18px; }
 .moduleBody strong { font-size: 18px; font-weight: 800; }
 .moduleBody p { color: #40516a; font-size: 15px; line-height: 1.55; }
-.moduleBody > span { font-size: 14px; }
+.moduleTitleRow { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.moduleTitleRow strong { min-width:0; }
+.moduleExplore { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; min-height:44px; padding:0 13px; border-radius:9px; color:#14213D; background:#FF8A3D; border:1px solid #E7762C; font-size:13px; line-height:1; font-weight:850; box-shadow:0 5px 12px rgba(20,33,61,.12); }
 .benefit strong { font-size: 13px; font-weight: 800; }
 .benefit small { color: #40516a; font-size: 12px; line-height: 1.45; }
 .statCopy b { font-size: 14px; font-weight: 800; }
@@ -473,7 +475,7 @@
 }
 
 /* Keep Home card surfaces distinct from the cool section background. */
-.modulesSection { background: #B0B7BF; }
+.modulesSection { background: #DCE5EF; }
 .moduleCard { border-color: #91a5bc; box-shadow: 0 12px 28px rgba(19,40,73,.11); }
 .moduleBody { background: #fff; }
 .moduleBody p { color: #40516a; }

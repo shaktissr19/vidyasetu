@@ -143,9 +143,9 @@
 }
 
 .secondary {
-  background: rgba(255,255,255,.94);
-  border: 1px solid #cdd7e5;
-  color: #173566;
+  background: #14213D;
+  border: 1px solid rgba(255,255,255,.68);
+  color: #FFFFFF;
   backdrop-filter: blur(8px);
 }
 
