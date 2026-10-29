@@ -88,7 +88,7 @@ install -d -m 700 "$CREDENTIALS_DIR"
 umask 077
 credentials_log="$CREDENTIALS_DIR/demo-network-accounts-$(date +%Y%m%d-%H%M%S).txt"
 cd "$PROJECT_DIR"
-NODE_ENV=test DB_NAME="$TARGET_DB" TARGET_DB="$TARGET_DB" CREDENTIALS_DIR="$CREDENTIALS_DIR" \
+SEED_DEMO_PASSWORDS=0 NODE_ENV=test DB_NAME="$TARGET_DB" TARGET_DB="$TARGET_DB" CREDENTIALS_DIR="$CREDENTIALS_DIR" \
   node scripts/seed-demo-network.cjs | tee "$credentials_log"
 chmod 600 "$credentials_log"
 
