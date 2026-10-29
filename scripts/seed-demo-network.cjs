@@ -64,7 +64,9 @@ async function main() {
       await client.query(fs.readFileSync(seedPath, 'utf8'));
     }
 
-    if (existingUsers.length === 0) {
+    if (process.env.SEED_DEMO_PASSWORDS === '0') {
+      console.log('Password updates disabled for additive fixture loading.');
+    } else if (existingUsers.length === 0) {
       const accounts = [];
       for (const id of userIds) {
         const password = temporaryPassword();
