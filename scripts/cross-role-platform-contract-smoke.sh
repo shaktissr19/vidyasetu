@@ -50,9 +50,9 @@ done
 
 require_text frontend/src/lib/sessionPolicy.ts 'SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000'
 require_text frontend/src/lib/sessionPolicy.ts 'SESSION_RETURN_GRACE_MS = 5 * 60 * 1000'
-require_text frontend/src/components/layout/ResponsiveDashboardShell.tsx 'aria-controls="role-navigation"'
+require_text frontend/src/components/layout/ResponsiveDashboardShell.tsx 'mobileMenuControlsId="role-navigation"'
 require_text frontend/src/components/layout/ResponsiveDashboardShell.tsx "event.key === 'Escape'"
-require_text frontend/src/components/student/StudentPortal.tsx 'aria-controls="student-navigation"'
+require_text frontend/src/components/student/StudentPortal.tsx 'mobileMenuControlsId="student-navigation"'
 require_text frontend/src/components/student/StudentPortal.tsx 'Close Student navigation'
 require_text frontend/src/app/globals.css '@media (max-width: 1024px)'
 require_text frontend/src/app/globals.css 'role-sidebar-open'
