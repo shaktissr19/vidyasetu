@@ -64,48 +64,52 @@ async function main() {
       await client.query(fs.readFileSync(seedPath, 'utf8'));
     }
 
-    const accounts = [];
-    for (const id of userIds) {
-      const password = temporaryPassword();
-      accounts.push({ id, password, hash: await hashPassword(password) });
-    }
-
-    await client.query('BEGIN');
-    try {
-      for (const account of accounts) {
-        const result = await client.query(
-          `UPDATE users
-             SET password_hash = $2,
-                 password_changed_at = NOW(),
-                 must_change_password = TRUE,
-                 password_failed_attempts = 0,
-                 password_locked_until = NULL,
-                 updated_at = NOW()
-           WHERE id = $1`,
-          [account.id, account.hash],
-        );
-        if (result.rowCount !== 1) throw new Error(`Expected one seeded user for ${account.id}; found ${result.rowCount}`);
+    if (existingUsers.length === 0) {
+      const accounts = [];
+      for (const id of userIds) {
+        const password = temporaryPassword();
+        accounts.push({ id, password, hash: await hashPassword(password) });
       }
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
+  
+      await client.query('BEGIN');
+      try {
+        for (const account of accounts) {
+          const result = await client.query(
+            `UPDATE users
+               SET password_hash = $2,
+                   password_changed_at = NOW(),
+                   must_change_password = TRUE,
+                   password_failed_attempts = 0,
+                   password_locked_until = NULL,
+                   updated_at = NOW()
+             WHERE id = $1`,
+            [account.id, account.hash],
+          );
+          if (result.rowCount !== 1) throw new Error(`Expected one seeded user for ${account.id}; found ${result.rowCount}`);
+        }
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      }
+  
+      const { rows } = await client.query(
+        `SELECT id, username, email, mobile, role
+           FROM users WHERE id = ANY($1::uuid[])
+           ORDER BY role, username`,
+        [userIds],
+      );
+      if (rows.length !== userIds.length) throw new Error(`Credential report expected ${userIds.length} users, found ${rows.length}`);
+      const byId = new Map(accounts.map((account) => [account.id, account.password]));
+      console.log('\nTemporary demo account credentials (copy now; passwords are not saved in the repository):');
+      console.log('role\tusername\temail\tmobile\ttemporary_password');
+      for (const row of rows) {
+        console.log(`${row.role}\t${row.username}\t${row.email}\t${row.mobile}\t${byId.get(row.id)}`);
+      }
+      console.log('\nEach account is flagged to change its password at first login. Re-running this command resets these demo accounts to new temporary passwords.');
+    } else {
+      console.log('Existing synthetic account passwords are preserved; no credential reset was performed.');
     }
-
-    const { rows } = await client.query(
-      `SELECT id, username, email, mobile, role
-         FROM users WHERE id = ANY($1::uuid[])
-         ORDER BY role, username`,
-      [userIds],
-    );
-    if (rows.length !== userIds.length) throw new Error(`Credential report expected ${userIds.length} users, found ${rows.length}`);
-    const byId = new Map(accounts.map((account) => [account.id, account.password]));
-    console.log('\nTemporary demo account credentials (copy now; passwords are not saved in the repository):');
-    console.log('role\tusername\temail\tmobile\ttemporary_password');
-    for (const row of rows) {
-      console.log(`${row.role}\t${row.username}\t${row.email}\t${row.mobile}\t${byId.get(row.id)}`);
-    }
-    console.log('\nEach account is flagged to change its password at first login. Re-running this command resets these demo accounts to new temporary passwords.');
   } finally {
     client.release();
     await pool.end();
