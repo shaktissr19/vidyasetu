@@ -126,7 +126,7 @@ main:not(.admin-main) :is(section,article,div)[class~="bg-white"][class~="rounde
 .mobile-bottom-nav-label { font-size: 12px; line-height: 15px; font-weight: 800; }
 .role-mobile-toolbar { display: none; }
 .role-mobile-backdrop { display: none; }
-.public-competition-page { min-height: 100vh; background: #DCE5EF; }
+.public-competition-page { min-height: 100vh; background: #B0B7BF; }
 .public-competition-page #competition-list .card {
   background: #FFFFFF;
   border: 1px solid #91A5BC !important;
