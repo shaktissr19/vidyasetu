@@ -63,3 +63,12 @@
 .catalogueToolbar span,.updating { color: #263954; font-size: 14px; }
 .catalogueHero p { font-size: 17px; }
 .catalogueBack { font-size: 14px; }
+
+/* Use the selected lighter navy on public learning panels and dark controls. */
+.categorySection,.learningTypeSection { background: #243B63; border-color: #243B63; }
+.categoryHeading h3,.categoryHeading>div>span,.categoryHeading p { color: #fff; }
+.categoryHeading p { opacity: .9; }
+.learningTypeSection { box-shadow: 0 16px 36px rgba(16,35,68,.18); }
+.filterSectionHeading span,.filterSectionHeading strong,.filterSectionHeading small { color: #fff; }
+.stageButton,.stageActive,.clearButton { background: #243B63; border-color: #243B63; color: #fff; }
+.stageButton:hover,.stageActive:hover,.clearButton:hover { background: #304c77; border-color: #304c77; color: #fff; }
