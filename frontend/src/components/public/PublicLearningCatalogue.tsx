@@ -192,7 +192,7 @@ export default function PublicLearningCatalogue() {
 
       <section className={styles.catalogueBody}>
         <div className={styles.shell}>
-          <div style={{ border: '1px solid #e0e6ec', borderRadius: 16, padding: 16, background: '#f8fafc', marginBottom: 22 }}>
+          <div className={styles.filterPanel} style={{ borderRadius: 16, padding: 16, marginBottom: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 13, flexWrap: 'wrap' }}>
               <strong style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#18324e' }}><SlidersHorizontal size={17} /> Find the right learning resource</strong>
               {hasFilters && <button type="button" onClick={clearFilters} style={{ border: 0, background: 'transparent', color: '#34658e', display: 'flex', gap: 5, alignItems: 'center', cursor: 'pointer', fontWeight: 700 }}><X size={15} /> Clear filters</button>}
@@ -265,7 +265,7 @@ export default function PublicLearningCatalogue() {
                         {(resource.board_codes || []).includes('COMMON') && <span>Cross-board</span>}
                         {resource.is_offline_ready && <span>Offline-ready</span>}
                       </div>
-                      {(resource.concept_names || []).length > 0 && <div style={{ fontSize: 11, color: '#66798a', marginTop: 8 }}>Concept: {(resource.concept_names || []).slice(0, 2).join(' · ')}</div>}
+                      {(resource.concept_names || []).length > 0 && <div className={styles.resourceConcepts}>Concept: {(resource.concept_names || []).slice(0, 2).join(' · ')}</div>}
                       <div className={styles.resourceLink}>{language === 'hi' ? 'सीखना शुरू करें' : 'Explore resource'}</div>
                     </div>
                   </Link>

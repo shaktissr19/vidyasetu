@@ -109,3 +109,34 @@
 .metricError button { min-height:44px; padding:0 14px; border:1px solid #FF8A3D; border-radius:9px; background:#14213D; color:#fff; font:inherit; font-weight:800; cursor:pointer; }
 @media(max-width:720px){.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.metricCard{padding:11px;gap:9px}.metricCard strong{font-size:22px}.metricCard span{font-size:12px}}
 @media(max-width:440px){.metricGrid{grid-template-columns:1fr}}
+
+/* Match dark public data panels to the selected VidyaSetu navy. */
+.metricCard,.metricError { background: #243B63; }
+.metricError button { background: #243B63; }
+
+/* Keep role highlight cards compact while grouping the icon and heading. */
+.quickCard {
+  min-height: 150px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  align-content: start;
+  align-items: center;
+  column-gap: 11px;
+  row-gap: 0;
+  padding: 14px;
+}
+.quickIcon { grid-column: 1; grid-row: 1; margin: 0; }
+.quickCard strong { grid-column: 2; grid-row: 1; }
+.quickCard p { grid-column: 1 / -1; margin: 10px 0 8px; }
+.quickCard > span { grid-column: 1 / -1; margin-top: 0; }
+@media(max-width:1180px) { .quickCard { min-height: 150px; } }
+@media(max-width:720px) { .quickCard { min-height: 142px; padding: 12px; } }
+@media(max-width:440px) { .quickCard { min-height: 0; } }
+
+/* Keep role page cards on the selected shared surface color. */
+.quickCard,.metricCard,.metricError { background: #456184; border-color: #456184; color: #fff; }
+.quickCard strong,.quickCard p,.quickCard span,.metricCard span { color: #fff; }
+.quickIcon { background: rgba(255,255,255,.16); color: #fff; box-shadow: none; }
+.metricCard strong { color: #FFB477; }
+.metricError button { background: #14213D; border-color: #14213D; color: #fff; }

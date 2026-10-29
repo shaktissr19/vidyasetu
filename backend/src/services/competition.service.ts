@@ -406,15 +406,17 @@ export async function getLeaderboard(examId: UUID, page = 1, limit = 50) {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const safePage = Math.max(Number(page) || 1, 1);
   const offset = (safePage - 1) * safeLimit;
+  const { rows: [exam] } = await query<{ id: UUID } & QueryResultRow>(
+    `SELECT id FROM exams
+     WHERE id=$1 AND school_id IS NULL AND type IN ('OLYMPIAD','MOCK','PRACTICE') AND status='COMPLETED'`,
+    [examId],
+  );
+  if (!exam) throw Object.assign(new Error('Public leaderboard is available only after official results are released'), { statusCode: 409 });
   const { rows } = await query(
     `SELECT el.rank_overall, el.rank_school, el.total_marks, el.percentile,
-            u.name, u.profile_photo, sc.class_name, sc.section,
-            sch.name AS school_name, sch.state
+            'Student'::text AS name, NULL::text AS profile_photo, NULL::text AS class_name,
+            NULL::text AS section, NULL::text AS school_name, NULL::text AS state
      FROM exam_leaderboard el
-     JOIN students s ON s.id = el.student_id
-     JOIN users u ON u.id = s.user_id
-     JOIN school_classes sc ON sc.id = s.class_id
-     JOIN schools sch ON sch.id = s.school_id
      WHERE el.exam_id = $1
      ORDER BY el.rank_overall, el.total_marks DESC
      LIMIT $2 OFFSET $3`,

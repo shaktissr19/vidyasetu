@@ -316,13 +316,8 @@ export async function verifyDocument(code: UUID): Promise<Record<string, unknown
   return {
     verified: row.status === 'ISSUED' && !expired,
     status: expired && row.status === 'ISSUED' ? 'EXPIRED' : row.status,
-    documentNumber: row.document_number,
     documentType: row.document_type,
     title: row.title,
-    studentName: row.student_name_snapshot,
-    studentCode: row.student_code_snapshot,
-    classLabel: row.class_label_snapshot,
-    schoolName: row.school_name_snapshot,
     academicYear: row.academic_year,
     issuedAt: row.issued_at,
     validUntil: row.valid_until,

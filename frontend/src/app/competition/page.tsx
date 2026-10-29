@@ -72,8 +72,8 @@ export default function CompetitionPage() {
         actions={[{ label: 'Explore competitions', href: '#competition-list' }, { label: 'Student login', href: '/login?role=student', variant: 'secondary' }]}
       />
 
-      <div id="competition-list" className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0', scrollMarginTop: 96 }}>
-        <div style={{ background: '#FFF8EF', border: '1px solid #FFD7B5', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+        <div id="competition-list" className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0', scrollMarginTop: 96 }}>
+        <div className="competition-note-card" style={{ borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
           <div>
             <strong style={{ color: 'var(--navy)' }}>{t('प्रतियोगिता सीखने का हिस्सा है, सिर्फ रैंक का नहीं।', 'Competition is part of learning, not just ranking.')}</strong>
             <div style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>{t('हर Platform Competition governed bilingual Question Bank से बनती है। आधिकारिक परिणाम जारी होने तक स्कोर और सही उत्तर छिपे रहते हैं।', 'Platform competitions are built from the governed bilingual Question Bank. Scores and correct answers stay private until official results are released.')}</div>

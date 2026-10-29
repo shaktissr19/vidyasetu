@@ -490,3 +490,12 @@
 .orange { --accent: #A43A00; }
 .rose { --accent: #A9274B; }
 .discoveryOrange { --discovery-accent: #A43A00; }
+
+/* Public Home cards share one blue surface and maintain white text contrast. */
+.moduleCard,.benefitCard,.discoveryCard,.journeyCard,.listCard,.whyCard {
+  background: #456184;
+  border-color: #456184;
+  color: #fff;
+}
+.moduleBody,.discoveryBody { background: #456184; color: #fff; }
+.moduleBody strong,.moduleBody p,.benefitCard strong,.benefitCard p,.discoveryCard h3,.discoveryCard p,.discoveryMeta,.discoveryBody > span,.journeyCard h3,.journeyCard p,.listCard strong,.listCard span,.whyCard strong,.whyCard p { color: #fff; }

@@ -482,3 +482,27 @@
 .statsStrip { border-color: #e8c5a8; box-shadow: 0 8px 22px rgba(19,40,73,.06); }
 .statCopy b { color: #14213d; }
 .statCopy small { color: #526078; }
+
+/* Reduce the Home audience card height without losing the photo or tap target. */
+.moduleGrid { align-items: start; }
+.moduleCard { align-self: start; }
+.moduleMedia { aspect-ratio: 2.2 / 1; }
+.moduleBody { min-height: 108px; padding: 11px 15px 12px; }
+.moduleBody p { margin: 5px 0 0; line-height: 1.45; }
+@media (max-width: 820px) {
+  .moduleBody { min-height: 104px; padding: 10px 13px 11px; }
+}
+@media (max-width: 520px) {
+  .moduleMedia { aspect-ratio: 2.1 / 1; }
+  .moduleBody { min-height: 0; }
+}
+
+/* Home audience cards use the same blue surface as the public modules. */
+.moduleCard { background: #456184; border-color: #456184; color: #fff; }
+.moduleBody { background: #456184; color: #fff; }
+.moduleBody strong,.moduleBody p { color: #fff; }
+.moduleExplore { background: #FF8A3D; color: #14213D; }
+.statsStrip { background: #456184; border-color: #456184; box-shadow: 0 12px 28px rgba(13,27,62,.16); }
+.statCopy strong,.statCopy b,.statCopy small { color: #fff !important; }
+.stat:not(:last-child)::after { background: rgba(255,255,255,.25); }
+.stat:nth-child(-n+2) { border-color: rgba(255,255,255,.25); }

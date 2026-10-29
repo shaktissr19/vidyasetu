@@ -48,7 +48,7 @@ export default function PublicPracticeAssessmentPage() {
       </section>
 
       <article className={styles.article}>
-        <div className={styles.note}>You can preview and answer these questions publicly. Correct answers, explanations, saved attempts and score history are available after Student login.</div>
+        <div className={styles.note}>You can preview the questions and answer options publicly. Submissions, correct answers, explanations, saved attempts and score history are available after Student login.</div>
         {assessment.questions.map((question, index) => (
           <div key={question.id} className={styles.resourceCard} style={{ marginTop: 16 }}>
             <div className={styles.cardTop}><span className={styles.badge}>{question.difficulty}</span><span className={styles.pill}>{question.marks} mark</span></div>

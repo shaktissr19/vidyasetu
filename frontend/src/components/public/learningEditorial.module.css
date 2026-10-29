@@ -63,3 +63,41 @@
 .catalogueToolbar span,.updating { color: #263954; font-size: 14px; }
 .catalogueHero p { font-size: 17px; }
 .catalogueBack { font-size: 14px; }
+
+/* Use the selected lighter navy on public learning panels and dark controls. */
+.categorySection,.learningTypeSection { background: #456184; border-color: #456184; }
+.categoryHeading h3,.categoryHeading>div>span,.categoryHeading p { color: #fff; }
+.categoryHeading p { opacity: .9; }
+.learningTypeSection { box-shadow: 0 16px 36px rgba(16,35,68,.18); }
+.filterSectionHeading span,.filterSectionHeading strong,.filterSectionHeading small { color: #fff; }
+.stageButton,.stageActive,.clearButton { background: #243B63; border-color: #243B63; color: #fff; }
+.stageButton:hover,.stageActive:hover,.clearButton:hover { background: #304c77; border-color: #304c77; color: #fff; }
+
+/* Learning cards share the selected blue surface; controls remain independently styled. */
+.pathRow,.categoryCard,.resourceCard,.practiceCard,.pillarCard,.errorState,.emptyState,.skeletonCard {
+  background: #456184;
+  border-color: #456184;
+  color: #fff;
+}
+.pathRow strong,.pathRow small,.categoryCard strong,.categoryCard span,.resourceBody h3,.resourceBody p,.resourceFacts span,.resourceLink,
+.practiceCard>span,.practiceCard h3,.practiceCard p,.practiceCard div,.practiceCard strong,
+.pillarCard>span,.pillarCard h3,.pillarCard p,.pillarCard strong,.errorState,.emptyState,.errorState strong,.emptyState strong { color: #fff; }
+.categoryCard>svg,.resourceIconBadge,.pillarIcon { background: rgba(255,255,255,.16); color: #fff; border-color: rgba(255,255,255,.22); }
+.resourceBody { background: #456184; }
+.resourceEyebrow,.pillarCard>span { color: #FFD3B0; }
+.resourceFacts span { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); }
+.practiceCard>svg { color: #FFD3B0; }
+.errorState button,.emptyState button { background: #14213D; color: #fff; }
+.skeletonCard span { background: rgba(255,255,255,.26); }
+.cataloguePage .catalogueBody { background: #E5ECF4; }
+.cataloguePage .filterPanel { background: #456184; border-color: #456184; color: #fff; }
+.cataloguePage .filterPanel strong,.cataloguePage .filterPanel button { color: #fff !important; }
+.cataloguePage .resourceConcepts { color: #fff; font-size: 13px; margin-top: 8px; }
+.filterSummary { background: #456184; border-color: #456184; color: #fff; }
+.filterSummary strong,.filterSummary em { color: #fff; }
+.filterSummary em { background: rgba(255,255,255,.14); }
+.gradeButton { background: #14213D; border-color: #14213D; color: #fff; }
+.gradeEarly,.gradeFoundational,.gradePrimary,.gradeMiddle,.gradeSecondary,.gradeSenior { --grade-bg:#14213D; }
+.gradeButton:hover { color: #fff; }
+.gradeActive { background: #FF8A3D !important; color: #14213D !important; }
+.practicePrompt { background: #456184; border-color: #456184; color: #fff; }

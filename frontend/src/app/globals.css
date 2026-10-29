@@ -127,11 +127,31 @@ main:not(.admin-main) :is(section,article,div)[class~="bg-white"][class~="rounde
 .role-mobile-toolbar { display: none; }
 .role-mobile-backdrop { display: none; }
 .public-competition-page { min-height: 100vh; background: #DCE5EF; }
+.public-document-verification { background: #DCE5EF; color: #FFFFFF; }
+.public-document-card { background: #456184; border: 1px solid #456184; border-radius: 16px; padding: 24px; color: #FFFFFF; box-shadow: 0 12px 28px rgba(13,27,62,.16); }
+.public-document-card p,.public-document-card .text-xs { color: #EAF1F8; }
+.public-document-details > div { background: rgba(255,255,255,.12); }
+.competition-note-card { background: #456184; border: 1px solid #456184; color: #fff; box-shadow: 0 12px 28px rgba(13,27,62,.16); }
+.competition-note-card [style*="var(--navy)"],.competition-note-card [style*="var(--slate)"] { color: #fff !important; }
 .public-competition-page #competition-list .card {
-  background: #FFFFFF;
-  border: 1px solid #91A5BC !important;
-  box-shadow: 0 12px 28px rgba(13,27,62,.11) !important;
+  background: #456184 !important;
+  color: #FFFFFF;
+  border: 1px solid #456184 !important;
+  box-shadow: 0 12px 28px rgba(13,27,62,.16) !important;
 }
+.public-competition-page #competition-list .card [style*="var(--navy)"],
+.public-competition-page #competition-list .card [style*="var(--slate)"],
+.public-competition-page #competition-list .card [style*="var(--border)"] { color: #FFFFFF !important; border-color: rgba(255,255,255,.25) !important; }
+.public-competition-page #competition-list .card button:disabled { color: #FFFFFF !important; background: rgba(255,255,255,.16) !important; }
+.public-leaderboard-page .public-leaderboard-card { background: #456184; border-color: #456184; color: #FFFFFF; }
+.public-leaderboard-page .public-leaderboard-card [style*="var(--navy)"],
+.public-leaderboard-page .public-leaderboard-card [style*="var(--slate)"],
+.public-leaderboard-page .public-leaderboard-card [style*="var(--forest)"],
+.public-leaderboard-page .public-leaderboard-card [style*="var(--border)"] { color: #FFFFFF !important; border-color: rgba(255,255,255,.24) !important; }
+.public-leaderboard-page .public-leaderboard-row { background: #456184 !important; }
+.public-leaderboard-page .public-leaderboard-row:nth-child(1),
+.public-leaderboard-page .public-leaderboard-row:nth-child(2),
+.public-leaderboard-page .public-leaderboard-row:nth-child(3) { background: #456184 !important; }
 .public-competition-page #competition-list .card p,
 .public-competition-page #competition-list .card [style*="font-size: 12px"],
 .public-competition-page #competition-list .card [style*="font-size: 13px"] {

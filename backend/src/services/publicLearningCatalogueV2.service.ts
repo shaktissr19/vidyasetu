@@ -15,7 +15,7 @@ export interface PublicLearningCatalogueFilters {
   featuredOnly?: boolean;
 }
 
-const PUBLIC_WHERE = `lr.visibility='PUBLIC' AND lr.review_status='PUBLISHED'
+const PUBLIC_WHERE = `lr.visibility='PUBLIC' AND lr.access_requirement='PUBLIC' AND lr.review_status='PUBLISHED'
   AND NOT EXISTS (SELECT 1 FROM learning_content_assets a JOIN learning_asset_moderation m ON m.asset_id=a.id WHERE a.id=lr.asset_id AND m.state='TAKEN_DOWN')
   AND (
     (lr.resource_type::text IN ('VIDEO','AUDIO','IMAGE','PDF','WORKSHEET','QUESTION_PAPER') AND NULLIF(BTRIM(lr.file_key),'') IS NOT NULL)
@@ -30,11 +30,22 @@ export async function listPublicLearningCatalogue(filters: PublicLearningCatalog
 
   if (filters.gradeCode) {
     const p = push(filters.gradeCode.toUpperCase());
-    conditions.push(`EXISTS (
+    conditions.push(`(EXISTS (
       SELECT 1 FROM learning_resource_grades lrgf
       JOIN education_grade_levels eglf ON eglf.id=lrgf.grade_id
       WHERE lrgf.resource_id=lr.id AND eglf.code=$${p}
-    )`);
+    ) OR (
+      NOT EXISTS (SELECT 1 FROM learning_resource_grades lrg0 WHERE lrg0.resource_id=lr.id)
+      AND (
+        (lr.class_min IS NULL AND lr.class_max IS NULL)
+        OR EXISTS (
+          SELECT 1 FROM education_grade_levels eglf
+          WHERE eglf.code=$${p} AND eglf.class_number IS NOT NULL
+            AND (lr.class_min IS NULL OR lr.class_min <= eglf.class_number)
+            AND (lr.class_max IS NULL OR lr.class_max >= eglf.class_number)
+        )
+      )
+    ))`);
   } else if (filters.className) {
     const p = push(filters.className);
     conditions.push(`(lr.class_min IS NULL OR lr.class_min <= $${p}) AND (lr.class_max IS NULL OR lr.class_max >= $${p})`);
