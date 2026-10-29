@@ -90,7 +90,7 @@
 .quickOrange { --quick-accent: #A43A00; }
 
 /* Role pages keep capability cards distinct from their section surface. */
-.quickSection { background: #dce5ef; }
+.quickSection { background: #B0B7BF; }
 .quickCard {
   background: #fff;
   border-color: #91a5bc;
