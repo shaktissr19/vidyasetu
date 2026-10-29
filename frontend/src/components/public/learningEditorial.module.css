@@ -25,3 +25,4 @@
 .resourceCard { border-color: #c4d1df; box-shadow: 0 10px 28px rgba(16,35,68,.09); }
 .resourceBody p,.resourceFacts span { color: #45546d; }
 .categorySection,.learningTypeSection { border-color: #c4d1df; box-shadow: 0 8px 22px rgba(16,35,68,.045); }
+.clearButton { color: #A43A00; }

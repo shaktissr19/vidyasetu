@@ -446,3 +446,6 @@
 .listCard { box-shadow: 0 5px 14px rgba(13,27,62,.045); }
 .whyCard { border-color: #c9d5e2; box-shadow: 0 8px 20px rgba(13,27,62,.06); }
 .whyCard strong { color: #14213d; }
+.orange { --accent: #A43A00; }
+.rose { --accent: #A9274B; }
+.discoveryOrange { --discovery-accent: #A43A00; }
