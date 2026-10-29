@@ -126,6 +126,19 @@ main:not(.admin-main) :is(section,article,div)[class~="bg-white"][class~="rounde
 .mobile-bottom-nav-label { font-size: 12px; line-height: 15px; font-weight: 800; }
 .role-mobile-toolbar { display: none; }
 .role-mobile-backdrop { display: none; }
+.public-competition-page { min-height: 100vh; background: #DCE5EF; }
+.public-competition-page #competition-list .card {
+  background: #FFFFFF;
+  border: 1px solid #91A5BC !important;
+  box-shadow: 0 12px 28px rgba(13,27,62,.11) !important;
+}
+.public-competition-page #competition-list .card p,
+.public-competition-page #competition-list .card [style*="font-size: 12px"],
+.public-competition-page #competition-list .card [style*="font-size: 13px"] {
+  font-size: 15px !important;
+  line-height: 1.6;
+}
+.public-competition-page #competition-list .card [style*="font-size: 0.85rem"] { font-size: 14px !important; }
 .responsive-dashboard-shell .dash-main > *,
 .admin-shell .dash-main > *,
 .dash-main .grid > * { min-width: 0; max-width: 100%; }
