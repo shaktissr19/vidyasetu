@@ -8,8 +8,9 @@ BEGIN
   IF current_setting('app.allow_synthetic_seed', true) IS DISTINCT FROM 'on' THEN
     RAISE EXCEPTION 'Synthetic seed blocked. Set app.allow_synthetic_seed=on for a development/staging run.';
   END IF;
-  IF current_database() !~* '(dev|test|stage|staging)' THEN
-    RAISE EXCEPTION 'Synthetic seed blocked for database "%"; use a development/staging database.', current_database();
+  IF current_database() !~* '(dev|test|stage|staging)'
+     AND current_setting('app.allow_synthetic_seed_target', true) IS DISTINCT FROM current_database() THEN
+    RAISE EXCEPTION 'Synthetic seed blocked for database "%". Use a dev/test/stage DB or explicitly bind app.allow_synthetic_seed_target to this exact database for a confirmed non-production target.', current_database();
   END IF;
 END $$;
 
