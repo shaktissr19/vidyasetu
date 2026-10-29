@@ -3,10 +3,24 @@
 @media(max-width:1000px){.heroInner,.homeHeroInner{grid-template-columns:1fr}.homeHero:after{inset:48% 0 0}.heroVisual{min-height:auto;padding:18px 0 12px;background:none;border-radius:0}.statGrid{max-width:650px}.capGrid{grid-template-columns:repeat(2,1fr)}.steps,.audienceGrid{grid-template-columns:repeat(2,1fr)}.previewGrid{grid-template-columns:1fr}.schoolGrid{grid-template-columns:1fr}}
 @media(max-width:680px){.shell{padding:0 18px}.heroInner{padding:46px 18px}.homeHeroInner{padding:32px 18px 40px}.heroTitle,.slideTitle{font-size:40px}.homeHero{min-height:auto}.statGrid,.capGrid,.steps,.proofGrid,.audienceGrid{grid-template-columns:1fr}.loginRibbon{margin:-18px 14px 0;align-items:flex-start;flex-direction:column}.cta{flex-direction:column;align-items:flex-start;padding:28px}.schoolTop{flex-direction:column}.miniStats{grid-template-columns:repeat(3,1fr)}.section,.sectionAlt{padding:52px 0}.heroVisualMetric{font-size:50px}}
 
-/* Public module cards remain distinct from the cool page background. */
-.page { background: #edf2f8; }
-.capCard,.schoolCard,.audienceCard,.previewCard { background: #fff; border-color: #c8d4e2; box-shadow: 0 8px 22px rgba(13,27,62,.07); }
-.step { background: #fff; border-color: #c8d4e2; }
-.schoolMeta,.miniStat span,.capCard p,.step p,.muted { color: #4f5d74; }
-.miniStat { background: #eef3f8; }
-.empty { border-color: #aab9ca; color: #4b5a72; }
+/* Public pages use a visibly cool canvas behind crisp, elevated white cards. */
+.page { background: #dce5ef; color: #14213d; }
+.section { background: #e5ecf4; }
+.sectionAlt { background: #dce5ef; }
+.capCard,.schoolCard,.audienceCard,.previewCard {
+  background: #fff;
+  border: 1px solid #91a5bc;
+  box-shadow: 0 12px 28px rgba(13,27,62,.11);
+}
+.step { background: #fff; border-color: #91a5bc; box-shadow: 0 12px 28px rgba(13,27,62,.1); }
+.sectionHeader p,.schoolMeta,.miniStat span,.capCard p,.step p,.muted { color: #40516a; }
+.sectionHeader p { font-size: 17px; font-weight: 550; }
+.sectionHeader h2 { font-weight: 800; }
+.capCard p,.step p,.schoolMeta,.muted { font-size: 15px; line-height: 1.65; }
+.bulletList li { color: #263954; font-size: 14px; }
+.miniStat { background: #e5ecf4; }
+.miniStat span { font-size: 13px; font-weight: 650; }
+.schoolName { font-size: 23px; }
+.empty { border-color: #91a4ba; color: #354862; background: #fff; }
+.smallLink { font-size: 14px; }
+.sectionHeader { margin-bottom: 38px; }
