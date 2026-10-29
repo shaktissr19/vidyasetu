@@ -28,14 +28,14 @@
 .clearButton { color: #A43A00; }
 
 /* Public Learning's main canvas, catalogue and smaller labels meet the same standard. */
-.page,.cataloguePage { background: #dce5ef; }
-.browseSection,.practiceSection,.catalogueBody { background: #e5ecf4; }
-.resourcesSection,.developmentSection { background: #dce5ef; }
+.page,.cataloguePage { background: #B0B7BF; }
+.browseSection,.practiceSection,.catalogueBody { background: #B7BDC3; }
+.resourcesSection,.developmentSection { background: #B0B7BF; }
 .kicker,.eyebrow,.pathKicker { font-size: 14px; font-weight: 900; }
-.sectionHeading p,.resultsHeading p,.developmentHeading p { color: #40516a; font-size: 17px; font-weight: 550; }
+.sectionHeading p,.resultsHeading p,.developmentHeading p { color: #263954; font-size: 17px; font-weight: 550; }
 .sectionHeading h2,.resultsHeading h2,.developmentHeading h2 { font-weight: 800; }
 .stageButton,.stageActive { font-size: 14px; }
-.filterRow label>span,.categoryHeading>div>span { color: #40516a; font-size: 13px; }
+.filterRow label>span,.categoryHeading>div>span { color: #263954; font-size: 13px; }
 .filterSummary,.filterSummary>span { color: #40516a; font-size: 13px; }
 .categoryHeading p { color: #40516a; font-size: 15px; }
 .categoryCard { background: #fff; border-color: #91a5bc; box-shadow: 0 10px 24px rgba(18,46,78,.1); }
@@ -55,6 +55,6 @@
 .practiceCard>span,.pillarCard>span { font-size: 13px; font-weight: 900; }
 .practiceCard div { color: #40516a; font-size: 14px; }
 .pillarCard { background: #fff; }
-.catalogueToolbar span,.updating { color: #40516a; font-size: 14px; }
+.catalogueToolbar span,.updating { color: #263954; font-size: 14px; }
 .catalogueHero p { font-size: 17px; }
 .catalogueBack { font-size: 14px; }
