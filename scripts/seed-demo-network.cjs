@@ -33,12 +33,36 @@ async function main() {
   const client = await pool.connect();
   try {
     const { rows: [db] } = await client.query('SELECT current_database() AS name');
-    if (process.env.NODE_ENV === 'production' || !/(dev|test|stage|staging)/i.test(db.name)) {
-      throw new Error(`Refusing to seed database "${db.name}". Use a dev, test, or staging database.`);
+    const explicitTargetConfirmation = process.env.CONFIRM_NONPRODUCTION_DB === db.name;
+    if (process.env.NODE_ENV === 'production' || (!/(dev|test|stage|staging)/i.test(db.name) && !explicitTargetConfirmation)) {
+      throw new Error(`Refusing to seed database "${db.name}". Use a dev/test/stage database, or set CONFIRM_NONPRODUCTION_DB to this exact name after verifying it is non-production.`);
     }
 
-    await client.query("SET app.allow_synthetic_seed = 'on'");
-    await client.query(fs.readFileSync(seedPath, 'utf8'));
+    const { rows: existingUsers } = await client.query(
+      'SELECT id, role FROM users WHERE id = ANY($1::uuid[])',
+      [userIds],
+    );
+    if (existingUsers.length !== 0 && existingUsers.length !== userIds.length) {
+      throw new Error(`Found ${existingUsers.length} of ${userIds.length} expansion accounts. Stopped to avoid a partial/conflicting merge.`);
+    }
+    if (existingUsers.length === userIds.length) {
+      const roleById = new Map(existingUsers.map((row) => [row.id, row.role]));
+      for (const id of userIds) {
+        const suffix = Number.parseInt(id.slice(-12), 16);
+        const expectedRole = suffix >= 0x52 && suffix <= 0x58 ? 'SCHOOL_ADMIN'
+          : suffix >= 0x14 && suffix <= 0x1b ? 'TEACHER'
+          : suffix >= 0x32 && suffix <= 0x34 ? 'STUDENT'
+          : 'PARENT';
+        if (roleById.get(id) !== expectedRole) {
+          throw new Error(`Expansion account ${id} has role ${roleById.get(id)}, expected ${expectedRole}; no seed SQL was run.`);
+        }
+      }
+      console.log('All 24 expansion users already exist with expected roles; skipping the insert seed.');
+    } else {
+      await client.query("SET app.allow_synthetic_seed = 'on'");
+      await client.query("SELECT set_config('app.allow_synthetic_seed_target', current_database(), false)");
+      await client.query(fs.readFileSync(seedPath, 'utf8'));
+    }
 
     const accounts = [];
     for (const id of userIds) {
