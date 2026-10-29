@@ -55,7 +55,7 @@
   font-size: 11px;
   letter-spacing: .13em;
   font-weight: 850;
-  color: #ff6b00;
+  color: #A43A00;
   margin-bottom: 8px;
 }
 
@@ -309,7 +309,8 @@
 
 .sectionAction { text-align: right; margin-top: 20px; }
 .sectionAction a,
-.inlineLink { color:#ff6b00; font-weight:850; text-decoration:none; }
+.inlineLink,
+.discoveryEmpty a { color:#A43A00; font-weight:850; text-decoration:underline; text-underline-offset:3px; }
 
 .journeySection {
   padding: 62px 0 66px;
@@ -400,7 +401,8 @@
 .finalCtaInner p { color:rgba(255,255,255,.76); max-width:760px; line-height:1.55; font-size:14px; }
 .ctaActions { display:flex; gap:10px; flex-shrink:0; }
 .ctaActions a { padding:12px 18px; border-radius:10px; text-decoration:none; font-weight:850; }
-.ctaActions a:first-child { background:#ff6b00; color:#fff; }
+.ctaActions a:first-child { background:#FF8A3D; color:#14213D; }
+.finalCtaInner span { color:#FFC299; }
 .ctaActions a:last-child { background:#fff; color:#10264f; }
 .footer { text-align:center; padding:24px; color:#6b7488; font-size:12px; background:#f8fafc; }
 
@@ -434,3 +436,16 @@
   .listCard { align-items:flex-start; flex-direction:column; }
   .listCard span { text-align:left; }
 }
+
+/* Public Home cards need a clear surface against the neutral page canvas. */
+.page { background: #edf2f8; }
+.discoveryCard { border-color: color-mix(in srgb, var(--discovery-accent) 30%, #c6d3e2); box-shadow: 0 14px 33px rgba(13,27,62,.11); }
+.discoveryBody { background: #fff; }
+.discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #4c5b73; }
+.journeyCard,.listCard { border-color: #c9d5e2; background: #fff; }
+.listCard { box-shadow: 0 5px 14px rgba(13,27,62,.045); }
+.whyCard { border-color: #c9d5e2; box-shadow: 0 8px 20px rgba(13,27,62,.06); }
+.whyCard strong { color: #14213d; }
+.orange { --accent: #A43A00; }
+.rose { --accent: #A9274B; }
+.discoveryOrange { --discovery-accent: #A43A00; }

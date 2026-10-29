@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BookOpen, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { getPublicLearningOverview, type LearningCategory, type PublicLearningOverview } from '@/services/publicService';
@@ -266,7 +266,7 @@ export default function PublicLearningCatalogue() {
                         {resource.is_offline_ready && <span>Offline-ready</span>}
                       </div>
                       {(resource.concept_names || []).length > 0 && <div style={{ fontSize: 11, color: '#66798a', marginTop: 8 }}>Concept: {(resource.concept_names || []).slice(0, 2).join(' · ')}</div>}
-                      <div className={styles.resourceLink}>{language === 'hi' ? 'सीखना शुरू करें' : 'Explore resource'} <ArrowRight size={17} /></div>
+                      <div className={styles.resourceLink}>{language === 'hi' ? 'सीखना शुरू करें' : 'Explore resource'}</div>
                     </div>
                   </Link>
                 );

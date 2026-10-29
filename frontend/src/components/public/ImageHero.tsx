@@ -65,7 +65,7 @@ export default function ImageHero({
                 href={action.href}
                 className={action.variant === 'secondary' ? styles.secondary : styles.primary}
               >
-                {action.label} <span aria-hidden="true">→</span>
+                {action.label}
               </Link>
             ))}
           </div>

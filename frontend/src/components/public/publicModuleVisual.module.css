@@ -87,3 +87,4 @@
   .quickGrid{grid-template-columns:1fr}
   .quickCard{min-height:auto}
 }
+.quickOrange { --quick-accent: #A43A00; }

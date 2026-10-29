@@ -34,7 +34,7 @@ const MODULES = [
   { title: 'Parents', copy: 'Monitor progress and stay connected with schools', href: '/for-parents', tone: sample.violet, image: MODULE_IMAGES.parent },
   { title: 'Learning', copy: 'Access public resources for all grades', href: '/learn', tone: sample.orange, image: MODULE_IMAGES.learn },
   { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', tone: sample.rose, image: MODULE_IMAGES.competition },
-  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal, image: MODULE_IMAGES.communities },
+  { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', tone: sample.teal },
 ];
 
 const JOURNEY = [
@@ -69,6 +69,13 @@ export default function PublicHomeSampleExperience() {
   const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
   const [overview, setOverview] = useState<PublicOverview | null>(null);
   const [learningOverview, setLearningOverview] = useState<PublicLearningOverview | null>(null);
+  const [loadStates, setLoadStates] = useState({
+    learning: 'loading' as 'loading' | 'ready' | 'error',
+    schools: 'loading' as 'loading' | 'ready' | 'error',
+    competitions: 'loading' as 'loading' | 'ready' | 'error',
+    overview: 'loading' as 'loading' | 'ready' | 'error',
+    learningOverview: 'loading' as 'loading' | 'ready' | 'error',
+  });
 
   useEffect(() => {
     let active = true;
@@ -85,21 +92,30 @@ export default function PublicHomeSampleExperience() {
       if (competitionResult.status === 'fulfilled') setCompetitions((competitionResult.value.data.data || []).slice(0, 3));
       if (overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data.data);
       if (learningOverviewResult.status === 'fulfilled') setLearningOverview(learningOverviewResult.value.data.data);
+      setLoadStates({
+        learning: learningResult.status === 'fulfilled' ? 'ready' : 'error',
+        schools: schoolResult.status === 'fulfilled' ? 'ready' : 'error',
+        competitions: competitionResult.status === 'fulfilled' ? 'ready' : 'error',
+        overview: overviewResult.status === 'fulfilled' ? 'ready' : 'error',
+        learningOverview: learningOverviewResult.status === 'fulfilled' ? 'ready' : 'error',
+      });
     });
     return () => { active = false; };
   }, []);
 
   const homeStats = [
-    { icon: BookOpen, value: metric(learningOverview?.totalResources), label: 'Published Learning Resources', note: 'Live public catalogue', tone: sample.statOrange },
-    { icon: Users, value: metric(overview?.students), label: 'Active Students', note: 'Registered on VidyaSetu', tone: sample.statGreen },
-    { icon: Building2, value: metric(overview?.schools), label: 'Active Schools', note: 'Connected institutions', tone: sample.statViolet },
-    { icon: Trophy, value: metric(overview?.competitions), label: 'Competitions', note: 'Platform opportunities', tone: sample.statRose },
+    { icon: BookOpen, value: loadStates.learningOverview === 'loading' ? '…' : loadStates.learningOverview === 'error' ? '—' : metric(learningOverview?.totalResources), label: 'Published Learning Resources', note: loadStates.learningOverview === 'error' ? 'Could not load this total' : 'Live public catalogue', tone: sample.statOrange },
+    { icon: Users, value: loadStates.overview === 'loading' ? '…' : loadStates.overview === 'error' ? '—' : metric(overview?.students), label: 'Active Students', note: loadStates.overview === 'error' ? 'Could not load this total' : 'Registered on VidyaSetu', tone: sample.statGreen },
+    { icon: Building2, value: loadStates.overview === 'loading' ? '…' : loadStates.overview === 'error' ? '—' : metric(overview?.schools), label: 'Active Schools', note: loadStates.overview === 'error' ? 'Could not load this total' : 'Connected institutions', tone: sample.statViolet },
+    { icon: Trophy, value: loadStates.overview === 'loading' ? '…' : loadStates.overview === 'error' ? '—' : metric(overview?.competitions), label: 'Competitions', note: loadStates.overview === 'error' ? 'Could not load this total' : 'Platform opportunities', tone: sample.statRose },
   ];
 
   return (
     <div className={styles.page}>
+      <a className={sample.skipLink} href="#main-content" lang="en">Skip to main content</a>
       <GlobalTopbar />
 
+      <main id="main-content" tabIndex={-1} lang="en">
       <section className={sample.hero} aria-labelledby="home-hero-title">
         <div className={sample.heroPhoto} aria-hidden="true">
           <Image src={HERO_IMAGES.home} alt="" fill priority fetchPriority="high" quality={90} sizes="(min-width: 1100px) 62vw, 100vw" style={{ objectFit: 'cover', objectPosition: 'center' }} />
@@ -121,8 +137,8 @@ export default function PublicHomeSampleExperience() {
             </div>
 
             <div className={sample.actions}>
-              <Link className={sample.primary} href="#platform-modules">Explore VidyaSetu <span aria-hidden="true">→</span></Link>
-              <Link className={sample.secondary} href="/learn">Start Learning <span aria-hidden="true">→</span></Link>
+              <Link className={sample.primary} href="#platform-modules">Explore VidyaSetu</Link>
+              <Link className={sample.secondary} href="/learn">Start Learning</Link>
             </div>
           </div>
         </div>
@@ -138,18 +154,18 @@ export default function PublicHomeSampleExperience() {
             {MODULES.map((module) => (
               <Link href={module.href} className={`${sample.moduleCard} ${module.tone}`} key={module.title}>
                 <div className={sample.moduleMedia} aria-hidden="true">
-                  <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 760px) 50vw, (max-width: 1180px) 33vw, 17vw" style={{ objectFit: 'cover', objectPosition: 'center' }} />
+                  {module.image ? <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 820px) 100vw, (max-width: 1180px) 33vw, 33vw" style={{ objectFit: 'cover', objectPosition: 'center' }} /> : <div className={sample.moduleVisualFallback}><Users size={46} strokeWidth={1.5} /></div>}
                 </div>
                 <div className={sample.moduleBody}>
                   <strong>{module.title}</strong>
                   <p>{module.copy}</p>
-                  <span>Explore <b aria-hidden="true">→</b></span>
+                  <span>Explore</span>
                 </div>
               </Link>
             ))}
           </div>
 
-          <div className={sample.statsStrip} aria-label="Live VidyaSetu platform metrics">
+          <div className={sample.statsStrip} role="status" aria-live="polite" aria-label="Live VidyaSetu platform metrics">
             {homeStats.map(({ icon: Icon, value, label, note, tone }) => (
               <div className={sample.stat} key={label}>
                 <span className={`${sample.statIcon} ${tone}`}><Icon size={24} strokeWidth={1.9} /></span>
@@ -177,12 +193,15 @@ export default function PublicHomeSampleExperience() {
                   <div className={styles.discoveryMeta}>{resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ')}</div>
                   <h3>{resource.title}</h3>
                   <p>{resource.summary || 'Open this learning resource and continue exploring VidyaSetu.'}</p>
-                  <span>{gradeText(resource)} · Explore resource →</span>
+                  <span>{gradeText(resource)} · Explore resource</span>
                 </div>
               </Link>
-            )) : <div className={styles.discoveryEmpty}>Learning resources are loading. You can also open the complete Learning Library.</div>}
+            )) : <div className={styles.discoveryEmpty} role="status">
+              {loadStates.learning === 'loading' ? 'Loading featured learning resources…' : loadStates.learning === 'error' ? 'Featured resources could not be loaded right now.' : 'No featured resources are available right now.'}
+              {' '}You can also open the complete <Link href="/learn">Learning Library</Link>.
+            </div>}
           </div>
-          <div className={styles.sectionAction}><Link href="/learn">Open the Learning Library →</Link></div>
+          <div className={styles.sectionAction}><Link href="/learn">Open the Learning Library</Link></div>
         </div>
       </section>
 
@@ -204,19 +223,25 @@ export default function PublicHomeSampleExperience() {
         </div>
       </section>
 
-      {(schools.length > 0 || competitions.length > 0) && (
+      {(schools.length > 0 || competitions.length > 0 || loadStates.schools !== 'loading' || loadStates.competitions !== 'loading') && (
         <section className={styles.liveSection}>
           <div className={styles.shell}>
             <div className={styles.liveGrid}>
               <div>
                 <div className={styles.sectionIntro}><span>CONNECTED SCHOOLS</span><h2>See institutions already on VidyaSetu.</h2><p>Public school discovery helps families understand which institutions are already connected to the platform.</p></div>
-                <div className={styles.stack}>{schools.map((school) => <article className={styles.listCard} key={school.id}><strong>{school.name}</strong><span>{[school.city, school.state, school.board].filter(Boolean).join(' · ')}</span></article>)}</div>
-                <Link className={styles.inlineLink} href="/for-schools#school-directory">Browse schools →</Link>
+                <div className={styles.stack}>
+                  {schools.map((school) => <article className={styles.listCard} key={school.id}><strong>{school.name}</strong><span>{[school.city, school.state, school.board].filter(Boolean).join(' · ')}</span></article>)}
+                  {!schools.length && <p className={styles.liveEmpty} role="status">{loadStates.schools === 'loading' ? 'Loading connected schools…' : loadStates.schools === 'error' ? 'School information is temporarily unavailable.' : 'No public school listings are available right now.'}</p>}
+                </div>
+                <Link className={styles.inlineLink} href="/for-schools#school-directory">Browse schools</Link>
               </div>
               <div>
                 <div className={styles.sectionIntro}><span>OPPORTUNITIES</span><h2>Find competitions beyond everyday classwork.</h2><p>Published academic challenges give students another place to participate, perform and grow.</p></div>
-                <div className={styles.stack}>{competitions.map((competition) => <article className={styles.listCard} key={competition.id}><strong>{competition.title}</strong><span>{competition.status?.replaceAll('_', ' ') || 'Published opportunity'}</span></article>)}</div>
-                <Link className={styles.inlineLink} href="/competition">View competitions →</Link>
+                <div className={styles.stack}>
+                  {competitions.map((competition) => <article className={styles.listCard} key={competition.id}><strong>{competition.title}</strong><span>{competition.status?.replaceAll('_', ' ') || 'Published opportunity'}</span></article>)}
+                  {!competitions.length && <p className={styles.liveEmpty} role="status">{loadStates.competitions === 'loading' ? 'Loading competitions…' : loadStates.competitions === 'error' ? 'Competition information is temporarily unavailable.' : 'No competitions are available right now.'}</p>}
+                </div>
+                <Link className={styles.inlineLink} href="/competition">View competitions</Link>
               </div>
             </div>
           </div>
@@ -238,8 +263,9 @@ export default function PublicHomeSampleExperience() {
           </div>
         </div>
       </section>
+      </main>
 
-      <footer className={styles.footer}>© 2026 VidyaSetu · Learning, schools, families, opportunities and safe education communities</footer>
+      <footer className={styles.footer} lang="en">© 2026 VidyaSetu · Learning, schools, families, opportunities and safe education communities</footer>
     </div>
   );
 }

@@ -190,7 +190,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
                 <div className={visualStyles.quickIcon}>{capability.icon}</div>
                 <strong>{capability.title}</strong>
                 <p>{capability.description}</p>
-                <span>Explore <b aria-hidden="true">→</b></span>
+                <span>Explore</span>
               </Link>
             ))}
           </div>
