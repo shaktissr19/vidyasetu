@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowRight,
   BookOpen,
   BriefcaseBusiness,
   CloudSun,
@@ -145,7 +144,7 @@ function ResourceCard({ resource, selectedGrade }: { resource: PublicLearningRes
           {duration && <span>{duration}</span>}
           {(resource.board_codes || []).includes('COMMON') && <span>Cross-board</span>}
         </div>
-        <div className={styles.resourceLink}>Explore resource <ArrowRight size={17} /></div>
+        <div className={styles.resourceLink}>Explore resource</div>
       </div>
     </Link>
   );
@@ -275,7 +274,7 @@ export default function PublicLearningLibrary() {
         ) : resourcesQuery.isPending && resources.length === 0 ? (
           <div className={styles.resourceGrid}>{[0,1,2].map((item) => <div key={item} className={styles.skeletonCard}><span /><span /><span /></div>)}</div>
         ) : resources.length ? (
-          <><div className={styles.resourceGrid}>{resources.map((resource) => <ResourceCard key={resource.id} resource={resource} selectedGrade={selectedGrade} />)}</div><div className={styles.resourceActions}>{canLoadMore && <button type="button" className={styles.loadMoreButton} onClick={() => setResourceLimit((value) => Math.min(value + 6, MAX_HOME_RESOURCE_LIMIT))}>Load 6 more</button>}<Link className={styles.viewAllButton} href={libraryHref}>View all learning <ArrowRight size={17} /></Link></div></>
+          <><div className={styles.resourceGrid}>{resources.map((resource) => <ResourceCard key={resource.id} resource={resource} selectedGrade={selectedGrade} />)}</div><div className={styles.resourceActions}>{canLoadMore && <button type="button" className={styles.loadMoreButton} onClick={() => setResourceLimit((value) => Math.min(value + 6, MAX_HOME_RESOURCE_LIMIT))}>Load 6 more</button>}<Link className={styles.viewAllButton} href={libraryHref}>View all learning</Link></div></>
         ) : (
           <div className={styles.emptyState}><BookOpen size={28} /><strong>No resource matches this combination yet.</strong><span>Try another learning type or board, or clear the filters.</span><button type="button" onClick={clearFilters}>Show all learning</button></div>
         )}
@@ -286,13 +285,13 @@ export default function PublicLearningLibrary() {
         {assessmentClass ? assessmentsQuery.isError ? (
           <div className={styles.errorState}><strong>Practice could not be loaded.</strong><button type="button" onClick={() => assessmentsQuery.refetch()}><RefreshCw size={16} /> Try again</button></div>
         ) : assessments.length ? (
-          <div className={styles.practiceGrid}>{assessments.slice(0,6).map((assessment) => <Link key={assessment.id} href={`/learn/practice/${assessment.public_slug}`} className={styles.practiceCard}><FileQuestion size={26} /><span>{assessment.assessment_type.replaceAll('_',' ')}</span><h3>{assessment.title}</h3><p>{assessment.summary || 'A focused practice set for this learning level.'}</p><div>{assessment.question_count} questions {assessment.time_limit_mins ? `· ${assessment.time_limit_mins} min` : ''}</div><strong>Start practice <ArrowRight size={16} /></strong></Link>)}</div>
+          <div className={styles.practiceGrid}>{assessments.slice(0,6).map((assessment) => <Link key={assessment.id} href={`/learn/practice/${assessment.public_slug}`} className={styles.practiceCard}><FileQuestion size={26} /><span>{assessment.assessment_type.replaceAll('_',' ')}</span><h3>{assessment.title}</h3><p>{assessment.summary || 'A focused practice set for this learning level.'}</p><div>{assessment.question_count} questions {assessment.time_limit_mins ? `· ${assessment.time_limit_mins} min` : ''}</div><strong>Start practice</strong></Link>)}</div>
         ) : <div className={styles.practicePrompt}>More practice for this class can be added through the Learning Studio as the catalogue grows.</div> : <div className={styles.practicePrompt}><GraduationCap size={24} /> Choose a school class above to see practice sets for that level.</div>}
       </div></section>
 
       <section className={styles.developmentSection}><div className={styles.shell}>
         <div className={styles.developmentHeading}><div className={styles.eyebrow}>BEYOND MARKS</div><h2>Learning for school. Skills for life.</h2><p>Academic progress matters, and so do curiosity, habits, values, resilience and confidence at every stage of development.</p></div>
-        <div className={styles.pillarGrid}>{DEVELOPMENT_PILLARS.map((pillar) => { const Icon = pillar.icon; return <button key={pillar.category} type="button" className={`${styles.pillarCard} ${pillar.tone}`} onClick={() => chooseCategory(pillar.category)}><div className={styles.pillarIcon}><Icon size={28} strokeWidth={1.75} /></div><span>{pillar.eyebrow}</span><h3>{pillar.title}</h3><p>{pillar.copy}</p><strong>Explore this area <ArrowRight size={16} /></strong></button>; })}</div>
+        <div className={styles.pillarGrid}>{DEVELOPMENT_PILLARS.map((pillar) => { const Icon = pillar.icon; return <button key={pillar.category} type="button" className={`${styles.pillarCard} ${pillar.tone}`} onClick={() => chooseCategory(pillar.category)}><div className={styles.pillarIcon}><Icon size={28} strokeWidth={1.75} /></div><span>{pillar.eyebrow}</span><h3>{pillar.title}</h3><p>{pillar.copy}</p><strong>Explore this area</strong></button>; })}</div>
       </div></section>
 
       <section className={styles.finalCta}><div className={styles.shell}><div className={styles.ctaInner}><div><span>LEARNING CONTINUES AFTER SIGN-IN</span><h2>Save progress. Keep practising. Return where you left off.</h2><p>Student accounts add class-aware recommendations, bookmarks, progress, assessment history and school-connected learning.</p></div><div className={styles.ctaActions}><Link className={styles.primaryAction} href="/login?role=student">Student login</Link><Link className={styles.secondaryLight} href="/?auth=register">Create account</Link></div></div></div></section>

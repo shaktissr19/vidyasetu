@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BookOpen, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { getPublicLearningOverview, type LearningCategory, type PublicLearningOverview } from '@/services/publicService';
@@ -206,77 +206,112 @@ export default function PublicLearningCatalogue() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 9 }}>
               <select aria-label="Grade" value={grade} onChange={(event) => setGrade(event.target.value)} style={FILTER_STYLE}>
                 <option value="">All classes / levels</option>
-                {(overviewQuery.data?.grades || []).map((item) => <option key={item.code} value={item.code}>{item.shortName || item.name}</option>)}
-              </select>
-              <select aria-label="Board" value={board} onChange={(event) => setBoard(event.target.value)} style={FILTER_STYLE}>
-                <option value="">All boards</option>
-                {(overviewQuery.data?.boards || []).filter((item) => item.code !== 'OTHER_STATE').map((item) => <option key={item.code} value={item.code}>{item.short_name || item.name}</option>)}
-              </select>
-              <select aria-label="Category" value={category} onChange={(event) => setCategory(event.target.value)} style={FILTER_STYLE}>
-                <option value="">All learning categories</option>
-                {CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
-              <select aria-label="Subject" value={subject} onChange={(event) => { setSubject(event.target.value); setConcept(''); }} style={FILTER_STYLE}>
-                <option value="">All subjects</option>
-                {(options?.subjects || []).map((item) => <option key={`${item.code}-${item.name}`} value={item.code || item.name}>{item.name}</option>)}
-              </select>
-              <select aria-label="Concept" value={concept} onChange={(event) => setConcept(event.target.value)} style={FILTER_STYLE}>
-                <option value="">All concepts</option>
-                {concepts.map((item) => <option key={item.code} value={item.code}>{language === 'hi' && item.nameHi ? item.nameHi : item.name}{item.chapterTitle ? ` · ${item.chapterTitle}` : ''}</option>)}
-              </select>
-              <select aria-label="Language" value={language} onChange={(event) => setLanguage(event.target.value as 'en' | 'hi')} style={FILTER_STYLE}>
-                <option value="en">English</option><option value="hi">हिन्दी</option>
-              </select>
-              <select aria-label="Resource type" value={resourceType} onChange={(event) => setResourceType(event.target.value)} style={FILTER_STYLE}>
-                <option value="">All resource types</option>
-                {(options?.resourceTypes || []).map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}
-              </select>
-              <select aria-label="Learning stage" value={journeyStage} onChange={(event) => setJourneyStage(event.target.value)} style={FILTER_STYLE}>
-                <option value="">All learning stages</option>
-                {(options?.journeyStages || []).map((item) => <option key={item} value={item}>{stageLabel(item)}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className={styles.catalogueToolbar}>
-            <h2>{language === 'hi' ? 'आपके लिए सीखने की सामग्री' : 'Learning resources'}</h2>
-            <span>{query.isFetching && !query.isPending ? 'Refreshing…' : query.isPending ? 'Loading…' : `${resources.length} resources`}</span>
-          </div>
-
-          {query.isError ? (
-            <div className={styles.errorState}><strong>Catalogue could not be loaded.</strong><button type="button" onClick={() => query.refetch()}><RefreshCw size={16} /> Try again</button></div>
-          ) : query.isPending ? (
-            <div className={styles.catalogueGrid}>{[0,1,2,3,4,5].map((item) => <div key={item} className={styles.skeletonCard}><span /><span /><span /></div>)}</div>
-          ) : resources.length ? (
-            <div className={styles.catalogueGrid}>
-              {resources.map((resource) => {
-                const tone = CATEGORY_TONE[resource.category] || styles.blue;
-                return (
-                  <Link key={resource.id} className={`${styles.resourceCard} ${tone}`} href={`/learn/resource/${resource.public_slug}`}>
-                    {resource.thumbnail_url ? <div className={styles.resourceImage}><img src={resource.thumbnail_url} alt="" loading="lazy" /></div> : <SubjectVisual input={resource} selectedGrade={grade || undefined} />}
-                    <div className={styles.resourceBody}>
-                      <div className={styles.resourceTopline}><span className={styles.resourceEyebrow}>{resource.subject_name || resource.subject_label || categoryLabel(resource.category)}</span></div>
-                      <h3>{displayTitle(resource, language)}</h3>
-                      <p>{displaySummary(resource, language)}</p>
-                      <div className={styles.resourceFacts}>
-                        <span>{gradeLabel(resource)}</span>
-                        <span>{typeLabel(resource.resource_type)}</span>
-                        {(resource.journey_stages || []).slice(0, 2).map((stage) => <span key={stage}>{stageLabel(stage)}</span>)}
-                        {(resource.board_codes || []).includes('COMMON') && <span>Cross-board</span>}
-                        {resource.is_offline_ready && <span>Offline-ready</span>}
-                      </div>
-                      {(resource.concept_names || []).length > 0 && <div style={{ fontSize: 11, color: '#66798a', marginTop: 8 }}>Concept: {(resource.concept_names || []).slice(0, 2).join(' · ')}</div>}
-                      <div className={styles.resourceLink}>{language === 'hi' ? 'सीखना शुरू करें' : 'Explore resource'} <ArrowRight size={17} /></div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className={styles.emptyState}><BookOpen size={28} /><strong>{language === 'hi' ? 'इन फ़िल्टरों से कोई प्रकाशित सामग्री नहीं मिली।' : 'No published learning resource matches these filters yet.'}</strong>{hasFilters ? <button type="button" onClick={clearFilters} style={{ border: 0, background: 'transparent', color: '#34658e', fontWeight: 800, cursor: 'pointer' }}>Clear filters</button> : <Link href="/learn">Return to Learning</Link>}</div>
-          )}
-        </div>
-      </section>
-    </div>
-  );
+                {(overviewQv�������k�w��` z-index: 1;
+  border: 1px solid #dce4ec;
+  background: rgba(250,252,254,.96);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 9px 23px rgba(13,27,62,.05);
 }
+
+.journeyTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #315f92;
+  margin-bottom: 13px;
+}
+
+.journeyTop span {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #cedbe8;
+  font-size: 10px;
+  font-weight: 900;
+  color: #ff6b00;
+}
+
+.journeyCard h3 {
+  margin: 0;
+  font-family: 'Baloo 2', cursive;
+  font-size: 19px;
+  line-height: 1.1;
+  color: #112c57;
+}
+
+.journeyCard p {
+  margin: 7px 0 0;
+  color: #64718a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.liveSection { padding: 62px 0; background:#f4f7fb; }
+.liveGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:50px; }
+.stack { display:grid; gap:10px; }
+.listCard { display:flex; justify-content:space-between; align-items:center; gap:18px; background:#fff; border:1px solid #dfe7f0; border-radius:13px; padding:14px 16px; }
+.listCard strong { font-size:13.5px; }
+.listCard span { font-size:11.5px; color:#657089; text-align:right; }
+.inlineLink { display:inline-flex; margin-top:15px; font-size:13px; }
+
+.whySection { padding:60px 0; background:var(--page-bg, #F3F6FA); }
+.whyGrid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:13px; }
+.whyCard { padding:19px 17px; border-radius:17px; border:1px solid #d9e2eb; background:#f5f8fc; box-shadow:0 8px 20px rgba(13,27,62,.045); }
+.whyCard:nth-child(2){background:#eff8f0}.whyCard:nth-child(3){background:#fff4eb}.whyCard:nth-child(4){background:#f4effd}.whyCard:nth-child(5){background:#eaf7f9}
+.whyCard>div{font-size:24px;margin-bottom:9px}.whyCard strong{font-family:'Baloo 2',cursive;font-size:17px}.whyCard p{font-size:12.5px;line-height:1.5;color:#657089;margin:5px 0 0}
+
+.finalCta { padding:54px 0; background:#f6f9fc; }
+.finalCtaInner { background:linear-gradient(120deg,#10264f,#224e83); border-radius:24px; padding:34px 38px; color:#fff; display:flex; justify-content:space-between; align-items:center; gap:30px; }
+.finalCtaInner h2 { color:#fff; font-size:32px; max-width:760px; }
+.finalCtaInner p { color:rgba(255,255,255,.76); max-width:760px; line-height:1.55; font-size:14px; }
+.ctaActions { display:flex; gap:10px; flex-shrink:0; }
+.ctaActions a { padding:12px 18px; border-radius:10px; text-decoration:none; font-weight:850; }
+.ctaActions a:first-child { background:#FF8A3D; color:#14213D; }
+.finalCtaInner span { color:#FFC299; }
+.ctaActions a:last-child { background:#fff; color:#10264f; }
+.footer { text-align:center; padding:24px; color:#6b7488; font-size:12px; background:#f8fafc; }
+
+@media(max-width:1050px) {
+  .benefitGrid { grid-template-columns:repeat(2,1fr); }
+  .moduleGrid { grid-template-columns:repeat(2,1fr); }
+  .journeyGrid { grid-template-columns:repeat(2,1fr); }
+  .journeyGrid::before { display:none; }
+  .whyGrid { grid-template-columns:repeat(3,1fr); }
+}
+
+@media(max-width:820px) {
+  .shell { padding:0 22px; }
+  .discoveryGrid,.liveGrid { grid-template-columns:1fr; }
+  .liveGrid { gap:38px; }
+  .whyGrid { grid-template-columns:repeat(2,1fr); }
+  .finalCtaInner { flex-direction:column; align-items:flex-start; }
+  .ctaActions { width:100%; }
+  .ctaActions a { flex:1; text-align:center; }
+}
+
+@media(max-width:600px) {
+  .heroBenefits { gap:6px; }
+  .heroBenefits span { font-size:10.5px; min-height:28px; }
+  .benefitsSection,.modulesSection,.discoverySection,.journeySection,.liveSection,.whySection { padding:46px 0; }
+  .benefitGrid,.moduleGrid,.journeyGrid,.whyGrid { grid-template-columns:1fr; gap:14px; }
+  .moduleMedia { height:170px; flex-basis:170px; }
+  .moduleBody { min-height:auto; padding:18px; }
+  .finalCtaInner { padding:27px 21px; }
+  .finalCtaInner h2 { font-size:27px; }
+  .listCard { align-items:flex-start; flex-direction:column; }
+  .listCard span { text-align:left; }
+}
+
+/* Public Home cards need a clear surface against the neutral page canvas. */
+.page { background: #edf2f8; }
+.discoveryCard { border-color: color-mix(in srgb, var(--discovery-accent) 30%, #c6d3e2); box-shadow: 0 14px 33px rgba(13,27,62,.11); }
+.discoveryBody { background: #fff; }
+.discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #4c5b73; }
+.journeyCard,.listCard { border-color: #c9d5e2; background: #fff; }
+.listCard { box-shadow: 0 5px 14px rgba(13,27,62,.045); }
+.whyCard { border-color: #c9d5e2; box-shadow: 0 8px 20px rgba(13,27,62,.06); }
+.whyCard strong { color: #14213d; }

@@ -448,3 +448,12 @@
   .primary:hover,
   .secondary:hover { transform: none; }
 }
+
+/* Keep Home card surfaces distinct from the cool section background. */
+.modulesSection { background: #edf2f8; }
+.moduleCard { border-color: #c4d1e0; box-shadow: 0 8px 20px rgba(19,40,73,.07); }
+.moduleBody { background: #fff; }
+.moduleBody p { color: #45546d; }
+.statsStrip { border-color: #e8c5a8; box-shadow: 0 8px 22px rgba(19,40,73,.06); }
+.statCopy b { color: #14213d; }
+.statCopy small { color: #526078; }

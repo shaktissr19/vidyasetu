@@ -137,8 +137,8 @@ export default function PublicHomeSampleExperience() {
             </div>
 
             <div className={sample.actions}>
-              <Link className={sample.primary} href="#platform-modules">Explore VidyaSetu <span aria-hidden="true">→</span></Link>
-              <Link className={sample.secondary} href="/learn">Start Learning <span aria-hidden="true">→</span></Link>
+              <Link className={sample.primary} href="#platform-modules">Explore VidyaSetu</Link>
+              <Link className={sample.secondary} href="/learn">Start Learning</Link>
             </div>
           </div>
         </div>
@@ -159,7 +159,7 @@ export default function PublicHomeSampleExperience() {
                 <div className={sample.moduleBody}>
                   <strong>{module.title}</strong>
                   <p>{module.copy}</p>
-                  <span>Explore <b aria-hidden="true">→</b></span>
+                  <span>Explore</span>
                 </div>
               </Link>
             ))}
@@ -193,7 +193,7 @@ export default function PublicHomeSampleExperience() {
                   <div className={styles.discoveryMeta}>{resource.subject_name || resource.subject_label || resource.category.replaceAll('_', ' ')}</div>
                   <h3>{resource.title}</h3>
                   <p>{resource.summary || 'Open this learning resource and continue exploring VidyaSetu.'}</p>
-                  <span>{gradeText(resource)} · Explore resource →</span>
+                  <span>{gradeText(resource)} · Explore resource</span>
                 </div>
               </Link>
             )) : <div className={styles.discoveryEmpty} role="status">
@@ -201,7 +201,7 @@ export default function PublicHomeSampleExperience() {
               {' '}You can also open the complete <Link href="/learn">Learning Library</Link>.
             </div>}
           </div>
-          <div className={styles.sectionAction}><Link href="/learn">Open the Learning Library →</Link></div>
+          <div className={styles.sectionAction}><Link href="/learn">Open the Learning Library</Link></div>
         </div>
       </section>
 
@@ -233,7 +233,7 @@ export default function PublicHomeSampleExperience() {
                   {schools.map((school) => <article className={styles.listCard} key={school.id}><strong>{school.name}</strong><span>{[school.city, school.state, school.board].filter(Boolean).join(' · ')}</span></article>)}
                   {!schools.length && <p className={styles.liveEmpty} role="status">{loadStates.schools === 'loading' ? 'Loading connected schools…' : loadStates.schools === 'error' ? 'School information is temporarily unavailable.' : 'No public school listings are available right now.'}</p>}
                 </div>
-                <Link className={styles.inlineLink} href="/for-schools#school-directory">Browse schools →</Link>
+                <Link className={styles.inlineLink} href="/for-schools#school-directory">Browse schools</Link>
               </div>
               <div>
                 <div className={styles.sectionIntro}><span>OPPORTUNITIES</span><h2>Find competitions beyond everyday classwork.</h2><p>Published academic challenges give students another place to participate, perform and grow.</p></div>
@@ -241,7 +241,7 @@ export default function PublicHomeSampleExperience() {
                   {competitions.map((competition) => <article className={styles.listCard} key={competition.id}><strong>{competition.title}</strong><span>{competition.status?.replaceAll('_', ' ') || 'Published opportunity'}</span></article>)}
                   {!competitions.length && <p className={styles.liveEmpty} role="status">{loadStates.competitions === 'loading' ? 'Loading competitions…' : loadStates.competitions === 'error' ? 'Competition information is temporarily unavailable.' : 'No competitions are available right now.'}</p>}
                 </div>
-                <Link className={styles.inlineLink} href="/competition">View competitions →</Link>
+                <Link className={styles.inlineLink} href="/competition">View competitions</Link>
               </div>
             </div>
           </div>

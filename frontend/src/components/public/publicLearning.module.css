@@ -227,3 +227,10 @@
 @media(max-width:420px){
   .statsGrid{grid-template-columns:1fr}.visualGrid{grid-template-columns:1fr}.categoryTabs{grid-template-columns:1fr}
 }
+
+/* Raise card and supporting-text contrast on public learning sections. */
+.page { background: #edf2f8; }
+.resourceCard { border-color: #c7d3e1; box-shadow: 0 10px 28px rgba(16,35,68,.09); }
+.resourceBody p,.practiceCard p,.practiceCard div,.featureCard p { color: #4c5b73; }
+.empty { border-color: #aebdcd; background: #fff; color: #4c5b73; }
+.featureCard { border-color: #c6d2df; box-shadow: 0 8px 24px rgba(31,57,91,.07); }
