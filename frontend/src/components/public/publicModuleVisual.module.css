@@ -88,3 +88,14 @@
   .quickCard{min-height:auto}
 }
 .quickOrange { --quick-accent: #A43A00; }
+
+/* Role pages keep capability cards distinct from their section surface. */
+.quickSection { background: #dce5ef; }
+.quickCard {
+  background: #fff;
+  border-color: #91a5bc;
+  box-shadow: 0 11px 25px rgba(13,27,62,.1);
+}
+.quickCard strong { font-size: 18px; font-weight: 800; }
+.quickCard p { color: #40516a; font-size: 15px; line-height: 1.6; }
+.quickCard span { font-size: 14px; }
