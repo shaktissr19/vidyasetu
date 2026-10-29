@@ -60,7 +60,7 @@ export default function CompetitionPage() {
 
   return <>
     <GlobalTopbar />
-    <div>
+    <div className="public-competition-page">
       <ImageHero
         variant="compact"
         image={HERO_IMAGES.competition}
