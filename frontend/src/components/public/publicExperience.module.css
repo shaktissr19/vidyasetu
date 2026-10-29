@@ -3,6 +3,37 @@
 @media(max-width:1000px){.heroInner,.homeHeroInner{grid-template-columns:1fr}.homeHero:after{inset:48% 0 0}.heroVisual{min-height:auto;padding:18px 0 12px;background:none;border-radius:0}.statGrid{max-width:650px}.capGrid{grid-template-columns:repeat(2,1fr)}.steps,.audienceGrid{grid-template-columns:repeat(2,1fr)}.previewGrid{grid-template-columns:1fr}.schoolGrid{grid-template-columns:1fr}}
 @media(max-width:680px){.shell{padding:0 18px}.heroInner{padding:46px 18px}.homeHeroInner{padding:32px 18px 40px}.heroTitle,.slideTitle{font-size:40px}.homeHero{min-height:auto}.statGrid,.capGrid,.steps,.proofGrid,.audienceGrid{grid-template-columns:1fr}.loginRibbon{margin:-18px 14px 0;align-items:flex-start;flex-direction:column}.cta{flex-direction:column;align-items:flex-start;padding:28px}.schoolTop{flex-direction:column}.miniStats{grid-template-columns:repeat(3,1fr)}.section,.sectionAlt{padding:52px 0}.heroVisualMetric{font-size:50px}}
 
+/* Public module cards keep the symbol and title together and use space efficiently. */
+.capCard {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 12px;
+  align-content: start;
+  padding: 18px;
+}
+.capCard .capIcon { grid-column: 1; grid-row: 1; align-self: center; line-height: 1; }
+.capCard h3 { grid-column: 2; grid-row: 1; align-self: center; margin: 0; line-height: 1.2; }
+.capCard > p,.capCard .bulletList { grid-column: 1 / -1; }
+.capCard > p { margin: 12px 0 0; }
+.capCard .bulletList { margin: 12px 0 0; gap: 6px; }
+.proof { background: #243B63; padding: 18px; align-items: center; }
+.audienceCard {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 11px;
+  align-content: start;
+  padding: 18px;
+}
+.audienceCard .capIcon { grid-column: 1; grid-row: 1; margin: 0; align-self: center; }
+.audienceCard > strong { grid-column: 2; grid-row: 1; align-self: center; line-height: 1.2; }
+.audienceCard > p,.audienceCard > .smallLink { grid-column: 1 / -1; }
+.audienceCard > p { margin: 12px 0 0; }
+.audienceCard > .smallLink { margin-top: 10px; }
+
+@media(max-width:680px) {
+  .capCard,.audienceCard { padding: 16px; }
+}
+
 /* Public pages use a visibly cool canvas behind crisp, elevated white cards. */
 .page { background: #DCE5EF; color: #14213d; }
 .section { background: #E5ECF4; }
