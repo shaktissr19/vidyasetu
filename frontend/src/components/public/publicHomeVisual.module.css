@@ -438,18 +438,19 @@
 }
 
 /* Public Home: distinct page canvas, bright cards, and readable section type. */
-.page { background: #dce5ef; }
-.modulesSection,.journeySection,.whySection { background: #dce5ef; }
-.benefitsSection,.liveSection { background: #e5ecf4; }
-.discoverySection { background: linear-gradient(180deg, #dfe9f3 0%, #e4eee9 100%); }
-.finalCta { background: #dce5ef; }
+.page { background: #B0B7BF; }
+.modulesSection,.journeySection,.whySection { background: #B0B7BF; }
+.benefitsSection,.liveSection { background: #B7BDC3; }
+.discoverySection { background: linear-gradient(180deg, #B2BAC2 0%, #B6BEB3 100%); }
+.finalCta { background: #B0B7BF; }
 .centerHeading > span,.sectionIntro > span,.sectionIntroCompact > span,.finalCtaInner span {
   font-size: 14px;
   line-height: 1.3;
   font-weight: 900;
   letter-spacing: .14em;
 }
-.centerHeading p,.sectionIntro p,.sectionIntroCompact p { color: #40516a; font-size: 17px; font-weight: 550; line-height: 1.65; }
+.centerHeading p,.sectionIntro p,.sectionIntroCompact p { color: #263954; font-size: 17px; font-weight: 550; line-height: 1.65; }
+.centerHeading > span,.sectionIntro > span,.sectionIntroCompact > span { color: #6b2b00; }
 .moduleCard,.benefitCard,.discoveryCard,.journeyCard,.listCard,.whyCard {
   border-color: #91a5bc;
   box-shadow: 0 12px 28px rgba(13,27,62,.11);
@@ -467,7 +468,7 @@
 .discoveryBody > span { font-size: 14px; }
 .journeyCard { background: #fff; }
 .journeyCard h3 { font-size: 21px; font-weight: 800; }
-.liveGrid .sectionIntro p { color: #40516a; }
+.liveGrid .sectionIntro p { color: #263954; }
 .listCard { background: #fff; }
 .listCard strong { font-size: 16px; font-weight: 800; }
 .listCard span { font-size: 14px; }
@@ -478,7 +479,7 @@
 .liveEmpty { color: #354862; font-size: 15px; }
 
 /* Public Home cards need a clear surface against the neutral page canvas. */
-.page { background: #dce5ef; }
+.page { background: #B0B7BF; }
 .discoveryCard { border-color: #91a5bc; box-shadow: 0 14px 33px rgba(13,27,62,.11); }
 .discoveryBody { background: #fff; }
 .discoveryCard p,.journeyCard p,.listCard span,.whyCard p { color: #40516a; }
