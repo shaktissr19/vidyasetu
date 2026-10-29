@@ -215,3 +215,7 @@
   .primary,
   .secondary { flex: 1; min-width: 138px; padding: 0 13px; }
 }
+
+.eyebrow { font-size: 14px; font-weight: 900; }
+.homeHero .content p { font-weight: 550; }
+.compactHero .content p { font-weight: 550; }
