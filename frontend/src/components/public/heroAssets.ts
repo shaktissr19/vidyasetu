@@ -36,13 +36,10 @@ export const HERO_POSITIONS = {
 } as const;
 
 export const MODULE_IMAGES = {
-  // READY local production PNG
+  // Reuse the matching, repository-owned public hero photos for Home cards.
+  student: HERO_IMAGES.student,
+  school: HERO_IMAGES.school,
   parent: '/images/home-cards/home-parents.png',
-
-  // TEMPORARY fallbacks until the remaining Home card PNGs are supplied
-  student: previewFallback(18012463),
-  school: previewFallback(35551044),
-  learn: previewFallback(33745700),
-  competition: previewFallback(13812360),
-  communities: previewFallback(18012458),
+  learn: HERO_IMAGES.learn,
+  competition: HERO_IMAGES.competition,
 } as const;
