@@ -32,8 +32,14 @@ read_env_value() {
 command -v psql >/dev/null || fail "psql is not installed"
 command -v node >/dev/null || fail "Node.js is not installed"
 
-[[ -n "$TARGET_DB" ]] || fail "Set TARGET_DB to the exact existing non-production database name. This script will not guess."
+APP_DB_NAME="$(read_env_value DB_NAME)"
+APP_DB_NAME="${APP_DB_NAME:-vidyasetu_db}"
+TARGET_DB="${TARGET_DB:-$APP_DB_NAME}"
 [[ "$TARGET_DB" =~ ^[A-Za-z0-9_-]+$ ]] || fail "TARGET_DB may contain only letters, digits, underscores, or hyphens."
+if [[ -z "$CONFIRM_NONPRODUCTION_DB" ]]; then
+  printf 'Configured target database: %s\n' "$TARGET_DB"
+  read -r -p 'Type this exact name to confirm it is non-production and authorize additive seed data: ' CONFIRM_NONPRODUCTION_DB
+fi
 [[ "$CONFIRM_NONPRODUCTION_DB" == "$TARGET_DB" ]] || fail "Set CONFIRM_NONPRODUCTION_DB to the same exact name after verifying TARGET_DB is non-production."
 
 DB_HOST="$(read_env_value DB_HOST)"; DB_HOST="${DB_HOST:-127.0.0.1}"
