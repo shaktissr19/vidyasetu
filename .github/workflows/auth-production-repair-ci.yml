@@ -170,19 +170,38 @@ jobs:
           S3_BUCKET_NAME: vidyasetu-content
           FRONTEND_URL: http://127.0.0.1:3000
         run: |
-          nohup npm start > /tmp/vidyasetu-auth-prod-mock-api.log 2>&1 &
+          set -Eeuo pipefail
+          node dist/index.js > /tmp/vidyasetu-auth-prod-mock-api.log 2>&1 &
+          API_PID=$!
+          READY=0
           for i in {1..30}; do
-            curl -fsS http://127.0.0.1:5001/health >/dev/null && break
+            if curl --connect-timeout 1 --max-time 2 -fsS http://127.0.0.1:5001/health >/dev/null; then
+              READY=1
+              break
+            fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              break
+            fi
             sleep 1
           done
+          if [[ "$READY" != '1' ]]; then
+            cat /tmp/vidyasetu-auth-prod-mock-api.log
+            ps -fp "$API_PID" || true
+            exit 1
+          fi
 
-          for attempt in 1 2 3 4; do
-            code="$(curl -sS -o /tmp/otp-failure.json -w '%{http_code}' \
+          # The configured quota is five successful sends; six provider failures
+          # prove failed sends are skipped by the limiter rather than charged.
+          for attempt in 1 2 3 4 5 6; do
+            code="$(curl --retry 3 --retry-connrefused --retry-delay 1 -sS -o /tmp/otp-failure.json -w '%{http_code}' \
               -X POST http://127.0.0.1:5001/api/v1/auth/send-otp \
               -H 'Content-Type: application/json' \
               -d '{"mobile":"9300000001","role":"STUDENT"}')"
-            test "$code" = '503'
-            jq -e '.success == false and .error.code == "SERVICE_UNAVAILABLE" and (.error.message | contains("OTP SMS service is temporarily unavailable"))' /tmp/otp-failure.json >/dev/null
+            if [[ "$code" != '503' ]] || ! jq -e '.success == false and .error.code == "OTP_SMS_UNAVAILABLE" and (.error.message | contains("OTP SMS service is temporarily unavailable"))' /tmp/otp-failure.json >/dev/null; then
+              cat /tmp/otp-failure.json
+              cat /tmp/vidyasetu-auth-prod-mock-api.log
+              exit 1
+            fi
           done
 
       - name: Typecheck and build frontend with corrected login UI

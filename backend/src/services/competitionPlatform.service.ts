@@ -358,7 +358,7 @@ export async function listPublicCompetitions() {
   return rows;
 }
 
-export async function listStudentCompetitions(studentId: UUID, className: string) {
+export async function listStudentCompetitions(studentId: UUID, className: string, schoolId: UUID | null) {
   const { rows } = await query(
     `SELECT e.id,e.public_slug,e.title,e.title_hi,e.subtitle,e.subtitle_hi,e.description,e.competition_format,e.status,
             e.class_names,e.subject_codes,e.total_questions,e.duration_mins,e.marks_per_question,e.negative_marks,
@@ -366,20 +366,21 @@ export async function listStudentCompetitions(studentId: UUID, className: string
             e.start_time,e.end_time,e.results_at,e.prize_pool,e.instructions,e.instructions_hi,e.banner_url,
             e.certificate_enabled,e.learning_feedback_enabled,er.id AS registration_id,er.registered_at,
             (er.id IS NOT NULL) AS registered,ea.id AS attempt_id,ea.status AS attempt_status,ea.started_at,ea.submitted_at,
-            CASE WHEN e.status='COMPLETED' THEN ea.total_marks ELSE NULL END AS total_marks,
-            CASE WHEN e.status='COMPLETED' THEN ea.percentile ELSE NULL END AS percentile,
-            CASE WHEN e.status='COMPLETED' THEN ea.rank_school ELSE NULL END AS rank_school,
-            CASE WHEN e.status='COMPLETED' THEN ea.rank_overall ELSE NULL END AS rank_overall,
+            CASE WHEN e.type IN ('OLYMPIAD','SCHOOL_TEST') AND e.status<>'COMPLETED' THEN NULL ELSE ea.total_marks END AS total_marks,
+            CASE WHEN e.type IN ('OLYMPIAD','SCHOOL_TEST') AND e.status<>'COMPLETED' THEN NULL ELSE ea.percentile END AS percentile,
+            CASE WHEN e.type IN ('OLYMPIAD','SCHOOL_TEST') AND e.status<>'COMPLETED' THEN NULL ELSE ea.rank_school END AS rank_school,
+            CASE WHEN e.type IN ('OLYMPIAD','SCHOOL_TEST') AND e.status<>'COMPLETED' THEN NULL ELSE ea.rank_overall END AS rank_overall,
             ca.certificate_code
      FROM exams e
      LEFT JOIN exam_registrations er ON er.exam_id=e.id AND er.student_id=$1
      LEFT JOIN exam_attempts ea ON ea.exam_id=e.id AND ea.student_id=$1
      LEFT JOIN competition_achievements ca ON ca.exam_id=e.id AND ca.student_id=$1 AND ca.reward_tier='PARTICIPANT'
-     WHERE e.school_id IS NULL AND e.type='OLYMPIAD'
+     WHERE e.type IN ('OLYMPIAD','MOCK','PRACTICE','SCHOOL_TEST')
+       AND (e.school_id IS NULL OR e.school_id=$3)
        AND e.status IN ('REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','SCORING','COMPLETED')
        AND (cardinality(e.class_names)=0 OR $2=ANY(e.class_names))
      ORDER BY CASE e.status WHEN 'LIVE' THEN 0 WHEN 'REGISTRATION_OPEN' THEN 1 WHEN 'REGISTRATION_CLOSED' THEN 2 WHEN 'SCORING' THEN 3 ELSE 4 END,e.start_time ASC`,
-    [studentId,className],
+    [studentId,className,schoolId],
   );
   return rows;
 }
@@ -412,7 +413,7 @@ export async function getStudentCompetitionResult(attemptId: UUID, studentId: UU
   const { rows: [attempt] } = await query<QueryResultRow>(
     `SELECT ea.id,ea.exam_id,ea.status,ea.total_marks,ea.correct_count,ea.wrong_count,ea.skipped_count,
             ea.time_taken_secs,ea.percentile,ea.rank_school,ea.rank_overall,ea.integrity_status,
-            e.title,e.title_hi,e.status AS exam_status,e.total_questions,e.marks_per_question,e.learning_feedback_enabled,
+            e.title,e.title_hi,e.type AS exam_type,e.status AS exam_status,e.total_questions,e.marks_per_question,e.learning_feedback_enabled,
             ca.certificate_code
      FROM exam_attempts ea JOIN exams e ON e.id=ea.exam_id
      LEFT JOIN competition_achievements ca ON ca.exam_id=e.id AND ca.student_id=ea.student_id AND ca.reward_tier='PARTICIPANT'
@@ -420,7 +421,8 @@ export async function getStudentCompetitionResult(attemptId: UUID, studentId: UU
     [attemptId,studentId],
   );
   if (!attempt) throw appError('Competition attempt not found', 404);
-  if (attempt.exam_status !== 'COMPLETED') {
+  const requiresOfficialRelease = attempt.exam_type === 'OLYMPIAD' || attempt.exam_type === 'SCHOOL_TEST';
+  if (requiresOfficialRelease && attempt.exam_status !== 'COMPLETED') {
     return { released: false, attemptId, examId: attempt.exam_id, status: attempt.status, message: 'Your attempt is safely submitted. Score, rank and learning feedback will appear after official results are released.' };
   }
   const { rows: concepts } = await query<QueryResultRow>(
