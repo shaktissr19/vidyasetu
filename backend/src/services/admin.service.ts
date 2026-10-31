@@ -283,7 +283,7 @@ export async function getRevenueAnalytics() {
   return { mrr: mrr?.mrr ?? 0, arr: mrr?.arr ?? 0, activeSubscriptions: mrr?.active_subscriptions ?? 0, planBreakdown, monthlyTrend };
 }
 
-export async function getContentAnalytics() {
+export async function getContentAnalytics(includeUnpublished = false) {
   const { rows: [totals] } = await query(`
     SELECT COUNT(*) FILTER (WHERE ci.type = 'VIDEO' AND ci.status = 'PUBLISHED') AS videos,
            COUNT(*) FILTER (WHERE ci.type IN ('PDF','NOTES') AND ci.status = 'PUBLISHED') AS documents,
@@ -314,15 +314,16 @@ export async function getContentAnalytics() {
     FROM content_items ci
     JOIN chapters ch ON ch.id = ci.chapter_id
     JOIN subjects sub ON sub.id = ch.subject_id
+    WHERE ($1::boolean OR ci.status = 'PUBLISHED')
     ORDER BY ci.created_at DESC LIMIT 10
-  `);
+  `, [includeUnpublished]);
   return {
     videos: totals?.videos ?? 0,
     documents: totals?.documents ?? 0,
     quizQuestions: quizTotals?.quiz_questions ?? 0,
     languages: totals?.languages ?? 0,
     publishedItems: totals?.published_items ?? 0,
-    draftItems: totals?.draft_items ?? 0,
+    draftItems: includeUnpublished ? totals?.draft_items ?? 0 : null,
     bySubject,
     recentItems,
   };

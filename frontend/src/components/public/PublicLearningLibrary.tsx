@@ -22,6 +22,7 @@ import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES } from '@/components/public/heroAssets';
+import useAuthStore from '@/store/authStore';
 import { DEFAULT_LEARN_PAGE_CONTENT, getPublicLearnPage } from '@/services/publicPageContentService';
 import {
   getPublicLearningAssessments,
@@ -152,6 +153,7 @@ function ResourceCard({ resource, selectedGrade }: { resource: PublicLearningRes
 }
 
 export default function PublicLearningLibrary() {
+  const canEditLearnPage = useAuthStore((state) => state.user?.role === 'SUPER_ADMIN');
   const [filtersReady, setFiltersReady] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedStage, setSelectedStage] = useState<StageFilter>('ALL');
@@ -256,7 +258,11 @@ export default function PublicLearningLibrary() {
         title={editorial.hero.title}
         description={editorial.hero.description}
         theme="blue"
-        actions={[{ label: editorial.hero.primaryActionLabel, href: '#browse' }, { label: editorial.hero.secondaryActionLabel, href: '#practice', variant: 'secondary' }]}
+        actions={[
+          { label: editorial.hero.primaryActionLabel, href: '#browse' },
+          { label: editorial.hero.secondaryActionLabel, href: '#practice', variant: 'secondary' },
+          ...(canEditLearnPage ? [{ label: 'Edit Learn page', href: '/admin/public-pages/learn', variant: 'secondary' as const }] : []),
+        ]}
       />
 
       <section className={styles.browseSection} id="browse"><div className={styles.shell}>

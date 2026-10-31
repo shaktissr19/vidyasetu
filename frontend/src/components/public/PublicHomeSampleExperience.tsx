@@ -7,6 +7,7 @@ import { BookOpen, Building2, GraduationCap, Link2, Trophy, Users } from 'lucide
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
+import useAuthStore from '@/store/authStore';
 import { getPublicHomepage, type HomepageContent, type HomepageIcon } from '@/services/homepageService';
 import {
   getPublicCompetitions,
@@ -87,6 +88,7 @@ function metric(value: number | undefined): string {
 }
 
 export default function PublicHomeSampleExperience() {
+  const canEditHome = useAuthStore((state) => state.user?.role === 'SUPER_ADMIN');
   const [learning, setLearning] = useState<PublicLearningResource[]>([]);
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
@@ -170,6 +172,7 @@ export default function PublicHomeSampleExperience() {
             <div className={sample.actions}>
               <Link className={sample.primary} href="#platform-modules">Explore VidyaSetu</Link>
               <Link className={sample.secondary} href="/learn">Start Learning</Link>
+              {canEditHome && <Link className={sample.adminEditShortcut} href="/admin/homepage">Edit Home page</Link>}
             </div>
           </div>
         </div>
