@@ -12,7 +12,9 @@ require_text() {
 }
 
 LOGIN='frontend/src/app/(auth)/login/page.tsx'
+PLATFORM_ADMIN_LOGIN='frontend/src/app/(auth)/platform-admin/login/page.tsx'
 AUTH_SERVICE='frontend/src/services/authService.ts'
+BACKEND_AUTH_SERVICE='backend/src/services/auth.service.ts'
 AUTH_ROUTES='backend/src/routes/auth.routes.ts'
 AUTH_CONTROLLER='backend/src/controllers/auth.controller.ts'
 SMS_SERVICE='backend/src/services/notification.service.ts'
@@ -26,7 +28,7 @@ IDENTITY_MIGRATION='database/migrations/015_realistic_demo_identities.sql'
 PROVISION_SCRIPT='scripts/provision-production-demo-logins.sh'
 AUDIT_SCRIPT='scripts/production-auth-data-audit.sh'
 
-for file in "$LOGIN" "$AUTH_SERVICE" "$AUTH_ROUTES" "$AUTH_CONTROLLER" "$SMS_SERVICE" "$RATE_LIMIT" "$ERROR_HANDLER" "$TOPBAR" "$NAVBAR" "$HOME" "$STUDENT_PROD_SMOKE" "$IDENTITY_MIGRATION" "$PROVISION_SCRIPT" "$AUDIT_SCRIPT" scripts/otp-provider-preflight.sh; do
+for file in "$LOGIN" "$PLATFORM_ADMIN_LOGIN" "$AUTH_SERVICE" "$BACKEND_AUTH_SERVICE" "$AUTH_ROUTES" "$AUTH_CONTROLLER" "$SMS_SERVICE" "$RATE_LIMIT" "$ERROR_HANDLER" "$TOPBAR" "$NAVBAR" "$HOME" "$STUDENT_PROD_SMOKE" "$IDENTITY_MIGRATION" "$PROVISION_SCRIPT" "$AUDIT_SCRIPT" scripts/otp-provider-preflight.sh; do
   [[ -s "$file" ]] || fail "Required OTP/public-contract file is missing: $file"
 done
 
@@ -40,13 +42,30 @@ require_text "$LOGIN" 'sendOTP(mobile, role)' 'Login must pass selected role whe
 require_text "$LOGIN" 'Resend OTP' 'Login must expose Resend OTP'
 require_text "$LOGIN" 'Change number' 'Login must expose Change number'
 require_text "$LOGIN" 'sentMobile' 'OTP verification must retain the number that actually received the OTP'
-require_text "$LOGIN" "role === 'PLATFORM_ADMIN' ? 'Platform Admin' : role === 'SUPER_ADMIN' ? 'Super Admin' : role.replaceAll('_', ' ').toLowerCase()" 'OTP helper must label Platform Admin and Super Admin distinctly'
+require_text "$LOGIN" "{ key: 'TEACHER', label: '👩‍🏫 Teacher' }" 'Public login must retain teacher access'
+if grep -Eq "key: '(PLATFORM_ADMIN|SUPER_ADMIN)'" "$LOGIN"; then
+  fail 'Platform Admin and Super Admin must not appear as public login role choices'
+fi
+require_text "$LOGIN" "router.replace('/platform-admin/login')" 'Legacy privileged login links must lead to the dedicated admin login'
+require_text "$PLATFORM_ADMIN_LOGIN" "startPlatformAdminLogin(identifier.trim(), password)" 'Dedicated admin login must verify password before sending OTP'
+require_text "$PLATFORM_ADMIN_LOGIN" 'verifyPlatformAdminLogin(challenge.challengeId, otp' 'Dedicated admin login must verify the OTP challenge'
+require_text "$PLATFORM_ADMIN_LOGIN" "router.replace('/admin/analytics')" 'Verified administrators must enter the admin workspace'
+require_text "$AUTH_ROUTES" "router.post('/platform-admin/login'" 'Backend must expose the dedicated admin password endpoint'
+require_text "$AUTH_ROUTES" "router.post('/platform-admin/verify-otp'" 'Backend must expose the dedicated admin OTP endpoint'
+require_text "$BACKEND_AUTH_SERVICE" 'PUBLIC_AUTH_ROLES' 'Shared public auth methods must use a non-admin role allowlist'
+require_text "$BACKEND_AUTH_SERVICE" 'PLATFORM_ADMIN_ROLES' 'Dedicated admin auth must restrict roles to platform admins'
+require_text "$BACKEND_AUTH_SERVICE" 'verifyPasswordCredentials(identifier, password, PLATFORM_ADMIN_ROLES)' 'Dedicated admin auth must verify credentials against admin roles only'
+require_text "$BACKEND_AUTH_SERVICE" 'OTP_AUTH_ROLES' 'OTP API must retain compatibility for existing verified admin OTP clients'
+require_text "$BACKEND_AUTH_SERVICE" 'if (!platformAdmin)' 'Wrong admin passwords must not lock the account; the admin endpoint uses request rate limiting'
+require_text "$BACKEND_AUTH_SERVICE" 'verifyOTP(otp, challenge.otpHash)' 'Dedicated admin MFA must verify a challenge-scoped OTP independent of public OTP state'
+require_text "$BACKEND_AUTH_SERVICE" 'incrementPlatformAdminLoginAttempts' 'Admin OTP verification attempts must be isolated to the MFA challenge'
 
 printf '==> OTP rate-limit failure recovery contract\n'
 require_text "$RATE_LIMIT" 'windowMs: 10 * 60 * 1000' 'OTP send window must be ten minutes, not one hour'
 require_text "$RATE_LIMIT" 'max: 5' 'OTP send limit must permit five successful sends per window'
 require_text "$RATE_LIMIT" 'skipFailedRequests: true' 'Failed SMS/provider requests must not consume OTP send quota'
 require_text "$RATE_LIMIT" 'Too many OTP requests. Try again in 10 minutes.' 'OTP rate-limit message must match the new window'
+require_text "$RATE_LIMIT" 'req.body.identifier.trim().toLowerCase()' 'Platform admin rate limiting must be scoped to an account as well as the request IP'
 require_text "$ERROR_HANDLER" 'The requested service is temporarily unavailable. Please try again shortly.' 'Production HTTP 503 responses must return a safe, service-neutral message'
 require_text "$ERROR_HANDLER" "appError.apiCode === 'OTP_SMS_UNAVAILABLE'" 'Only SMS provider failures may expose the actionable OTP service message'
 require_text "$SMS_SERVICE" "apiCode: 'OTP_SMS_UNAVAILABLE'" 'SMS provider errors must be explicitly identified for safe production messaging'

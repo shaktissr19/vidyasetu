@@ -27,6 +27,17 @@ interface LoginBody {
   deviceInfo?: string;
 }
 
+interface PlatformAdminLoginBody {
+  identifier: string;
+  password: string;
+}
+
+interface PlatformAdminVerifyBody {
+  challengeId: string;
+  otp: string;
+  deviceInfo?: string;
+}
+
 interface RegisterStudentBody extends authService.RegisterStudentInput {
   deviceInfo?: string;
 }
@@ -180,6 +191,38 @@ export async function login(
       identifier,
       password,
       deviceInfo || null,
+      req.ip || null,
+      ['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER'],
+    );
+    return R.ok(res, result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function platformAdminLogin(
+  req: BodyRequest<PlatformAdminLoginBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    const result = await authService.startPlatformAdminLogin(req.body.identifier, req.body.password);
+    return R.ok(res, result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function verifyPlatformAdminLogin(
+  req: BodyRequest<PlatformAdminVerifyBody>,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try {
+    const result = await authService.verifyPlatformAdminLogin(
+      req.body.challengeId,
+      req.body.otp,
+      req.body.deviceInfo || null,
       req.ip || null,
     );
     return R.ok(res, result);
