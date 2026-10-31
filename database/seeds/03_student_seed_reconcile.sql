@@ -89,60 +89,60 @@ WHERE c.target_xp > c.current_xp
   );
 
 -- -----------------------------------------------------------------
--- 3. Rebuild seeded streak history relative to CURRENT_DATE.
---    Fixed 2025 dates made every demo streak stale on modern runs.
---    Each seeded student's streak_current is now backed by consecutive
---    streak_log rows ending today, and last_activity matches the ledger.
--- -----------------------------------------------------------------
--- Preserve existing streak history. The dated rows below are deterministic
--- upserts; do not delete a student's historical streak_log entries.
-INSERT INTO streak_log (student_id, date, activity, streak_count)
-SELECT
-  s.id,
-  CURRENT_DATE - gs.day_offset,
-  'DAILY_LOGIN',
-  s.streak_current - gs.day_offset
-FROM students s
-CROSS JOIN LATERAL generate_series(0, GREATEST(s.streak_current - 1, 0)) AS gs(day_offset)
-WHERE s.id IN (
-  '30000000-0000-0000-0000-000000000001',
-  '30000000-0000-0000-0000-000000000002',
-  '30000000-0000-0000-0000-000000000003',
-  '30000000-0000-0000-0000-000000000004',
-  '30000000-0000-0000-0000-000000000005',
-  '30000000-0000-0000-0000-000000000006',
-  '30000000-0000-0000-0000-000000000007',
-  '30000000-0000-0000-0000-000000000008',
-  '30000000-0000-0000-0000-000000000009',
-  '30000000-0000-0000-0000-000000000010',
-  '30000000-0000-0000-0000-000000000011',
-  '30000000-0000-0000-0000-000000000012'
+-- 3. Restore the canonical demo streak snapshot and rebuild its current
+--    consecutive history. The earlier failed reconciliation removed these
+--    218 synthetic rows while streak_current was zero; this repairs the seeded
+--    state deterministically. Every write is scoped to the 12 fixed demo IDs,
+--    uses the existing (student_id,date) key, and preserves unrelated history.
+WITH canonical_streaks(student_id, streak_current, streak_best) AS (
+  VALUES
+    ('30000000-0000-0000-0000-000000000001'::uuid, 12, 14),
+    ('30000000-0000-0000-0000-000000000002'::uuid, 30, 30),
+    ('30000000-0000-0000-0000-000000000003'::uuid,  5, 10),
+    ('30000000-0000-0000-0000-000000000004'::uuid, 45, 45),
+    ('30000000-0000-0000-0000-000000000005'::uuid,  7,  7),
+    ('30000000-0000-0000-0000-000000000006'::uuid, 21, 28),
+    ('30000000-0000-0000-0000-000000000007'::uuid,  3,  8),
+    ('30000000-0000-0000-0000-000000000008'::uuid, 18, 20),
+    ('30000000-0000-0000-0000-000000000009'::uuid, 60, 60),
+    ('30000000-0000-0000-0000-000000000010'::uuid,  9, 15),
+    ('30000000-0000-0000-0000-000000000011'::uuid,  2,  4),
+    ('30000000-0000-0000-0000-000000000012'::uuid,  6, 11)
 )
-  AND s.streak_current > 0
+UPDATE students s
+SET streak_current = c.streak_current,
+    streak_best = GREATEST(s.streak_best, c.streak_best),
+    last_activity = CURRENT_DATE,
+    updated_at = NOW()
+FROM canonical_streaks c
+WHERE s.id = c.student_id;
+
+WITH canonical_streaks(student_id, streak_current) AS (
+  VALUES
+    ('30000000-0000-0000-0000-000000000001'::uuid, 12),
+    ('30000000-0000-0000-0000-000000000002'::uuid, 30),
+    ('30000000-0000-0000-0000-000000000003'::uuid,  5),
+    ('30000000-0000-0000-0000-000000000004'::uuid, 45),
+    ('30000000-0000-0000-0000-000000000005'::uuid,  7),
+    ('30000000-0000-0000-0000-000000000006'::uuid, 21),
+    ('30000000-0000-0000-0000-000000000007'::uuid,  3),
+    ('30000000-0000-0000-0000-000000000008'::uuid, 18),
+    ('30000000-0000-0000-0000-000000000009'::uuid, 60),
+    ('30000000-0000-0000-0000-000000000010'::uuid,  9),
+    ('30000000-0000-0000-0000-000000000011'::uuid,  2),
+    ('30000000-0000-0000-0000-000000000012'::uuid,  6)
+)
+INSERT INTO streak_log (student_id, date, activity, streak_count)
+SELECT c.student_id,
+       CURRENT_DATE - gs.day_offset,
+       'DAILY_LOGIN',
+       c.streak_current - gs.day_offset
+FROM canonical_streaks c
+CROSS JOIN LATERAL generate_series(0, c.streak_current - 1) AS gs(day_offset)
 ON CONFLICT (student_id, date) DO UPDATE
 SET activity = EXCLUDED.activity,
     streak_count = EXCLUDED.streak_count;
 
-UPDATE students
-SET last_activity = CURRENT_DATE,
-    updated_at = NOW()
-WHERE id IN (
-  '30000000-0000-0000-0000-000000000001',
-  '30000000-0000-0000-0000-000000000002',
-  '30000000-0000-0000-0000-000000000003',
-  '30000000-0000-0000-0000-000000000004',
-  '30000000-0000-0000-0000-000000000005',
-  '30000000-0000-0000-0000-000000000006',
-  '30000000-0000-0000-0000-000000000007',
-  '30000000-0000-0000-0000-000000000008',
-  '30000000-0000-0000-0000-000000000009',
-  '30000000-0000-0000-0000-000000000010',
-  '30000000-0000-0000-0000-000000000011',
-  '30000000-0000-0000-0000-000000000012'
-)
-  AND streak_current > 0;
-
--- -----------------------------------------------------------------
 -- 4. Seed badges from the same criteria the Student service now uses.
 --    Existing hand-picked badges (for example EXAM_TOPPER) are retained.
 -- -----------------------------------------------------------------
