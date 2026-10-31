@@ -42,6 +42,20 @@ async function main() {
       'SELECT id, role FROM users WHERE id = ANY($1::uuid[])',
       [userIds],
     );
+    const expansionMobiles = [
+      ...Array.from({ length: 7 }, (_, i) => `911000000${i + 3}`),
+      ...Array.from({ length: 8 }, (_, i) => `921000000${i + 1}`),
+      ...Array.from({ length: 3 }, (_, i) => `931000000${i + 1}`),
+      ...Array.from({ length: 6 }, (_, i) => `941000000${i + 1}`),
+    ];
+    const { rows: phoneConflicts } = await client.query(
+      'SELECT id, mobile, role FROM users WHERE mobile = ANY($1::text[]) AND NOT (id = ANY($2::uuid[]))',
+      [expansionMobiles, userIds],
+    );
+    if (phoneConflicts.length) {
+      const summary = phoneConflicts.map((row) => `${row.mobile} belongs to ${row.id} (${row.role})`).join('; ');
+      throw new Error(`Expansion fixture phone collision(s) found; no seed SQL was run: ${summary}`);
+    }
     if (existingUsers.length !== 0 && existingUsers.length !== userIds.length) {
       throw new Error(`Found ${existingUsers.length} of ${userIds.length} expansion accounts. Stopped to avoid a partial/conflicting merge.`);
     }
