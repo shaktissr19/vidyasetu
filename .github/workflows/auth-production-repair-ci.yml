@@ -197,7 +197,7 @@ jobs:
               -X POST http://127.0.0.1:5001/api/v1/auth/send-otp \
               -H 'Content-Type: application/json' \
               -d '{"mobile":"9300000001","role":"STUDENT"}')"
-            if [[ "$code" != '503' ]] || ! jq -e '.success == false and .error.code == "SERVICE_UNAVAILABLE" and (.error.message | contains("OTP SMS service is temporarily unavailable"))' /tmp/otp-failure.json >/dev/null; then
+            if [[ "$code" != '503' ]] || ! jq -e '.success == false and .error.code == "OTP_SMS_UNAVAILABLE" and (.error.message | contains("OTP SMS service is temporarily unavailable"))' /tmp/otp-failure.json >/dev/null; then
               cat /tmp/otp-failure.json
               cat /tmp/vidyasetu-auth-prod-mock-api.log
               exit 1
