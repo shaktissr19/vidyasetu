@@ -412,7 +412,7 @@ export async function getStudentCompetitionResult(attemptId: UUID, studentId: UU
   const { rows: [attempt] } = await query<QueryResultRow>(
     `SELECT ea.id,ea.exam_id,ea.status,ea.total_marks,ea.correct_count,ea.wrong_count,ea.skipped_count,
             ea.time_taken_secs,ea.percentile,ea.rank_school,ea.rank_overall,ea.integrity_status,
-            e.title,e.title_hi,e.status AS exam_status,e.total_questions,e.marks_per_question,e.learning_feedback_enabled,
+            e.title,e.title_hi,e.type AS exam_type,e.status AS exam_status,e.total_questions,e.marks_per_question,e.learning_feedback_enabled,
             ca.certificate_code
      FROM exam_attempts ea JOIN exams e ON e.id=ea.exam_id
      LEFT JOIN competition_achievements ca ON ca.exam_id=e.id AND ca.student_id=ea.student_id AND ca.reward_tier='PARTICIPANT'
@@ -420,7 +420,8 @@ export async function getStudentCompetitionResult(attemptId: UUID, studentId: UU
     [attemptId,studentId],
   );
   if (!attempt) throw appError('Competition attempt not found', 404);
-  if (attempt.exam_status !== 'COMPLETED') {
+  const requiresOfficialRelease = attempt.exam_type === 'OLYMPIAD' || attempt.exam_type === 'SCHOOL_TEST';
+  if (requiresOfficialRelease && attempt.exam_status !== 'COMPLETED') {
     return { released: false, attemptId, examId: attempt.exam_id, status: attempt.status, message: 'Your attempt is safely submitted. Score, rank and learning feedback will appear after official results are released.' };
   }
   const { rows: concepts } = await query<QueryResultRow>(
