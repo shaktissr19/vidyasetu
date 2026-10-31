@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { BookOpen, Building2, GraduationCap, Link2, Trophy, Users } from 'lucide-react';
+import { BookOpen, Building2, CirclePlay, GraduationCap, Link2, Trophy, Users } from 'lucide-react';
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
@@ -178,21 +178,30 @@ export default function PublicHomeSampleExperience() {
         </div>
       </section>
 
-      {homeContent.video.videoUrl && <section className={sample.videoSection} aria-labelledby="home-video-title">
+      <section className={sample.videoSection} aria-labelledby="home-video-title">
         <div className={sample.videoShell}>
           <div className={sample.videoCopy}>
             <span>MEET VIDYASETU</span>
             <h2 id="home-video-title">{homeContent.video.title}</h2>
             <p>{homeContent.video.description}</p>
-            {homeContent.video.transcript && <details className={sample.videoTranscript}><summary>Read the video transcript</summary><p>{homeContent.video.transcript}</p></details>}
           </div>
-          <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={homeContent.video.title}>
-            <source src={homeContent.video.videoUrl} />
-            {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default />}
-            Your browser does not support this video. Use the transcript beside it.
-          </video>
+          <div className={sample.videoFrame}>
+            {homeContent.video.videoUrl ? (
+              <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={homeContent.video.title}>
+                <source src={homeContent.video.videoUrl} />
+                {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default />}
+                Your browser does not support this video. Read the transcript below.
+              </video>
+            ) : (
+              <div className={sample.videoPlaceholder} role="status" aria-label="VidyaSetu introduction video coming soon">
+                <img className={sample.videoPoster} src={homeContent.video.posterUrl || HERO_IMAGES.home} alt="" />
+                <div className={sample.videoPlaceholderOverlay}><CirclePlay size={56} strokeWidth={1.6} aria-hidden="true" /><strong>Introduction video coming soon</strong></div>
+              </div>
+            )}
+          </div>
+          {homeContent.video.transcript && <details className={sample.videoTranscript}><summary>Read the video transcript</summary><p>{homeContent.video.transcript}</p></details>}
         </div>
-      </section>}
+      </section>
 
       <section className={sample.modulesSection} id="platform-modules">
         <div className={sample.wideShell}>
