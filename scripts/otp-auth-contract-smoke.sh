@@ -27,8 +27,9 @@ STUDENT_PROD_SMOKE='scripts/student-production-smoke.sh'
 IDENTITY_MIGRATION='database/migrations/015_realistic_demo_identities.sql'
 PROVISION_SCRIPT='scripts/provision-production-demo-logins.sh'
 AUDIT_SCRIPT='scripts/production-auth-data-audit.sh'
+NONPROD_SEED_SCRIPT='scripts/merge-existing-nonprod-seed.sh'
 
-for file in "$LOGIN" "$PLATFORM_ADMIN_LOGIN" "$AUTH_SERVICE" "$BACKEND_AUTH_SERVICE" "$AUTH_ROUTES" "$AUTH_CONTROLLER" "$SMS_SERVICE" "$RATE_LIMIT" "$ERROR_HANDLER" "$TOPBAR" "$NAVBAR" "$HOME" "$STUDENT_PROD_SMOKE" "$IDENTITY_MIGRATION" "$PROVISION_SCRIPT" "$AUDIT_SCRIPT" scripts/otp-provider-preflight.sh; do
+for file in "$LOGIN" "$PLATFORM_ADMIN_LOGIN" "$AUTH_SERVICE" "$BACKEND_AUTH_SERVICE" "$AUTH_ROUTES" "$AUTH_CONTROLLER" "$SMS_SERVICE" "$RATE_LIMIT" "$ERROR_HANDLER" "$TOPBAR" "$NAVBAR" "$HOME" "$STUDENT_PROD_SMOKE" "$IDENTITY_MIGRATION" "$PROVISION_SCRIPT" "$AUDIT_SCRIPT" "$NONPROD_SEED_SCRIPT" scripts/otp-provider-preflight.sh; do
   [[ -s "$file" ]] || fail "Required OTP/public-contract file is missing: $file"
 done
 
@@ -90,6 +91,7 @@ require_text "$TOPBAR" "{lang === 'hi' ? 'EN' : 'हिंदी'}" 'Public navb
 require_text "$NAVBAR" "{lang === 'hi' ? 'EN' : 'हिंदी'}" 'Authenticated navbar language switch must display हिंदी consistently'
 bash -n "$PROVISION_SCRIPT"
 bash -n "$AUDIT_SCRIPT"
+bash -n "$NONPROD_SEED_SCRIPT"
 require_text "$PROVISION_SCRIPT" 'password_hash' 'Demo login provisioning must configure password hashes'
 require_text "$PROVISION_SCRIPT" 'Internal UUIDs are intentionally not used as login IDs.' 'Demo credential output must use human-friendly login IDs'
 require_text "$PROVISION_SCRIPT" '9000000000' 'Platform Admin demo account must be included in password provisioning'
@@ -97,6 +99,11 @@ require_text "$PROVISION_SCRIPT" '9100000001' 'School Admin demo account must be
 require_text "$PROVISION_SCRIPT" '9200000001' 'Teacher demo account must be included in password provisioning'
 require_text "$PROVISION_SCRIPT" '9300000001' 'Student demo account must be included in password provisioning'
 require_text "$PROVISION_SCRIPT" '9400000001' 'Parent demo account must be included in password provisioning'
+require_text "$NONPROD_SEED_SCRIPT" 'The existing SUPER_ADMIN password is deliberately not changed or written by the additive seed loader.' 'Adding demo data must preserve the existing Super Admin password'
+require_text "$NONPROD_SEED_SCRIPT" 'E2E_SUPER_ADMIN_IDENTIFIER=${owner.username || owner.mobile}' 'The seed credential file must identify the existing owner without rotating the password'
+if grep -Fq "{ key: 'SUPER_ADMIN', id: id(1), role: 'SUPER_ADMIN' }" "$NONPROD_SEED_SCRIPT"; then
+  fail 'The additive demo seed must not provision or reset the existing Super Admin password'
+fi
 
 printf '==> Production provider preflight behavior\n'
 tmp_dir="$(mktemp -d)"
