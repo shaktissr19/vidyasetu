@@ -14,13 +14,33 @@ BEGIN
     RAISE EXCEPTION 'Automation seed validation failed: expected 9 demo schools, found %', v_count;
   END IF;
 
+  -- Require every intended Grade 8-10 Section A while allowing other valid
+  -- pre-existing sections in the development database.
   SELECT COUNT(*) INTO v_count
-  FROM school_classes
-  WHERE school_id BETWEEN '10000000-0000-0000-0000-000000000001'::uuid
-                      AND '10000000-0000-0000-0000-000000000009'::uuid
-    AND academic_year = '2026-27' AND is_active = TRUE;
+  FROM schools s
+  CROSS JOIN (VALUES ('8'), ('9'), ('10')) AS grades(class_name)
+  WHERE s.id BETWEEN '10000000-0000-0000-0000-000000000001'::uuid
+                 AND '10000000-0000-0000-0000-000000000009'::uuid
+    AND EXISTS (
+      SELECT 1 FROM school_classes sc
+      WHERE sc.school_id = s.id AND sc.class_name = grades.class_name
+        AND sc.section = 'A' AND sc.academic_year = '2026-27'
+        AND sc.is_active = TRUE
+    );
   IF v_count <> 27 THEN
-    RAISE EXCEPTION 'Automation seed validation failed: expected 27 active grade sections, found %', v_count;
+    RAISE EXCEPTION 'Automation seed validation failed: expected all 27 intended Grade 8-10 Section A classes, found %', v_count;
+  END IF;
+
+  IF EXISTS (
+    SELECT school_id, class_name, section, academic_year
+    FROM school_classes
+    WHERE school_id BETWEEN '10000000-0000-0000-0000-000000000001'::uuid
+                        AND '10000000-0000-0000-0000-000000000009'::uuid
+      AND academic_year = '2026-27' AND is_active = TRUE
+    GROUP BY school_id, class_name, section, academic_year
+    HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Automation seed validation failed: duplicate active school/class/section keys exist';
   END IF;
 
   SELECT COUNT(*) INTO v_count
@@ -50,6 +70,7 @@ BEGIN
     WHERE sc.school_id BETWEEN '10000000-0000-0000-0000-000000000001'::uuid
                            AND '10000000-0000-0000-0000-000000000009'::uuid
       AND sc.academic_year = '2026-27' AND sc.is_active = TRUE
+      AND sc.section = 'A' AND sc.class_name IN ('8', '9', '10')
       AND NOT EXISTS (
         SELECT 1
         FROM teacher_assignments ta
