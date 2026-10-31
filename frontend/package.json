@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test:learning-markdown": "tsc --target ES2019 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir node_modules/.cache/learning-markdown-test src/lib/learningMarkdown.ts src/lib/learningMarkdown.test.ts && node node_modules/.cache/learning-markdown-test/learningMarkdown.test.js"
+    "test:learning-markdown": "tsc --target ES2019 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir node_modules/.cache/learning-markdown-test src/lib/learningMarkdown.ts src/lib/learningMarkdown.test.ts && node node_modules/.cache/learning-markdown-test/learningMarkdown.test.js",
+    "test:public-auth-policy": "tsc --target ES2019 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir node_modules/.cache/public-auth-policy-test src/lib/publicAuthRequest.ts src/lib/publicAuthRequest.test.ts && node node_modules/.cache/public-auth-policy-test/publicAuthRequest.test.js"
   },
   "dependencies": {
     "next": "14.2.35",

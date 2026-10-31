@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { RefreshTokenResponse } from '@vidyasetu/contracts';
 import { getTrackedSessionExpiryReason, hasTrackedSession, purgePersistedAuthSession, sessionReasonMessage } from '@/lib/sessionPolicy';
+import { isPublicAuthRequest } from '@/lib/publicAuthRequest';
 
 const BASE_URL = typeof window !== 'undefined'
   ? '/api/v1'
@@ -36,7 +37,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && !isPublicAuthRequest(config.url)) {
     const token = localStorage.getItem('vs_access_token');
     if (token) {
       const sessionProblem = currentSessionProblem();
@@ -54,6 +55,11 @@ api.interceptors.response.use(
 
     const axiosError = error as AxiosError;
     const original = axiosError.config as RetryableRequestConfig | undefined;
+
+    // A rejected login/recovery request is a real credential or validation
+    // result. Do not replace it with an expired-session redirect or retry it
+    // using an old refresh token left by a previous build/session.
+    if (isPublicAuthRequest(original?.url)) return Promise.reject(error);
 
     if (axiosError.response?.status === 401 && original && !original._retry) {
       original._retry = true;

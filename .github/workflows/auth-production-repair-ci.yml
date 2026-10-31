@@ -235,6 +235,7 @@ jobs:
           INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
         run: |
           npm install --package-lock=false --no-audit --no-fund
+          npm run test:public-auth-policy
           npm run typecheck
           NODE_ENV=production npm run build
           grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/GlobalTopbar.tsx

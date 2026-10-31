@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore from '@/store/authStore';
 import {
@@ -19,6 +20,7 @@ const MEDIA_ACTIVITY_EVENTS = ['play', 'timeupdate'] as const;
 const ACTIVITY_WRITE_THROTTLE_MS = 15_000;
 
 export default function SessionGuard() {
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const { isLoggedIn, accessToken, refreshToken, logout } = useAuthStore();
   const endingRef = useRef(false);
@@ -62,6 +64,12 @@ export default function SessionGuard() {
 
   useEffect(() => {
     if (!isLoggedIn || !accessToken || !refreshToken) return undefined;
+
+    // Login pages must stay usable while an old persisted
+    // session is being discarded. Their page-level redirect hook clears that
+    // stale session synchronously; running the async guard here can race a new
+    // successful login and log the user out again.
+    if (pathname === '/login' || pathname === '/platform-admin/login') return undefined;
 
     // Sessions persisted by an older build have no activity/presence record.
     // They must not silently become trusted when this security policy is deployed.
@@ -148,7 +156,7 @@ export default function SessionGuard() {
       window.clearInterval(checkInterval);
       window.clearTimeout(idleDeadlineTimer);
     };
-  }, [accessToken, clearLocalSession, endSession, isLoggedIn, refreshToken]);
+  }, [accessToken, clearLocalSession, endSession, isLoggedIn, pathname, refreshToken]);
 
   return null;
 }
