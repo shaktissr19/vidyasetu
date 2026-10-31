@@ -37,7 +37,7 @@ function httpError(message: string, statusCode: number) {
   return Object.assign(new Error(message), { statusCode });
 }
 
-export async function getPlatformAnalytics() {
+export async function getPlatformAnalytics(includeOwnerMetrics = false) {
   const [students, schools, revenue, engagement, roleBreakdownResult] = await Promise.all([
     query(`
       SELECT COUNT(*) AS total,
@@ -51,12 +51,12 @@ export async function getPlatformAnalytics() {
              COUNT(*) FILTER (WHERE plan != 'FREE') AS paid
       FROM schools
     `),
-    query<RevenueRow>(`${currentSubscriptionCte}
+    includeOwnerMetrics ? query<RevenueRow>(`${currentSubscriptionCte}
       SELECT COALESCE(SUM(amount_paid), 0) AS mrr
       FROM latest_subscription
       WHERE (valid_until IS NULL OR valid_until >= NOW())
         AND COALESCE(to_plan::text, 'FREE') != 'FREE'
-    `),
+    `) : Promise.resolve({ rows: [] as RevenueRow[] }),
     query(`
       SELECT COUNT(DISTINCT student_id) AS dau
       FROM xp_events
@@ -80,18 +80,20 @@ export async function getPlatformAnalytics() {
     ORDER BY s.created_at ASC LIMIT 20
   `);
 
+  const schoolMetrics = { ...schools.rows[0] } as Record<string, unknown>;
+  if (!includeOwnerMetrics) delete schoolMetrics.paid;
   return {
     students: students.rows[0],
-    schools: schools.rows[0],
-    mrr: revenue.rows[0]?.mrr ?? 0,
+    schools: schoolMetrics,
+    mrr: includeOwnerMetrics ? revenue.rows[0]?.mrr ?? 0 : null,
     dau: engagement.rows[0]?.dau,
-    roleBreakdown: roleBreakdownResult.rows,
+    roleBreakdown: roleBreakdownResult.rows.filter((row: { role: string }) => includeOwnerMetrics || !['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(row.role)),
     topStates,
     pendingSchools,
   };
 }
 
-export async function updateSchoolStatus(schoolId: UUID, status: string, adminId: UUID) {
+export async function updateSchoolStatus(schoolId: UUID, status: string, adminId: UUID, actorRole: string) {
   const validStatuses = ['ACTIVE', 'SUSPENDED', 'PENDING'];
   if (!validStatuses.includes(status)) throw httpError(`Invalid status: ${status}`, 400);
 
@@ -113,8 +115,8 @@ export async function updateSchoolStatus(schoolId: UUID, status: string, adminId
 
     await client.query(
       `INSERT INTO audit_log (actor_id, actor_role, school_id, action, entity_type, entity_id, old_value, new_value)
-       VALUES ($1, 'SUPER_ADMIN', $2, $3, 'school', $2, $4, $5)`,
-      [adminId, schoolId, `SCHOOL_${status}`, JSON.stringify({ status: current.status }), JSON.stringify({ status })],
+       VALUES ($1, $2::user_role, $3, $4, 'school', $4, $5, $6)`,
+      [adminId, actorRole, schoolId, `SCHOOL_${status}`, JSON.stringify({ status: current.status }), JSON.stringify({ status })],
     );
     return school;
   });
@@ -183,11 +185,13 @@ export async function getSchoolDetail(schoolId: UUID) {
   return { ...school, recentActivity };
 }
 
-export async function listUsers(paginationQuery: AdminPaginationQuery, filters: UserFilters = {}) {
+export async function listUsers(paginationQuery: AdminPaginationQuery, filters: UserFilters = {}, includePlatformAdmins = false) {
   const { limit, offset, page } = getPagination(paginationQuery);
   const conditions = ['1=1'];
   const params: unknown[] = [];
   let i = 1;
+
+  if (!includePlatformAdmins) conditions.push("role NOT IN ('SUPER_ADMIN','PLATFORM_ADMIN')");
 
   if (filters.role) { conditions.push(`role = $${i++}`); params.push(filters.role); }
   if (filters.status) { conditions.push(`status = $${i++}`); params.push(filters.status); }
@@ -207,7 +211,7 @@ export async function listUsers(paginationQuery: AdminPaginationQuery, filters: 
   return { users: rows, meta: paginationMeta(Number.parseInt(countRow?.count || '0', 10), page, limit) };
 }
 
-export async function updateUserStatus(targetUserId: UUID, status: string, adminId: UUID) {
+export async function updateUserStatus(targetUserId: UUID, status: string, adminId: UUID, actorRole: string) {
   const validStatuses = ['ACTIVE', 'SUSPENDED', 'PENDING'];
   if (!validStatuses.includes(status)) throw httpError(`Invalid status: ${status}`, 400);
 
@@ -220,6 +224,9 @@ export async function updateUserStatus(targetUserId: UUID, status: string, admin
     if (current.role === 'SUPER_ADMIN' && status !== 'ACTIVE') {
       throw httpError('Super Admin accounts cannot be suspended or moved to pending state', 400);
     }
+    if (['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(current.role) && actorRole !== 'SUPER_ADMIN') {
+      throw httpError('Only the Super Admin can change platform administrator accounts', 403);
+    }
     if (targetUserId === adminId && status !== 'ACTIVE') {
       throw httpError('You cannot suspend your own admin account', 400);
     }
@@ -231,8 +238,8 @@ export async function updateUserStatus(targetUserId: UUID, status: string, admin
     );
     await client.query(
       `INSERT INTO audit_log (actor_id, actor_role, action, entity_type, entity_id, old_value, new_value)
-       VALUES ($1, 'SUPER_ADMIN', $2, 'user', $3, $4, $5)`,
-      [adminId, `USER_${status}`, targetUserId, JSON.stringify({ status: current.status }), JSON.stringify({ status })],
+       VALUES ($1, $2::user_role, $3, 'user', $4, $5, $6)`,
+      [adminId, actorRole, `USER_${status}`, targetUserId, JSON.stringify({ status: current.status }), JSON.stringify({ status })],
     );
     return user;
   });
@@ -390,7 +397,7 @@ export async function listSupportTickets(paginationQuery: AdminPaginationQuery, 
   return { tickets: rows, meta: paginationMeta(Number.parseInt(countRow?.count || '0', 10), page, limit) };
 }
 
-export async function updateSupportTicket(ticketId: UUID, patch: SupportTicketUpdate, adminId: UUID) {
+export async function updateSupportTicket(ticketId: UUID, patch: SupportTicketUpdate, adminId: UUID, actorRole: string) {
   const validStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
   if (!validStatuses.includes(patch.status)) throw httpError(`Invalid ticket status: ${patch.status}`, 400);
 
@@ -420,9 +427,10 @@ export async function updateSupportTicket(ticketId: UUID, patch: SupportTicketUp
 
     await client.query(
       `INSERT INTO audit_log (actor_id, actor_role, school_id, action, entity_type, entity_id, old_value, new_value)
-       VALUES ($1, 'SUPER_ADMIN', $2, $3, 'support_ticket', $4, $5, $6)`,
+       VALUES ($1, $2::user_role, $3, $4, 'support_ticket', $5, $6, $7)`,
       [
         adminId,
+        actorRole,
         current.school_id || null,
         `SUPPORT_${patch.status}`,
         ticketId,

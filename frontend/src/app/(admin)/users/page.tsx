@@ -6,6 +6,7 @@ import { exportUsers, getAnalytics, listUsers, updateUserStatus } from '@/servic
 import { SectionHeader, StatusBadge, TableSkeleton } from '@/components/ui/index';
 import { formatDate } from '@/utils/formatters';
 import toast from 'react-hot-toast';
+import useAuthStore from '@/store/authStore';
 
 const ROLE_COLORS: Record<string, string> = {
   STUDENT: 'badge-blue',
@@ -13,6 +14,7 @@ const ROLE_COLORS: Record<string, string> = {
   TEACHER: 'badge-gold',
   PARENT: 'badge-green',
   SUPER_ADMIN: 'badge-red',
+  PLATFORM_ADMIN: 'badge-red',
 };
 
 function csvCell(value: unknown) {
@@ -21,6 +23,8 @@ function csvCell(value: unknown) {
 }
 
 export default function AdminUsersPage() {
+  const currentUser = useAuthStore((state) => state.user);
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
@@ -77,7 +81,7 @@ export default function AdminUsersPage() {
         <button className="btn-primary" onClick={downloadCsv} disabled={exporting}>{exporting ? 'Exporting…' : '📥 Export Users'}</button>
       </SectionHeader>
 
-      <CreatePlatformAdmin />
+      {isSuperAdmin && <CreatePlatformAdmin />}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
@@ -106,7 +110,8 @@ export default function AdminUsersPage() {
             <option value="TEACHER">Teacher</option>
             <option value="SCHOOL_ADMIN">School Admin</option>
             <option value="PARENT">Parent</option>
-            <option value="SUPER_ADMIN">Super Admin</option>
+            {isSuperAdmin && <option value="PLATFORM_ADMIN">Platform Admin</option>}
+            {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
           </select>
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}
             className="input select" style={{ background: '#111a32', border: '1px solid rgba(255,255,255,0.1)', color: 'white', width: 'auto' }}>
@@ -132,7 +137,7 @@ export default function AdminUsersPage() {
                       <td><StatusBadge status={user.status} /></td>
                       <td className="text-sm">{user.last_login_at ? formatDate(user.last_login_at) : '—'}</td>
                       <td>
-                        {user.role === 'SUPER_ADMIN' ? <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Protected</span> : user.status === 'ACTIVE' ? (
+                        {user.role === 'SUPER_ADMIN' || (user.role === 'PLATFORM_ADMIN' && !isSuperAdmin) ? <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Protected</span> : user.status === 'ACTIVE' ? (
                           <button className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(194,40,40,0.2)', color: '#EF9A9A' }} onClick={() => statusMut.mutate({ id: user.id, status: 'SUSPENDED' })}>Suspend</button>
                         ) : (
                           <button className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(19,136,8,0.2)', color: '#A5D6A7' }} onClick={() => statusMut.mutate({ id: user.id, status: 'ACTIVE' })}>Activate</button>

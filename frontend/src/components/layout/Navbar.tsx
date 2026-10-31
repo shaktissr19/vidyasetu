@@ -13,6 +13,7 @@ const ROLE_LABEL: Partial<Record<UserRole, { en: string; hi: string }>> = {
   SCHOOL_ADMIN: { en: 'School Admin', hi: 'विद्यालय प्रशासक' },
   TEACHER: { en: 'Teacher', hi: 'शिक्षक' },
   PARENT: { en: 'Parent', hi: 'अभिभावक' },
+  PLATFORM_ADMIN: { en: 'Platform Admin', hi: 'प्लेटफ़ॉर्म एडमिन' },
   SUPER_ADMIN: { en: 'Super Admin', hi: 'सुपर एडमिन' },
 };
 
@@ -21,6 +22,7 @@ const ROLE_ACCENT: Partial<Record<UserRole, string>> = {
   SCHOOL_ADMIN: 'var(--forest)',
   TEACHER: '#26A69A',
   PARENT: '#7B1FA2',
+  PLATFORM_ADMIN: '#1565C0',
   SUPER_ADMIN: '#1565C0',
 };
 
@@ -29,6 +31,7 @@ const ROLE_DESTINATION: Partial<Record<UserRole, string>> = {
   SCHOOL_ADMIN: '/school/overview',
   TEACHER: '/school/overview',
   PARENT: '/parent/dashboard',
+  PLATFORM_ADMIN: '/admin/analytics',
   SUPER_ADMIN: '/admin/analytics',
 };
 

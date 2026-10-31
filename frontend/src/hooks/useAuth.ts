@@ -11,6 +11,7 @@ const ROLE_DASHBOARDS: Record<UserRole, string> = {
   SCHOOL_ADMIN: '/school/overview',
   TEACHER: '/school/overview',
   PARENT: '/parent/dashboard',
+  PLATFORM_ADMIN: '/admin/analytics',
   SUPER_ADMIN: '/admin/analytics',
 };
 

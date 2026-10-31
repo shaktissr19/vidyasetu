@@ -1,0 +1,74 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { getAdminHomepage, publishHomepageDraft, saveHomepageDraft, type HomepageContent } from '@/services/homepageService';
+import { apiErrorText } from '@/utils/errors';
+
+type CardSection = 'benefits' | 'modules' | 'journey' | 'trust';
+type CardRow = Record<string, string>;
+const ICONS = ['graduation', 'school', 'family', 'book', 'trophy', 'link', 'shield', 'india', 'progress', 'device'];
+const TONES = ['orange', 'green', 'violet', 'blue', 'rose', 'teal'];
+
+function TextField({ label, value, onChange, multiline = false, hint }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; hint?: string }) {
+  const fieldClass = 'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200';
+  return <label className="block text-sm font-semibold text-slate-800">{label}{hint && <span className="ml-1 font-normal text-slate-500">{hint}</span>}{multiline ? <textarea className={`${fieldClass} min-h-24`} value={value} onChange={(event) => onChange(event.target.value)} /> : <input className={fieldClass} value={value} onChange={(event) => onChange(event.target.value)} />}</label>;
+}
+
+function CardList({ title, fields, rows, onChange }: { title: string; fields: Array<{ key: string; label: string; options?: string[]; multiline?: boolean }>; rows: CardRow[]; onChange: (rows: CardRow[]) => void }) {
+  function edit(index: number, key: string, value: string) { onChange(rows.map((row, rowIndex) => rowIndex === index ? { ...row, [key]: value } : row)); }
+  function move(index: number, offset: number) {
+    const target = index + offset;
+    if (target < 0 || target >= rows.length) return;
+    const reordered = [...rows]; [reordered[index], reordered[target]] = [reordered[target], reordered[index]]; onChange(reordered);
+  }
+  return <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5">
+    <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-extrabold text-slate-900">{title}</h2><button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50" onClick={() => onChange([...rows, Object.fromEntries(fields.map((field) => [field.key, field.key === 'tone' ? 'blue' : field.key === 'icon' ? 'book' : '']))])}>Add card</button></div>
+    <div className="space-y-3">{rows.map((row, index) => <fieldset key={`${title}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4"><legend className="px-1 text-sm font-bold text-slate-700">Card {index + 1}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">{fields.map((field) => <label className="block text-sm font-semibold text-slate-800" key={field.key}>{field.label}{field.options ? <select className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm" value={row[field.key] || field.options[0]} onChange={(event) => edit(index, field.key, event.target.value)}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : field.multiline ? <textarea className="mt-1 block min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" value={row[field.key] || ''} onChange={(event) => edit(index, field.key, event.target.value)} /> : <input className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" value={row[field.key] || ''} onChange={(event) => edit(index, field.key, event.target.value)} />}</label>)}</div>
+      <div className="mt-3 flex flex-wrap gap-2"><button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold" aria-label={`Move card ${index + 1} up`} onClick={() => move(index, -1)} disabled={index === 0}>Move up</button><button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold" aria-label={`Move card ${index + 1} down`} onClick={() => move(index, 1)} disabled={index === rows.length - 1}>Move down</button><button type="button" className="ml-auto rounded-lg border border-red-300 px-3 py-2 text-xs font-bold text-red-800" onClick={() => onChange(rows.filter((_, rowIndex) => rowIndex !== index))} disabled={rows.length <= 1}>Remove card</button></div>
+    </fieldset>)}</div>
+  </section>;
+}
+
+export default function AdminHomepageEditor() {
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ['admin-homepage'], queryFn: () => getAdminHomepage().then((response) => response.data.data) });
+  const [content, setContent] = useState<HomepageContent | null>(null);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => { if (query.data && !dirty) setContent(query.data.draft || query.data.published); }, [query.data, dirty]);
+
+  const save = useMutation({ mutationFn: (draft: HomepageContent) => saveHomepageDraft(draft), onSuccess: async () => { setDirty(false); toast.success('Home page draft saved. It is not public until you publish it.'); await queryClient.invalidateQueries({ queryKey: ['admin-homepage'] }); }, onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not save the Home page draft.')) });
+  const publish = useMutation({ mutationFn: () => publishHomepageDraft(), onSuccess: async () => { setDirty(false); toast.success('Home page changes are now public.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['admin-homepage'] }), queryClient.invalidateQueries({ queryKey: ['public-homepage'] })]); }, onError: (error: unknown) => toast.error(apiErrorText(error, 'Could not publish the Home page.')) });
+
+  function setText(section: 'hero' | 'video' | 'finalCta', key: string, value: string) {
+    if (!content) return;
+    setContent({ ...content, [section]: { ...content[section], [key]: value } }); setDirty(true);
+  }
+  function setRows(section: CardSection, rows: CardRow[]) {
+    if (!content) return;
+    setContent({ ...content, [section]: rows } as HomepageContent); setDirty(true);
+  }
+  function asRows(section: CardSection): CardRow[] { return (content?.[section] || []) as unknown as CardRow[]; }
+
+  if (query.isLoading) return <div className="p-6 text-slate-700">Loading Home page content…</div>;
+  if (query.isError || !content) return <section role="alert" className="m-5 rounded-2xl border border-red-300 bg-white p-6 text-red-900"><h1 className="text-xl font-bold">Home editor could not load</h1><p className="mt-2">Refresh the page or contact the platform owner if this continues.</p><button className="mt-3 rounded-lg bg-slate-900 px-4 py-2 font-bold text-white" onClick={() => query.refetch()}>Retry</button></section>;
+
+  const castRows = (section: CardSection, rows: CardRow[]) => setRows(section, rows);
+  return <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
+    <header className="rounded-2xl bg-[#243B63] p-5 text-white sm:p-6"><p className="text-xs font-black tracking-[.14em] text-orange-300">SUPER ADMIN · PUBLIC WEBSITE</p><h1 className="mt-1 text-2xl font-extrabold">Home page editor</h1><p className="mt-2 max-w-3xl text-sm text-blue-100">Edit the public Home story, audience cards and video. Review the draft below before publishing. Learning resources, schools, competitions and live counts continue to come from their existing APIs.</p><p className="mt-3 text-xs text-blue-100">Published version {query.data?.version || 1} · Last published {query.data?.publishedAt ? new Date(query.data.publishedAt).toLocaleString('en-IN') : 'not available'}</p></header>
+
+    <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-4 text-lg font-extrabold text-slate-900">Hero and video</h2><div className="grid gap-4 sm:grid-cols-2"><TextField label="Hero eyebrow" value={content.hero.eyebrow} onChange={(value) => setText('hero', 'eyebrow', value)} /><TextField label="Hero title" value={content.hero.title} onChange={(value) => setText('hero', 'title', value)} /><TextField label="Hero description" multiline value={content.hero.description} onChange={(value) => setText('hero', 'description', value)} /><div className="rounded-xl bg-blue-50 p-3 text-sm leading-6 text-slate-700 sm:col-span-2"><strong>Video hosting:</strong> add a direct HTTPS MP4, WebM or Ogg file URL (or a same-site path). YouTube page URLs are not direct video files. Add a poster image, WebVTT captions and transcript. The public page does not autoplay or load the video until a visitor presses play.</div><TextField label="Video title" value={content.video.title} onChange={(value) => setText('video', 'title', value)} /><TextField label="Video description" value={content.video.description} onChange={(value) => setText('video', 'description', value)} /><TextField label="Direct video file URL" hint="optional; section stays hidden until set" value={content.video.videoUrl} onChange={(value) => setText('video', 'videoUrl', value)} /><TextField label="Poster image URL" value={content.video.posterUrl} onChange={(value) => setText('video', 'posterUrl', value)} /><TextField label="Captions WebVTT URL" value={content.video.captionsUrl} onChange={(value) => setText('video', 'captionsUrl', value)} /><label className="block text-sm font-semibold text-slate-800">Captions language<select className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm" value={content.video.captionsLanguage} onChange={(event) => setText('video', 'captionsLanguage', event.target.value)}><option value="en">English</option><option value="hi">Hindi</option></select></label><TextField label="Transcript" multiline value={content.video.transcript} onChange={(value) => setText('video', 'transcript', value)} /></div></section>
+
+    <CardList title="Hero benefit cards" rows={asRows('benefits')} onChange={(rows) => castRows('benefits', rows)} fields={[{ key: 'icon', label: 'Icon', options: ICONS }, { key: 'tone', label: 'Colour tone', options: TONES }, { key: 'title', label: 'Title' }, { key: 'copy', label: 'Description', multiline: true }]} />
+    <CardList title="Who is VidyaSetu for? cards" rows={asRows('modules')} onChange={(rows) => castRows('modules', rows)} fields={[{ key: 'title', label: 'Title' }, { key: 'copy', label: 'Description', multiline: true }, { key: 'href', label: 'Internal destination, such as /learn' }, { key: 'imageUrl', label: 'Image URL or site path' }, { key: 'icon', label: 'Fallback icon', options: ICONS }, { key: 'tone', label: 'Colour tone', options: TONES }]} />
+    <CardList title="Connected journey cards" rows={asRows('journey')} onChange={(rows) => castRows('journey', rows)} fields={[{ key: 'step', label: 'Step number' }, { key: 'icon', label: 'Icon', options: ICONS }, { key: 'title', label: 'Title' }, { key: 'copy', label: 'Description', multiline: true }]} />
+    <CardList title="Trust and platform value cards" rows={asRows('trust')} onChange={(rows) => castRows('trust', rows)} fields={[{ key: 'icon', label: 'Icon', options: ICONS }, { key: 'title', label: 'Title' }, { key: 'copy', label: 'Description', multiline: true }]} />
+    <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-4 text-lg font-extrabold text-slate-900">Closing call to action</h2><div className="grid gap-4 sm:grid-cols-2"><TextField label="Eyebrow" value={content.finalCta.eyebrow} onChange={(value) => setText('finalCta', 'eyebrow', value)} /><TextField label="Title" value={content.finalCta.title} onChange={(value) => setText('finalCta', 'title', value)} /><TextField label="Description" multiline value={content.finalCta.copy} onChange={(value) => setText('finalCta', 'copy', value)} /></div></section>
+
+    <details className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5"><summary className="cursor-pointer text-lg font-extrabold text-slate-900">Preview Home content before publish</summary><div className="mt-4 rounded-xl bg-[#DCE5EF] p-4"><p className="text-xs font-black tracking-widest text-orange-800">{content.hero.eyebrow}</p><h2 className="mt-2 max-w-3xl text-2xl font-extrabold text-[#14213D]">{content.hero.title}</h2><p className="mt-2 max-w-3xl text-slate-700">{content.hero.description}</p>{content.video.videoUrl && <p className="mt-4 rounded-lg bg-[#456184] p-3 font-semibold text-white">Video section: {content.video.title} · captions {content.video.captionsUrl ? 'configured' : 'not configured'} · transcript {content.video.transcript ? 'available' : 'not available'}</p>}<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{content.modules.map((card, index) => <article key={`${card.title}-${index}`} className="overflow-hidden rounded-xl border border-[#456184] bg-[#456184] text-white">{card.imageUrl && <img src={card.imageUrl} alt="" className="h-32 w-full object-cover" />}<div className="p-3"><strong className="text-lg">{card.title}</strong><p className="mt-1 text-sm text-blue-50">{card.copy}</p><span className="mt-2 inline-flex rounded-lg bg-[#FF8A3D] px-3 py-2 text-sm font-bold text-[#14213D]">Explore</span></div></article>)}</div><div className="mt-4 grid gap-2 sm:grid-cols-3">{content.benefits.map((card, index) => <p key={`${card.title}-${index}`} className="rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-800"><strong>{card.title}</strong><br />{card.copy}</p>)}</div></div></details>
+
+    <footer className="sticky bottom-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-white/95 p-3 shadow-xl backdrop-blur"><p className="text-sm font-semibold text-slate-700" role="status">{dirty ? 'Unsaved edits' : query.data?.draft ? 'Draft saved · not public yet' : 'No unpublished draft'}</p><div className="flex gap-2"><button type="button" className="min-h-11 rounded-lg bg-[#14213D] px-4 font-bold text-white disabled:opacity-50" disabled={save.isPending || publish.isPending || !dirty} onClick={() => save.mutate(content)}>{save.isPending ? 'Saving…' : 'Save draft'}</button><button type="button" className="min-h-11 rounded-lg bg-[#FF8A3D] px-4 font-bold text-[#14213D] disabled:opacity-50" disabled={save.isPending || publish.isPending || dirty || !query.data?.draft} onClick={() => { if (window.confirm('Publish the saved Home page draft for all public visitors?')) publish.mutate(); }}>{publish.isPending ? 'Publishing…' : 'Publish Home page'}</button></div></footer>
+  </div>;
+}

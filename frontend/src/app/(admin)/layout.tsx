@@ -21,6 +21,8 @@ function menuLabel(text: string,count?: number): ReactNode {
   </span>;
 }
 
+const OWNER_ONLY_PATHS = ['/admin/homepage', '/admin/revenue', '/admin/audit', '/admin/settings', '/admin/learning', '/admin/groups', '/admin/grievances'];
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { isLoggedIn, user } = useAuthStore();
@@ -41,6 +43,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
     { href: '/admin/schools', icon: '🏫', label: 'Schools' },
     { href: '/admin/users', icon: '👥', label: 'Users' },
+    { href: '/admin/homepage', icon: '🏠', label: 'Home Page', exact: true },
     { href: '/admin/learning/syllabus', icon: '📋', label: 'Syllabus', exact: true },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
     { href: '/admin/learning/governance', icon: '🧩', label: 'Topic Assets', exact: true },
@@ -57,11 +60,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/audit', icon: '🧾', label: 'Audit Trail' },
     { href: '/admin/settings', icon: '⚙️', label: 'Settings' },
   ] as const;
+  const visibleMenu = menu.filter((item) => user?.role === 'SUPER_ADMIN' || !OWNER_ONLY_PATHS.some((path) => item.href === path || item.href.startsWith(`${path}/`)));
 
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=admin'); return; }
-    if (user?.role && user.role !== 'SUPER_ADMIN') router.replace('/login?role=admin');
-  }, [isLoggedIn, user, router]);
+    if (user?.role && !['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(user.role)) router.replace('/login?role=admin');
+    if (user?.role === 'PLATFORM_ADMIN' && OWNER_ONLY_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) router.replace('/admin/analytics');
+  }, [isLoggedIn, user, router, pathname]);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -83,8 +88,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           className={mobileNavOpen ? 'admin-sidebar-open' : ''}
           onNavigate={() => setMobileNavOpen(false)}
           accentColor="#FF6B00"
-          profile={{ avatar: '⚙️', name: user?.name || 'Super Admin', subtitle: 'Platform Control', badge: '🔐 Admin' }}
-          menuItems={menu}
+          profile={{ avatar: user?.role === 'SUPER_ADMIN' ? '👑' : '🛠️', name: user?.name || (user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Platform Admin'), subtitle: user?.role === 'SUPER_ADMIN' ? 'Platform Owner' : 'Platform Operations', badge: user?.role === 'SUPER_ADMIN' ? '🔐 Super Admin' : '🛠️ Admin' }}
+          menuItems={visibleMenu}
         />
         <main className="dash-main admin-main">
           {mobileNavOpen && <button type="button" className="admin-mobile-backdrop" aria-label="Close admin navigation" onClick={() => setMobileNavOpen(false)} />}

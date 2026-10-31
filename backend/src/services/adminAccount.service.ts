@@ -19,10 +19,10 @@ export async function createPlatformAdmin(input: unknown, actorId: UUID | null) 
     await client.query("SELECT pg_advisory_xact_lock(hashtext('vidyasetu-admin-account-create'))");
     if (actorId) {
       const { rows } = await client.query("SELECT id FROM users WHERE id=$1 AND role='SUPER_ADMIN' AND status='ACTIVE' FOR SHARE", [actorId]);
-      if (!rows.length) throw Object.assign(new Error('Active Platform Admin required'), { statusCode: 403 });
+      if (!rows.length) throw Object.assign(new Error('Active Super Admin required'), { statusCode: 403 });
     } else {
       const { rows } = await client.query("SELECT id FROM users WHERE role='SUPER_ADMIN' LIMIT 1");
-      if (rows.length) throw Object.assign(new Error('Platform Admin already exists. Use Admin User Management.'), { statusCode: 409 });
+      if (rows.length) throw Object.assign(new Error('The Super Admin account already exists. Use Super Admin user management to add operator accounts.'), { statusCode: 409 });
     }
     const email = data.email?.toLowerCase() || null;
     const username = data.username.toLowerCase();
@@ -33,14 +33,14 @@ export async function createPlatformAdmin(input: unknown, actorId: UUID | null) 
     if (duplicates.length) throw Object.assign(new Error('Mobile, username or email is already registered'), { statusCode: 409 });
     const { rows: [user] } = await client.query(
       `INSERT INTO users(name,username,mobile,email,password_hash,password_changed_at,role,status,language)
-       VALUES($1,$2,$3,$4,$5,NOW(),'SUPER_ADMIN','ACTIVE','en')
+       VALUES($1,$2,$3,$4,$5,NOW(),$6::user_role,'ACTIVE','en')
        RETURNING id,name,username,mobile,email,role,status`,
-      [data.name, username, data.mobile, email, passwordHash],
+      [data.name, username, data.mobile, email, passwordHash, actorId ? 'PLATFORM_ADMIN' : 'SUPER_ADMIN'],
     );
     await client.query(
       `INSERT INTO audit_log(actor_id,actor_role,action,entity_type,entity_id,new_value)
        VALUES($1,'SUPER_ADMIN',$2,'user',$3,$4)`,
-      [actorId || user.id, actorId ? 'PLATFORM_ADMIN_CREATED' : 'PLATFORM_ADMIN_BOOTSTRAPPED', user.id, JSON.stringify({ role: user.role, username: user.username })],
+      [actorId || user.id, actorId ? 'PLATFORM_ADMIN_CREATED' : 'SUPER_ADMIN_BOOTSTRAPPED', user.id, JSON.stringify({ role: user.role, username: user.username })],
     );
     return user;
   });

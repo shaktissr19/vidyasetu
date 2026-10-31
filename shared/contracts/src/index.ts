@@ -8,6 +8,7 @@ export type UserRole =
   | 'SCHOOL_ADMIN'
   | 'TEACHER'
   | 'PARENT'
+  | 'PLATFORM_ADMIN'
   | 'SUPER_ADMIN';
 
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
