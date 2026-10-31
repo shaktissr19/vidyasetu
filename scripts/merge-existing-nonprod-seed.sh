@@ -122,8 +122,8 @@ process.env.NODE_ENV = 'test';
 const { pool } = require(path.join(root, 'backend/dist/config/db'));
 const { hashPassword } = require(path.join(root, 'backend/dist/utils/password'));
 const id = (suffix) => `00000000-0000-0000-0000-${Number(suffix).toString(16).padStart(12, '0')}`;
+const superAdminId = id(1);
 const accounts = [
-  { key: 'SUPER_ADMIN', id: id(1), role: 'SUPER_ADMIN' },
   { key: 'SCHOOL_ADMIN', id: id(0x52), role: 'SCHOOL_ADMIN' },
   { key: 'TEACHER', id: id(0x14), role: 'TEACHER' },
   { key: 'IDOR_CALLER', id: id(0x32), role: 'STUDENT' },
@@ -143,6 +143,10 @@ const password = () => `VSqa!${crypto.randomBytes(18).toString('base64url')}9`;
     console.log(`Preserving existing automation credentials for ${target}: ${envPath}`);
     return;
   }
+  const { rows: [owner] } = await pool.query('SELECT id, role, username, mobile FROM users WHERE id=$1', [superAdminId]);
+  if (!owner || owner.role !== 'SUPER_ADMIN') {
+    throw new Error(`Expected the existing owner account ${superAdminId} to have role SUPER_ADMIN; refusing to provision demo logins.`);
+  }
   const output = [];
   for (const account of accounts) {
     const { rows } = await pool.query('SELECT id, role, username, mobile FROM users WHERE id=$1', [account.id]);
@@ -158,6 +162,8 @@ const password = () => `VSqa!${crypto.randomBytes(18).toString('base64url')}9`;
   const byKey = Object.fromEntries(output.map((entry) => [entry.key, entry]));
   const env = [
     `# Automation-only credentials for ${target}. Keep this file private.`,
+    '# The existing SUPER_ADMIN password is deliberately not changed or written by the additive seed loader.',
+    `E2E_SUPER_ADMIN_IDENTIFIER=${owner.username || owner.mobile}`,
     ...output.flatMap((entry) => [`E2E_${entry.key}_IDENTIFIER=${entry.identifier}`, `E2E_${entry.key}_PASSWORD=${entry.password}`]),
     '',
   ].join('\n');

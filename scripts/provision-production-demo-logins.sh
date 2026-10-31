@@ -84,7 +84,7 @@ log "2/6 Restore human-friendly legacy usernames"
 
 log "3/6 Verify the five canonical demo identities"
 DEMO_ROWS=(
-  'SUPER_ADMIN|9000000000|Platform Admin'
+  'SUPER_ADMIN|9000000000|Super Admin'
   'SCHOOL_ADMIN|9100000001|School Admin'
   'TEACHER|9200000001|Teacher'
   'STUDENT|9300000001|Student'
@@ -98,7 +98,7 @@ for row in "${DEMO_ROWS[@]}"; do
 done
 
 log "4/6 Set strong passwords without storing plaintext in Git"
-ADMIN_PASSWORD="${DEMO_PLATFORM_ADMIN_PASSWORD:-$(generate_password)}"
+ADMIN_PASSWORD="${DEMO_SUPER_ADMIN_PASSWORD:-${DEMO_PLATFORM_ADMIN_PASSWORD:-$(generate_password)}}"
 SCHOOL_PASSWORD="${DEMO_SCHOOL_ADMIN_PASSWORD:-$(generate_password)}"
 TEACHER_PASSWORD="${DEMO_TEACHER_PASSWORD:-$(generate_password)}"
 STUDENT_PASSWORD="${DEMO_STUDENT_PASSWORD:-$(generate_password)}"

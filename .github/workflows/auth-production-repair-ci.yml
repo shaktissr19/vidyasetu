@@ -27,6 +27,7 @@ jobs:
         run: |
           bash -n scripts/provision-production-demo-logins.sh
           bash -n scripts/production-auth-data-audit.sh
+          bash -n scripts/merge-existing-nonprod-seed.sh
           bash -n scripts/otp-provider-preflight.sh
           bash -n scripts/otp-auth-contract-smoke.sh
           bash scripts/otp-auth-contract-smoke.sh

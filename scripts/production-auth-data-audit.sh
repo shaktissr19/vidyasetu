@@ -56,6 +56,22 @@ ORDER BY CASE u.role::text
   WHEN 'PARENT' THEN 5
   ELSE 6 END;"
 
+printf '\n-- All privileged accounts (read-only; no password hashes) --\n'
+"${PSQL[@]}" -c "
+SELECT role,
+       name,
+       username AS login_id,
+       email,
+       mobile,
+       status,
+       CASE WHEN password_hash IS NULL THEN 'NO' ELSE 'YES' END AS password_configured
+FROM users
+WHERE role::text IN ('SUPER_ADMIN','PLATFORM_ADMIN')
+ORDER BY CASE role::text WHEN 'SUPER_ADMIN' THEN 1 ELSE 2 END, username;"
+
+printf '\n-- Super Admin uniqueness check --\n'
+"${PSQL[@]}" -c "SELECT COUNT(*) AS super_admin_accounts FROM users WHERE role::text='SUPER_ADMIN';"
+
 printf '\n-- Role counts --\n'
 "${PSQL[@]}" -c "
 SELECT role, COUNT(*) AS users
