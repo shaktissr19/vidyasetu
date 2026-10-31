@@ -130,7 +130,7 @@ jobs:
           cat /tmp/vidyasetu-auth-api.log
           exit 1
 
-      - name: Password login works for all five roles
+      - name: Public login excludes platform admins; dedicated admin MFA succeeds
         run: |
           login_role() {
             local identifier="$1" password="$2" role="$3"
@@ -140,7 +140,50 @@ jobs:
               | jq -e --arg role "$role" '.success == true and .data.user.role == $role and (.data.accessToken | length > 20)' >/dev/null
           }
 
-          login_role vidyasetu.admin 'AdminDemo2026!' SUPER_ADMIN
+          public_admin_code="$(curl -sS -o /tmp/public-admin-login.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:5000/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg i 'vidyasetu.admin' --arg p 'AdminDemo2026!' '{identifier:$i,password:$p}')")"
+          test "$public_admin_code" = '401'
+          jq -e '.success == false and (.data.accessToken // null) == null' /tmp/public-admin-login.json >/dev/null
+
+          wrong_admin_code="$(curl -sS -o /tmp/wrong-admin-password.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/login \
+            -H 'Content-Type: application/json' \
+            -d '{"identifier":"vidyasetu.admin","password":"WrongDemoPassword2026!"}')"
+          test "$wrong_admin_code" = '401'
+          test "$(PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT password_failed_attempts FROM users WHERE username='vidyasetu.admin';")" = '0'
+
+          public_admin_otp="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp \
+            -H 'Content-Type: application/json' \
+            -d '{"mobile":"9000000000","role":"SUPER_ADMIN"}')"
+          public_admin_otp_code="$(jq -er '.data.otp' <<< "$public_admin_otp")"
+          curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg o "$public_admin_otp_code" '{mobile:"9000000000",otp:$o,role:"SUPER_ADMIN",deviceInfo:"auth-repair-ci-otp-compat"}')" \
+            | jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20)' >/dev/null
+
+          curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp \
+            -H 'Content-Type: application/json' \
+            -d '{"mobile":"9000000000","role":"SUPER_ADMIN"}' >/dev/null
+          for attempt in 1 2 3; do
+            otp_code="$(curl -sS -o /tmp/wrong-public-admin-otp.json -w '%{http_code}' \
+              -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp \
+              -H 'Content-Type: application/json' \
+              -d '{"mobile":"9000000000","otp":"000000","role":"SUPER_ADMIN"}')"
+            if [[ "$attempt" -lt 3 ]]; then test "$otp_code" = '401'; else test "$otp_code" = '429'; fi
+          done
+
+          admin_challenge="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/login \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg i 'vidyasetu.admin' --arg p 'AdminDemo2026!' '{identifier:$i,password:$p}')")"
+          challenge_id="$(jq -er '.data.challengeId' <<< "$admin_challenge")"
+          admin_otp="$(jq -er '.data.otp' <<< "$admin_challenge")"
+          curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/verify-otp \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg c "$challenge_id" --arg o "$admin_otp" '{challengeId:$c,otp:$o,deviceInfo:"auth-repair-ci"}')" \
+            | jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20)' >/dev/null
+
           login_role ramesh.kumar 'SchoolDemo2026!' SCHOOL_ADMIN
           login_role anil.verma 'TeacherDemo2026!' TEACHER
           login_role aarav.sharma 'StudentDemo2026!' STUDENT
@@ -196,4 +239,7 @@ jobs:
           NODE_ENV=production npm run build
           grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/GlobalTopbar.tsx
           grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/Navbar.tsx
-          grep -Fq "role === 'SUPER_ADMIN' ? 'Platform Admin' : role.replaceAll('_', ' ').toLowerCase()" 'src/app/(auth)/login/page.tsx'
+          ! grep -Eq "key: '(PLATFORM_ADMIN|SUPER_ADMIN)'" 'src/app/(auth)/login/page.tsx'
+          grep -Fq "router.replace('/platform-admin/login')" 'src/app/(auth)/login/page.tsx'
+          grep -Fq "startPlatformAdminLogin(identifier.trim(), password)" 'src/app/(auth)/platform-admin/login/page.tsx'
+          grep -Fq "verifyPlatformAdminLogin(challenge.challengeId, otp" 'src/app/(auth)/platform-admin/login/page.tsx'

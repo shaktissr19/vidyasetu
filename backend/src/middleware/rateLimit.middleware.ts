@@ -23,6 +23,23 @@ export const otpLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+export const platformAdminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => {
+    const identifier = typeof req.body?.identifier === 'string'
+      ? req.body.identifier.trim().toLowerCase()
+      : typeof req.body?.challengeId === 'string' ? req.body.challengeId : 'challenge';
+    return `${requestIpKey(req)}:${identifier}`;
+  },
+  message: {
+    success: false,
+    error: { code: 'RATE_LIMIT', message: 'Too many sign-in attempts. Wait a little and try again.' },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,

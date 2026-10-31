@@ -1,4 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { randomUUID } from 'node:crypto';
 import type {
   AuthTokenClaims,
   Gender,
@@ -27,6 +28,9 @@ import logger = require('../utils/logger');
 const MAX_OTP_ATTEMPTS = Number.parseInt(process.env.OTP_MAX_ATTEMPTS || '3', 10);
 const MAX_PASSWORD_ATTEMPTS = 5;
 const PASSWORD_LOCK_MINUTES = 15;
+const PUBLIC_AUTH_ROLES: readonly UserRole[] = ['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER'];
+const PLATFORM_ADMIN_ROLES: readonly UserRole[] = ['PLATFORM_ADMIN', 'SUPER_ADMIN'];
+const OTP_AUTH_ROLES: readonly UserRole[] = [...PUBLIC_AUTH_ROLES, ...PLATFORM_ADMIN_ROLES];
 
 interface UserRow extends QueryResultRow {
   id: UUID;
@@ -335,7 +339,17 @@ async function consumeOTP(mobile: string, otp: string): Promise<void> {
   await redis.resetAttempts(mobile);
 }
 
-export async function sendOTP(mobile: string): Promise<{ otp?: string }> {
+export async function sendOTP(
+  mobile: string,
+  allowedRoles: readonly UserRole[] = OTP_AUTH_ROLES,
+): Promise<{ otp?: string }> {
+  const { rows: [account] } = await query<{ role: UserRole }>('SELECT role FROM users WHERE mobile=$1', [mobile]);
+  if (account && !allowedRoles.includes(account.role)) {
+    throw Object.assign(new Error('This sign-in method is not available for this account.'), { statusCode: 403 });
+  }
+  if (!account && !allowedRoles.includes('STUDENT')) {
+    throw Object.assign(new Error('This sign-in method is not available for this account.'), { statusCode: 403 });
+  }
   if (await redis.isLockedOut(mobile)) {
     throw Object.assign(new Error('Too many failed attempts. Try again in 1 hour.'), { statusCode: 429 });
   }
@@ -357,7 +371,15 @@ export async function verifyOTPAndLogin(
   otp: string,
   deviceInfo: string | null = null,
   ipAddress: string | null = null,
+  allowedRoles: readonly UserRole[] = OTP_AUTH_ROLES,
 ) {
+  const { rows: [existingAccount] } = await query<UserRow>('SELECT * FROM users WHERE mobile = $1', [mobile]);
+  if (existingAccount && !allowedRoles.includes(existingAccount.role)) {
+    throw Object.assign(new Error('This sign-in method is not available for this account.'), { statusCode: 403 });
+  }
+  if (!existingAccount && !allowedRoles.includes('STUDENT')) {
+    throw Object.assign(new Error('This sign-in method is not available for this account.'), { statusCode: 403 });
+  }
   await consumeOTP(mobile, otp);
 
   const existing = await query<UserRow>('SELECT * FROM users WHERE mobile = $1', [mobile]);
@@ -378,6 +400,10 @@ export async function verifyOTPAndLogin(
 
   if (!user) throw new Error('Failed to create or load user');
 
+  if (!allowedRoles.includes(user.role)) {
+    throw Object.assign(new Error('This sign-in method is not available for this account.'), { statusCode: 403 });
+  }
+
   if (user.status === 'SUSPENDED') {
     throw Object.assign(new Error('Account suspended. Contact support.'), { statusCode: 403 });
   }
@@ -389,20 +415,20 @@ export async function verifyOTPAndLogin(
   return { ...session, isNewUser };
 }
 
-export async function loginWithPassword(
+async function verifyPasswordCredentials(
   identifier: string,
   password: string,
-  deviceInfo: string | null = null,
-  ipAddress: string | null = null,
-): Promise<SessionResult> {
+  allowedRoles?: readonly UserRole[],
+): Promise<UserRow> {
   const user = await getUserByIdentifier(identifier);
-  if (!user) {
+  if (!user || (allowedRoles && !allowedRoles.includes(user.role))) {
     throw Object.assign(new Error('Invalid username/email/Student ID or password'), { statusCode: 401 });
   }
   if (user.status === 'SUSPENDED') {
     throw Object.assign(new Error('Account suspended. Contact support.'), { statusCode: 403 });
   }
-  if (user.password_locked_until && new Date(user.password_locked_until).getTime() > Date.now()) {
+  const platformAdmin = PLATFORM_ADMIN_ROLES.includes(user.role);
+  if (!platformAdmin && user.password_locked_until && new Date(user.password_locked_until).getTime() > Date.now()) {
     throw Object.assign(
       new Error('Too many failed password attempts. Try again later or use OTP.'),
       { statusCode: 429 },
@@ -410,38 +436,96 @@ export async function loginWithPassword(
   }
   if (!user.password_hash) {
     throw Object.assign(
-      new Error('Password is not set for this account. Use OTP once and set a password from your profile.'),
+      new Error('Password is not set for this account. Contact your VidyaSetu administrator.'),
       { statusCode: 409 },
     );
   }
 
   const valid = await verifyPassword(password, user.password_hash);
   if (!valid) {
-    const nextAttempts = Number(user.password_failed_attempts || 0) + 1;
-    const shouldLock = nextAttempts >= MAX_PASSWORD_ATTEMPTS;
-    await query(
-      `UPDATE users
-       SET password_failed_attempts = $2,
-           password_locked_until = CASE WHEN $3 THEN NOW() + ($4 || ' minutes')::INTERVAL ELSE password_locked_until END
-       WHERE id = $1`,
-      [user.id, shouldLock ? 0 : nextAttempts, shouldLock, String(PASSWORD_LOCK_MINUTES)],
-    );
-    throw Object.assign(
-      new Error(shouldLock
-        ? `Too many failed password attempts. Account locked for ${PASSWORD_LOCK_MINUTES} minutes.`
-        : 'Invalid username/email/Student ID or password'),
-      { statusCode: 401 },
-    );
+    if (!platformAdmin) {
+      const nextAttempts = Number(user.password_failed_attempts || 0) + 1;
+      const shouldLock = nextAttempts >= MAX_PASSWORD_ATTEMPTS;
+      await query(
+        `UPDATE users
+         SET password_failed_attempts = $2,
+             password_locked_until = CASE WHEN $3 THEN NOW() + ($4 || ' minutes')::INTERVAL ELSE password_locked_until END
+         WHERE id = $1`,
+        [user.id, shouldLock ? 0 : nextAttempts, shouldLock, String(PASSWORD_LOCK_MINUTES)],
+      );
+    }
+    throw Object.assign(new Error('Invalid username/email/Student ID or password'), { statusCode: 401 });
   }
 
   await query(
-    `UPDATE users
-     SET password_failed_attempts = 0, password_locked_until = NULL, last_login_at = NOW()
-     WHERE id = $1`,
+    'UPDATE users SET password_failed_attempts=0,password_locked_until=NULL WHERE id=$1',
     [user.id],
   );
+  return user;
+}
+
+async function completeLogin(user: UserRow, deviceInfo: string | null, ipAddress: string | null): Promise<SessionResult> {
+  await query('UPDATE users SET last_login_at=NOW() WHERE id=$1', [user.id]);
   await claimPendingParentLinks(user);
-  const session = await issueSession(user, deviceInfo, ipAddress);
+  return issueSession(user, deviceInfo, ipAddress);
+}
+
+export async function startPlatformAdminLogin(identifier: string, password: string) {
+  const user = await verifyPasswordCredentials(identifier, password, PLATFORM_ADMIN_ROLES);
+  if (user.status !== 'ACTIVE') {
+    throw Object.assign(new Error('This account cannot sign in right now.'), { statusCode: 403 });
+  }
+  const challengeId = randomUUID();
+  const otpCode = generateOTP();
+  const otpHash = await hashOTP(otpCode);
+  await notificationService.sendSMS(
+    user.mobile,
+    `Your VidyaSetu administrator sign-in code is ${otpCode}. Valid for 10 minutes. Do not share.`,
+  );
+  await redis.setPlatformAdminLoginChallenge(challengeId, { userId: user.id, mobile: user.mobile, otpHash });
+  const maskedMobile = `${'*'.repeat(Math.max(0, user.mobile.length - 4))}${user.mobile.slice(-4)}`;
+  return { challengeId, maskedMobile, ...(process.env.NODE_ENV !== 'production' ? { otp: otpCode } : {}) };
+}
+
+export async function verifyPlatformAdminLogin(
+  challengeId: string,
+  otp: string,
+  deviceInfo: string | null = null,
+  ipAddress: string | null = null,
+): Promise<SessionResult> {
+  const challenge = await redis.getPlatformAdminLoginChallenge(challengeId);
+  if (!challenge || !(await redis.isCurrentPlatformAdminLoginChallenge(challengeId, challenge.userId))) {
+    throw Object.assign(new Error('Admin sign-in challenge expired. Enter your password to try again.'), { statusCode: 400 });
+  }
+  const { rows: [user] } = await query<UserRow>('SELECT * FROM users WHERE id=$1 AND mobile=$2', [challenge.userId, challenge.mobile]);
+  if (!user || !PLATFORM_ADMIN_ROLES.includes(user.role) || user.status !== 'ACTIVE') {
+    await redis.deletePlatformAdminLoginChallenge(challengeId, challenge.userId);
+    throw Object.assign(new Error('This account cannot sign in right now.'), { statusCode: 403 });
+  }
+  const validOTP = await verifyOTP(otp, challenge.otpHash);
+  if (!validOTP) {
+    const attempts = await redis.incrementPlatformAdminLoginAttempts(challengeId);
+    const attemptsRemaining = MAX_OTP_ATTEMPTS - attempts;
+    if (attemptsRemaining <= 0) {
+      await redis.deletePlatformAdminLoginChallenge(challengeId, user.id);
+      throw Object.assign(new Error('Too many invalid codes. Start sign-in again with your password.'), { statusCode: 429 });
+    }
+    throw Object.assign(new Error(`Invalid verification code. ${attemptsRemaining} attempt(s) remaining.`), { statusCode: 401 });
+  }
+  await redis.deletePlatformAdminLoginChallenge(challengeId, user.id);
+  logger.info(`Platform admin MFA login successful: ${user.id} (${user.role})`);
+  return completeLogin(user, deviceInfo, ipAddress);
+}
+
+export async function loginWithPassword(
+  identifier: string,
+  password: string,
+  deviceInfo: string | null = null,
+  ipAddress: string | null = null,
+  allowedRoles?: readonly UserRole[],
+): Promise<SessionResult> {
+  const user = await verifyPasswordCredentials(identifier, password, allowedRoles);
+  const session = await completeLogin(user, deviceInfo, ipAddress);
   logger.info(`Password login successful: ${user.id} (${user.role})`);
   return session;
 }
@@ -679,7 +763,7 @@ export async function setPassword(
 
 export async function sendPasswordResetOTP(identifier: string) {
   const user = await getUserByIdentifier(identifier);
-  if (!user || !user.mobile) {
+  if (!user || !user.mobile || !PUBLIC_AUTH_ROLES.includes(user.role)) {
     throw Object.assign(
       new Error('No recoverable account was found for that identifier'),
       { statusCode: 404 },
@@ -696,7 +780,7 @@ export async function resetPasswordWithOTP(
   newPassword: string,
 ): Promise<{ reset: true }> {
   const user = await getUserByIdentifier(identifier);
-  if (!user || !user.mobile) {
+  if (!user || !user.mobile || !PUBLIC_AUTH_ROLES.includes(user.role)) {
     throw Object.assign(new Error('Account not found'), { statusCode: 404 });
   }
   await consumeOTP(user.mobile, otp);
