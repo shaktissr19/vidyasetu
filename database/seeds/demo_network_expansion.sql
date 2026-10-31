@@ -150,7 +150,17 @@ FROM teachers t
 JOIN school_classes sc ON sc.school_id=t.school_id AND sc.academic_year='2026-27' AND sc.class_name IN ('8','9','10')
 JOIN LATERAL (SELECT CASE WHEN t.school_id='10000000-0000-0000-0000-000000000001'::uuid THEN
        CASE t.employee_id WHEN 'SVM001' THEN 'MATH' WHEN 'SVM002' THEN 'SCI' WHEN 'SVM003' THEN 'HIN' ELSE 'SST' END
-     ELSE 'MATH' END AS subject_code,
+     ELSE CASE t.employee_id
+       WHEN 'DEMO-S02-T01' THEN 'MATH'
+       WHEN 'DEMO-S03-T01' THEN 'SCI'
+       WHEN 'DEMO-S04-T01' THEN 'ENG'
+       WHEN 'DEMO-S05-T01' THEN 'MATH'
+       WHEN 'DEMO-S06-T01' THEN 'HIN'
+       WHEN 'DEMO-S07-T01' THEN 'SCI'
+       WHEN 'DEMO-S08-T01' THEN 'SST'
+       WHEN 'DEMO-S09-T01' THEN 'MATH'
+       ELSE 'MATH'
+     END END AS subject_code,
      CASE WHEN t.school_id='10000000-0000-0000-0000-000000000001'::uuid THEN t.employee_id='SVM001' AND sc.class_name='8'
           ELSE sc.class_name='8' END AS is_class_teacher) subject ON TRUE
 WHERE t.id BETWEEN '40000000-0000-0000-0000-000000000001'::uuid AND '40000000-0000-0000-0000-00000000000c'::uuid
