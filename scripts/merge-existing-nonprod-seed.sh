@@ -84,7 +84,7 @@ if [[ "$base_count" == "0" ]]; then
     "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/$seed"
   done
 elif [[ "$base_count" == "25" ]]; then
-  printf 'Base synthetic accounts already exist; preserving them and skipping fresh-database reconciliation.\\n'
+  printf 'Base synthetic accounts already exist; preserving them and skipping fresh-database reconciliation and canonical snapshot validation.\\n'
 else
   fail "Found $base_count of 25 base seed accounts. Stopped to avoid colliding with a partial seed; existing rows were not changed."
 fi
