@@ -56,6 +56,14 @@ const TRUST = [
 const HOME_ICONS = { graduation: GraduationCap, school: Building2, family: Users, book: BookOpen, trophy: Trophy, link: Link2, shield: BookOpen, india: Building2, progress: Trophy, device: Users } satisfies Record<HomepageIcon, typeof BookOpen>;
 const BENEFIT_TONES: Record<string, string> = { orange: sample.benefitOrange, green: sample.benefitGreen, violet: sample.benefitViolet };
 const MODULE_TONES: Record<string, string> = { blue: sample.blue, green: sample.green, violet: sample.violet, orange: sample.orange, rose: sample.rose, teal: sample.teal };
+const MODULE_IMAGE_FALLBACKS: Record<string, string> = {
+  Students: MODULE_IMAGES.student,
+  Schools: MODULE_IMAGES.school,
+  Parents: MODULE_IMAGES.parent,
+  Learning: MODULE_IMAGES.learn,
+  Competitions: MODULE_IMAGES.competition,
+  Communities: HERO_IMAGES.communities,
+};
 
 const FALLBACK_HOME_CONTENT: HomepageContent = {
   hero: { eyebrow: 'INDIA’S CONNECTED EDUCATION ECOSYSTEM', title: 'One platform for learning, schools and families.', description: 'VidyaSetu connects students, schools, teachers and parents on one trusted platform to learn, manage, communicate and grow together.' },
@@ -190,11 +198,15 @@ export default function PublicHomeSampleExperience() {
             <p>Built for everyone in the education ecosystem</p>
           </div>
           <div className={sample.moduleGrid}>
-            {homeContent.modules.map((module) => {
+            {homeContent.modules.map((moduleContent) => {
+              const module = { ...moduleContent, image: moduleContent.imageUrl || MODULE_IMAGE_FALLBACKS[moduleContent.title] || '' };
               const Icon = HOME_ICONS[module.icon];
               return <Link href={module.href} className={`${sample.moduleCard} ${MODULE_TONES[module.tone || 'blue'] || sample.blue}`} key={module.title}>
                 <div className={sample.moduleMedia} aria-hidden="true">
-                  {module.imageUrl ? <img className={sample.modulePhoto} src={module.imageUrl} alt="" loading="lazy" /> : <div className={sample.moduleVisualFallback}><Icon size={46} strokeWidth={1.5} /></div>}
+                  {module.image ? module.image.startsWith('/')
+                    ? <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 820px) 100vw, (max-width: 1180px) 33vw, 33vw" className={sample.modulePhoto} style={{ objectFit: 'cover' }} />
+                    : <img className={sample.modulePhoto} src={module.image} alt="" loading="lazy" />
+                    : <div className={sample.moduleVisualFallback}><Icon size={46} strokeWidth={1.5} /></div>}
                 </div>
                 <div className={sample.moduleBody}>
                   <div className={sample.moduleTitleRow}>
