@@ -26,6 +26,7 @@ read_env_value() {
 [[ -s "$PROJECT_DIR/database/seeds/03_student_seed_reconcile.sql" ]] || fail "Student reconcile seed is missing"
 [[ -s "$PROJECT_DIR/database/seeds/04_student_seed_validate.sql" ]] || fail "Student validation seed is missing"
 [[ -s "$PROJECT_DIR/database/seeds/05_student_module_seed.sql" ]] || fail "Student module seed is missing"
+[[ -s "$PROJECT_DIR/database/seeds/06_automation_seed_validate.sql" ]] || fail "Integrated automation data validation seed is missing"
 [[ -s "$PROJECT_DIR/scripts/seed-demo-network.cjs" ]] || fail "Guarded expansion runner is missing"
 [[ -s "$PROJECT_DIR/backend/dist/config/db.js" ]] || fail "Backend build is missing"
 [[ -s "$PROJECT_DIR/backend/dist/utils/password.js" ]] || fail "Backend password utility build is missing"
@@ -79,15 +80,16 @@ base_count="$("${PSQL[@]}" -d "$TARGET_DB" -Atc "SELECT COUNT(*) FROM users WHER
 if [[ "$base_count" == "0" ]]; then
   printf 'Base synthetic accounts are absent; inserting the base seed in its own transaction.\n'
   "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/database/seeds/dev_seed.sql"
-  # A newly inserted canonical fixture is validated before module enrichment.
-  for seed in database/seeds/03_student_seed_reconcile.sql database/seeds/04_student_seed_validate.sql; do
-    "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/$seed"
-  done
 elif [[ "$base_count" == "25" ]]; then
-  printf 'Base synthetic accounts already exist; preserving them and skipping fresh-database reconciliation and canonical snapshot validation.\n'
+  printf 'Base synthetic accounts already exist; preserving them and reconciling the fixed synthetic fixture IDs.\n'
 else
   fail "Found $base_count of 25 base seed accounts. Stopped to avoid colliding with a partial seed; existing rows were not changed."
 fi
+
+# These reconciliation steps are idempotent and scoped to deterministic demo IDs.
+for seed in database/seeds/03_student_seed_reconcile.sql database/seeds/04_student_seed_validate.sql; do
+  "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/$seed"
+done
 
 # This module seed is idempotent and scoped to fixed demo fixture IDs.
 "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/database/seeds/05_student_module_seed.sql"
@@ -102,6 +104,9 @@ cd "$PROJECT_DIR"
 SEED_DEMO_PASSWORDS=0 NODE_ENV=test DB_NAME="$TARGET_DB" TARGET_DB="$TARGET_DB" CREDENTIALS_DIR="$CREDENTIALS_DIR" \
   node scripts/seed-demo-network.cjs | tee "$credentials_log"
 chmod 600 "$credentials_log"
+
+# Verify the complete linked school/class/student/subject fixture after expansion.
+"${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/database/seeds/06_automation_seed_validate.sql"
 
 # Configure dedicated automation principals on the target database only.
 NODE_ENV=test DB_NAME="$TARGET_DB" TARGET_DB="$TARGET_DB" CREDENTIALS_DIR="$CREDENTIALS_DIR" node <<'NODE'
