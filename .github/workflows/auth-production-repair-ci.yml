@@ -131,7 +131,7 @@ jobs:
           cat /tmp/vidyasetu-auth-api.log
           exit 1
 
-      - name: Public login excludes platform admins; dedicated admin MFA succeeds
+      - name: Public login excludes platform admins; dedicated admin password login succeeds
         run: |
           login_role() {
             local identifier="$1" password="$2" role="$3"
@@ -155,35 +155,37 @@ jobs:
           test "$wrong_admin_code" = '401'
           test "$(PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vidyasetu_db -Atc "SELECT password_failed_attempts FROM users WHERE username='vidyasetu.admin';")" = '0'
 
-          public_admin_otp="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp \
+          admin_otp_code="$(curl -sS -o /tmp/admin-otp-login.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:5000/api/v1/auth/send-otp \
             -H 'Content-Type: application/json' \
             -d '{"mobile":"9000000000","role":"SUPER_ADMIN"}')"
-          public_admin_otp_code="$(jq -er '.data.otp' <<< "$public_admin_otp")"
+          test "$admin_otp_code" = '403'
+          jq -e '.success == false and (.data.accessToken // null) == null' /tmp/admin-otp-login.json >/dev/null
+
+          public_otp="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp \
+            -H 'Content-Type: application/json' \
+            -d '{"mobile":"9300000001","role":"STUDENT"}')"
+          public_otp_code="$(jq -er '.data.otp' <<< "$public_otp")"
           curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp \
             -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg o "$public_admin_otp_code" '{mobile:"9000000000",otp:$o,role:"SUPER_ADMIN",deviceInfo:"auth-repair-ci-otp-compat"}')" \
-            | jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20)' >/dev/null
+            -d "$(jq -nc --arg o "$public_otp_code" '{mobile:"9300000001",otp:$o,role:"STUDENT",deviceInfo:"auth-repair-ci-otp-compat"}')" \
+            | jq -e '.success == true and .data.user.role == "STUDENT" and (.data.accessToken | length > 20)' >/dev/null
 
           curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/send-otp \
             -H 'Content-Type: application/json' \
-            -d '{"mobile":"9000000000","role":"SUPER_ADMIN"}' >/dev/null
+            -d '{"mobile":"9300000001","role":"STUDENT"}' >/dev/null
           for attempt in 1 2 3; do
             otp_code="$(curl -sS -o /tmp/wrong-public-admin-otp.json -w '%{http_code}' \
               -X POST http://127.0.0.1:5000/api/v1/auth/verify-otp \
               -H 'Content-Type: application/json' \
-              -d '{"mobile":"9000000000","otp":"000000","role":"SUPER_ADMIN"}')"
+              -d '{"mobile":"9300000001","otp":"000000","role":"STUDENT"}')"
             if [[ "$attempt" -lt 3 ]]; then test "$otp_code" = '401'; else test "$otp_code" = '429'; fi
           done
 
-          admin_challenge="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/login \
+          admin_session="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/login \
             -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg i 'vidyasetu.admin' --arg p 'AdminDemo2026!' '{identifier:$i,password:$p}')")"
-          challenge_id="$(jq -er '.data.challengeId' <<< "$admin_challenge")"
-          admin_otp="$(jq -er '.data.otp' <<< "$admin_challenge")"
-          curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/verify-otp \
-            -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg c "$challenge_id" --arg o "$admin_otp" '{challengeId:$c,otp:$o,deviceInfo:"auth-repair-ci"}')" \
-            | jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20)' >/dev/null
+            -d "$(jq -nc --arg i 'vidyasetu.admin' --arg p 'AdminDemo2026!' '{identifier:$i,password:$p,deviceInfo:"auth-repair-ci"}')")"
+          jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20) and (.data.refreshToken | length > 20)' <<< "$admin_session" >/dev/null
 
           login_role ramesh.kumar 'SchoolDemo2026!' SCHOOL_ADMIN
           login_role anil.verma 'TeacherDemo2026!' TEACHER
@@ -243,5 +245,5 @@ jobs:
           grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/Navbar.tsx
           ! grep -Eq "key: '(PLATFORM_ADMIN|SUPER_ADMIN)'" 'src/app/(auth)/login/page.tsx'
           grep -Fq "router.replace('/platform-admin/login')" 'src/app/(auth)/login/page.tsx'
-          grep -Fq "startPlatformAdminLogin(identifier.trim(), password)" 'src/app/(auth)/platform-admin/login/page.tsx'
-          grep -Fq "verifyPlatformAdminLogin(challenge.challengeId, otp" 'src/app/(auth)/platform-admin/login/page.tsx'
+          grep -Fq "loginPlatformAdmin(identifier.trim(), password, navigator.userAgent)" 'src/app/(auth)/platform-admin/login/page.tsx'
+          ! grep -Eq 'verifyPlatformAdminLogin|platform-admin-otp' 'src/app/(auth)/platform-admin/login/page.tsx'

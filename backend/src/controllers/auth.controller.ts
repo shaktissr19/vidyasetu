@@ -30,11 +30,6 @@ interface LoginBody {
 interface PlatformAdminLoginBody {
   identifier: string;
   password: string;
-}
-
-interface PlatformAdminVerifyBody {
-  challengeId: string;
-  otp: string;
   deviceInfo?: string;
 }
 
@@ -206,22 +201,9 @@ export async function platformAdminLogin(
   next: NextFunction,
 ): Promise<Response | void> {
   try {
-    const result = await authService.startPlatformAdminLogin(req.body.identifier, req.body.password);
-    return R.ok(res, result);
-  } catch (err: unknown) {
-    next(err);
-  }
-}
-
-export async function verifyPlatformAdminLogin(
-  req: BodyRequest<PlatformAdminVerifyBody>,
-  res: Response,
-  next: NextFunction,
-): Promise<Response | void> {
-  try {
-    const result = await authService.verifyPlatformAdminLogin(
-      req.body.challengeId,
-      req.body.otp,
+    const result = await authService.loginPlatformAdminWithPassword(
+      req.body.identifier,
+      req.body.password,
       req.body.deviceInfo || null,
       req.ip || null,
     );

@@ -38,10 +38,6 @@ const loginSchema = z.object({
 const platformAdminLoginSchema = z.object({
   identifier: z.string().trim().min(3).max(180),
   password: passwordSchema,
-});
-const platformAdminVerifySchema = z.object({
-  challengeId: z.string().uuid(),
-  otp: z.string().length(6, 'OTP must be 6 digits'),
   deviceInfo: z.string().max(500).optional(),
 });
 
@@ -131,7 +127,6 @@ router.post('/register/student', validate(registerStudentSchema), registrationCt
 router.post('/register', validate(publicRegisterSchema), registrationCtrl.register);
 router.post('/login', validate(loginSchema), ctrl.login);
 router.post('/platform-admin/login', platformAdminLoginLimiter, validate(platformAdminLoginSchema), ctrl.platformAdminLogin);
-router.post('/platform-admin/verify-otp', platformAdminLoginLimiter, validate(platformAdminVerifySchema), ctrl.verifyPlatformAdminLogin);
 router.post('/send-otp', otpLimiter, validate(sendOtpSchema), ctrl.sendOTP);
 router.post('/verify-otp', validate(verifyOtpSchema), ctrl.verifyOTP);
 router.post('/forgot-password', otpLimiter, validate(forgotPasswordSchema), ctrl.forgotPassword);
