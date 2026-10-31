@@ -65,11 +65,11 @@ export default function SessionGuard() {
   useEffect(() => {
     if (!isLoggedIn || !accessToken || !refreshToken) return undefined;
 
-    // Login and registration pages must stay usable while an old persisted
+    // Login pages must stay usable while an old persisted
     // session is being discarded. Their page-level redirect hook clears that
     // stale session synchronously; running the async guard here can race a new
     // successful login and log the user out again.
-    if (pathname === '/login' || pathname === '/platform-admin/login' || pathname === '/register') return undefined;
+    if (pathname === '/login' || pathname === '/platform-admin/login') return undefined;
 
     // Sessions persisted by an older build have no activity/presence record.
     // They must not silently become trusted when this security policy is deployed.
