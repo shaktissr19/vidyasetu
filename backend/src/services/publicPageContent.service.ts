@@ -18,6 +18,15 @@ export const learnPageContentSchema = z.object({
   practice: z.object({ eyebrow: text(100), title: text(180), description: text(500), emptyMessage: text(300), chooseMessage: text(240) }),
   development: z.object({ eyebrow: text(80), title: text(180), description: text(500), pillars: z.array(z.object({ category, eyebrow: text(100), title: text(180), copy: text(500) })).min(1).max(9) }),
   finalCta: z.object({ eyebrow: text(100), title: text(220), description: text(500), loginLabel: text(80), createAccountLabel: text(80) }),
+}).superRefine((content, ctx) => {
+  for (const [field, rows] of [['categories', content.learningTypes.categories], ['pillars', content.development.pillars]] as const) {
+    const seen = new Set<string>();
+    rows.forEach((row, index) => {
+      const id = 'id' in row ? row.id : row.category;
+      if (seen.has(id)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field, index], message: 'Each learning category can only appear once' });
+      seen.add(id);
+    });
+  }
 });
 export type LearnPageContent = z.infer<typeof learnPageContentSchema>;
 
