@@ -41,7 +41,7 @@ function accountPath(role?: UserRole): string {
   if (role === 'STUDENT') return '/student';
   if (role === 'SCHOOL_ADMIN' || role === 'TEACHER') return '/school/overview';
   if (role === 'PARENT') return '/parent/dashboard';
-  if (role === 'SUPER_ADMIN') return '/admin/analytics';
+  if (role === 'SUPER_ADMIN' || role === 'PLATFORM_ADMIN') return '/admin/analytics';
   return '/';
 }
 

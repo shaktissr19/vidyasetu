@@ -4,11 +4,13 @@ set -Eeuo pipefail
 fail() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 check() { grep -Fq "$2" "$1" || fail "$1 is missing contract: $2"; }
 
-check backend/src/routes/admin.routes.ts "router.use(authorize('SUPER_ADMIN'))"
-check backend/src/routes/admin.routes.ts "router.get('/audit', ctrl.getAuditLog)"
+check backend/src/routes/admin.routes.ts "router.use(authorize('SUPER_ADMIN', 'PLATFORM_ADMIN'))"
+check backend/src/routes/admin.routes.ts "router.get('/audit', authorize('SUPER_ADMIN'), ctrl.getAuditLog)"
 check backend/src/routes/admin.routes.ts "validate(supportUpdateSchema)"
-check backend/src/routes/admin.routes.ts "validate(configBodySchema)"
-check backend/src/routes/admin.routes.ts "validate(configSchema)"
+check backend/src/routes/admin.routes.ts "router.patch('/config', authorize('SUPER_ADMIN'), validate(configBodySchema), ctrl.updateConfigBody)"
+check backend/src/routes/admin.routes.ts "router.patch('/config/:key', authorize('SUPER_ADMIN'), validate(configSchema), ctrl.updateConfig)"
+check backend/src/routes/admin.routes.ts "router.put('/homepage/draft', authorize('SUPER_ADMIN'), ctrl.saveHomepageDraft)"
+check backend/src/routes/admin.routes.ts "router.post('/homepage/publish', authorize('SUPER_ADMIN'), ctrl.publishHomepageDraft)"
 
 check backend/src/services/admin.service.ts "Super Admin accounts cannot be suspended"
 check backend/src/services/admin.service.ts "export async function updateSupportTicket"

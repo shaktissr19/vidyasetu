@@ -10,7 +10,7 @@ import { validate } from '../middleware/validate.middleware';
 const router = Router();
 
 router.use(authenticate);
-router.use(authorize('SUPER_ADMIN'));
+router.use(authorize('SUPER_ADMIN', 'PLATFORM_ADMIN'));
 
 const configValue = z.union([z.string().max(500), z.number().finite(), z.boolean()]);
 const configSchema = z.object({ value: configValue });
@@ -52,30 +52,33 @@ const groupReportSchema = z.object({
 const groupOwnerSchema = z.object({ userId: z.string().uuid() });
 
 router.get('/analytics', ctrl.getAnalytics);
-router.get('/revenue', ctrl.getRevenue);
+router.get('/revenue', authorize('SUPER_ADMIN'), ctrl.getRevenue);
 router.get('/content', ctrl.getContentAnalytics);
-router.get('/audit', ctrl.getAuditLog);
+router.get('/audit', authorize('SUPER_ADMIN'), ctrl.getAuditLog);
 router.get('/schools', ctrl.listSchools);
 router.get('/schools/:schoolId', ctrl.getSchool);
 router.patch('/schools/:schoolId/status', validate(statusSchema), ctrl.updateSchoolStatus);
 router.get('/users/export', ctrl.exportUsers);
 router.get('/users', ctrl.listUsers);
 router.patch('/users/:userId/status', validate(statusSchema), ctrl.updateUserStatus);
-router.get('/config', ctrl.getConfig);
-router.patch('/config/:key', validate(configSchema), ctrl.updateConfig);
-router.patch('/config', validate(configBodySchema), ctrl.updateConfigBody);
+router.get('/config', authorize('SUPER_ADMIN'), ctrl.getConfig);
+router.patch('/config/:key', authorize('SUPER_ADMIN'), validate(configSchema), ctrl.updateConfig);
+router.patch('/config', authorize('SUPER_ADMIN'), validate(configBodySchema), ctrl.updateConfigBody);
+router.get('/homepage', authorize('SUPER_ADMIN'), ctrl.getHomepageDraft);
+router.put('/homepage/draft', authorize('SUPER_ADMIN'), ctrl.saveHomepageDraft);
+router.post('/homepage/publish', authorize('SUPER_ADMIN'), ctrl.publishHomepageDraft);
 
 router.get('/support', ctrl.getTickets);
 router.patch('/support/:ticketId', validate(supportUpdateSchema), ctrl.updateTicket);
 router.get('/competitions', ctrl.listCompetitions);
 router.post('/competitions', validate(competitionCreateSchema), ctrl.createCompetition);
 
-router.get('/groups', groupCtrl.adminGroups);
-router.patch('/groups/:groupId/decision', validate(groupDecisionSchema), groupAdminCtrl.decideGroup);
-router.patch('/groups/:groupId/status', validate(groupStatusSchema), groupAdminCtrl.updateGroupStatus);
-router.get('/groups/:groupId/members', governanceCtrl.adminMembers);
-router.patch('/groups/:groupId/owner', validate(groupOwnerSchema), governanceCtrl.adminTransferOwnership);
-router.get('/group-reports', groupCtrl.adminReports);
-router.patch('/group-reports/:reportId', validate(groupReportSchema), groupAdminCtrl.resolveGroupReport);
+router.get('/groups', authorize('SUPER_ADMIN'), groupCtrl.adminGroups);
+router.patch('/groups/:groupId/decision', authorize('SUPER_ADMIN'), validate(groupDecisionSchema), groupAdminCtrl.decideGroup);
+router.patch('/groups/:groupId/status', authorize('SUPER_ADMIN'), validate(groupStatusSchema), groupAdminCtrl.updateGroupStatus);
+router.get('/groups/:groupId/members', authorize('SUPER_ADMIN'), governanceCtrl.adminMembers);
+router.patch('/groups/:groupId/owner', authorize('SUPER_ADMIN'), validate(groupOwnerSchema), governanceCtrl.adminTransferOwnership);
+router.get('/group-reports', authorize('SUPER_ADMIN'), groupCtrl.adminReports);
+router.patch('/group-reports/:reportId', authorize('SUPER_ADMIN'), validate(groupReportSchema), groupAdminCtrl.resolveGroupReport);
 
 export = router;

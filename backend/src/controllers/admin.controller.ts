@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import * as adminService from '../services/admin.service';
 import { query } from '../config/db';
 import * as R from '../utils/response';
+import * as homepageService from '../services/homepage.service';
 
 interface StatusBody { status: string; }
 interface ConfigBody { key: string; value: unknown; }
@@ -32,7 +33,10 @@ function authenticated(req: Request, res: Response) {
 }
 
 export async function getAnalytics(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await adminService.getPlatformAnalytics()); }
+  try {
+    const includeOwnerMetrics = _req.user?.role === 'SUPER_ADMIN';
+    return R.ok(res, await adminService.getPlatformAnalytics(includeOwnerMetrics));
+  }
   catch (err: unknown) { next(err); }
 }
 
@@ -70,7 +74,7 @@ export async function updateSchoolStatus(
 ): Promise<Response | void> {
   try {
     const user = authenticated(req, res); if (!user) return;
-    return R.ok(res, await adminService.updateSchoolStatus(req.params.schoolId, req.body.status, user.userId));
+    return R.ok(res, await adminService.updateSchoolStatus(req.params.schoolId, req.body.status, user.userId, user.role));
   } catch (err: unknown) { next(err); }
 }
 
@@ -80,7 +84,7 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
       role: queryString(req.query.role),
       status: queryString(req.query.status),
       search: queryString(req.query.search),
-    });
+    }, req.user?.role === 'SUPER_ADMIN');
     return R.ok(res, result.users, result.meta);
   } catch (err: unknown) { next(err); }
 }
@@ -89,6 +93,7 @@ export async function exportUsers(req: Request, res: Response, next: NextFunctio
   try {
     const conditions = ['1=1'];
     const params: string[] = [];
+    if (req.user?.role !== 'SUPER_ADMIN') conditions.push("role NOT IN ('SUPER_ADMIN','PLATFORM_ADMIN')");
     const role = queryString(req.query.role);
     const status = queryString(req.query.status);
     const search = queryString(req.query.search);
@@ -114,7 +119,7 @@ export async function updateUserStatus(
 ): Promise<Response | void> {
   try {
     const user = authenticated(req, res); if (!user) return;
-    return R.ok(res, await adminService.updateUserStatus(req.params.userId, req.body.status, user.userId));
+    return R.ok(res, await adminService.updateUserStatus(req.params.userId, req.body.status, user.userId, user.role));
   } catch (err: unknown) { next(err); }
 }
 
@@ -152,7 +157,7 @@ export async function updateTicket(
 ): Promise<Response | void> {
   try {
     const user = authenticated(req, res); if (!user) return;
-    return R.ok(res, await adminService.updateSupportTicket(req.params.ticketId, req.body, user.userId));
+    return R.ok(res, await adminService.updateSupportTicket(req.params.ticketId, req.body, user.userId, user.role));
   } catch (err: unknown) { next(err); }
 }
 
@@ -205,5 +210,24 @@ export async function createCompetition(
        body.marks_per_question || 4, body.negative_marks || 1, body.start_time, body.end_time, body.prize_pool || 0],
     );
     return R.ok(res, rows[0]);
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getHomepageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await homepageService.getHomepageForOwner()); }
+  catch (err: unknown) { next(err); }
+}
+
+export async function saveHomepageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await homepageService.saveHomepageDraft(req.body, user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function publishHomepageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await homepageService.publishHomepageDraft(user.userId));
   } catch (err: unknown) { next(err); }
 }

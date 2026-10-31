@@ -60,8 +60,8 @@ export interface AnalyticsStateRow {
 
 export interface AdminAnalytics {
   students?: { total?: string | number; new_this_month?: string | number };
-  schools?: { active?: string | number; new_this_month?: string | number; paid?: string | number };
-  mrr?: string | number;
+  schools?: { active?: string | number; new_this_month?: string | number; paid?: string | number | null };
+  mrr?: string | number | null;
   dau?: string | number;
   topStates?: AnalyticsStateRow[];
   pendingSchools?: AdminSchool[];

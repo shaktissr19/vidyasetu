@@ -12,7 +12,7 @@ const passwordSchema = z.string().min(8).max(128)
   .regex(/[A-Za-z]/, 'Password must contain a letter')
   .regex(/\d/, 'Password must contain at least one number');
 
-const roleSchema = z.enum(['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER', 'SUPER_ADMIN']);
+const roleSchema = z.enum(['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER', 'PLATFORM_ADMIN', 'SUPER_ADMIN']);
 const publicRegistrationRoleSchema = z.enum(['PARENT', 'SCHOOL_ADMIN', 'TEACHER']);
 const languageSchema = z.enum(['hi', 'en', 'ta', 'te', 'mr', 'bn', 'gu', 'kn', 'or']);
 const studentGradeSchema = z.string().regex(/^(?:PN|NURSERY|LKG|UKG|[1-9]|1[0-2])$/, 'Grade must be Pre-Nursery, Nursery, LKG, UKG or Class 1-12');

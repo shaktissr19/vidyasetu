@@ -5,6 +5,7 @@ import { StatCard } from '@/components/ui/index';
 import { formatCurrency } from '@/utils/formatters';
 import toast from 'react-hot-toast';
 import { apiErrorText } from '@/utils/errors';
+import useAuthStore from '@/store/authStore';
 
 function csvCell(value: unknown) {
   const text = value == null ? '' : String(value);
@@ -12,6 +13,7 @@ function csvCell(value: unknown) {
 }
 
 export default function AdminAnalytics() {
+  const isSuperAdmin = useAuthStore((state) => state.user?.role === 'SUPER_ADMIN');
   const qc = useQueryClient();
   const { data: analytics, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-analytics'],
@@ -30,8 +32,9 @@ export default function AdminAnalytics() {
     if (!analytics) return;
     const rows: Array<[string, unknown]> = [
       ['Metric', 'Value'], ['Total Students', analytics.students?.total || 0], ['New Students This Month', analytics.students?.new_this_month || 0],
-      ['Active Schools', analytics.schools?.active || 0], ['New Schools This Month', analytics.schools?.new_this_month || 0], ['Paid Schools', analytics.schools?.paid || 0],
-      ['MRR', analytics.mrr || 0], ['DAU', analytics.dau || 0],
+      ['Active Schools', analytics.schools?.active || 0], ['New Schools This Month', analytics.schools?.new_this_month || 0],
+      ...(isSuperAdmin ? [['Paid Schools', analytics.schools?.paid || 0] as [string, unknown]] : []),
+      ...(isSuperAdmin ? [['MRR', analytics.mrr || 0] as [string, unknown]] : []), ['DAU', analytics.dau || 0],
     ];
     for (const role of analytics.roleBreakdown || []) rows.push([`Active ${role.role}`, role.count]);
     const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
@@ -71,7 +74,7 @@ export default function AdminAnalytics() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 stagger">
         <StatCard label="Total Students" value={Number(students.total || 0).toLocaleString('en-IN')} sub={`↑ ${students.new_this_month || 0} this month`} />
         <StatCard label="Active Schools" value={Number(schools.active || 0).toLocaleString('en-IN')} sub={`↑ ${schools.new_this_month || 0} new`} />
-        <StatCard label="MRR" value={formatCurrency(analytics?.mrr || 0)} sub={`${schools.paid || 0} paid schools`} />
+        {isSuperAdmin ? <StatCard label="MRR" value={formatCurrency(analytics?.mrr || 0)} sub={`${schools.paid || 0} paid schools`} /> : <StatCard label="Platform Access" value="Operations" sub="Financial metrics are restricted to the Super Admin" />}
         <StatCard label="DAU" value={Number(analytics?.dau || 0).toLocaleString('en-IN')} sub="Daily active students" />
       </div>
 

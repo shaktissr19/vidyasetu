@@ -40,7 +40,7 @@ require_text "$LOGIN" 'sendOTP(mobile, role)' 'Login must pass selected role whe
 require_text "$LOGIN" 'Resend OTP' 'Login must expose Resend OTP'
 require_text "$LOGIN" 'Change number' 'Login must expose Change number'
 require_text "$LOGIN" 'sentMobile' 'OTP verification must retain the number that actually received the OTP'
-require_text "$LOGIN" "role === 'SUPER_ADMIN' ? 'Platform Admin' : role.replaceAll('_', ' ').toLowerCase()" 'OTP helper must derive the selected role instead of always showing Platform Admin'
+require_text "$LOGIN" "role === 'PLATFORM_ADMIN' ? 'Platform Admin' : role === 'SUPER_ADMIN' ? 'Super Admin' : role.replaceAll('_', ' ').toLowerCase()" 'OTP helper must label Platform Admin and Super Admin distinctly'
 
 printf '==> OTP rate-limit failure recovery contract\n'
 require_text "$RATE_LIMIT" 'windowMs: 10 * 60 * 1000' 'OTP send window must be ten minutes, not one hour'

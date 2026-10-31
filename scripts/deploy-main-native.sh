@@ -103,7 +103,10 @@ done
 
 REGISTRATION_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 -At -f "$PROJECT_DIR/scripts/production-schema-preflight.sql")"
-[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration/content-pipeline schema is incomplete. Run scripts/prepare-registration-release.sh to apply reviewed migrations through 060 before deployment. No migration was attempted."
+[[ "$REGISTRATION_SCHEMA" == "t" ]] || fail "Required Learning/registration/content-pipeline schema is incomplete. Run scripts/prepare-registration-release.sh to apply reviewed migrations before deployment. No migration was attempted."
+
+HOMEPAGE_ADMIN_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.public_homepage_content') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='PLATFORM_ADMIN') AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_users_single_super_admin');")"
+[[ "$HOMEPAGE_ADMIN_SCHEMA" == "t" ]] || fail "Homepage/Platform Admin schema 062 is missing. Run scripts/prepare-registration-release.sh before deployment. No migration was attempted."
 
 TEACHER_ENUM="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")"
 [[ "$TEACHER_ENUM" == "1" ]] || fail "TEACHER role is missing. No migration was attempted."

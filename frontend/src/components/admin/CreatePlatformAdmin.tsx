@@ -26,7 +26,7 @@ export default function CreatePlatformAdmin() {
   }
   return <section className="card mb-5">
     <button type="button" className="btn-primary" onClick={() => { setForm(empty); setOpen(!open); }}>Create Platform Admin</button>
-    <p className="text-sm mt-3" style={{ color: 'var(--slate)' }}>Only an existing Platform Admin can create another administrator. School and Teacher applications use their separate approval workflows.</p>
+    <p className="text-sm mt-3" style={{ color: 'var(--slate)' }}>Only the Super Admin can create or suspend platform administrator accounts. School and Teacher applications use their separate approval workflows.</p>
     {open && <form onSubmit={submit} className="grid sm:grid-cols-2 gap-3 mt-4">
       <label>Full name<input className="input" required minLength={2} maxLength={120} autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
       <label>Username<input className="input" required minLength={3} maxLength={60} pattern="[A-Za-z0-9._-]+" autoComplete="off" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>

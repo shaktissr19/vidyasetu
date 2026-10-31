@@ -7,6 +7,7 @@ import { BookOpen, Building2, GraduationCap, Link2, Trophy, Users } from 'lucide
 import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
+import { getPublicHomepage, type HomepageContent, type HomepageIcon } from '@/services/homepageService';
 import {
   getPublicCompetitions,
   getPublicLearningOverview,
@@ -45,12 +46,34 @@ const JOURNEY = [
 ];
 
 const TRUST = [
-  ['🛡️', 'Safe by design', 'Role-aware access keeps personal, school and family records inside protected workspaces.'],
-  ['🔗', 'Connected, not fragmented', 'Learning, school operations and family participation belong to the same education journey.'],
-  ['🇮🇳', 'Built for Indian education', 'Cross-board learning and school workflows reflect Indian classrooms, families and institutions.'],
-  ['📈', 'Progress with context', 'Learning activity can sit alongside school-linked academic context instead of living in another silo.'],
-  ['📱', 'Made for everyday access', 'Public discovery is simple and the role-based experience works across modern devices.'],
-];
+  { icon: 'shield', title: 'Safe by design', copy: 'Role-aware access keeps personal, school and family records inside protected workspaces.' },
+  { icon: 'link', title: 'Connected, not fragmented', copy: 'Learning, school operations and family participation belong to the same education journey.' },
+  { icon: 'india', title: 'Built for Indian education', copy: 'Cross-board learning and school workflows reflect Indian classrooms, families and institutions.' },
+  { icon: 'progress', title: 'Progress with context', copy: 'Learning activity can sit alongside school-linked academic context instead of living in another silo.' },
+  { icon: 'device', title: 'Made for everyday access', copy: 'Public discovery is simple and the role-based experience works across modern devices.' },
+] as const;
+
+const HOME_ICONS = { graduation: GraduationCap, school: Building2, family: Users, book: BookOpen, trophy: Trophy, link: Link2, shield: BookOpen, india: Building2, progress: Trophy, device: Users } satisfies Record<HomepageIcon, typeof BookOpen>;
+const BENEFIT_TONES: Record<string, string> = { orange: sample.benefitOrange, green: sample.benefitGreen, violet: sample.benefitViolet };
+const MODULE_TONES: Record<string, string> = { blue: sample.blue, green: sample.green, violet: sample.violet, orange: sample.orange, rose: sample.rose, teal: sample.teal };
+const MODULE_IMAGE_FALLBACKS: Record<string, string> = {
+  Students: MODULE_IMAGES.student,
+  Schools: MODULE_IMAGES.school,
+  Parents: MODULE_IMAGES.parent,
+  Learning: MODULE_IMAGES.learn,
+  Competitions: MODULE_IMAGES.competition,
+  Communities: HERO_IMAGES.communities,
+};
+
+const FALLBACK_HOME_CONTENT: HomepageContent = {
+  hero: { eyebrow: 'INDIA’S CONNECTED EDUCATION ECOSYSTEM', title: 'One platform for learning, schools and families.', description: 'VidyaSetu connects students, schools, teachers and parents on one trusted platform to learn, manage, communicate and grow together.' },
+  benefits: HERO_BENEFITS.map(({ title, copy }, index) => ({ icon: ['graduation', 'school', 'family'][index] as HomepageIcon, title, copy, tone: ['orange', 'green', 'violet'][index] as HomepageContent['benefits'][number]['tone'] })),
+  modules: MODULES.map(({ title, copy, href, image }, index) => ({ title, copy, href, imageUrl: image || '', icon: (['graduation', 'school', 'family', 'book', 'trophy', 'family'] as HomepageIcon[])[index], tone: (['blue', 'green', 'violet', 'orange', 'rose', 'teal'] as HomepageContent['modules'][number]['tone'][])[index] || 'blue' })),
+  video: { title: 'Discover VidyaSetu', description: 'See how students, schools and families learn and stay connected.', videoUrl: '', posterUrl: HERO_IMAGES.home, captionsUrl: '', captionsLanguage: 'en', transcript: '' },
+  journey: JOURNEY.map(({ step, title, copy }, index) => ({ step, title, copy, icon: (['graduation', 'school', 'family', 'link'] as HomepageIcon[])[index] })),
+  trust: [...TRUST],
+  finalCta: { eyebrow: 'START WITH THE PART YOU NEED', title: 'Learn publicly. Join when you are ready for the connected experience.', copy: 'Create an account for role-based learning, school workflows, parent visibility, Communities and participation history.' },
+};
 
 const DISCOVERY_TONES = [styles.discoveryBlue, styles.discoveryGreen, styles.discoveryOrange];
 
@@ -69,6 +92,7 @@ export default function PublicHomeSampleExperience() {
   const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
   const [overview, setOverview] = useState<PublicOverview | null>(null);
   const [learningOverview, setLearningOverview] = useState<PublicLearningOverview | null>(null);
+  const [homepage, setHomepage] = useState<HomepageContent | null>(null);
   const [loadStates, setLoadStates] = useState({
     learning: 'loading' as 'loading' | 'ready' | 'error',
     schools: 'loading' as 'loading' | 'ready' | 'error',
@@ -85,13 +109,15 @@ export default function PublicHomeSampleExperience() {
       getPublicCompetitions(),
       getPublicOverview(),
       getPublicLearningOverview(),
-    ]).then(([learningResult, schoolResult, competitionResult, overviewResult, learningOverviewResult]) => {
+      getPublicHomepage(),
+    ]).then(([learningResult, schoolResult, competitionResult, overviewResult, learningOverviewResult, homepageResult]) => {
       if (!active) return;
       if (learningResult.status === 'fulfilled') setLearning(learningResult.value.data.data || []);
       if (schoolResult.status === 'fulfilled') setSchools((schoolResult.value.data.data || []).slice(0, 3));
       if (competitionResult.status === 'fulfilled') setCompetitions((competitionResult.value.data.data || []).slice(0, 3));
       if (overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data.data);
       if (learningOverviewResult.status === 'fulfilled') setLearningOverview(learningOverviewResult.value.data.data);
+      if (homepageResult.status === 'fulfilled') setHomepage(homepageResult.value.data.data);
       setLoadStates({
         learning: learningResult.status === 'fulfilled' ? 'ready' : 'error',
         schools: schoolResult.status === 'fulfilled' ? 'ready' : 'error',
@@ -102,6 +128,8 @@ export default function PublicHomeSampleExperience() {
     });
     return () => { active = false; };
   }, []);
+
+  const homeContent = homepage || FALLBACK_HOME_CONTENT;
 
   const homeStats = [
     { icon: BookOpen, value: loadStates.learningOverview === 'loading' ? '…' : loadStates.learningOverview === 'error' ? '—' : metric(learningOverview?.totalResources), label: 'Published Learning Resources', note: loadStates.learningOverview === 'error' ? 'Could not load this total' : 'Live public catalogue', tone: sample.statOrange },
@@ -123,17 +151,20 @@ export default function PublicHomeSampleExperience() {
         <div className={sample.heroFade} aria-hidden="true" />
         <div className={sample.heroShell}>
           <div className={sample.heroContent}>
-            <div className={sample.eyebrow}>INDIA’S CONNECTED EDUCATION ECOSYSTEM</div>
-            <h1 id="home-hero-title">One platform for learning,<br />schools and families.</h1>
-            <p className={sample.description}>VidyaSetu connects students, schools, teachers and parents on one trusted platform to learn, manage, communicate and grow together.</p>
+            <div className={sample.eyebrow}>{homeContent.hero.eyebrow}</div>
+            <h1 id="home-hero-title">{homeContent.hero.title}</h1>
+            <p className={sample.description}>{homeContent.hero.description}</p>
 
             <div className={sample.benefits} aria-label="VidyaSetu core benefits">
-              {HERO_BENEFITS.map(({ icon: Icon, title, copy, tone }) => (
+              {homeContent.benefits.map(({ icon, title, copy, tone }) => {
+                const Icon = HOME_ICONS[icon];
+                return (
                 <div className={sample.benefit} key={title}>
-                  <span className={`${sample.benefitIcon} ${tone}`}><Icon size={22} strokeWidth={1.9} /></span>
+                  <span className={`${sample.benefitIcon} ${BENEFIT_TONES[tone || 'orange'] || sample.benefitOrange}`}><Icon size={22} strokeWidth={1.9} /></span>
                   <span><strong>{title}</strong><small>{copy}</small></span>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className={sample.actions}>
@@ -144,6 +175,22 @@ export default function PublicHomeSampleExperience() {
         </div>
       </section>
 
+      {homeContent.video.videoUrl && <section className={sample.videoSection} aria-labelledby="home-video-title">
+        <div className={sample.videoShell}>
+          <div className={sample.videoCopy}>
+            <span>MEET VIDYASETU</span>
+            <h2 id="home-video-title">{homeContent.video.title}</h2>
+            <p>{homeContent.video.description}</p>
+            {homeContent.video.transcript && <details className={sample.videoTranscript}><summary>Read the video transcript</summary><p>{homeContent.video.transcript}</p></details>}
+          </div>
+          <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={homeContent.video.title}>
+            <source src={homeContent.video.videoUrl} />
+            {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default />}
+            Your browser does not support this video. Use the transcript beside it.
+          </video>
+        </div>
+      </section>}
+
       <section className={sample.modulesSection} id="platform-modules">
         <div className={sample.wideShell}>
           <div className={sample.moduleHeading}>
@@ -151,10 +198,15 @@ export default function PublicHomeSampleExperience() {
             <p>Built for everyone in the education ecosystem</p>
           </div>
           <div className={sample.moduleGrid}>
-            {MODULES.map((module) => (
-              <Link href={module.href} className={`${sample.moduleCard} ${module.tone}`} key={module.title}>
+            {homeContent.modules.map((moduleContent) => {
+              const module = { ...moduleContent, image: moduleContent.imageUrl || MODULE_IMAGE_FALLBACKS[moduleContent.title] || '' };
+              const Icon = HOME_ICONS[module.icon];
+              return <Link href={module.href} className={`${sample.moduleCard} ${MODULE_TONES[module.tone || 'blue'] || sample.blue}`} key={module.title}>
                 <div className={sample.moduleMedia} aria-hidden="true">
-                  {module.image ? <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 820px) 100vw, (max-width: 1180px) 33vw, 33vw" style={{ objectFit: 'cover', objectPosition: 'center' }} /> : <div className={sample.moduleVisualFallback}><Users size={46} strokeWidth={1.5} /></div>}
+                  {module.image ? module.image.startsWith('/')
+                    ? <Image src={module.image} alt="" fill quality={86} sizes="(max-width: 820px) 100vw, (max-width: 1180px) 33vw, 33vw" className={sample.modulePhoto} style={{ objectFit: 'cover' }} />
+                    : <img className={sample.modulePhoto} src={module.image} alt="" loading="lazy" />
+                    : <div className={sample.moduleVisualFallback}><Icon size={46} strokeWidth={1.5} /></div>}
                 </div>
                 <div className={sample.moduleBody}>
                   <div className={sample.moduleTitleRow}>
@@ -164,7 +216,7 @@ export default function PublicHomeSampleExperience() {
                   <p>{module.copy}</p>
                 </div>
               </Link>
-            ))}
+            })}
           </div>
 
           <div className={sample.statsStrip} role="status" aria-live="polite" aria-label="Live VidyaSetu platform metrics">
@@ -215,12 +267,15 @@ export default function PublicHomeSampleExperience() {
             <p>VidyaSetu connects the people and opportunities around a learner without forcing every role into the same dashboard.</p>
           </div>
           <div className={styles.journeyGrid}>
-            {JOURNEY.map(({ icon: Icon, step, title, copy }) => (
+            {homeContent.journey.map(({ icon, step, title, copy }) => {
+              const Icon = HOME_ICONS[icon];
+              return (
               <article className={styles.journeyCard} key={step}>
                 <div className={styles.journeyTop}><span>{step}</span><Icon size={25} strokeWidth={1.7} /></div>
                 <h3>{title}</h3><p>{copy}</p>
               </article>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -253,14 +308,14 @@ export default function PublicHomeSampleExperience() {
       <section className={styles.whySection}>
         <div className={styles.shell}>
           <div className={styles.centerHeading}><span>BUILT TO BE TRUSTED</span><h2>A connected platform still needs clear boundaries.</h2><p>Public discovery stays open while personal, school and family information remains role-aware and protected.</p></div>
-          <div className={styles.whyGrid}>{TRUST.map(([icon, title, copy]) => <article className={styles.whyCard} key={title}><div>{icon}</div><strong>{title}</strong><p>{copy}</p></article>)}</div>
+          <div className={styles.whyGrid}>{homeContent.trust.map(({ icon, title, copy }) => { const Icon = HOME_ICONS[icon]; return <article className={styles.whyCard} key={title}><div><Icon aria-hidden="true" size={25} strokeWidth={1.8} /></div><strong>{title}</strong><p>{copy}</p></article>; })}</div>
         </div>
       </section>
 
       <section className={styles.finalCta}>
         <div className={styles.shell}>
           <div className={styles.finalCtaInner}>
-            <div><span>START WITH THE PART YOU NEED</span><h2>Learn publicly. Join when you are ready for the connected experience.</h2><p>Create an account for role-based learning, school workflows, parent visibility, Communities and participation history.</p></div>
+            <div><span>{homeContent.finalCta.eyebrow}</span><h2>{homeContent.finalCta.title}</h2><p>{homeContent.finalCta.copy}</p></div>
             <div className={styles.ctaActions}><Link href="/register">Create account</Link><Link href="/login">Login</Link></div>
           </div>
         </div>

@@ -502,6 +502,24 @@
 .moduleBody { background: #456184; color: #fff; }
 .moduleBody strong,.moduleBody p { color: #fff; }
 .moduleExplore { background: #FF8A3D; color: #14213D; }
+
+.videoSection { padding: clamp(32px, 5vw, 64px) 24px; background: #DCE5EF; }
+.videoShell { width: min(1180px, 100%); margin: 0 auto; display: grid; grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr); gap: clamp(22px, 4vw, 48px); align-items: center; }
+.videoCopy > span { color: #B84B0A; font-size: 13px; letter-spacing: .13em; font-weight: 900; }
+.videoCopy h2 { margin: 9px 0 8px; color: #14213D; font-family: 'Baloo 2', cursive; font-size: clamp(26px, 3vw, 38px); line-height: 1.08; font-weight: 800; }
+.videoCopy > p { margin: 0; color: #354862; font-size: 16px; line-height: 1.6; }
+.videoPlayer { display: block; width: 100%; max-height: 460px; aspect-ratio: 16 / 9; border: 1px solid #9aacc1; border-radius: 18px; background: #14213D; object-fit: cover; box-shadow: 0 14px 34px rgba(20,33,61,.18); }
+.videoTranscript { margin-top: 18px; color: #14213D; }
+.videoTranscript summary { width: fit-content; cursor: pointer; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.videoTranscript p { max-height: 220px; overflow: auto; margin: 10px 0 0; padding: 14px; border: 1px solid #b2c1d2; border-radius: 12px; background: #eef3f8; color: #263954; font-size: 14px; line-height: 1.65; white-space: pre-line; }
+.modulePhoto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+
+@media (max-width: 760px) {
+  .videoSection { padding: 30px 18px; }
+  .videoShell { grid-template-columns: 1fr; gap: 18px; }
+  .videoCopy > p { font-size: 15px; }
+  .videoPlayer { border-radius: 13px; }
+}
 .statsStrip { background: #456184; border-color: #456184; box-shadow: 0 12px 28px rgba(13,27,62,.16); }
 .statCopy strong,.statCopy b,.statCopy small { color: #fff !important; }
 .stat:not(:last-child)::after { background: rgba(255,255,255,.25); }

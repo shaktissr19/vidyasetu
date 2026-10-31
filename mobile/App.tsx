@@ -32,7 +32,7 @@ type Page = {
   section?: string;
 };
 
-type UserRole = "STUDENT" | "PARENT" | "TEACHER" | "SCHOOL_ADMIN" | "SUPER_ADMIN";
+type UserRole = "STUDENT" | "PARENT" | "TEACHER" | "SCHOOL_ADMIN" | "PLATFORM_ADMIN" | "SUPER_ADMIN";
 type NativeUser = { role: UserRole; name?: string };
 
 const PUBLIC_TABS: Page[] = [
@@ -74,6 +74,11 @@ const ROLE_TABS: Record<UserRole, Page[]> = {
     { label: "Overview", path: "/school/overview", icon: "⌂" },
     { label: "Students", path: "/school/students", icon: "◉" },
     { label: "Classes", path: "/school/classes", icon: "▦" },
+  ],
+  PLATFORM_ADMIN: [
+    { label: "Analytics", path: "/admin/analytics", icon: "▥" },
+    { label: "Schools", path: "/admin/schools", icon: "▦" },
+    { label: "Users", path: "/admin/users", icon: "◉" },
   ],
   SUPER_ADMIN: [
     { label: "Analytics", path: "/admin/analytics", icon: "▥" },
@@ -165,10 +170,19 @@ const ROLE_MORE_PAGES: Record<UserRole, Page[]> = {
     { section: "School operations", label: "Communities", path: "/school/groups", icon: "◎" },
     ...PUBLIC_MORE_PAGES,
   ],
+  PLATFORM_ADMIN: [
+    { section: "Platform operations", label: "Analytics", path: "/admin/analytics", icon: "▥" },
+    { section: "Platform operations", label: "Schools", path: "/admin/schools", icon: "▦" },
+    { section: "Platform operations", label: "Users", path: "/admin/users", icon: "◉" },
+    { section: "Platform operations", label: "Competitions", path: "/admin/competitions", icon: "☆" },
+    { section: "Platform operations", label: "Support", path: "/admin/support", icon: "?" },
+    ...PUBLIC_MORE_PAGES,
+  ],
   SUPER_ADMIN: [
     { section: "Platform", label: "Analytics", path: "/admin/analytics", icon: "▥" },
     { section: "Platform", label: "Schools", path: "/admin/schools", icon: "▦" },
     { section: "Platform", label: "Users", path: "/admin/users", icon: "◉" },
+    { section: "Platform", label: "Home page", path: "/admin/homepage", icon: "⌂" },
     { section: "Learning", label: "Syllabus", path: "/admin/learning/syllabus", icon: "▣" },
     { section: "Learning", label: "Content Factory", path: "/admin/learning/factory", icon: "⚙" },
     { section: "Learning", label: "Topic Assets", path: "/admin/learning/governance", icon: "✦" },
@@ -594,7 +608,7 @@ function AppContent() {
                 language?: "en" | "hi";
               };
               if (message.language === "en" || message.language === "hi") setSiteLanguage(message.language);
-              const roles: UserRole[] = ["STUDENT", "PARENT", "TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"];
+              const roles: UserRole[] = ["STUDENT", "PARENT", "TEACHER", "SCHOOL_ADMIN", "PLATFORM_ADMIN", "SUPER_ADMIN"];
               if (message.type !== "vidyasetu-auth" || message.origin !== SITE_ORIGIN || new URL(currentUrl).origin !== SITE_ORIGIN) return;
               if (!message.isLoggedIn || !roles.includes(message.role as UserRole)) {
                 setNativeUser(null);
