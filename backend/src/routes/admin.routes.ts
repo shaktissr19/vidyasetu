@@ -6,6 +6,7 @@ import * as groupAdminCtrl from '../controllers/groupAdminLifecycle.controller';
 import * as governanceCtrl from '../controllers/groupGovernance.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
+import { requirePlatformCapability } from '../services/platformAdminAccess.service';
 
 const router = Router();
 
@@ -51,27 +52,31 @@ const groupReportSchema = z.object({
 });
 const groupOwnerSchema = z.object({ userId: z.string().uuid() });
 
-router.get('/analytics', ctrl.getAnalytics);
+router.get('/me/permissions', ctrl.getMyAdminPermissions);
+router.get('/analytics', requirePlatformCapability('ANALYTICS'), ctrl.getAnalytics);
 router.get('/revenue', authorize('SUPER_ADMIN'), ctrl.getRevenue);
-router.get('/content', ctrl.getContentAnalytics);
+router.get('/content', requirePlatformCapability('CONTENT_ANALYTICS'), ctrl.getContentAnalytics);
 router.get('/audit', authorize('SUPER_ADMIN'), ctrl.getAuditLog);
-router.get('/schools', ctrl.listSchools);
-router.get('/schools/:schoolId', ctrl.getSchool);
-router.patch('/schools/:schoolId/status', validate(statusSchema), ctrl.updateSchoolStatus);
-router.get('/users/export', ctrl.exportUsers);
-router.get('/users', ctrl.listUsers);
-router.patch('/users/:userId/status', validate(statusSchema), ctrl.updateUserStatus);
+router.get('/schools', requirePlatformCapability('SCHOOLS'), ctrl.listSchools);
+router.get('/schools/:schoolId', requirePlatformCapability('SCHOOLS'), ctrl.getSchool);
+router.patch('/schools/:schoolId/status', requirePlatformCapability('SCHOOLS'), validate(statusSchema), ctrl.updateSchoolStatus);
+router.get('/users/export', requirePlatformCapability('USERS'), ctrl.exportUsers);
+router.get('/users', requirePlatformCapability('USERS'), ctrl.listUsers);
+router.patch('/users/:userId/status', requirePlatformCapability('USERS'), validate(statusSchema), ctrl.updateUserStatus);
 router.get('/config', authorize('SUPER_ADMIN'), ctrl.getConfig);
 router.patch('/config/:key', authorize('SUPER_ADMIN'), validate(configSchema), ctrl.updateConfig);
 router.patch('/config', authorize('SUPER_ADMIN'), validate(configBodySchema), ctrl.updateConfigBody);
 router.get('/homepage', authorize('SUPER_ADMIN'), ctrl.getHomepageDraft);
 router.put('/homepage/draft', authorize('SUPER_ADMIN'), ctrl.saveHomepageDraft);
 router.post('/homepage/publish', authorize('SUPER_ADMIN'), ctrl.publishHomepageDraft);
+router.get('/public-pages/learn', authorize('SUPER_ADMIN'), ctrl.getLearnPageDraft);
+router.put('/public-pages/learn/draft', authorize('SUPER_ADMIN'), ctrl.saveLearnPageDraft);
+router.post('/public-pages/learn/publish', authorize('SUPER_ADMIN'), ctrl.publishLearnPageDraft);
 
-router.get('/support', ctrl.getTickets);
-router.patch('/support/:ticketId', validate(supportUpdateSchema), ctrl.updateTicket);
-router.get('/competitions', ctrl.listCompetitions);
-router.post('/competitions', validate(competitionCreateSchema), ctrl.createCompetition);
+router.get('/support', requirePlatformCapability('SUPPORT'), ctrl.getTickets);
+router.patch('/support/:ticketId', requirePlatformCapability('SUPPORT'), validate(supportUpdateSchema), ctrl.updateTicket);
+router.get('/competitions', requirePlatformCapability('COMPETITIONS'), ctrl.listCompetitions);
+router.post('/competitions', requirePlatformCapability('COMPETITIONS'), validate(competitionCreateSchema), ctrl.createCompetition);
 
 router.get('/groups', authorize('SUPER_ADMIN'), groupCtrl.adminGroups);
 router.patch('/groups/:groupId/decision', authorize('SUPER_ADMIN'), validate(groupDecisionSchema), groupAdminCtrl.decideGroup);

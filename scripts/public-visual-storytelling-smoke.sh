@@ -16,11 +16,12 @@ MODULE='frontend/src/components/public/PublicModulePage.tsx'
 MODULE_CSS='frontend/src/components/public/publicModuleVisual.module.css'
 SUBJECT='frontend/src/components/public/SubjectVisual.tsx'
 LEARN='frontend/src/components/public/PublicLearningLibrary.tsx'
+LEARN_CONTENT='frontend/src/services/publicPageContentService.ts'
 CATALOGUE='frontend/src/components/public/PublicLearningCatalogue.tsx'
 LOGIN='frontend/src/app/(auth)/login/page.tsx'
 COMPETITION='frontend/src/app/competition/page.tsx'
 
-SOURCE_FILES=("$HOME" "$HOME_IMPL" "$HOME_SAMPLE_CSS" "$HOME_ROUTE" "$HERO" "$HERO_CSS" "$HERO_ASSETS" "$MODULE" "$MODULE_CSS" "$SUBJECT" "$LEARN" "$CATALOGUE" "$LOGIN" "$COMPETITION")
+SOURCE_FILES=("$HOME" "$HOME_IMPL" "$HOME_SAMPLE_CSS" "$HOME_ROUTE" "$HERO" "$HERO_CSS" "$HERO_ASSETS" "$MODULE" "$MODULE_CSS" "$SUBJECT" "$LEARN" "$LEARN_CONTENT" "$CATALOGUE" "$LOGIN" "$COMPETITION")
 for file in "${SOURCE_FILES[@]}"; do [[ -s "$file" ]] || fail "Required public visual file is missing: $file"; done
 
 printf '==> Partial production PNG preview architecture\n'
@@ -79,8 +80,9 @@ require_text "$SUBJECT" "export type LearningGradeBand = 'primary' | 'middle' | 
 for subject in math science english hindi social computer evs commerce; do
   require_text "$SUBJECT" "$subject:" "Subject visual missing: $subject"
 done
-require_text "$LEARN" 'Learning that fits into real life.' 'Learning headline must remain'
-require_text "$LEARN" 'image={HERO_IMAGES.learn}' 'Learning must use mapped hero'
+require_text "$LEARN" 'title={editorial.hero.title}' 'Learning hero must render its published editorial title'
+require_text "$LEARN_CONTENT" 'Learning that fits into real life.' 'Learning headline must remain the default editorial copy'
+require_text "$LEARN" 'editorial.hero.imageUrl || HERO_IMAGES.learn' 'Learning must use its editable hero image with the mapped default'
 require_text "$LEARN" 'INITIAL_RESOURCE_LIMIT = 6' 'Learning must initially load 6'
 require_text "$LEARN" 'MAX_HOME_RESOURCE_LIMIT = 24' 'Learning landing must remain bounded'
 require_text "$LEARN" 'Load 6 more' 'Learning must preserve load-more behavior'

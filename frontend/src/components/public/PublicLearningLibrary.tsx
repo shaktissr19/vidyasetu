@@ -22,6 +22,8 @@ import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES } from '@/components/public/heroAssets';
+import useAuthStore from '@/store/authStore';
+import { DEFAULT_LEARN_PAGE_CONTENT, getPublicLearnPage } from '@/services/publicPageContentService';
 import {
   getPublicLearningAssessments,
   getPublicLearningOverview,
@@ -151,12 +153,22 @@ function ResourceCard({ resource, selectedGrade }: { resource: PublicLearningRes
 }
 
 export default function PublicLearningLibrary() {
+  const canEditLearnPage = useAuthStore((state) => state.user?.role === 'SUPER_ADMIN');
   const [filtersReady, setFiltersReady] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedStage, setSelectedStage] = useState<StageFilter>('ALL');
   const [selectedBoard, setSelectedBoard] = useState('ALL');
   const [category, setCategory] = useState<LearningCategory | 'ALL'>('ALL');
   const [resourceLimit, setResourceLimit] = useState(INITIAL_RESOURCE_LIMIT);
+  const editorialQuery = useQuery({
+    queryKey: ['public-page-content', 'learn'],
+    queryFn: ({ signal }) => getPublicLearnPage().then((response) => response.data.data),
+    staleTime: 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+  const editorial = editorialQuery.data || DEFAULT_LEARN_PAGE_CONTENT;
+  const categoryCopy = useMemo(() => new Map(editorial.learningTypes.categories.map((item) => [item.id, item])), [editorial]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -223,7 +235,7 @@ export default function PublicLearningLibrary() {
   const resources = resourcesQuery.data || [];
   const assessments = assessmentsQuery.data || [];
   const activeGradeLabel = selectedGradeMeta?.shortName || 'All levels';
-  const activeCategoryLabel = category === 'ALL' ? 'All learning' : CATEGORY_META[category].label;
+  const activeCategoryLabel = category === 'ALL' ? editorial.learningTypes.allLabel : categoryCopy.get(category)?.label || CATEGORY_META[category].label;
   const activeBoardLabel = selectedBoard === 'ALL' ? 'All boards' : boardOptions.find((board) => board.code === selectedBoard)?.short_name || selectedBoard;
   const canLoadMore = resources.length === resourceLimit && resourceLimit < MAX_HOME_RESOURCE_LIMIT;
   const libraryParams = new URLSearchParams();
@@ -240,17 +252,21 @@ export default function PublicLearningLibrary() {
     <div className={styles.page}>
       <GlobalTopbar />
       <ImageHero
-        image={HERO_IMAGES.learn}
+        image={editorial.hero.imageUrl || HERO_IMAGES.learn}
         imagePosition="center"
-        eyebrow="Learning · Pre-Nursery to Class 12 · Cross-board"
-        title="Learning that fits into real life."
-        description="Explore lessons, practice, reading and skills that help learners keep moving forward."
+        eyebrow={editorial.hero.eyebrow}
+        title={editorial.hero.title}
+        description={editorial.hero.description}
         theme="blue"
-        actions={[{ label: 'Explore learning', href: '#browse' }, { label: 'Practice by class', href: '#practice', variant: 'secondary' }]}
+        actions={[
+          { label: editorial.hero.primaryActionLabel, href: '#browse' },
+          { label: editorial.hero.secondaryActionLabel, href: '#practice', variant: 'secondary' },
+          ...(canEditLearnPage ? [{ label: 'Edit Learn page', href: '/admin/public-pages/learn', variant: 'secondary' as const }] : []),
+        ]}
       />
 
       <section className={styles.browseSection} id="browse"><div className={styles.shell}>
-        <div className={styles.sectionHeading}><div className={styles.eyebrow}>FIND THE RIGHT LEARNING PATH</div><h2>Browse by learning level</h2><p>Choose a stage or grade first. Narrow by board only when the curriculum needs to be more specific.</p></div>
+        <div className={styles.sectionHeading}><div className={styles.eyebrow}>{editorial.browse.eyebrow}</div><h2>{editorial.browse.title}</h2><p>{editorial.browse.description}</p></div>
         <div className={styles.stageTabs}>{STAGE_META.map((stage) => <button key={stage.code} type="button" className={selectedStage === stage.code ? styles.stageActive : styles.stageButton} onClick={() => setSelectedStage(stage.code)}>{stage.label}</button>)}</div>
         <div className={styles.gradeGrid}>{visibleGrades.map((grade) => <button key={grade.code} type="button" className={`${styles.gradeButton} ${STAGE_TONE[grade.stage]} ${selectedGrade === grade.code ? styles.gradeActive : ''}`} onClick={() => chooseGrade(grade)}><span>{grade.shortName}</span></button>)}</div>
         <div className={styles.filterRow}>
@@ -259,16 +275,16 @@ export default function PublicLearningLibrary() {
           {(selectedGrade || selectedBoard !== 'ALL' || category !== 'ALL') && <button type="button" className={styles.clearButton} onClick={clearFilters}>Clear filters</button>}
         </div>
         <div className={styles.categorySection}>
-          <div className={styles.categoryHeading}><div><span>LEARNING TYPE</span><h3>Explore more than the syllabus</h3></div><p>Academic learning stays central, with visible pathways for study habits, confidence, responsibility and life skills.</p></div>
+          <div className={styles.categoryHeading}><div><span>{editorial.learningTypes.eyebrow}</span><h3>{editorial.learningTypes.title}</h3></div><p>{editorial.learningTypes.description}</p></div>
           <div className={styles.categoryGrid}>
-            <button type="button" className={`${styles.categoryCard} ${styles.neutral} ${category === 'ALL' ? styles.categoryActive : ''}`} onClick={() => chooseCategory('ALL')}><BookOpen /><strong>All learning</strong><span>Explore everything</span></button>
-            {ALL_CATEGORIES.map((item) => { const meta = CATEGORY_META[item]; const Icon = meta.icon; return <button key={item} type="button" className={`${styles.categoryCard} ${meta.tone} ${category === item ? styles.categoryActive : ''}`} onClick={() => chooseCategory(item)}><Icon /><strong>{meta.shortLabel}</strong><span>Explore this path</span></button>; })}
+            <button type="button" className={`${styles.categoryCard} ${styles.neutral} ${category === 'ALL' ? styles.categoryActive : ''}`} onClick={() => chooseCategory('ALL')}><BookOpen /><strong>{editorial.learningTypes.allLabel}</strong><span>{editorial.learningTypes.allDescription}</span></button>
+            {ALL_CATEGORIES.map((item) => { const meta = CATEGORY_META[item]; const copy = categoryCopy.get(item) || { label: meta.label, shortLabel: meta.shortLabel, description: 'Explore this path' }; const Icon = meta.icon; return <button key={item} type="button" className={`${styles.categoryCard} ${meta.tone} ${category === item ? styles.categoryActive : ''}`} onClick={() => chooseCategory(item)}><Icon /><strong>{copy.shortLabel}</strong><span>{copy.description}</span></button>; })}
           </div>
         </div>
       </div></section>
 
       <section className={styles.resourcesSection} id="resources"><div className={styles.shell}>
-        <div className={styles.resultsHeading}><div><div className={styles.eyebrow}>LEARNING RESOURCES</div><h2>{selectedGradeMeta ? `${selectedGradeMeta.shortName} learning` : 'Explore learning'}</h2><p>{category === 'ALL' ? 'A focused preview of academic learning and personal growth resources.' : `A focused preview of ${CATEGORY_META[category].label.toLowerCase()} resources.`}</p></div>{resourcesQuery.isFetching && resources.length > 0 && <span className={styles.updating}>Updating…</span>}</div>
+        <div className={styles.resultsHeading}><div><div className={styles.eyebrow}>{editorial.results.eyebrow}</div><h2>{selectedGradeMeta ? `${selectedGradeMeta.shortName} learning` : editorial.results.title}</h2><p>{category === 'ALL' ? editorial.results.description : `A focused preview of ${(categoryCopy.get(category)?.label || CATEGORY_META[category].label).toLowerCase()} resources.`}</p></div>{resourcesQuery.isFetching && resources.length > 0 && <span className={styles.updating}>Updating…</span>}</div>
         {resourcesQuery.isError ? (
           <div className={styles.errorState}><strong>Learning resources could not be loaded.</strong><span>You do not need to refresh the whole page.</span><button type="button" onClick={() => resourcesQuery.refetch()}><RefreshCw size={16} /> Try again</button></div>
         ) : resourcesQuery.isPending && resources.length === 0 ? (
@@ -281,20 +297,20 @@ export default function PublicLearningLibrary() {
       </div></section>
 
       <section className={styles.practiceSection} id="practice"><div className={styles.shell}>
-        <div className={styles.sectionHeading}><div className={styles.eyebrow}>PRACTISE AND CHECK UNDERSTANDING</div><h2>{assessmentClass ? `Practice for Class ${assessmentClass}` : 'Practice when the learner is ready'}</h2><p>Short practice sets and question papers help students check what they understand before moving ahead.</p></div>
+        <div className={styles.sectionHeading}><div className={styles.eyebrow}>{editorial.practice.eyebrow}</div><h2>{assessmentClass ? `Practice for Class ${assessmentClass}` : editorial.practice.title}</h2><p>{editorial.practice.description}</p></div>
         {assessmentClass ? assessmentsQuery.isError ? (
           <div className={styles.errorState}><strong>Practice could not be loaded.</strong><button type="button" onClick={() => assessmentsQuery.refetch()}><RefreshCw size={16} /> Try again</button></div>
         ) : assessments.length ? (
           <div className={styles.practiceGrid}>{assessments.slice(0,6).map((assessment) => <Link key={assessment.id} href={`/learn/practice/${assessment.public_slug}`} className={styles.practiceCard}><FileQuestion size={26} /><span>{assessment.assessment_type.replaceAll('_',' ')}</span><h3>{assessment.title}</h3><p>{assessment.summary || 'A focused practice set for this learning level.'}</p><div>{assessment.question_count} questions {assessment.time_limit_mins ? `· ${assessment.time_limit_mins} min` : ''}</div><strong>Start practice</strong></Link>)}</div>
-        ) : <div className={styles.practicePrompt}>More practice for this class can be added through the Learning Studio as the catalogue grows.</div> : <div className={styles.practicePrompt}><GraduationCap size={24} /> Choose a school class above to see practice sets for that level.</div>}
+        ) : <div className={styles.practicePrompt}>{editorial.practice.emptyMessage}</div> : <div className={styles.practicePrompt}><GraduationCap size={24} /> {editorial.practice.chooseMessage}</div>}
       </div></section>
 
       <section className={styles.developmentSection}><div className={styles.shell}>
-        <div className={styles.developmentHeading}><div className={styles.eyebrow}>BEYOND MARKS</div><h2>Learning for school. Skills for life.</h2><p>Academic progress matters, and so do curiosity, habits, values, resilience and confidence at every stage of development.</p></div>
-        <div className={styles.pillarGrid}>{DEVELOPMENT_PILLARS.map((pillar) => { const Icon = pillar.icon; return <button key={pillar.category} type="button" className={`${styles.pillarCard} ${pillar.tone}`} onClick={() => chooseCategory(pillar.category)}><div className={styles.pillarIcon}><Icon size={28} strokeWidth={1.75} /></div><span>{pillar.eyebrow}</span><h3>{pillar.title}</h3><p>{pillar.copy}</p><strong>Explore this area</strong></button>; })}</div>
+        <div className={styles.developmentHeading}><div className={styles.eyebrow}>{editorial.development.eyebrow}</div><h2>{editorial.development.title}</h2><p>{editorial.development.description}</p></div>
+        <div className={styles.pillarGrid}>{editorial.development.pillars.map((pillar) => { const visual = DEVELOPMENT_PILLARS.find((item) => item.category === pillar.category) || DEVELOPMENT_PILLARS[0]; const Icon = visual.icon; return <button key={pillar.category} type="button" className={`${styles.pillarCard} ${visual.tone}`} onClick={() => chooseCategory(pillar.category)}><div className={styles.pillarIcon}><Icon size={28} strokeWidth={1.75} /></div><span>{pillar.eyebrow}</span><h3>{pillar.title}</h3><p>{pillar.copy}</p><strong>Explore this area</strong></button>; })}</div>
       </div></section>
 
-      <section className={styles.finalCta}><div className={styles.shell}><div className={styles.ctaInner}><div><span>LEARNING CONTINUES AFTER SIGN-IN</span><h2>Save progress. Keep practising. Return where you left off.</h2><p>Student accounts add class-aware recommendations, bookmarks, progress, assessment history and school-connected learning.</p></div><div className={styles.ctaActions}><Link className={styles.primaryAction} href="/login?role=student">Student login</Link><Link className={styles.secondaryLight} href="/?auth=register">Create account</Link></div></div></div></section>
+      <section className={styles.finalCta}><div className={styles.shell}><div className={styles.ctaInner}><div><span>{editorial.finalCta.eyebrow}</span><h2>{editorial.finalCta.title}</h2><p>{editorial.finalCta.description}</p></div><div className={styles.ctaActions}><Link className={styles.primaryAction} href="/login?role=student">{editorial.finalCta.loginLabel}</Link><Link className={styles.secondaryLight} href="/?auth=register">{editorial.finalCta.createAccountLabel}</Link></div></div></div></section>
     </div>
   );
 }

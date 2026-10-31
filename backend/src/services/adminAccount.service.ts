@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { UUID } from '@vidyasetu/contracts';
 import { transaction } from '../config/db';
 import { hashPassword } from '../utils/password';
+import { PLATFORM_ADMIN_CAPABILITIES } from './platformAdminAccess.service';
 
 export const adminAccountSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -9,6 +10,8 @@ export const adminAccountSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/),
   email: z.string().email().max(180).optional(),
   password: z.string().min(8).max(128).regex(/[A-Za-z]/).regex(/\d/),
+  permissions: z.array(z.enum(PLATFORM_ADMIN_CAPABILITIES)).max(PLATFORM_ADMIN_CAPABILITIES.length)
+    .refine((values) => new Set(values).size === values.length, 'Choose each access area once').default([]),
 });
 
 export async function createPlatformAdmin(input: unknown, actorId: UUID | null) {
@@ -37,10 +40,16 @@ export async function createPlatformAdmin(input: unknown, actorId: UUID | null) 
        RETURNING id,name,username,mobile,email,role,status`,
       [data.name, username, data.mobile, email, passwordHash, actorId ? 'PLATFORM_ADMIN' : 'SUPER_ADMIN'],
     );
+    if (actorId && data.permissions.length) {
+      await client.query(
+        `INSERT INTO platform_admin_permissions(user_id,permission,granted_by,granted_at)
+         SELECT $1,permission,$2,NOW() FROM UNNEST($3::text[]) AS permission`, [user.id,actorId,data.permissions],
+      );
+    }
     await client.query(
       `INSERT INTO audit_log(actor_id,actor_role,action,entity_type,entity_id,new_value)
        VALUES($1,'SUPER_ADMIN',$2,'user',$3,$4)`,
-      [actorId || user.id, actorId ? 'PLATFORM_ADMIN_CREATED' : 'SUPER_ADMIN_BOOTSTRAPPED', user.id, JSON.stringify({ role: user.role, username: user.username })],
+      [actorId || user.id, actorId ? 'PLATFORM_ADMIN_CREATED' : 'SUPER_ADMIN_BOOTSTRAPPED', user.id, JSON.stringify({ role: user.role, username: user.username, permissions: actorId ? data.permissions : [] })],
     );
     return user;
   });

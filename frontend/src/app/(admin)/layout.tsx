@@ -8,6 +8,7 @@ import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import DashSidebar from '@/components/layout/DashSidebar';
 import useAuthStore from '@/store/authStore';
 import { getContentFactoryQueueCounts } from '@/services/contentFactoryService';
+import { getMyAdminPermissions, type AdminCapability } from '@/services/platformAdminService';
 import './admin-theme.css';
 
 // Legacy certification labels retained for CI contract compatibility:
@@ -21,7 +22,17 @@ function menuLabel(text: string,count?: number): ReactNode {
   </span>;
 }
 
-const OWNER_ONLY_PATHS = ['/admin/homepage', '/admin/revenue', '/admin/audit', '/admin/settings', '/admin/learning', '/admin/groups', '/admin/grievances'];
+const OWNER_ONLY_PATHS = ['/admin/homepage', '/admin/public-pages', '/admin/revenue', '/admin/audit', '/admin/settings', '/admin/learning', '/admin/groups', '/admin/grievances'];
+
+function capabilityForPath(pathname: string): string | null {
+  if (pathname === '/admin/analytics') return 'ANALYTICS';
+  if (pathname === '/admin/schools' || pathname.startsWith('/admin/schools/')) return 'SCHOOLS';
+  if (pathname === '/admin/users' || pathname.startsWith('/admin/users/')) return 'USERS';
+  if (pathname === '/admin/content' || pathname.startsWith('/admin/content/')) return 'CONTENT_ANALYTICS';
+  if (pathname === '/admin/competitions' || pathname.startsWith('/admin/competitions/')) return 'COMPETITIONS';
+  if (pathname === '/admin/support' || pathname.startsWith('/admin/support/')) return 'SUPPORT';
+  return null;
+}
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -35,15 +46,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     refetchInterval: 30000,
     retry: 1,
   });
+  const permissionsQuery = useQuery({
+    queryKey: ['my-admin-permissions'],
+    queryFn: () => getMyAdminPermissions().then((response) => response.data.data),
+    enabled: isLoggedIn && ['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(user?.role || ''),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
 
   const sourceReviewCount = (queueQuery.data?.sourceReviewPending || 0) + (queueQuery.data?.approvedSourcesReady || 0);
   const contentLibraryCount = queueQuery.data?.contentLibraryPending || 0;
 
   const menu = [
-    { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true },
-    { href: '/admin/schools', icon: '🏫', label: 'Schools' },
-    { href: '/admin/users', icon: '👥', label: 'Users' },
+    { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true, capability: 'ANALYTICS' },
+    { href: '/admin/schools', icon: '🏫', label: 'Schools', capability: 'SCHOOLS' },
+    { href: '/admin/users', icon: '👥', label: 'Users', capability: 'USERS' },
+    { href: '/admin/content', icon: '📈', label: 'Content analytics', capability: 'CONTENT_ANALYTICS' },
     { href: '/admin/homepage', icon: '🏠', label: 'Home Page', exact: true },
+    { href: '/admin/public-pages', icon: '📝', label: 'Public Pages', exact: true },
     { href: '/admin/learning/syllabus', icon: '📋', label: 'Syllabus', exact: true },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
     { href: '/admin/learning/governance', icon: '🧩', label: 'Topic Assets', exact: true },
@@ -52,21 +73,28 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/learning/practice', icon: '🧠', label: 'Question Bank' },
     { href: '/admin/learning/imports', icon: '📥', label: 'Bulk Import' },
     { href: '/admin/learning/diagnostics', icon: '🧭', label: 'Diagnostics' },
-    { href: '/admin/competitions', icon: '🏆', label: 'Competitions' },
+    { href: '/admin/competitions', icon: '🏆', label: 'Competitions', capability: 'COMPETITIONS' },
     { href: '/admin/groups', icon: '🤝', label: 'Communities' },
     { href: '/admin/grievances', icon: '🛡️', label: 'Grievances' },
     { href: '/admin/revenue', icon: '💰', label: 'Revenue' },
-    { href: '/admin/support', icon: '🎧', label: 'Support' },
+    { href: '/admin/support', icon: '🎧', label: 'Support', capability: 'SUPPORT' },
     { href: '/admin/audit', icon: '🧾', label: 'Audit Trail' },
     { href: '/admin/settings', icon: '⚙️', label: 'Settings' },
   ] as const;
-  const visibleMenu = menu.filter((item) => user?.role === 'SUPER_ADMIN' || !OWNER_ONLY_PATHS.some((path) => item.href === path || item.href.startsWith(`${path}/`)));
+  const permittedCapabilities = user?.role === 'SUPER_ADMIN' ? permissionsQuery.data?.permissions || ['ANALYTICS','SCHOOLS','USERS','CONTENT_ANALYTICS','COMPETITIONS','SUPPORT'] : permissionsQuery.data?.permissions || ['ANALYTICS'];
+  const visibleMenu = menu.filter((item) => (user?.role === 'SUPER_ADMIN' || !OWNER_ONLY_PATHS.some((path) => item.href === path || item.href.startsWith(`${path}/`))) && (!('capability' in item) || permittedCapabilities.includes(item.capability as AdminCapability)));
 
   useEffect(() => {
     if (!isLoggedIn) { router.replace('/login?role=admin'); return; }
     if (user?.role && !['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(user.role)) router.replace('/login?role=admin');
     if (user?.role === 'PLATFORM_ADMIN' && OWNER_ONLY_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) router.replace('/admin/analytics');
-  }, [isLoggedIn, user, router, pathname]);
+    const requiredCapability = capabilityForPath(pathname);
+    if (user?.role === 'PLATFORM_ADMIN' && requiredCapability && permissionsQuery.isSuccess && !permissionsQuery.data.permissions.includes(requiredCapability as never)) router.replace('/admin/analytics');
+    if (user?.role === 'PLATFORM_ADMIN' && requiredCapability && permissionsQuery.isError && requiredCapability !== 'ANALYTICS') router.replace('/admin/analytics');
+  }, [isLoggedIn, user, router, pathname, permissionsQuery.isSuccess, permissionsQuery.isError, permissionsQuery.data]);
+
+  const requestedCapability = capabilityForPath(pathname);
+  const waitingForPermission = user?.role === 'PLATFORM_ADMIN' && requestedCapability !== null && requestedCapability !== 'ANALYTICS' && permissionsQuery.isPending;
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -77,7 +105,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [mobileNavOpen]);
 
-  if (!isLoggedIn) return null;
+  if (!isLoggedIn || waitingForPermission) return null;
 
   return (
     <div className="flex flex-col min-h-screen admin-shell">

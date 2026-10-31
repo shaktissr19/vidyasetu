@@ -107,6 +107,10 @@ REGISTRATION_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAM
 
 HOMEPAGE_ADMIN_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.public_homepage_content') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='PLATFORM_ADMIN') AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_users_single_super_admin');")"
 [[ "$HOMEPAGE_ADMIN_SCHEMA" == "t" ]] || fail "Homepage/Platform Admin schema 062 is missing. Run scripts/prepare-registration-release.sh before deployment. No migration was attempted."
+PUBLIC_PAGE_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.public_page_content') IS NOT NULL AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='public_page_content' AND column_name IN ('page_slug','published_content','draft_content','version'))=4;")"
+[[ "$PUBLIC_PAGE_SCHEMA" == "t" ]] || fail "Public page content schema 063 is missing. Run scripts/prepare-registration-release.sh before deployment. No migration was attempted."
+PLATFORM_ADMIN_ACCESS_SCHEMA="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT to_regclass('public.platform_admin_permissions') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='platform_admin_permissions_pkey');")"
+[[ "$PLATFORM_ADMIN_ACCESS_SCHEMA" == "t" ]] || fail "Scoped Platform Admin permissions schema 064 is missing. Run scripts/prepare-registration-release.sh before deployment. No migration was attempted."
 
 TEACHER_ENUM="$(psql -h 127.0.0.1 -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Atc "SELECT COUNT(*) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='TEACHER';")"
 [[ "$TEACHER_ENUM" == "1" ]] || fail "TEACHER role is missing. No migration was attempted."

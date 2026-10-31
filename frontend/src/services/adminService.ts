@@ -10,6 +10,7 @@ import type {
   SupportTicket,
 } from '@/types/api';
 import type { CompetitionExamV2 } from './competitionService';
+import type { PlatformAdminCapability } from './platformAdminService';
 
 export type AdminQueryParams = Record<string, string | number | boolean | null | undefined>;
 type Payload = Record<string, unknown>;
@@ -61,7 +62,7 @@ export interface AdminContentAnalytics {
   quizQuestions: number | string;
   languages: number | string;
   publishedItems: number | string;
-  draftItems: number | string;
+  draftItems: number | string | null;
   bySubject: AdminContentSubjectRow[];
   recentItems: AdminRecentContentItem[];
 }
@@ -107,4 +108,4 @@ export const getContentAnalytics = () => api.get<ApiEnvelope<AdminContentAnalyti
 export const listCompetitions = () => api.get<ApiEnvelope<CompetitionExamV2[]>>('/admin/competitions');
 export const createExam = (body: Payload) => api.post<ApiEnvelope<CompetitionExamV2>>('/admin/competitions', body);
 
-export const createPlatformAdmin = (body: { name: string; username: string; mobile: string; email?: string; password: string }) => api.post<ApiEnvelope<AdminUser>>('/admin/platform-admins', body);
+export const createPlatformAdmin = (body: { name: string; username: string; mobile: string; email?: string; password: string; permissions: PlatformAdminCapability[] }) => api.post<ApiEnvelope<AdminUser>>('/admin/platform-admins', body);

@@ -167,6 +167,21 @@
   transition: transform .18s ease, box-shadow .18s ease;
 }
 
+.adminEditShortcut {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #14213D;
+  background: #FFF3E9;
+  border: 1px solid #FF8A3D;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .primary {
   min-width: 177px;
   color: #14213D;
@@ -184,6 +199,7 @@
 
 .primary:focus-visible,
 .secondary:focus-visible,
+.adminEditShortcut:focus-visible,
 .moduleCard:focus-visible,
 .inlineLink:focus-visible,
 .sectionAction a:focus-visible,

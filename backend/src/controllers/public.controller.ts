@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as publicOverviewService from '../services/publicOverview.service';
 import * as homepageService from '../services/homepage.service';
+import * as publicPageContentService from '../services/publicPageContent.service';
 import * as R from '../utils/response';
 
 export async function overview(
@@ -37,4 +38,13 @@ export async function homepage(
   } catch (error: unknown) {
     next(error);
   }
+}
+
+export async function learnPage(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<Response | void> {
+  try { return R.ok(res, await publicPageContentService.getPublishedLearnPage()); }
+  catch (error: unknown) { next(error); }
 }

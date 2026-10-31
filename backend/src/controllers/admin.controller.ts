@@ -3,6 +3,8 @@ import * as adminService from '../services/admin.service';
 import { query } from '../config/db';
 import * as R from '../utils/response';
 import * as homepageService from '../services/homepage.service';
+import * as publicPageContentService from '../services/publicPageContent.service';
+import * as platformAdminAccessService from '../services/platformAdminAccess.service';
 
 interface StatusBody { status: string; }
 interface ConfigBody { key: string; value: unknown; }
@@ -40,13 +42,20 @@ export async function getAnalytics(_req: Request, res: Response, next: NextFunct
   catch (err: unknown) { next(err); }
 }
 
+export async function getMyAdminPermissions(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    if (!req.user) return R.unauthorized(res);
+    return R.ok(res, { role: req.user.role, permissions: await platformAdminAccessService.getCapabilities(req.user.userId, req.user.role) });
+  } catch (err: unknown) { next(err); }
+}
+
 export async function getRevenue(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await adminService.getRevenueAnalytics()); }
   catch (err: unknown) { next(err); }
 }
 
-export async function getContentAnalytics(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return R.ok(res, await adminService.getContentAnalytics()); }
+export async function getContentAnalytics(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await adminService.getContentAnalytics(req.user?.role === 'SUPER_ADMIN')); }
   catch (err: unknown) { next(err); }
 }
 
@@ -229,5 +238,24 @@ export async function publishHomepageDraft(req: Request, res: Response, next: Ne
   try {
     const user = authenticated(req, res); if (!user) return;
     return R.ok(res, await homepageService.publishHomepageDraft(user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function getLearnPageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await publicPageContentService.getLearnPageForOwner()); }
+  catch (err: unknown) { next(err); }
+}
+
+export async function saveLearnPageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await publicPageContentService.saveLearnPageDraft(req.body, user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function publishLearnPageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await publicPageContentService.publishLearnPageDraft(user.userId));
   } catch (err: unknown) { next(err); }
 }
