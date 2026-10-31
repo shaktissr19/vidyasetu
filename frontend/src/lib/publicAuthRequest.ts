@@ -4,7 +4,6 @@ const PUBLIC_AUTH_PATHS = new Set([
   'auth/register',
   'auth/login',
   'auth/platform-admin/login',
-  'auth/platform-admin/verify-otp',
   'auth/send-otp',
   'auth/verify-otp',
   'auth/forgot-password',

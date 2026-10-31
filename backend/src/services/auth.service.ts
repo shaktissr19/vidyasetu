@@ -1,5 +1,4 @@
 import type { PoolClient, QueryResultRow } from 'pg';
-import { randomUUID } from 'node:crypto';
 import type {
   AuthTokenClaims,
   Gender,
@@ -470,51 +469,19 @@ async function completeLogin(user: UserRow, deviceInfo: string | null, ipAddress
   return issueSession(user, deviceInfo, ipAddress);
 }
 
-export async function startPlatformAdminLogin(identifier: string, password: string) {
+export async function loginPlatformAdminWithPassword(
+  identifier: string,
+  password: string,
+  deviceInfo: string | null = null,
+  ipAddress: string | null = null,
+): Promise<SessionResult> {
   const user = await verifyPasswordCredentials(identifier, password, PLATFORM_ADMIN_ROLES);
   if (user.status !== 'ACTIVE') {
     throw Object.assign(new Error('This account cannot sign in right now.'), { statusCode: 403 });
   }
-  const challengeId = randomUUID();
-  const otpCode = generateOTP();
-  const otpHash = await hashOTP(otpCode);
-  await notificationService.sendSMS(
-    user.mobile,
-    `Your VidyaSetu administrator sign-in code is ${otpCode}. Valid for 10 minutes. Do not share.`,
-  );
-  await redis.setPlatformAdminLoginChallenge(challengeId, { userId: user.id, mobile: user.mobile, otpHash });
-  const maskedMobile = `${'*'.repeat(Math.max(0, user.mobile.length - 4))}${user.mobile.slice(-4)}`;
-  return { challengeId, maskedMobile, ...(process.env.NODE_ENV !== 'production' ? { otp: otpCode } : {}) };
-}
-
-export async function verifyPlatformAdminLogin(
-  challengeId: string,
-  otp: string,
-  deviceInfo: string | null = null,
-  ipAddress: string | null = null,
-): Promise<SessionResult> {
-  const challenge = await redis.getPlatformAdminLoginChallenge(challengeId);
-  if (!challenge || !(await redis.isCurrentPlatformAdminLoginChallenge(challengeId, challenge.userId))) {
-    throw Object.assign(new Error('Admin sign-in challenge expired. Enter your password to try again.'), { statusCode: 400 });
-  }
-  const { rows: [user] } = await query<UserRow>('SELECT * FROM users WHERE id=$1 AND mobile=$2', [challenge.userId, challenge.mobile]);
-  if (!user || !PLATFORM_ADMIN_ROLES.includes(user.role) || user.status !== 'ACTIVE') {
-    await redis.deletePlatformAdminLoginChallenge(challengeId, challenge.userId);
-    throw Object.assign(new Error('This account cannot sign in right now.'), { statusCode: 403 });
-  }
-  const validOTP = await verifyOTP(otp, challenge.otpHash);
-  if (!validOTP) {
-    const attempts = await redis.incrementPlatformAdminLoginAttempts(challengeId);
-    const attemptsRemaining = MAX_OTP_ATTEMPTS - attempts;
-    if (attemptsRemaining <= 0) {
-      await redis.deletePlatformAdminLoginChallenge(challengeId, user.id);
-      throw Object.assign(new Error('Too many invalid codes. Start sign-in again with your password.'), { statusCode: 429 });
-    }
-    throw Object.assign(new Error(`Invalid verification code. ${attemptsRemaining} attempt(s) remaining.`), { statusCode: 401 });
-  }
-  await redis.deletePlatformAdminLoginChallenge(challengeId, user.id);
-  logger.info(`Platform admin MFA login successful: ${user.id} (${user.role})`);
-  return completeLogin(user, deviceInfo, ipAddress);
+  const session = await completeLogin(user, deviceInfo, ipAddress);
+  logger.info(`Platform admin password login successful: ${user.id} (${user.role})`);
+  return session;
 }
 
 export async function loginWithPassword(

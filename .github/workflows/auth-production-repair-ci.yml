@@ -131,7 +131,7 @@ jobs:
           cat /tmp/vidyasetu-auth-api.log
           exit 1
 
-      - name: Public login excludes platform admins; dedicated admin MFA succeeds
+      - name: Public login excludes platform admins; dedicated admin password login succeeds
         run: |
           login_role() {
             local identifier="$1" password="$2" role="$3"
@@ -175,15 +175,10 @@ jobs:
             if [[ "$attempt" -lt 3 ]]; then test "$otp_code" = '401'; else test "$otp_code" = '429'; fi
           done
 
-          admin_challenge="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/login \
+          admin_session="$(curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/login \
             -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg i 'vidyasetu.admin' --arg p 'AdminDemo2026!' '{identifier:$i,password:$p}')")"
-          challenge_id="$(jq -er '.data.challengeId' <<< "$admin_challenge")"
-          admin_otp="$(jq -er '.data.otp' <<< "$admin_challenge")"
-          curl -fsS -X POST http://127.0.0.1:5000/api/v1/auth/platform-admin/verify-otp \
-            -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg c "$challenge_id" --arg o "$admin_otp" '{challengeId:$c,otp:$o,deviceInfo:"auth-repair-ci"}')" \
-            | jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20)' >/dev/null
+            -d "$(jq -nc --arg i 'vidyasetu.admin' --arg p 'AdminDemo2026!' '{identifier:$i,password:$p,deviceInfo:"auth-repair-ci"}')")"
+          jq -e '.success == true and .data.user.role == "SUPER_ADMIN" and (.data.accessToken | length > 20) and (.data.refreshToken | length > 20)' <<< "$admin_session" >/dev/null
 
           login_role ramesh.kumar 'SchoolDemo2026!' SCHOOL_ADMIN
           login_role anil.verma 'TeacherDemo2026!' TEACHER
@@ -243,5 +238,5 @@ jobs:
           grep -Fq "{lang === 'hi' ? 'EN' : 'हिंदी'}" src/components/layout/Navbar.tsx
           ! grep -Eq "key: '(PLATFORM_ADMIN|SUPER_ADMIN)'" 'src/app/(auth)/login/page.tsx'
           grep -Fq "router.replace('/platform-admin/login')" 'src/app/(auth)/login/page.tsx'
-          grep -Fq "startPlatformAdminLogin(identifier.trim(), password)" 'src/app/(auth)/platform-admin/login/page.tsx'
-          grep -Fq "verifyPlatformAdminLogin(challenge.challengeId, otp" 'src/app/(auth)/platform-admin/login/page.tsx'
+          grep -Fq "loginPlatformAdmin(identifier.trim(), password, navigator.userAgent)" 'src/app/(auth)/platform-admin/login/page.tsx'
+          ! grep -Eq 'verifyPlatformAdminLogin|platform-admin-otp' 'src/app/(auth)/platform-admin/login/page.tsx'

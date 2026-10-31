@@ -7,12 +7,7 @@ import toast from 'react-hot-toast';
 import { HERO_IMAGES } from '@/components/public/heroAssets';
 import useAuthStore from '@/store/authStore';
 import { useRedirectIfLoggedIn } from '@/hooks/useAuth';
-import {
-  startPlatformAdminLogin,
-  verifyPlatformAdminLogin,
-  type AuthSessionPayload,
-  type PlatformAdminLoginChallenge,
-} from '@/services/authService';
+import { loginPlatformAdmin } from '@/services/authService';
 
 function responseMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -28,11 +23,9 @@ export default function PlatformAdminLoginPage() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [challenge, setChallenge] = useState<PlatformAdminLoginChallenge | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function startLogin(event: FormEvent<HTMLFormElement>) {
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (identifier.trim().length < 3 || password.length === 0) {
       toast.error('Enter your administrator username or email and password.');
@@ -40,29 +33,8 @@ export default function PlatformAdminLoginPage() {
     }
     setLoading(true);
     try {
-      const response = await startPlatformAdminLogin(identifier.trim(), password);
-      const nextChallenge = response.data.data;
-      setChallenge(nextChallenge);
-      setOtp('');
-      toast.success(`Verification code sent to ${nextChallenge.maskedMobile}.`);
-      if (nextChallenge.otp) toast(`Development OTP: ${nextChallenge.otp}`, { duration: 10000, icon: '🔑' });
-    } catch (error: unknown) {
-      toast.error(responseMessage(error, 'Could not start administrator sign-in.'));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function finishLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!challenge || otp.length !== 6) {
-      toast.error('Enter the six-digit verification code.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await verifyPlatformAdminLogin(challenge.challengeId, otp, navigator.userAgent);
-      const session: AuthSessionPayload = response.data.data;
+      const response = await loginPlatformAdmin(identifier.trim(), password, navigator.userAgent);
+      const session = response.data.data;
       if (!['PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(session.user.role)) {
         throw new Error('This account is not authorized for the platform administrator workspace.');
       }
@@ -70,15 +42,10 @@ export default function PlatformAdminLoginPage() {
       toast.success(`Welcome back, ${session.user.name?.split(' ')[0] || 'Administrator'}.`);
       router.replace('/admin/analytics');
     } catch (error: unknown) {
-      toast.error(responseMessage(error, 'Verification failed. Check the code and try again.'));
+      toast.error(responseMessage(error, 'Could not sign in to the administrator workspace.'));
     } finally {
       setLoading(false);
     }
-  }
-
-  function restart() {
-    setChallenge(null);
-    setOtp('');
   }
 
   return (
@@ -119,35 +86,10 @@ export default function PlatformAdminLoginPage() {
           <p className="text-sm font-extrabold tracking-[.14em] uppercase mb-2" style={{ color: 'var(--saffron)' }}>VidyaSetu administrators</p>
           <h2 className="font-display font-extrabold text-3xl mb-2" style={{ color: 'var(--navy)' }}>Secure sign in</h2>
           <p className="text-sm mb-6" style={{ color: 'var(--slate)' }}>
-            Sign in with your administrator credentials, then verify the code sent to your registered mobile.
+            Sign in with the username or email and password assigned to your administrator account.
           </p>
 
-          {challenge ? (
-            <form onSubmit={finishLogin}>
-              <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--saffron-pale)', border: '1px solid var(--border)' }}>
-                <p className="text-sm font-semibold" style={{ color: 'var(--navy)' }}>Verification code sent to {challenge.maskedMobile}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--slate)' }}>The code expires after 10 minutes and can only complete this sign-in attempt.</p>
-              </div>
-              <label htmlFor="platform-admin-otp" className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Six-digit verification code</label>
-              <input
-                id="platform-admin-otp"
-                className="input mb-4 text-center tracking-[.3em] font-bold"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={otp}
-                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                autoFocus
-              />
-              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">
-                {loading ? 'Verifying…' : 'Verify and sign in'}
-              </button>
-              <button type="button" onClick={restart} disabled={loading} className="w-full text-center text-sm font-semibold mt-4" style={{ color: 'var(--saffron)' }}>
-                Start again with password
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={startLogin}>
+            <form onSubmit={submitLogin}>
               <label htmlFor="platform-admin-identifier" className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--navy)' }}>Username or email</label>
               <input
                 id="platform-admin-identifier"
@@ -172,10 +114,9 @@ export default function PlatformAdminLoginPage() {
                 placeholder="Enter your password"
               />
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">
-                {loading ? 'Checking credentials…' : 'Continue'}
+                {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
-          )}
 
           <p className="text-center text-xs mt-6" style={{ color: 'var(--slate)' }}>
             VidyaSetu users? <a href="/login" className="font-bold" style={{ color: 'var(--saffron)' }}>Go to regular sign in</a>

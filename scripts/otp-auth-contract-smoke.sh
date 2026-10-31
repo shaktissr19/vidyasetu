@@ -48,18 +48,22 @@ if grep -Eq "key: '(PLATFORM_ADMIN|SUPER_ADMIN)'" "$LOGIN"; then
   fail 'Platform Admin and Super Admin must not appear as public login role choices'
 fi
 require_text "$LOGIN" "router.replace('/platform-admin/login')" 'Legacy privileged login links must lead to the dedicated admin login'
-require_text "$PLATFORM_ADMIN_LOGIN" "startPlatformAdminLogin(identifier.trim(), password)" 'Dedicated admin login must verify password before sending OTP'
-require_text "$PLATFORM_ADMIN_LOGIN" 'verifyPlatformAdminLogin(challenge.challengeId, otp' 'Dedicated admin login must verify the OTP challenge'
-require_text "$PLATFORM_ADMIN_LOGIN" "router.replace('/admin/analytics')" 'Verified administrators must enter the admin workspace'
+require_text "$PLATFORM_ADMIN_LOGIN" "loginPlatformAdmin(identifier.trim(), password, navigator.userAgent)" 'Dedicated admin login must complete with username and password'
+require_text "$PLATFORM_ADMIN_LOGIN" "router.replace('/admin/analytics')" 'Authenticated administrators must enter the admin workspace'
+require_text "$PLATFORM_ADMIN_LOGIN" "'PLATFORM_ADMIN', 'SUPER_ADMIN'" 'Dedicated admin login must accept both platform admin roles'
+if grep -Eq 'verifyPlatformAdminLogin|platform-admin-otp|verification code sent to your registered mobile' "$PLATFORM_ADMIN_LOGIN"; then
+  fail 'Dedicated admin login must not require OTP/MFA before entering the admin workspace'
+fi
 require_text "$AUTH_ROUTES" "router.post('/platform-admin/login'" 'Backend must expose the dedicated admin password endpoint'
-require_text "$AUTH_ROUTES" "router.post('/platform-admin/verify-otp'" 'Backend must expose the dedicated admin OTP endpoint'
+if grep -Fq "'/platform-admin/verify-otp'" "$AUTH_ROUTES"; then
+  fail 'Dedicated admin login must not expose a mandatory MFA verification endpoint'
+fi
 require_text "$BACKEND_AUTH_SERVICE" 'PUBLIC_AUTH_ROLES' 'Shared public auth methods must use a non-admin role allowlist'
 require_text "$BACKEND_AUTH_SERVICE" 'PLATFORM_ADMIN_ROLES' 'Dedicated admin auth must restrict roles to platform admins'
 require_text "$BACKEND_AUTH_SERVICE" 'verifyPasswordCredentials(identifier, password, PLATFORM_ADMIN_ROLES)' 'Dedicated admin auth must verify credentials against admin roles only'
 require_text "$BACKEND_AUTH_SERVICE" 'OTP_AUTH_ROLES' 'OTP API must retain compatibility for existing verified admin OTP clients'
 require_text "$BACKEND_AUTH_SERVICE" 'if (!platformAdmin)' 'Wrong admin passwords must not lock the account; the admin endpoint uses request rate limiting'
-require_text "$BACKEND_AUTH_SERVICE" 'verifyOTP(otp, challenge.otpHash)' 'Dedicated admin MFA must verify a challenge-scoped OTP independent of public OTP state'
-require_text "$BACKEND_AUTH_SERVICE" 'incrementPlatformAdminLoginAttempts' 'Admin OTP verification attempts must be isolated to the MFA challenge'
+require_text "$BACKEND_AUTH_SERVICE" 'loginPlatformAdminWithPassword' 'Dedicated admin login must return an authenticated session after password verification'
 
 printf '==> OTP rate-limit failure recovery contract\n'
 require_text "$RATE_LIMIT" 'windowMs: 10 * 60 * 1000' 'OTP send window must be ten minutes, not one hour'

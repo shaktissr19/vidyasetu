@@ -3,7 +3,6 @@ import { isPublicAuthRequest } from './publicAuthRequest';
 const publicRoutes = [
   '/api/v1/auth/login',
   'auth/platform-admin/login',
-  '/api/v1/auth/platform-admin/verify-otp',
   'https://vidyasetu.sbs/api/v1/auth/forgot-password?source=login',
   '/api/v1/auth/register/student',
 ];

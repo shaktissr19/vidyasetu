@@ -24,12 +24,6 @@ export interface AuthSessionPayload {
   isNewUser?: boolean;
 }
 
-export interface PlatformAdminLoginChallenge {
-  challengeId: string;
-  maskedMobile: string;
-  otp?: string;
-}
-
 export interface ActiveSession {
   id: string;
   deviceInfo: string | null;
@@ -112,10 +106,8 @@ export interface SendOtpResult {
 export const loginWithPassword = (identifier: string, password: string, deviceInfo?: string) =>
   api.post<ApiEnvelope<AuthSessionPayload>>('/auth/login', { identifier, password, deviceInfo });
 
-export const startPlatformAdminLogin = (identifier: string, password: string) =>
-  api.post<ApiEnvelope<PlatformAdminLoginChallenge>>('/auth/platform-admin/login', { identifier, password });
-export const verifyPlatformAdminLogin = (challengeId: string, otp: string, deviceInfo?: string) =>
-  api.post<ApiEnvelope<AuthSessionPayload>>('/auth/platform-admin/verify-otp', { challengeId, otp, deviceInfo });
+export const loginPlatformAdmin = (identifier: string, password: string, deviceInfo?: string) =>
+  api.post<ApiEnvelope<AuthSessionPayload>>('/auth/platform-admin/login', { identifier, password, deviceInfo });
 
 export const getStudentRegistrationOptions = () =>
   api.get<ApiEnvelope<StudentRegistrationOptions>>('/auth/student-registration-options');
