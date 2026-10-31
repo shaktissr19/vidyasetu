@@ -61,7 +61,7 @@ fi
 require_text "$BACKEND_AUTH_SERVICE" 'PUBLIC_AUTH_ROLES' 'Shared public auth methods must use a non-admin role allowlist'
 require_text "$BACKEND_AUTH_SERVICE" 'PLATFORM_ADMIN_ROLES' 'Dedicated admin auth must restrict roles to platform admins'
 require_text "$BACKEND_AUTH_SERVICE" 'verifyPasswordCredentials(identifier, password, PLATFORM_ADMIN_ROLES)' 'Dedicated admin auth must verify credentials against admin roles only'
-require_text "$BACKEND_AUTH_SERVICE" 'OTP_AUTH_ROLES' 'OTP API must retain compatibility for existing verified admin OTP clients'
+require_text "$BACKEND_AUTH_SERVICE" 'const OTP_AUTH_ROLES: readonly UserRole[] = PUBLIC_AUTH_ROLES' 'OTP API must exclude platform admins until administrator OTP is implemented'
 require_text "$BACKEND_AUTH_SERVICE" 'if (!platformAdmin)' 'Wrong admin passwords must not lock the account; the admin endpoint uses request rate limiting'
 require_text "$BACKEND_AUTH_SERVICE" 'loginPlatformAdminWithPassword' 'Dedicated admin login must return an authenticated session after password verification'
 

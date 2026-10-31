@@ -29,7 +29,7 @@ const MAX_PASSWORD_ATTEMPTS = 5;
 const PASSWORD_LOCK_MINUTES = 15;
 const PUBLIC_AUTH_ROLES: readonly UserRole[] = ['STUDENT', 'PARENT', 'SCHOOL_ADMIN', 'TEACHER'];
 const PLATFORM_ADMIN_ROLES: readonly UserRole[] = ['PLATFORM_ADMIN', 'SUPER_ADMIN'];
-const OTP_AUTH_ROLES: readonly UserRole[] = [...PUBLIC_AUTH_ROLES, ...PLATFORM_ADMIN_ROLES];
+const OTP_AUTH_ROLES: readonly UserRole[] = PUBLIC_AUTH_ROLES;
 
 interface UserRow extends QueryResultRow {
   id: UUID;
