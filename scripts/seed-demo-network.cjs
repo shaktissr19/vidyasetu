@@ -39,7 +39,7 @@ async function main() {
     }
 
     const { rows: existingUsers } = await client.query(
-      'SELECT id, role FROM users WHERE id = ANY($1::uuid[])',
+      'SELECT id, role, mobile FROM users WHERE id = ANY($1::uuid[])',
       [userIds],
     );
     const expansionMobiles = [
@@ -59,24 +59,33 @@ async function main() {
     if (existingUsers.length !== 0 && existingUsers.length !== userIds.length) {
       throw new Error(`Found ${existingUsers.length} of ${userIds.length} expansion accounts. Stopped to avoid a partial/conflicting merge.`);
     }
-    if (existingUsers.length === userIds.length) {
-      const roleById = new Map(existingUsers.map((row) => [row.id, row.role]));
-      for (const id of userIds) {
-        const suffix = Number.parseInt(id.slice(-12), 16);
-        const expectedRole = suffix >= 0x52 && suffix <= 0x58 ? 'SCHOOL_ADMIN'
-          : suffix >= 0x14 && suffix <= 0x1b ? 'TEACHER'
-          : suffix >= 0x32 && suffix <= 0x34 ? 'STUDENT'
-          : 'PARENT';
-        if (roleById.get(id) !== expectedRole) {
-          throw new Error(`Expansion account ${id} has role ${roleById.get(id)}, expected ${expectedRole}; no seed SQL was run.`);
-        }
+
+    const expectedMobile = new Map([
+      ...Array.from({ length: 7 }, (_, i) => [userId(0x52 + i), `911000000${i + 3}`]),
+      ...Array.from({ length: 8 }, (_, i) => [userId(0x14 + i), `921000000${i + 1}`]),
+      ...Array.from({ length: 3 }, (_, i) => [userId(0x32 + i), `931000000${i + 1}`]),
+      ...Array.from({ length: 6 }, (_, i) => [userId(0x46 + i), `941000000${i + 1}`]),
+    ]);
+    for (const row of existingUsers) {
+      const suffix = Number.parseInt(row.id.slice(-12), 16);
+      const expectedRole = suffix >= 0x52 && suffix <= 0x58 ? 'SCHOOL_ADMIN'
+        : suffix >= 0x14 && suffix <= 0x1b ? 'TEACHER'
+        : suffix >= 0x32 && suffix <= 0x34 ? 'STUDENT'
+        : 'PARENT';
+      if (row.role !== expectedRole || row.mobile !== expectedMobile.get(row.id)) {
+        throw new Error(`Expansion identity ${row.id} does not match its expected role/mobile; no seed SQL was run.`);
       }
-      console.log('All 24 expansion users already exist with expected roles; skipping the insert seed.');
-    } else {
-      await client.query("SET app.allow_synthetic_seed = 'on'");
-      await client.query("SELECT set_config('app.allow_synthetic_seed_target', current_database(), false)");
-      await client.query(fs.readFileSync(seedPath, 'utf8'));
     }
+
+    // The SQL uses deterministic IDs and ON CONFLICT reconciliation, so rerun it
+    // even when the accounts exist. This repairs prior partial loads of schools,
+    // class links, teachers, subject assignments, parents and activity rows.
+    if (existingUsers.length === userIds.length) {
+      console.log('All 24 expansion identities match; reapplying idempotent linked-data seed.');
+    }
+    await client.query("SET app.allow_synthetic_seed = 'on'");
+    await client.query("SELECT set_config('app.allow_synthetic_seed_target', current_database(), false)");
+    await client.query(fs.readFileSync(seedPath, 'utf8'));
 
     if (process.env.SEED_DEMO_PASSWORDS === '0') {
       console.log('Password updates disabled for additive fixture loading.');
