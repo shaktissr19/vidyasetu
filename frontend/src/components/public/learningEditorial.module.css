@@ -101,3 +101,32 @@
 .gradeButton:hover { color: #fff; }
 .gradeActive { background: #FF8A3D !important; color: #14213D !important; }
 .practicePrompt { background: #456184; border-color: #456184; color: #fff; }
+
+/* Learning categories, filters and resource cards stay bright on the gray page canvas. */
+.categorySection,.learningTypeSection,.cataloguePage .filterPanel,.filterSummary,.practicePrompt {
+  background: #FFFFFF;
+  border-color: #AEBFD1;
+  color: #14213D;
+  box-shadow: 0 10px 24px rgba(13,27,62,.08);
+}
+.categoryHeading h3,.filterSectionHeading span,.filterSectionHeading strong { color: #14213D; }
+.categoryHeading>div>span,.filterSectionHeading small,.categoryHeading p { color: #40516A; }
+.categoryCard,.pathRow,.resourceCard,.practiceCard,.pillarCard,.errorState,.emptyState,.skeletonCard {
+  background: #FFFFFF;
+  border-color: #AEBFD1;
+  color: #14213D;
+  box-shadow: 0 9px 22px rgba(13,27,62,.07);
+}
+.categoryCard strong,.pathRow strong,.resourceBody h3,.practiceCard h3,.pillarCard h3,.errorState strong,.emptyState strong { color: #14213D; }
+.categoryCard span,.pathRow small,.resourceBody p,.resourceFacts span,.practiceCard p,.practiceCard div,.pillarCard p,.errorState,.emptyState { color: #40516A; }
+.categoryCard>svg,.resourceIconBadge,.pillarIcon { background: #EEF3F8; color: var(--accent); border-color: #D8E2EC; }
+.resourceBody { background: #FFFFFF; }
+.resourceFacts span { background: #F2F5F9; border-color: #DCE5EF; }
+.resourceLink,.practiceCard strong,.pillarCard strong { color: #176B65; }
+.resourceEyebrow,.pillarCard>span { color: #A43A00; }
+.cataloguePage .filterPanel strong,.cataloguePage .filterPanel button { color: #14213D !important; }
+.cataloguePage .resourceConcepts { color: #40516A; }
+.filterSummary strong,.filterSummary em { color: #14213D; }
+.filterSummary em { background: #F2F5F9; }
+.practicePrompt { color: #40516A; }
+.skeletonCard span { background: #DCE5EF; }

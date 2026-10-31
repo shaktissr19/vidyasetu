@@ -349,3 +349,32 @@
 .page .stageTabActive { background: #FF8A3D; border-color: #FF8A3D; color: #14213D; }
 .page .classActive { background: #FF8A3D !important; border-color: #FF8A3D !important; color: #14213D !important; }
 .page .categoryTabActive { background: #456184 !important; border-color: rgba(255,255,255,.35) !important; color: #fff !important; }
+
+/* Public resource and practice cards use white with a cool gray-blue outline. */
+.page .visualCard,.page .statCard,.page .browsePanel,.page .classButton,.page .learningTypeSection,
+.page .categoryTab,.page .resourceCard,.page .loadingCard,.page .empty,.page .featureCard,
+.page .boardCard,.page .sourceCard,.page .article .sourceBox {
+  background: #FFFFFF;
+  border-color: #AEBFD1;
+  color: #14213D;
+  box-shadow: 0 9px 22px rgba(13,27,62,.07);
+}
+.page .visualCard strong,.page .visualCard small,.page .statCard strong,.page .statCard span,
+.page .browsePanel h2,.page .browsePanel p,.page .classButton,.page .categoryTab strong,.page .categoryTab small,
+.page .resourceCard h2,.page .resourceCard h3,.page .resourceCard p,.page .resourceCard span,
+.page .featureCard h2,.page .featureCard h3,.page .featureCard p,.page .boardCard h2,.page .boardCard h3,
+.page .boardCard p,.page .sourceCard h2,.page .sourceCard h3,.page .sourceCard p,.page .empty,.page .empty strong,
+.page .article .sourceBox { color: #14213D; }
+.page .resourceMedia,.page .resourceFooter,.page .resourceBody,.page .categoryIcon,.page .featureIcon,
+.page .practiceIcon,.page .resourceIconWrap,.page .pill,.page .badge,.page .featuredBadge,
+.page .resourceFacts span { background: #F2F5F9; color: #40516A; border-color: #DCE5EF; }
+.page .resourceCard p,.page .featureCard p,.page .boardCard p,.page .sourceCard p,.page .empty { color: #40516A; }
+.page .resourceEyebrow,.page .cardCta { color: #A43A00; }
+.page .categoryTabActive { background: #FF8A3D !important; border-color: #E7762C !important; color: #14213D !important; }
+.page .article { background: #FFFFFF; border: 1px solid #AEBFD1; border-radius: 20px; color: #14213D; box-shadow: 0 10px 24px rgba(13,27,62,.08); }
+.page .article h1,.page .article h2,.page .article p,.page .article .muted,.article .learningMarkdown,
+.article .learningMarkdown h1,.article .learningMarkdown h2,.article .learningMarkdown h3,
+.article .learningMarkdown h4,.article .learningMarkdown h5,.article .learningMarkdown h6 { color: #14213D; }
+.article .learningMarkdown a { color: #A43A00; }
+.article .learningMarkdown code { background: #EEF3F8; color: #14213D; }
+.article .learningMarkdown hr { border-top-color: #D6DFE9; }

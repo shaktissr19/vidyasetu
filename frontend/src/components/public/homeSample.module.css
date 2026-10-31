@@ -514,17 +514,26 @@
 }
 
 /* Home audience cards use the same blue surface as the public modules. */
-.moduleCard { background: #456184; border-color: #456184; color: #fff; }
-.moduleBody { background: #456184; color: #fff; }
-.moduleBody strong,.moduleBody p { color: #fff; }
+.moduleCard { background: #fff; border-color: #AEBFD1; color: #14213D; box-shadow: 0 10px 24px rgba(13,27,62,.08); }
+.moduleBody { background: #fff; color: #14213D; }
+.moduleBody strong { color: #14213D; }
+.moduleBody p { color: #40516A; }
 .moduleExplore { background: #FF8A3D; color: #14213D; }
 
 .videoSection { padding: clamp(32px, 5vw, 64px) 24px; background: #DCE5EF; }
-.videoShell { width: min(1180px, 100%); margin: 0 auto; display: grid; grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr); gap: clamp(22px, 4vw, 48px); align-items: center; }
+.videoShell { width: min(1240px, 100%); margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+.videoCopy { max-width: 820px; margin: 0 auto; text-align: center; }
 .videoCopy > span { color: #B84B0A; font-size: 13px; letter-spacing: .13em; font-weight: 900; }
 .videoCopy h2 { margin: 9px 0 8px; color: #14213D; font-family: 'Baloo 2', cursive; font-size: clamp(26px, 3vw, 38px); line-height: 1.08; font-weight: 800; }
 .videoCopy > p { margin: 0; color: #354862; font-size: 16px; line-height: 1.6; }
-.videoPlayer { display: block; width: 100%; max-height: 460px; aspect-ratio: 16 / 9; border: 1px solid #9aacc1; border-radius: 18px; background: #14213D; object-fit: cover; box-shadow: 0 14px 34px rgba(20,33,61,.18); }
+.videoFrame { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid #AEBFD1; border-radius: 18px; background: #14213D; box-shadow: 0 14px 34px rgba(20,33,61,.15); }
+.videoPlayer { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; background: #14213D; object-fit: cover; }
+.videoPlaceholder { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: #14213D; color: #fff; text-align: center; }
+.videoPoster { object-fit: cover; opacity: .62; }
+.videoPlaceholder::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg,rgba(8,20,42,.74),rgba(8,20,42,.16)); }
+.videoPlaceholderCopy { position: relative; z-index: 1; max-width: 560px; padding: 24px; }
+.videoPlaceholderCopy strong { display: block; font: 800 clamp(22px,3vw,34px)/1.15 'Baloo 2',cursive; }
+.videoPlaceholderCopy span { display: inline-flex; margin-top: 12px; padding: 7px 12px; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(20,33,61,.65); color: #fff; font-size: 13px; font-weight: 800; }
 .videoTranscript { margin-top: 18px; color: #14213D; }
 .videoTranscript summary { width: fit-content; cursor: pointer; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .videoTranscript p { max-height: 220px; overflow: auto; margin: 10px 0 0; padding: 14px; border: 1px solid #b2c1d2; border-radius: 12px; background: #eef3f8; color: #263954; font-size: 14px; line-height: 1.65; white-space: pre-line; }
@@ -534,9 +543,12 @@
   .videoSection { padding: 30px 18px; }
   .videoShell { grid-template-columns: 1fr; gap: 18px; }
   .videoCopy > p { font-size: 15px; }
-  .videoPlayer { border-radius: 13px; }
+  .videoFrame { border-radius: 13px; }
+  .videoPlaceholderCopy { padding: 14px; }
+  .videoPlaceholderCopy span { margin-top: 8px; font-size: 12px; }
 }
-.statsStrip { background: #456184; border-color: #456184; box-shadow: 0 12px 28px rgba(13,27,62,.16); }
-.statCopy strong,.statCopy b,.statCopy small { color: #fff !important; }
-.stat:not(:last-child)::after { background: rgba(255,255,255,.25); }
-.stat:nth-child(-n+2) { border-color: rgba(255,255,255,.25); }
+.statsStrip { background: #fff; border-color: #AEBFD1; box-shadow: 0 10px 24px rgba(13,27,62,.08); }
+.statCopy strong,.statCopy b { color: #14213D !important; }
+.statCopy small { color: #526078 !important; }
+.stat:not(:last-child)::after { background: #D6DFE9; }
+.stat:nth-child(-n+2) { border-color: #D6DFE9; }
