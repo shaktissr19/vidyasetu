@@ -21,7 +21,7 @@ function menuLabel(text: string,count?: number): ReactNode {
   </span>;
 }
 
-const OWNER_ONLY_PATHS = ['/admin/homepage', '/admin/revenue', '/admin/audit', '/admin/settings', '/admin/learning', '/admin/groups', '/admin/grievances'];
+const OWNER_ONLY_PATHS = ['/admin/homepage', '/admin/public-pages', '/admin/revenue', '/admin/audit', '/admin/settings', '/admin/learning', '/admin/groups', '/admin/grievances'];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -44,6 +44,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/schools', icon: '🏫', label: 'Schools' },
     { href: '/admin/users', icon: '👥', label: 'Users' },
     { href: '/admin/homepage', icon: '🏠', label: 'Home Page', exact: true },
+    { href: '/admin/public-pages', icon: '📝', label: 'Public Pages', exact: true },
     { href: '/admin/learning/syllabus', icon: '📋', label: 'Syllabus', exact: true },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
     { href: '/admin/learning/governance', icon: '🧩', label: 'Topic Assets', exact: true },

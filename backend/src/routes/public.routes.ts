@@ -6,5 +6,6 @@ const router = Router();
 router.get('/overview', ctrl.overview);
 router.get('/schools', ctrl.schools);
 router.get('/homepage', ctrl.homepage);
+router.get('/pages/learn', ctrl.learnPage);
 
 export = router;

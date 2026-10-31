@@ -67,6 +67,9 @@ router.patch('/config', authorize('SUPER_ADMIN'), validate(configBodySchema), ct
 router.get('/homepage', authorize('SUPER_ADMIN'), ctrl.getHomepageDraft);
 router.put('/homepage/draft', authorize('SUPER_ADMIN'), ctrl.saveHomepageDraft);
 router.post('/homepage/publish', authorize('SUPER_ADMIN'), ctrl.publishHomepageDraft);
+router.get('/public-pages/learn', authorize('SUPER_ADMIN'), ctrl.getLearnPageDraft);
+router.put('/public-pages/learn/draft', authorize('SUPER_ADMIN'), ctrl.saveLearnPageDraft);
+router.post('/public-pages/learn/publish', authorize('SUPER_ADMIN'), ctrl.publishLearnPageDraft);
 
 router.get('/support', ctrl.getTickets);
 router.patch('/support/:ticketId', validate(supportUpdateSchema), ctrl.updateTicket);

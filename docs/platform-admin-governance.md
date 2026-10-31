@@ -26,4 +26,4 @@ Video files are not stored in PostgreSQL. Upload an MP4/WebM/Ogg to the approved
 
 ## Database release
 
-Migration `062_homepage_content_and_platform_admins.sql` adds the operator role, owner uniqueness constraint, and singleton Home content record. Run the reviewed database preparation script (which takes a backup and applies the pending reviewed migrations) before deploying code. The native application deployment now fails preflight if migration 062 is missing; it does not run migrations itself.
+Migration `062_homepage_content_and_platform_admins.sql` adds the operator role, owner uniqueness constraint, and singleton Home content record. Migration `063_public_page_content.sql` adds the separate, versioned editorial store for public pages such as Learn; it does not contain or duplicate Learning Library records. Run the reviewed database preparation script (which takes a backup and applies the pending reviewed migrations) before deploying code. The native application deployment fails preflight if a required migration is missing; it does not run migrations itself.
