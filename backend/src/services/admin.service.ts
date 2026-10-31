@@ -10,6 +10,7 @@ export interface SupportFilters { status?: string; priority?: string; search?: s
 export interface AuditFilters { action?: string; entityType?: string; search?: string; }
 export interface SupportTicketUpdate { status: string; resolution?: string | null; }
 interface CountRow extends QueryResultRow { count: string; }
+interface RoleBreakdownRow extends QueryResultRow { role: string; count: string; }
 interface RevenueRow extends QueryResultRow { mrr: string | number; arr?: string | number; active_subscriptions?: string | number; }
 interface MutableRow extends QueryResultRow { id: UUID; [key: string]: unknown; }
 interface UserGovernanceRow extends QueryResultRow { id: UUID; name?: string | null; role: string; status: string; }
@@ -62,7 +63,7 @@ export async function getPlatformAnalytics(includeOwnerMetrics = false) {
       FROM xp_events
       WHERE created_at >= NOW() - INTERVAL '1 day'
     `),
-    query(`SELECT role, COUNT(*) AS count FROM users WHERE status = 'ACTIVE' GROUP BY role ORDER BY role`),
+    query<RoleBreakdownRow>(`SELECT role, COUNT(*) AS count FROM users WHERE status = 'ACTIVE' GROUP BY role ORDER BY role`),
   ]);
 
   const { rows: topStates } = await query(`
@@ -87,7 +88,7 @@ export async function getPlatformAnalytics(includeOwnerMetrics = false) {
     schools: schoolMetrics,
     mrr: includeOwnerMetrics ? revenue.rows[0]?.mrr ?? 0 : null,
     dau: engagement.rows[0]?.dau,
-    roleBreakdown: roleBreakdownResult.rows.filter((row: { role: string }) => includeOwnerMetrics || !['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(row.role)),
+    roleBreakdown: roleBreakdownResult.rows.filter((row) => includeOwnerMetrics || !['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(row.role)),
     topStates,
     pendingSchools,
   };
