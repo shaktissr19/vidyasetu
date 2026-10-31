@@ -42,13 +42,25 @@ if [[ -z "$CONFIRM_NONPRODUCTION_DB" ]]; then
 fi
 [[ "$CONFIRM_NONPRODUCTION_DB" == "$TARGET_DB" ]] || fail "Set CONFIRM_NONPRODUCTION_DB to the same exact name after verifying TARGET_DB is non-production."
 
-DB_HOST="$(read_env_value DB_HOST)"; DB_HOST="${DB_HOST:-127.0.0.1}"
-DB_PORT="$(read_env_value DB_PORT)"; DB_PORT="${DB_PORT:-5432}"
-DB_USER="$(read_env_value DB_USER)"; DB_USER="${DB_USER:-postgres}"
-DB_PASSWORD="$(read_env_value DB_PASSWORD)"
-[[ -n "$DB_PASSWORD" ]] || fail "DB_PASSWORD is missing from backend/.env"
+DB_AUTH_MODE="${DB_AUTH_MODE:-password}"
+if [[ "$DB_AUTH_MODE" == "peer" ]]; then
+  [[ "$(id -un)" == "postgres" ]] || fail "Peer mode must run as the OS postgres user: runuser -u postgres -- env DB_AUTH_MODE=peer ..."
+  # Use the VPS PostgreSQL Unix socket. This avoids requiring or changing a DB password.
+  DB_HOST="/var/run/postgresql"
+  DB_PORT="$(read_env_value DB_PORT)"; DB_PORT="${DB_PORT:-5432}"
+  DB_USER="postgres"
+  DB_PASSWORD=""
+elif [[ "$DB_AUTH_MODE" == "password" ]]; then
+  DB_HOST="${DB_HOST:-$(read_env_value DB_HOST)}"; DB_HOST="${DB_HOST:-127.0.0.1}"
+  DB_PORT="${DB_PORT:-$(read_env_value DB_PORT)}"; DB_PORT="${DB_PORT:-5432}"
+  DB_USER="${DB_USER:-$(read_env_value DB_USER)}"; DB_USER="${DB_USER:-postgres}"
+  DB_PASSWORD="${DB_PASSWORD:-$(read_env_value DB_PASSWORD)}"
+  [[ -n "$DB_PASSWORD" ]] || fail "DB_PASSWORD is missing from backend/.env"
+else
+  fail "DB_AUTH_MODE must be password or peer."
+fi
 
-export PGPASSWORD="$DB_PASSWORD"
+export PGPASSWORD="$DB_PASSWORD" DB_HOST DB_PORT DB_USER DB_PASSWORD
 export CONFIRM_NONPRODUCTION_DB
 PSQL=(psql -X -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -v ON_ERROR_STOP=1 -P pager=off)
 exists="$("${PSQL[@]}" -d postgres -Atc "SELECT COUNT(*) FROM pg_database WHERE datname = '$TARGET_DB'")"
