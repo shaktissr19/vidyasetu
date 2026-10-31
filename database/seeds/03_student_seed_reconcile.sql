@@ -94,22 +94,8 @@ WHERE c.target_xp > c.current_xp
 --    Each seeded student's streak_current is now backed by consecutive
 --    streak_log rows ending today, and last_activity matches the ledger.
 -- -----------------------------------------------------------------
-DELETE FROM streak_log
-WHERE student_id IN (
-  '30000000-0000-0000-0000-000000000001',
-  '30000000-0000-0000-0000-000000000002',
-  '30000000-0000-0000-0000-000000000003',
-  '30000000-0000-0000-0000-000000000004',
-  '30000000-0000-0000-0000-000000000005',
-  '30000000-0000-0000-0000-000000000006',
-  '30000000-0000-0000-0000-000000000007',
-  '30000000-0000-0000-0000-000000000008',
-  '30000000-0000-0000-0000-000000000009',
-  '30000000-0000-0000-0000-000000000010',
-  '30000000-0000-0000-0000-000000000011',
-  '30000000-0000-0000-0000-000000000012'
-);
-
+-- Preserve existing streak history. The dated rows below are deterministic
+-- upserts; do not delete a student's historical streak_log entries.
 INSERT INTO streak_log (student_id, date, activity, streak_count)
 SELECT
   s.id,

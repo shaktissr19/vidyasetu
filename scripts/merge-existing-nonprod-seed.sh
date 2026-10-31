@@ -79,19 +79,18 @@ base_count="$("${PSQL[@]}" -d "$TARGET_DB" -Atc "SELECT COUNT(*) FROM users WHER
 if [[ "$base_count" == "0" ]]; then
   printf 'Base synthetic accounts are absent; inserting the base seed in its own transaction.\n'
   "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/database/seeds/dev_seed.sql"
+  # A newly inserted canonical fixture is validated before module enrichment.
+  for seed in database/seeds/03_student_seed_reconcile.sql database/seeds/04_student_seed_validate.sql; do
+    "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/$seed"
+  done
 elif [[ "$base_count" == "25" ]]; then
-  printf 'Base synthetic accounts already exist; preserving them and skipping the one-time base seed.\n'
+  printf 'Base synthetic accounts already exist; preserving them and skipping fresh-database reconciliation and canonical snapshot validation.\n'
 else
   fail "Found $base_count of 25 base seed accounts. Stopped to avoid colliding with a partial seed; existing rows were not changed."
 fi
 
-# These files are documented as idempotent reconciliation/validation/enrichment.
-for seed in \
-  database/seeds/03_student_seed_reconcile.sql \
-  database/seeds/04_student_seed_validate.sql \
-  database/seeds/05_student_module_seed.sql; do
-  "${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/$seed"
-done
+# This module seed is idempotent and scoped to fixed demo fixture IDs.
+"${PSQL[@]}" -d "$TARGET_DB" -f "$PROJECT_DIR/database/seeds/05_student_module_seed.sql"
 
 # Expansion has 24 deterministic synthetic users. The runner now refuses partial
 # overlaps and skips its SQL insert after a complete prior load.
