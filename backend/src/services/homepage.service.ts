@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
-import { getDownloadUrl, getUploadUrl } from '../config/s3';
+import { getDownloadUrl, getUploadUrl, verifyS3Credentials } from '../config/s3';
 
 const internalLink = z.string().trim().min(1).max(300).regex(/^\/(?!\/)/, 'Use an internal VidyaSetu path');
 const mediaUrl = z.string().trim().max(1200).refine((value) => {
@@ -78,6 +78,7 @@ export async function createHomepageVideoUpload(fileName: string, contentType: s
   if (HOMEPAGE_VIDEO_TYPES[extension] !== contentType.toLowerCase()) {
     throw Object.assign(new Error('Upload an MP4, WebM or Ogg video file'), { statusCode: 400 });
   }
+  await verifyS3Credentials();
   const key = `homepage-intro/${randomUUID()}${extension}`;
   const uploadUrl = await getUploadUrl(key, contentType.toLowerCase());
   return { uploadUrl, videoUrl: `/api/v1/public/homepage/videos/${key.split('/')[1]}`, contentType: contentType.toLowerCase(), maxBytes: 500 * 1024 * 1024 };
