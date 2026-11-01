@@ -16,7 +16,9 @@ const acceptedTypes: Record<string, string> = {
 
 const fileFilter: NonNullable<Options['fileFilter']> = (_req, file, callback) => {
   const extension = path.extname(file.originalname).toLowerCase();
-  if (acceptedTypes[extension] === file.mimetype.toLowerCase()) {
+  // MIME metadata is supplied by the client/browser and may be blank or
+  // platform-specific. The service validates the actual file signature.
+  if (acceptedTypes[extension]) {
     callback(null, true);
     return;
   }
