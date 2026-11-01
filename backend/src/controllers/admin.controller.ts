@@ -241,6 +241,16 @@ export async function publishHomepageDraft(req: Request, res: Response, next: Ne
   } catch (err: unknown) { next(err); }
 }
 
+export async function getHomepageHistory(_req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await homepageService.getHomepageHistory()); }
+  catch (err: unknown) { next(err); }
+}
+
+export async function restoreHomepageVersion(req: Request<Record<string, string>, unknown, { version: number }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { const user = authenticated(req, res); if (!user) return; return R.ok(res, await homepageService.restoreHomepageVersion(req.body.version, user.userId)); }
+  catch (err: unknown) { next(err); }
+}
+
 export async function getLearnPageDraft(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await publicPageContentService.getLearnPageForOwner()); }
   catch (err: unknown) { next(err); }
@@ -277,6 +287,16 @@ export async function publishModulePageDraft(req: Request<{ slug: string }>, res
     const user = authenticated(req, res); if (!user) return;
     return R.ok(res, await publicPageContentService.publishModulePageDraft(req.params.slug, user.userId));
   } catch (err: unknown) { next(err); }
+}
+
+export async function getPublicPageHistory(req: Request<{ slug: string }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await publicPageContentService.getPublicPageHistory(req.params.slug)); }
+  catch (err: unknown) { next(err); }
+}
+
+export async function restorePublicPageVersion(req: Request<{ slug: string }, unknown, { version: number }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { const user = authenticated(req, res); if (!user) return; return R.ok(res, await publicPageContentService.restorePublicPageVersion(req.params.slug, req.body.version, user.userId)); }
+  catch (err: unknown) { next(err); }
 }
 
 export async function createHomepageVideoUpload(req: Request<Record<string, string>, unknown, { fileName: string; contentType: string; fileSize: number }>, res: Response, next: NextFunction): Promise<Response | void> {

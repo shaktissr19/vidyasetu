@@ -8,6 +8,7 @@ import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import SubjectVisual from '@/components/public/SubjectVisual';
 import { HERO_IMAGES, MODULE_IMAGES } from '@/components/public/heroAssets';
 import useAuthStore from '@/store/authStore';
+import useLanguageStore from '@/store/languageStore';
 import { getPublicHomepage, type HomepageContent, type HomepageIcon } from '@/services/homepageService';
 import {
   getPublicCompetitions,
@@ -89,18 +90,21 @@ function metric(value: number | undefined): string {
 
 export default function PublicHomeSampleExperience() {
   const canEditHome = useAuthStore((state) => state.user?.role === 'SUPER_ADMIN');
+  const language = useLanguageStore((state) => state.lang);
   const [learning, setLearning] = useState<PublicLearningResource[]>([]);
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [competitions, setCompetitions] = useState<PublicCompetition[]>([]);
   const [overview, setOverview] = useState<PublicOverview | null>(null);
   const [learningOverview, setLearningOverview] = useState<PublicLearningOverview | null>(null);
   const [homepage, setHomepage] = useState<HomepageContent | null>(null);
+  const [refreshPublicData, setRefreshPublicData] = useState(0);
   const [loadStates, setLoadStates] = useState({
     learning: 'loading' as 'loading' | 'ready' | 'error',
     schools: 'loading' as 'loading' | 'ready' | 'error',
     competitions: 'loading' as 'loading' | 'ready' | 'error',
     overview: 'loading' as 'loading' | 'ready' | 'error',
     learningOverview: 'loading' as 'loading' | 'ready' | 'error',
+    homepage: 'loading' as 'loading' | 'ready' | 'error',
   });
 
   useEffect(() => {
@@ -126,12 +130,16 @@ export default function PublicHomeSampleExperience() {
         competitions: competitionResult.status === 'fulfilled' ? 'ready' : 'error',
         overview: overviewResult.status === 'fulfilled' ? 'ready' : 'error',
         learningOverview: learningOverviewResult.status === 'fulfilled' ? 'ready' : 'error',
+        homepage: homepageResult.status === 'fulfilled' ? 'ready' : 'error',
       });
     });
     return () => { active = false; };
-  }, []);
+  }, [refreshPublicData]);
 
   const homeContent = homepage || FALLBACK_HOME_CONTENT;
+  const videoTitle = language === 'hi' && homeContent.video.hindiTitle?.trim() ? homeContent.video.hindiTitle : homeContent.video.title;
+  const videoDescription = language === 'hi' && homeContent.video.hindiDescription?.trim() ? homeContent.video.hindiDescription : homeContent.video.description;
+  const videoTranscript = language === 'hi' && homeContent.video.hindiTranscript?.trim() ? homeContent.video.hindiTranscript : homeContent.video.transcript;
 
   const homeStats = [
     { icon: BookOpen, value: loadStates.learningOverview === 'loading' ? '…' : loadStates.learningOverview === 'error' ? '—' : metric(learningOverview?.totalResources), label: 'Published Learning Resources', note: loadStates.learningOverview === 'error' ? 'Could not load this total' : 'Live public catalogue', tone: sample.statOrange },
@@ -144,6 +152,8 @@ export default function PublicHomeSampleExperience() {
     <div className={styles.page}>
       <a className={sample.skipLink} href="#main-content" lang="en">Skip to main content</a>
       <GlobalTopbar />
+
+      {canEditHome && Object.values(loadStates).includes('error') && <div role="status" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-950"><span>Public page data health: {Object.entries(loadStates).filter(([, state]) => state === 'error').map(([source]) => source === 'homepage' ? 'published Home copy' : source).join(', ')} failed to load. Fallback page copy remains visible.</span><button type="button" className="rounded-lg border border-amber-800 bg-white px-3 py-2 font-bold text-amber-950" onClick={() => { setLoadStates((current) => Object.fromEntries(Object.keys(current).map((key) => [key, 'loading'])) as typeof current); setRefreshPublicData((value) => value + 1); }}>Retry public data</button></div>}
 
       <main id="main-content" tabIndex={-1} lang="en">
       <section className={sample.hero} aria-labelledby="home-hero-title">
@@ -182,23 +192,24 @@ export default function PublicHomeSampleExperience() {
         <div className={sample.videoShell}>
           <div className={sample.videoCopy}>
             <span>MEET VIDYASETU</span>
-            <h2 id="home-video-title">{homeContent.video.title}</h2>
-            <p>{homeContent.video.description}</p>
+            <h2 id="home-video-title">{videoTitle}</h2>
+            <p>{videoDescription}</p>
             {canEditHome && <Link className={sample.adminEditShortcut} href="/admin/homepage#video-settings">Upload or edit intro video</Link>}
-            {homeContent.video.transcript && <details className={sample.videoTranscript}><summary>Read the video transcript</summary><p>{homeContent.video.transcript}</p></details>}
+            {videoTranscript && <details className={sample.videoTranscript}><summary>{language === 'hi' && homeContent.video.hindiTranscript ? 'वीडियो का ट्रांसक्रिप्ट पढ़ें' : 'Read the video transcript'}</summary><p>{videoTranscript}</p></details>}
           </div>
           <div className={sample.videoFrame}>
             {homeContent.video.videoUrl ? (
-              <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={homeContent.video.title}>
+              <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={videoTitle}>
                 <source src={homeContent.video.videoUrl} />
-                {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default />}
+                {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default={language === (homeContent.video.captionsLanguage || 'en')} />}
+                {homeContent.video.hindiCaptionsUrl && <track kind="captions" src={homeContent.video.hindiCaptionsUrl} srcLang="hi" label="Hindi" default={language === 'hi'} />}
                 Your browser does not support this video. Use the transcript beside it.
               </video>
             ) : (
               <div className={sample.videoPlaceholder} role="group" aria-label="VidyaSetu introduction video placeholder">
                 <Image className={sample.videoPoster} src={homeContent.video.posterUrl || HERO_IMAGES.home} alt="" fill sizes="(max-width: 760px) 100vw, 1240px" />
                 <div className={sample.videoPlaceholderCopy}>
-                  <strong>{homeContent.video.title}</strong>
+                  <strong>{videoTitle}</strong>
                   <span>Introduction video coming soon</span>
                 </div>
               </div>

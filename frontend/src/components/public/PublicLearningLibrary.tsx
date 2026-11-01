@@ -251,6 +251,7 @@ export default function PublicLearningLibrary() {
   return (
     <div className={styles.page}>
       <GlobalTopbar />
+      {canEditLearnPage && (editorialQuery.isError || overviewQuery.isError) && <div role="status" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-950"><span>{editorialQuery.isError && overviewQuery.isError ? 'Published Learn copy and catalogue metadata failed to load.' : editorialQuery.isError ? 'Published Learn copy failed to load; built-in page copy is shown.' : 'Learning catalogue metadata failed to load; fallback grade filters are shown.'}</span><button type="button" className="rounded-lg border border-amber-800 bg-white px-3 py-2 font-bold text-amber-950" onClick={() => { if (editorialQuery.isError) void editorialQuery.refetch(); if (overviewQuery.isError) void overviewQuery.refetch(); }}>Retry failed requests</button></div>}
       <ImageHero
         image={editorial.hero.imageUrl || HERO_IMAGES.learn}
         imagePosition="center"

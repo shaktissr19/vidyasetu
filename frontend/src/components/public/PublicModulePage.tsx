@@ -232,6 +232,8 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         ]}
       />
 
+      {user?.role === 'SUPER_ADMIN' && editorialQuery.isError && <div role="status" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-950"><span>Published editorial copy could not be fetched. This page is showing its built-in fallback copy.</span><button type="button" className="rounded-lg border border-amber-800 bg-white px-3 py-2 font-bold text-amber-950" onClick={() => void editorialQuery.refetch()}>Retry content API</button></div>}
+
       {user?.role === 'SUPER_ADMIN' && <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px clamp(16px, 4vw, 56px)', background: '#DCE5EF' }}><button type="button" onClick={() => setEditorOpen(true)} style={{ minHeight: 44, borderRadius: 10, border: '1px solid #14213D', background: '#14213D', color: '#fff', padding: '0 18px', fontWeight: 800 }}>Edit this page</button></div>}
 
       <section className={visualStyles.quickSection} aria-label={`${liveConfig.audience} highlights`}>

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSchool, listSchools, updateSchoolStatus } from '@/services/adminService';
 import { SectionHeader, StatusBadge, TableSkeleton } from '@/components/ui/index';
@@ -14,6 +14,13 @@ export default function AdminSchoolsPage() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+  const detailDialogRef = useRef<HTMLDivElement>(null);
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  function closeSchoolDetails() {
+    setSelectedSchoolId(null);
+    window.requestAnimationFrame(() => detailTriggerRef.current?.focus());
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-schools', search, status, page],
@@ -28,6 +35,24 @@ export default function AdminSchoolsPage() {
     },
     enabled: Boolean(selectedSchoolId),
   });
+
+  useEffect(() => {
+    if (!selectedSchoolId) return;
+    detailDialogRef.current?.focus();
+    const focusable = () => Array.from(detailDialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { closeSchoolDetails(); return; }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [selectedSchoolId]);
 
   const schools = data?.data || [];
   const meta = data?.meta;
@@ -70,15 +95,15 @@ export default function AdminSchoolsPage() {
                 <tbody>
                   {schools.map((school) => (
                     <tr key={school.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      <td><p className="font-semibold text-white">{school.name}</p><p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{school.district}</p></td>
+                      <td><p className="font-semibold">{school.name}</p><p className="text-xs admin-muted">{school.district || 'District not provided'}</p></td>
                       <td>{school.state}</td><td className="font-bold text-white">{school.student_count || 0}</td><td>{formatDate(school.created_at)}</td>
                       <td><span className={`badge ${PLAN_COLORS[school.plan || ''] || 'badge-blue'}`}>{school.plan || 'FREE'}</span></td>
                       <td><StatusBadge status={school.status} /></td>
                       <td><div className="flex gap-2">
-                        <button className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(79,195,247,0.15)', color: '#81D4FA' }} onClick={() => setSelectedSchoolId(school.id)}>View</button>
+                        <button className="admin-action-view text-xs" onClick={(event) => { detailTriggerRef.current = event.currentTarget; setSelectedSchoolId(school.id); }}>View</button>
                         {school.status === 'PENDING' && <button className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(19,136,8,0.2)', color: '#A5D6A7' }} onClick={() => statusMut.mutate({ id: school.id, status: 'ACTIVE' })}>Approve</button>}
-                        {school.status === 'ACTIVE' && <button className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(194,40,40,0.2)', color: '#EF9A9A' }} onClick={() => statusMut.mutate({ id: school.id, status: 'SUSPENDED' })}>Suspend</button>}
-                        {school.status === 'SUSPENDED' && <button className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(19,136,8,0.2)', color: '#A5D6A7' }} onClick={() => statusMut.mutate({ id: school.id, status: 'ACTIVE' })}>Reactivate</button>}
+                        {school.status === 'ACTIVE' && <button className="admin-action-suspend text-xs" onClick={() => statusMut.mutate({ id: school.id, status: 'SUSPENDED' })}>Suspend</button>}
+                        {school.status === 'SUSPENDED' && <button className="admin-action-activate text-xs" onClick={() => statusMut.mutate({ id: school.id, status: 'ACTIVE' })}>Reactivate</button>}
                       </div></td>
                     </tr>
                   ))}
@@ -94,29 +119,32 @@ export default function AdminSchoolsPage() {
       </div>
 
       {selectedSchoolId && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4" style={{ background: 'rgba(3,8,22,0.78)' }} onMouseDown={(e) => e.currentTarget === e.target && setSelectedSchoolId(null)}>
-          <div className="card-navy w-full max-w-2xl max-h-[85vh] overflow-y-auto" style={{ border: '1px solid rgba(79,195,247,0.3)' }}>
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4" style={{ background: 'rgba(3,8,22,0.78)' }} onMouseDown={(e) => e.currentTarget === e.target && closeSchoolDetails()}>
+          <div ref={detailDialogRef} tabIndex={-1} className="admin-detail-surface w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="school-detail-title">
             <div className="flex items-start justify-between gap-3 mb-5">
-              <div><h2 className="font-display font-extrabold text-xl text-white">🏫 {selectedSchool?.name || 'School Details'}</h2>{selectedSchool?.udise_code && <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>UDISE: {selectedSchool.udise_code}</p>}</div>
-              <button onClick={() => setSelectedSchoolId(null)} className="text-xl" style={{ background: 'none', border: 0, color: 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>✕</button>
+              <div><h2 id="school-detail-title" className="font-display font-extrabold text-xl">🏫 {selectedSchool?.name || 'School Details'}</h2>{selectedSchool?.udise_code && <p className="text-xs mt-1">UDISE: {selectedSchool.udise_code}</p>}</div>
+              <button aria-label="Close school details" onClick={closeSchoolDetails} className="admin-dialog-close text-xl" style={{ background: 'none', border: 0, cursor: 'pointer' }}>✕</button>
             </div>
-            {detailLoading ? <div className="skeleton h-52 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} /> : selectedSchool && <>
+            {detailLoading ? <div className="skeleton h-52 rounded-xl" /> : null}
+            {!detailLoading && !selectedSchool && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">School details could not be loaded. <button className="ml-2 font-bold underline" onClick={() => qc.invalidateQueries({ queryKey: ['admin-school-detail', selectedSchoolId] })}>Retry</button></div>}
+            {!detailLoading && selectedSchool && <>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
                 {[
                   ['Students', selectedSchool.student_count || 0], ['Teachers', selectedSchool.teacher_count || 0], ['Classes', selectedSchool.class_count || 0],
                   ['State', selectedSchool.state || '—'], ['Plan', selectedSchool.plan || 'FREE'], ['Status', selectedSchool.status],
-                ].map(([label, value]) => <div key={String(label)} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.05)' }}><div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{label}</div><div className="font-bold text-white mt-1">{value}</div></div>)}
+                  ['Since', selectedSchool.created_at ? formatDate(selectedSchool.created_at) : 'Not available'], ['Verified', selectedSchool.is_verified ? (selectedSchool.verified_at ? formatDate(selectedSchool.verified_at) : 'Yes') : 'Not verified'],
+                ].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-xs text-slate-600">{label}</div><div className="font-bold mt-1">{value}</div></div>)}
               </div>
               <div className="grid md:grid-cols-2 gap-4 mb-5 text-sm">
-                <div><div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>SCHOOL ADMIN</div><div className="text-white font-semibold">{selectedSchool.admin_name || '—'}</div><div style={{ color: 'rgba(255,255,255,0.55)' }}>{selectedSchool.admin_mobile || ''}{selectedSchool.admin_email ? ` · ${selectedSchool.admin_email}` : ''}</div></div>
-                <div><div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>LOCATION</div><div className="text-white">{[selectedSchool.district, selectedSchool.state].filter(Boolean).join(', ') || '—'}</div><div style={{ color: 'rgba(255,255,255,0.55)' }}>{selectedSchool.pincode || ''}</div></div>
+                <div><div className="text-xs mb-1 text-slate-600">SCHOOL ADMIN</div><div className="font-semibold">{selectedSchool.admin_name || '—'}</div><div className="text-slate-600">{selectedSchool.admin_mobile || ''}{selectedSchool.admin_email ? ` · ${selectedSchool.admin_email}` : ''}</div></div>
+                <div><div className="text-xs mb-1 text-slate-600">LOCATION</div><div>{[selectedSchool.address_line1, selectedSchool.district, selectedSchool.state].filter(Boolean).join(', ') || '—'}</div><div className="text-slate-600">{selectedSchool.pincode || ''}</div></div>
               </div>
               <div className="flex gap-2 mb-5">
                 {selectedSchool.status !== 'ACTIVE' && <button className="btn-green" onClick={() => statusMut.mutate({ id: selectedSchool.id, status: 'ACTIVE' })}>Approve / Reactivate</button>}
-                {selectedSchool.status === 'ACTIVE' && <button className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: 'rgba(194,40,40,0.2)', color: '#EF9A9A', border: '1px solid rgba(194,40,40,0.25)' }} onClick={() => statusMut.mutate({ id: selectedSchool.id, status: 'SUSPENDED' })}>Suspend</button>}
+                {selectedSchool.status === 'ACTIVE' && <button className="admin-action-suspend text-xs" onClick={() => statusMut.mutate({ id: selectedSchool.id, status: 'SUSPENDED' })}>Suspend</button>}
               </div>
-              <h3 className="font-display font-bold text-white mb-3">Recent Admin Activity</h3>
-              {(selectedSchool.recentActivity || []).length === 0 ? <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No school-level admin activity recorded yet.</p> : (selectedSchool.recentActivity || []).map((activity, index) => <div key={`${activity.action}-${index}`} className="flex justify-between gap-3 py-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}><span className="text-white">{activity.action.replaceAll('_', ' ')}</span><span style={{ color: 'rgba(255,255,255,0.4)' }}>{formatDate(activity.created_at)}</span></div>)}
+              <h3 className="font-display font-bold mb-3">Recent Admin Activity</h3>
+              {(selectedSchool.recentActivity || []).length === 0 ? <p className="text-sm text-slate-600">No school-level admin activity recorded yet.</p> : (selectedSchool.recentActivity || []).map((activity, index) => <div key={`${activity.action}-${index}`} className="flex justify-between gap-3 border-b border-slate-200 py-2 text-xs"><span>{activity.action.replaceAll('_', ' ')}</span><span className="text-slate-600">{formatDate(activity.created_at)}</span></div>)}
             </>}
           </div>
         </div>

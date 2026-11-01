@@ -26,9 +26,9 @@ export const homepageContentSchema = z.object({
   hero: z.object({ eyebrow: text(100), title: text(180), description: text(600) }),
   benefits: z.array(z.object({ icon, title: text(80), copy: text(220), tone })).min(1).max(6),
   modules: z.array(z.object({ title: text(80), copy: text(220), href: internalLink, imageUrl: mediaUrl, icon, tone })).min(1).max(12),
-  video: z.object({ title: text(120), description: text(300), videoUrl, posterUrl: mediaUrl, captionsUrl: captionUrl, captionsLanguage: z.string().trim().regex(/^[a-z]{2}$/i), transcript: z.string().trim().max(12000) }).superRefine((video, ctx) => {
-    if (video.videoUrl && !video.captionsUrl) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['captionsUrl'], message: 'Add captions before publishing the introduction video' });
-    if (video.videoUrl && !video.transcript) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['transcript'], message: 'Add a transcript before publishing the introduction video' });
+  video: z.object({ title: text(120), description: text(300), videoUrl, posterUrl: mediaUrl, captionsUrl: captionUrl, captionsLanguage: z.string().trim().regex(/^[a-z]{2}$/i), transcript: z.string().trim().max(12000), hindiTitle: z.string().trim().max(120).optional().default(''), hindiDescription: z.string().trim().max(300).optional().default(''), hindiCaptionsUrl: captionUrl.optional().default(''), hindiTranscript: z.string().trim().max(12000).optional().default('') }).superRefine((video, ctx) => {
+    if (video.videoUrl && !video.captionsUrl && !video.hindiCaptionsUrl) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['captionsUrl'], message: 'Add English or Hindi captions before publishing the introduction video' });
+    if (video.videoUrl && !video.transcript && !video.hindiTranscript) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['transcript'], message: 'Add an English or Hindi transcript before publishing the introduction video' });
   }),
   journey: z.array(z.object({ step: z.string().trim().min(1).max(8), icon, title: text(100), copy: text(300) })).min(1).max(8),
   trust: z.array(z.object({ icon, title: text(100), copy: text(320) })).min(1).max(10),
@@ -52,7 +52,7 @@ export const DEFAULT_HOMEPAGE_CONTENT: HomepageContent = {
     { title: 'Competitions', copy: 'Participate, compete and excel', href: '/competition', imageUrl: '/images/heroes/competition-hero.png', icon: 'trophy', tone: 'rose' },
     { title: 'Communities', copy: 'Connect, discuss and learn together', href: '/communities', imageUrl: '', icon: 'family', tone: 'teal' },
   ],
-  video: { title: 'Discover VidyaSetu', description: 'See how students, schools and families learn and stay connected.', videoUrl: '', posterUrl: '/images/heroes/home-hero.png', captionsUrl: '', captionsLanguage: 'en', transcript: '' },
+  video: { title: 'Discover VidyaSetu', description: 'See how students, schools and families learn and stay connected.', videoUrl: '', posterUrl: '/images/heroes/home-hero.png', captionsUrl: '', captionsLanguage: 'en', transcript: '', hindiTitle: '', hindiDescription: '', hindiCaptionsUrl: '', hindiTranscript: '' },
   journey: [
     { step: '01', icon: 'graduation', title: 'A student learns', copy: 'Discover resources, practise by class and build a visible learning journey.' },
     { step: '02', icon: 'school', title: 'The school supports', copy: 'School academics and everyday operations stay connected to the learner.' },
@@ -131,11 +131,16 @@ export async function saveHomepageDraft(input: unknown, actorId: UUID) {
 
 export async function publishHomepageDraft(actorId: UUID) {
   return transaction(async (client) => {
-    const { rows: [current] } = await client.query<{ draft_content: HomepageContent | null; version: number }>(
-      'SELECT draft_content,version FROM public_homepage_content WHERE singleton=TRUE FOR UPDATE',
+    const { rows: [current] } = await client.query<{ published_content: HomepageContent; draft_content: HomepageContent | null; version: number; published_by: UUID | null; published_at: string }>(
+      'SELECT published_content,draft_content,version,published_by,published_at FROM public_homepage_content WHERE singleton=TRUE FOR UPDATE',
     );
     if (!current?.draft_content) throw Object.assign(new Error('Save a Home page draft before publishing it'), { statusCode: 409 });
     const content = homepageContentSchema.parse(current.draft_content);
+    await client.query(
+      `INSERT INTO public_content_revisions(page_slug,version,content,published_by,published_at)
+       VALUES('homepage',$1,$2::jsonb,$3,$4) ON CONFLICT(page_slug,version) DO NOTHING`,
+      [current.version, JSON.stringify(current.published_content), current.published_by, current.published_at],
+    );
     const { rows: [published] } = await client.query(
       `UPDATE public_homepage_content SET published_content=$1::jsonb,draft_content=NULL,published_by=$2,
          published_at=NOW(),updated_by=$2,updated_at=NOW(),version=version+1
@@ -148,5 +153,34 @@ export async function publishHomepageDraft(actorId: UUID) {
       [actorId, JSON.stringify({ version: published.version })],
     );
     return { published: true, publishedAt: published.published_at, version: published.version };
+  });
+}
+
+export async function getHomepageHistory() {
+  const { rows } = await query<{ version: number; published_at: string; published_by_name: string | null }>(
+    `SELECT r.version,r.published_at,u.name AS published_by_name
+     FROM public_content_revisions r LEFT JOIN users u ON u.id=r.published_by
+     WHERE r.page_slug='homepage' ORDER BY r.version DESC LIMIT 30`,
+  );
+  return rows;
+}
+
+export async function restoreHomepageVersion(version: number, actorId: UUID) {
+  return transaction(async (client) => {
+    const { rows: [revision] } = await client.query<{ content: HomepageContent }>(
+      `SELECT content FROM public_content_revisions WHERE page_slug='homepage' AND version=$1`, [version],
+    );
+    if (!revision) throw Object.assign(new Error('Published version not found'), { statusCode: 404 });
+    const draft = homepageContentSchema.parse(revision.content);
+    await client.query(
+      `UPDATE public_homepage_content SET draft_content=$1::jsonb,updated_by=$2,updated_at=NOW() WHERE singleton=TRUE`,
+      [JSON.stringify(draft), actorId],
+    );
+    await client.query(
+      `INSERT INTO audit_log(actor_id,actor_role,action,entity_type,new_value)
+       VALUES($1,'SUPER_ADMIN','HOMEPAGE_VERSION_RESTORED','public_homepage_content',$2::jsonb)`,
+      [actorId, JSON.stringify({ sourceVersion: version, stagedAsDraft: true })],
+    );
+    return { restored: true, sourceVersion: version, stagedAsDraft: true };
   });
 }
