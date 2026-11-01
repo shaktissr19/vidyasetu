@@ -10,6 +10,7 @@ export interface SidebarMenuItem {
   icon: ReactNode;
   label: ReactNode;
   exact?: boolean;
+  section?: string;
 }
 
 export interface SidebarProfile {
@@ -66,16 +67,19 @@ export default function DashSidebar({
         )}
       </div>
       <nav style={{ marginTop: 8, paddingBottom: 40 }}>
-        {menuItems.map(({ href, icon, label, exact }) => {
+        {menuItems.map(({ href, icon, label, exact, section }) => {
           const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
           return (
-            <Link key={href} href={href} className={`sidebar-link${isActive ? ' active' : ''}`} onClick={onNavigate}
+            <div key={href}>
+            {section && <p className="sidebar-section-label" aria-hidden="true">{section}</p>}
+            <Link href={href} className={`sidebar-link${isActive ? ' active' : ''}`} onClick={onNavigate}
               aria-current={isActive ? 'page' : undefined}
               style={{ borderLeftColor: isActive ? accentColor : 'transparent' }}>
               <span style={{ fontSize: 15, flexShrink: 0 }}>{icon}</span>
               <span style={{ flex: 1 }}>{label}</span>
               {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />}
             </Link>
+            </div>
           );
         })}
       </nav>
