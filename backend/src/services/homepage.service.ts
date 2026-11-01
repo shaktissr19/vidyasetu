@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { createReadStream } from 'fs';
-import { access, mkdir, rename, copyFile, unlink } from 'fs/promises';
+import { access, mkdir, rename, copyFile, unlink, open } from 'fs/promises';
 import path from 'path';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
@@ -77,6 +77,22 @@ const HOMEPAGE_VIDEO_TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.we
 const videoStorageProvider = () => (process.env.HOMEPAGE_VIDEO_STORAGE || 'local').trim().toLowerCase();
 const localVideoDirectory = () => process.env.HOMEPAGE_VIDEO_LOCAL_DIR || '/var/lib/vidyasetu/media/homepage-intro';
 
+async function assertHomepageVideoContainer(filePath: string, extension: string) {
+  const handle = await open(filePath, 'r');
+  const header = Buffer.alloc(16);
+  try {
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    const isValid = extension === '.mp4'
+      ? bytesRead >= 8 && header.toString('ascii', 4, 8) === 'ftyp'
+      : extension === '.webm'
+        ? bytesRead >= 4 && header.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+        : (extension === '.ogg' || extension === '.ogv') && bytesRead >= 4 && header.toString('ascii', 0, 4) === 'OggS';
+    if (!isValid) throw Object.assign(new Error(`The file contents do not match its ${extension.slice(1).toUpperCase()} extension.`), { statusCode: 400 });
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function createHomepageVideoUpload(fileName: string, contentType: string, fileSize: number) {
   if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > 500 * 1024 * 1024) {
     throw Object.assign(new Error('Choose a video file up to 500 MB'), { statusCode: 400 });
@@ -91,14 +107,16 @@ export async function createHomepageVideoUpload(fileName: string, contentType: s
   return { uploadUrl, videoUrl: `/api/v1/public/homepage/videos/${key.split('/')[1]}`, contentType: contentType.toLowerCase(), maxBytes: 500 * 1024 * 1024 };
 }
 
-export async function storeHomepageVideo(filePath: string, fileName: string, contentType: string, fileSize: number) {
+export async function storeHomepageVideo(filePath: string, fileName: string, _contentType: string, fileSize: number) {
   if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > HOMEPAGE_VIDEO_MAX_BYTES) {
     throw Object.assign(new Error('Choose an introduction video up to 250 MB.'), { statusCode: 400 });
   }
   const extension = path.extname(fileName).toLowerCase();
-  if (HOMEPAGE_VIDEO_TYPES[extension] !== contentType.toLowerCase()) {
+  const canonicalContentType = HOMEPAGE_VIDEO_TYPES[extension];
+  if (!canonicalContentType) {
     throw Object.assign(new Error('Upload an MP4, WebM or Ogg video file.'), { statusCode: 400 });
   }
+  await assertHomepageVideoContainer(filePath, extension);
   const provider = videoStorageProvider();
   if (provider !== 'local' && provider !== 's3') {
     throw Object.assign(new Error('HOMEPAGE_VIDEO_STORAGE must be set to local or s3.'), { statusCode: 503 });
@@ -122,7 +140,7 @@ export async function storeHomepageVideo(filePath: string, fileName: string, con
       Bucket: BUCKET,
       Key: `homepage-intro/${filename}`,
       Body: createReadStream(filePath),
-      ContentType: contentType.toLowerCase(),
+      ContentType: canonicalContentType,
     }).promise();
     await unlink(filePath);
   }
