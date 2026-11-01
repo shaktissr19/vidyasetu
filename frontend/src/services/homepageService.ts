@@ -31,24 +31,12 @@ export const restoreHomepageVersion = (version: number) => api.post<ApiEnvelope<
 export async function uploadHomepageVideo(file: File): Promise<{ videoUrl: string }> {
   const types = new Set(['video/mp4', 'video/webm', 'video/ogg']);
   if (!types.has(file.type)) throw new Error('Choose an MP4, WebM or Ogg video file.');
-  if (file.size <= 0 || file.size > 500 * 1024 * 1024) throw new Error('The introduction video must be 500 MB or smaller.');
-  let ticket: ApiEnvelope<{ uploadUrl: string; videoUrl: string; contentType: string }>;
-  try {
-    ({ data: ticket } = await api.post<ApiEnvelope<{ uploadUrl: string; videoUrl: string; contentType: string }>>('/admin/homepage/video-upload-url', { fileName: file.name, contentType: file.type, fileSize: file.size }));
-  } catch (error) {
-    throw new Error(`VidyaSetu could not prepare the upload: ${error instanceof Error ? error.message : 'request failed'}`);
-  }
-
-  let upload: Response;
-  try {
-    upload = await fetch(ticket.data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': ticket.data.contentType }, body: file });
-  } catch {
-    let storageHost = 'the configured media bucket';
-    try { storageHost = new URL(ticket.data.uploadUrl).hostname; } catch { /* keep the generic label */ }
-    throw new Error(`The upload link was created, but the browser could not send the file to ${storageHost}. Check that the S3 bucket CORS allows PUT from this website and allows the Content-Type header.`);
-  }
-  if (!upload.ok) {
-    throw new Error(`Media storage rejected the upload (HTTP ${upload.status}). Check the S3 bucket policy, region, and presigned URL permissions.`);
-  }
-  return { videoUrl: ticket.data.videoUrl };
+  if (file.size <= 0 || file.size > 250 * 1024 * 1024) throw new Error('The introduction video must be 250 MB or smaller.');
+  const form = new FormData();
+  form.append('video', file, file.name);
+  const { data } = await api.post<ApiEnvelope<{ videoUrl: string }>>('/admin/homepage/video-upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 15 * 60 * 1000,
+  });
+  return { videoUrl: data.data.videoUrl };
 }

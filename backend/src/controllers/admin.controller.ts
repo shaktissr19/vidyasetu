@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { unlink } from 'fs/promises';
 import * as adminService from '../services/admin.service';
 import { query } from '../config/db';
 import * as R from '../utils/response';
@@ -302,4 +303,17 @@ export async function restorePublicPageVersion(req: Request<{ slug: string }, un
 export async function createHomepageVideoUpload(req: Request<Record<string, string>, unknown, { fileName: string; contentType: string; fileSize: number }>, res: Response, next: NextFunction): Promise<Response | void> {
   try { return R.ok(res, await homepageService.createHomepageVideoUpload(req.body.fileName, req.body.contentType, req.body.fileSize)); }
   catch (err: unknown) { next(err); }
+}
+
+export async function uploadHomepageVideo(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Choose an MP4, WebM or Ogg video file.' } });
+  }
+  try {
+    return R.ok(res, await homepageService.storeHomepageVideo(req.file.path, req.file.originalname, req.file.mimetype, req.file.size));
+  } catch (err: unknown) {
+    next(err);
+  } finally {
+    await unlink(req.file.path).catch(() => undefined);
+  }
 }

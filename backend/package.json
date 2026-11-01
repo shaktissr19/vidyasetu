@@ -15,7 +15,8 @@
     "lint": "eslint src/",
     "test:content-pipeline": "npm run build && node --test tests/content-pipeline-integration.cjs",
     "test:syllabus-auto-fetch": "npm run build && node --test tests/syllabus-auto-fetch.test.cjs",
-    "test:aws-credentials": "npm run build && node --test tests/aws-credentials.test.cjs"
+    "test:aws-credentials": "npm run build && node --test tests/aws-credentials.test.cjs",
+    "test:homepage-video": "npm run build && node --test tests/aws-credentials.test.cjs tests/homepage-video-local-storage.test.cjs"
   },
   "dependencies": {
     "express": "^4.18.2",

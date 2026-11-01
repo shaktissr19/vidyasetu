@@ -1,42 +1,26 @@
 # Home introduction video storage
 
-The Home page editor uploads video files directly to S3 using a short-lived presigned URL. The browser needs an S3 CORS rule for the exact HTTPS origin in `FRONTEND_URL`, the `PUT` method, and the `Content-Type` request header. The upload ticket alone does not prove that AWS accepts the configured credentials: presigned URLs are locally signed, so an invalid AWS key can still produce a URL.
+The Home editor sends the video through an authenticated VidyaSetu API endpoint. The browser no longer sends the file directly to S3, so new uploads do not depend on S3 CORS. Uploads accept MP4, WebM, and Ogg files up to 250 MB. The backend streams them from temporary disk storage to the selected provider.
 
-## Configure credentials on the VPS
+## VPS-local storage (default)
 
-Use one of these credential sources:
+Set these values in `backend/.env`:
 
-- Set both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `backend/.env` to a current, matching key pair; or
-- Leave both values empty and attach an IAM role to the VPS. The backend uses the AWS SDK default credential chain when the static pair is absent.
-
-Never set only one key. The backend now rejects a partial key pair before issuing a video upload URL. Do not paste AWS credentials into support messages or commit them to Git.
-
-The identity needs `s3:PutObject` and `s3:GetObject` on `arn:aws:s3:::vidyasetu-content/homepage-intro/*`. To configure the bucket rule with the provided script, it also needs `s3:GetBucketCORS` and `s3:PutBucketCORS` on `arn:aws:s3:::vidyasetu-content`. `sts:GetCallerIdentity` does not require an IAM allow policy.
-
-## Verify and apply
-
-From `/var/www/vidyasetu`, verify the exact credentials and role used by the backend environment. This prints only the AWS account and principal, never the secret key:
-
-```bash
-node - <<'NODE'
-const path = require('node:path');
-const backendPath = path.resolve('backend');
-require(require.resolve('dotenv', { paths: [backendPath] })).config({ path: path.join(backendPath, '.env') });
-const AWS = require(require.resolve('aws-sdk', { paths: [backendPath] }));
-new AWS.STS({ region: process.env.AWS_REGION || 'ap-south-1' }).getCallerIdentity({})
-  .promise()
-  .then(({ Account, Arn }) => console.log({ Account, Arn }))
-  .catch((error) => {
-    console.error(`AWS identity check failed: ${error.code || 'AWS error'}: ${error.message}`);
-    process.exitCode = 1;
-  });
-NODE
+```env
+HOMEPAGE_VIDEO_STORAGE=local
+HOMEPAGE_VIDEO_LOCAL_DIR=/var/lib/vidyasetu/media/homepage-intro
 ```
 
-After the identity check succeeds, apply and verify the bucket rule:
+The API creates the directory when it receives the first upload. The application process must be able to write there. Keep this directory outside the code release directories so deployments do not remove uploaded files, and include it in the VPS backup plan. The deployment config already allows requests up to 260 MB; the video endpoint caps each file at 250 MB.
 
-```bash
-node scripts/configure-homepage-video-cors.js
-```
+Local storage avoids AWS credentials, bucket permissions, and S3 CORS for this video. It is a good fit for the current single-VPS introduction video, provided the directory is persistent and backed up.
 
-If the identity check reports `InvalidAccessKeyId` or `InvalidClientTokenId`, replace the key pair or clear both keys and use the VPS IAM role. If the CORS script then reports `AccessDenied`, grant the bucket CORS actions above and rerun it. Restart the backend after changing its credentials, then try the upload again. No frontend deployment is needed for a bucket CORS update.
+## S3 storage (optional)
+
+Set `HOMEPAGE_VIDEO_STORAGE=s3` to use the existing S3 bucket. Set both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to a current matching pair, or leave both empty to use the VPS IAM role. The S3 identity needs `s3:PutObject` and `s3:GetObject` on `arn:aws:s3:::vidyasetu-content/homepage-intro/*`. `sts:GetCallerIdentity` is used to check the credential identity before issuing an upload operation and does not require an IAM allow policy.
+
+This upload path is proxied through the backend, so new video uploads no longer need bucket CORS rules. The legacy presigned upload URL endpoint remains only for clients from older releases; `node scripts/configure-homepage-video-cors.js` is not needed by the current editor.
+
+## Playback and publishing
+
+The public video route supports browser byte-range playback for files stored locally. When local mode is selected, it also falls back to the existing S3 object for videos created by the earlier upload flow. Publishing requires a poster, English or Hindi WebVTT captions, and a transcript. The player does not autoplay.

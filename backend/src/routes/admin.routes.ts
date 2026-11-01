@@ -7,6 +7,7 @@ import * as governanceCtrl from '../controllers/groupGovernance.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { requirePlatformCapability } from '../services/platformAdminAccess.service';
+import { uploadHomepageVideo } from '../middleware/homepageVideoUpload.middleware';
 
 const router = Router();
 
@@ -82,6 +83,7 @@ router.post('/public-pages/modules/:slug/publish', authorize('SUPER_ADMIN'), ctr
 router.get('/public-pages/:slug/history', authorize('SUPER_ADMIN'), ctrl.getPublicPageHistory);
 router.post('/public-pages/:slug/restore', authorize('SUPER_ADMIN'), validate(publicContentRestoreSchema), ctrl.restorePublicPageVersion);
 router.post('/homepage/video-upload-url', authorize('SUPER_ADMIN'), validate(homepageVideoUploadSchema), ctrl.createHomepageVideoUpload);
+router.post('/homepage/video-upload', authorize('SUPER_ADMIN'), uploadHomepageVideo, ctrl.uploadHomepageVideo);
 
 router.get('/support', requirePlatformCapability('SUPPORT'), ctrl.getTickets);
 router.patch('/support/:ticketId', requirePlatformCapability('SUPPORT'), validate(supportUpdateSchema), ctrl.updateTicket);

@@ -54,6 +54,11 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
     return;
   }
 
+  if (appError.code === 'LIMIT_FILE_SIZE') {
+    res.status(413).json({ success: false, error: { code: 'FILE_TOO_LARGE', message: 'Introduction videos must be 250 MB or smaller.' } });
+    return;
+  }
+
   const status = appError.statusCode || appError.status || 500;
   const isServerError = status >= 500;
   const isServiceUnavailable = status === 503;
