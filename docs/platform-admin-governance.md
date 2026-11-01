@@ -24,7 +24,7 @@ Home editorial content is stored separately from the Content Factory and Learnin
 
 The Learn editor manages editorial copy and learning-type labels only. Learn resources, grade and board choices, assessments, and private student records continue to use their existing APIs and authorization rules. Public Students, Schools, Parents, Competitions, and Communities pages do not yet have equivalent page editors; their content remains implemented in page components and data APIs.
 
-Video files are not stored in PostgreSQL. The current Home editor accepts a direct HTTPS MP4/WebM/Ogg URL, poster, WebVTT caption file, and transcript. The player does not autoplay and defers loading until the visitor plays it. The video URL is currently empty by default and the editor has no upload/hosting flow; the Home video section stays hidden until a stable public video URL is saved and published. Therefore the player plumbing exists, but the end-to-end video feature and actual platform-introduction video are not complete.
+Home introduction video uploads pass through the authenticated backend, avoiding browser-to-bucket CORS. By default, the video is stored in a persistent VPS media directory; set `HOMEPAGE_VIDEO_STORAGE=s3` to store it in the configured S3 bucket instead. Neither mode stores video bytes in PostgreSQL. See `docs/homepage-video-storage.md` for setup and operational details. Publishing still requires a poster, captions, and transcript; the player does not autoplay.
 
 ## Security and compliance baseline
 

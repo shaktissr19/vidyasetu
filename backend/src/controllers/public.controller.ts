@@ -55,6 +55,11 @@ export async function modulePage(req: Request<{ slug: string }>, res: Response, 
 }
 
 export async function homepageVideo(req: Request<{ filename: string }>, res: Response, next: NextFunction): Promise<Response | void> {
-  try { return res.redirect(302, await homepageService.getHomepageVideoReadUrl(req.params.filename)); }
+  try {
+    const delivery = await homepageService.getHomepageVideoDelivery(req.params.filename);
+    if (delivery.type === 'redirect') return res.redirect(302, delivery.url);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(delivery.filePath, (error) => { if (error) next(error); });
+  }
   catch (error: unknown) { next(error); }
 }

@@ -54,6 +54,11 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
     return;
   }
 
+  if (appError.code === 'LIMIT_FILE_SIZE') {
+    res.status(413).json({ success: false, error: { code: 'FILE_TOO_LARGE', message: 'Introduction videos must be 250 MB or smaller.' } });
+    return;
+  }
+
   const status = appError.statusCode || appError.status || 500;
   const isServerError = status >= 500;
   const isServiceUnavailable = status === 503;
@@ -61,6 +66,8 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
     ? isServiceUnavailable
       ? appError.apiCode === 'OTP_SMS_UNAVAILABLE'
         ? 'OTP SMS service is temporarily unavailable. Please try again shortly.'
+        : appError.apiCode === 'MEDIA_STORAGE_CREDENTIALS_INVALID'
+          ? appError.message || 'Video upload is unavailable because media storage credentials are invalid.'
         : 'The requested service is temporarily unavailable. Please try again shortly.'
       : 'Internal server error'
     : appError.message || 'Internal server error';

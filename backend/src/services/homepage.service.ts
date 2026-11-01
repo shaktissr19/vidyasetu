@@ -1,8 +1,12 @@
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import { createReadStream } from 'fs';
+import { access, mkdir, rename, copyFile, unlink } from 'fs/promises';
+import path from 'path';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
-import { getDownloadUrl, getUploadUrl } from '../config/s3';
+import { BUCKET, getDownloadUrl, getUploadUrl, s3, verifyS3Credentials } from '../config/s3';
+import { HOMEPAGE_VIDEO_MAX_BYTES } from '../middleware/homepageVideoUpload.middleware';
 
 const internalLink = z.string().trim().min(1).max(300).regex(/^\/(?!\/)/, 'Use an internal VidyaSetu path');
 const mediaUrl = z.string().trim().max(1200).refine((value) => {
@@ -70,6 +74,9 @@ export const DEFAULT_HOMEPAGE_CONTENT: HomepageContent = {
 };
 
 const HOMEPAGE_VIDEO_TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.ogv': 'video/ogg', '.ogg': 'video/ogg' };
+const videoStorageProvider = () => (process.env.HOMEPAGE_VIDEO_STORAGE || 'local').trim().toLowerCase();
+const localVideoDirectory = () => process.env.HOMEPAGE_VIDEO_LOCAL_DIR || '/var/lib/vidyasetu/media/homepage-intro';
+
 export async function createHomepageVideoUpload(fileName: string, contentType: string, fileSize: number) {
   if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > 500 * 1024 * 1024) {
     throw Object.assign(new Error('Choose a video file up to 500 MB'), { statusCode: 400 });
@@ -78,14 +85,63 @@ export async function createHomepageVideoUpload(fileName: string, contentType: s
   if (HOMEPAGE_VIDEO_TYPES[extension] !== contentType.toLowerCase()) {
     throw Object.assign(new Error('Upload an MP4, WebM or Ogg video file'), { statusCode: 400 });
   }
+  await verifyS3Credentials();
   const key = `homepage-intro/${randomUUID()}${extension}`;
   const uploadUrl = await getUploadUrl(key, contentType.toLowerCase());
   return { uploadUrl, videoUrl: `/api/v1/public/homepage/videos/${key.split('/')[1]}`, contentType: contentType.toLowerCase(), maxBytes: 500 * 1024 * 1024 };
 }
 
-export async function getHomepageVideoReadUrl(filename: string) {
+export async function storeHomepageVideo(filePath: string, fileName: string, contentType: string, fileSize: number) {
+  if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > HOMEPAGE_VIDEO_MAX_BYTES) {
+    throw Object.assign(new Error('Choose an introduction video up to 250 MB.'), { statusCode: 400 });
+  }
+  const extension = path.extname(fileName).toLowerCase();
+  if (HOMEPAGE_VIDEO_TYPES[extension] !== contentType.toLowerCase()) {
+    throw Object.assign(new Error('Upload an MP4, WebM or Ogg video file.'), { statusCode: 400 });
+  }
+  const provider = videoStorageProvider();
+  if (provider !== 'local' && provider !== 's3') {
+    throw Object.assign(new Error('HOMEPAGE_VIDEO_STORAGE must be set to local or s3.'), { statusCode: 503 });
+  }
+
+  const filename = `${randomUUID()}${extension}`;
+  if (provider === 'local') {
+    const directory = localVideoDirectory();
+    await mkdir(directory, { recursive: true, mode: 0o750 });
+    const targetPath = path.join(directory, filename);
+    try {
+      await rename(filePath, targetPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
+      await copyFile(filePath, targetPath);
+      await unlink(filePath);
+    }
+  } else {
+    await verifyS3Credentials();
+    await s3.upload({
+      Bucket: BUCKET,
+      Key: `homepage-intro/${filename}`,
+      Body: createReadStream(filePath),
+      ContentType: contentType.toLowerCase(),
+    }).promise();
+    await unlink(filePath);
+  }
+
+  return { videoUrl: `/api/v1/public/homepage/videos/${filename}` };
+}
+
+export async function getHomepageVideoDelivery(filename: string) {
   if (!/^[0-9a-f-]{36}\.(mp4|webm|ogg|ogv)$/i.test(filename)) throw Object.assign(new Error('Video not found'), { statusCode: 404 });
-  return getDownloadUrl(`homepage-intro/${filename}`);
+  if (videoStorageProvider() === 'local') {
+    const filePath = path.join(localVideoDirectory(), filename);
+    try { await access(filePath); }
+    catch {
+      // Preserve playback for videos uploaded by the older direct-to-S3 flow.
+      return { type: 'redirect' as const, url: await getDownloadUrl(`homepage-intro/${filename}`) };
+    }
+    return { type: 'file' as const, filePath };
+  }
+  return { type: 'redirect' as const, url: await getDownloadUrl(`homepage-intro/${filename}`) };
 }
 
 interface HomepageRow {
