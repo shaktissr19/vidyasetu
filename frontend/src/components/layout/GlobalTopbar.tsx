@@ -21,6 +21,7 @@ const NAV: ReadonlyArray<readonly [string, string]> = [
 ];
 
 const PLATFORM_ADMIN_NAV = ['Platform Admin', '/platform-admin'] as const;
+const PUBLIC_PAGES_ADMIN_NAV = ['Edit Public Pages', '/admin/public-pages'] as const;
 const MOBILE_NAV: ReadonlyArray<readonly [string, string, string]> = [
   ['Home', '/', '⌂'],
   ['Learn', '/learn', '▤'],
@@ -69,9 +70,9 @@ export default function GlobalTopbar({ mobileMenuOpen, mobileMenuControlsId, onM
     else setSiteMenuOpen((open) => !open);
   };
   useEffect(() => setSiteMenuOpen(false), [pathname]);
-  const navItems = isLoggedIn && user?.role === 'SUPER_ADMIN' ? [...NAV, PLATFORM_ADMIN_NAV] : NAV;
+  const navItems = isLoggedIn && user?.role === 'SUPER_ADMIN' ? [...NAV, PLATFORM_ADMIN_NAV, PUBLIC_PAGES_ADMIN_NAV] : NAV;
   const mobileNavItems = isLoggedIn && user?.role === 'SUPER_ADMIN'
-    ? [...MOBILE_NAV, ['Platform Admin', '/platform-admin', '⚙'] as const]
+    ? [...MOBILE_NAV, ['Platform Admin', '/platform-admin', '⚙'] as const, ['Edit Public Pages', '/admin/public-pages', '✎'] as const]
     : MOBILE_NAV;
 
   const notificationsQuery = useQuery({

@@ -7,6 +7,9 @@ import GlobalTopbar from '@/components/layout/GlobalTopbar';
 import ImageHero from '@/components/public/ImageHero';
 import { HERO_IMAGES, HERO_POSITIONS } from '@/components/public/heroAssets';
 import { getPublicOverview, getPublicSchools, type PublicOverview, type PublicSchool } from '@/services/publicService';
+import { getPublicModulePage, type PublicModulePageContent } from '@/services/publicPageContentService';
+import useAuthStore from '@/store/authStore';
+import PublicModulePageEditor from './PublicModulePageEditor';
 import styles from './publicExperience.module.css';
 import visualStyles from './publicModuleVisual.module.css';
 
@@ -119,6 +122,36 @@ function storyFor(config: PublicModuleConfig): VisualStory {
   };
 }
 
+function pageSlug(config: PublicModuleConfig): string {
+  if (config.eyebrow.toLowerCase().includes('communit')) return 'communities';
+  if (config.loginRole === 'admin') return 'platform-admin';
+  if (config.loginRole === 'student') return 'students';
+  if (config.loginRole === 'parent') return 'parents';
+  return 'schools';
+}
+
+function editorialFromConfig(config: PublicModuleConfig): PublicModulePageContent {
+  const story = storyFor(config);
+  return {
+    hero: { eyebrow: story.eyebrow, title: story.title, accentTitle: config.accentTitle, summary: story.description, heroImage: story.image },
+    capabilities: config.capabilities,
+    steps: config.steps,
+    proofTitle: config.proofTitle,
+    proofIntro: config.proofIntro,
+    proofs: config.proofs,
+    loginTitle: config.loginTitle,
+    loginText: config.loginText,
+    sections: {
+      capabilitiesTitle: `Everything ${config.audience} need in one connected place`,
+      capabilitiesIntro: 'Explore the practical capabilities available inside this role-aware VidyaSetu workspace.',
+      stepsTitle: 'How the experience works',
+      stepsIntro: 'Public pages explain the platform. Personal records, school actions and family information remain protected inside the authenticated role workspace.',
+      ctaTitle: 'Explore publicly. Sign in for your own records and actions.',
+      ctaDescription: 'Use the role dashboard to access personal learning data, school operations, family records, Communities and support workflows.',
+    },
+  };
+}
+
 function capabilityHref(config: PublicModuleConfig, capability: ModuleCapability): string {
   if (capability.href) return capability.href;
   const title = capability.title.toLowerCase();
@@ -145,7 +178,14 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
   const [loadingSchools, setLoadingSchools] = useState(Boolean(config.schoolDirectory));
   const [schoolLoadError, setSchoolLoadError] = useState(false);
   const [schoolReload, setSchoolReload] = useState(0);
-  const story = storyFor(config);
+  const user = useAuthStore((state) => state.user);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const slug = pageSlug(config);
+  const fallbackEditorial = editorialFromConfig(config);
+  const editorialQuery = useQuery({ queryKey: ['public-module-page', slug], queryFn: () => getPublicModulePage(slug).then((response) => response.data.data), staleTime: 60_000, retry: 1 });
+  const editorial = editorialQuery.data || fallbackEditorial;
+  const liveConfig: PublicModuleConfig = { ...config, title: editorial.hero.title, accentTitle: editorial.hero.accentTitle, summary: editorial.hero.summary, capabilities: editorial.capabilities, steps: editorial.steps, proofTitle: editorial.proofTitle, proofIntro: editorial.proofIntro, proofs: editorial.proofs, loginTitle: editorial.loginTitle, loginText: editorial.loginText, heroImage: editorial.hero.heroImage };
+  const story = { ...storyFor(liveConfig), eyebrow: editorial.hero.eyebrow, title: editorial.hero.title, description: editorial.hero.summary, image: editorial.hero.heroImage };
   const overviewQuery = useQuery<PublicOverview>({
     queryKey: ['public-overview'],
     queryFn: () => getPublicOverview().then((response) => response.data.data),
@@ -171,7 +211,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
     return schools.filter((school) => [school.name, school.nameHi, school.board, school.city, school.district, school.state].some((value) => value?.toLowerCase().includes(search)));
   }, [query, schools]);
 
-  const loginHref = `/login?role=${config.loginRole}`;
+  const loginHref = `/login?role=${liveConfig.loginRole}`;
 
   return (
     <div className={styles.page}>
@@ -187,15 +227,17 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
         description={story.description}
         theme={story.theme}
         actions={[
-          { label: config.loginTitle, href: loginHref },
+          { label: liveConfig.loginTitle, href: loginHref },
           { label: 'Explore this module', href: '#module-capabilities', variant: 'secondary' },
         ]}
       />
 
-      <section className={visualStyles.quickSection} aria-label={`${config.audience} highlights`}>
+      {user?.role === 'SUPER_ADMIN' && <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px clamp(16px, 4vw, 56px)', background: '#DCE5EF' }}><button type="button" onClick={() => setEditorOpen(true)} style={{ minHeight: 44, borderRadius: 10, border: '1px solid #14213D', background: '#14213D', color: '#fff', padding: '0 18px', fontWeight: 800 }}>Edit this page</button></div>}
+
+      <section className={visualStyles.quickSection} aria-label={`${liveConfig.audience} highlights`}>
         <div className={styles.shell}>
-          {config.metrics.length > 0 && (
-            <div className={visualStyles.metricWrap} aria-label={`${config.audience} platform metrics`}>
+          {liveConfig.metrics.length > 0 && (
+            <div className={visualStyles.metricWrap} aria-label={`${liveConfig.audience} platform metrics`}>
               {overviewQuery.isError ? (
                 <div className={visualStyles.metricError} role="status">
                   <span>Platform totals are temporarily unavailable.</span>
@@ -203,7 +245,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
                 </div>
               ) : (
                 <div className={visualStyles.metricGrid} aria-live="polite">
-                  {config.metrics.map((item) => (
+                  {liveConfig.metrics.map((item) => (
                     <div className={visualStyles.metricCard} key={item.key}>
                       <strong>{overviewQuery.isPending ? '…' : new Intl.NumberFormat('en-IN').format(overviewQuery.data?.[item.key] ?? 0)}</strong>
                       <span>{item.label}</span>
@@ -214,7 +256,7 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
             </div>
           )}
           <div className={visualStyles.quickGrid}>
-            {config.capabilities.slice(0, 6).map((capability, index) => (
+            {liveConfig.capabilities.slice(0, 6).map((capability, index) => (
               <Link className={`${visualStyles.quickCard} ${QUICK_TONES[index % QUICK_TONES.length]}`} href={capabilityHref(config, capability)} key={capability.title}>
                 <div className={visualStyles.quickIcon}>{capability.icon}</div>
                 <strong>{capability.title}</strong>
@@ -227,18 +269,18 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
       </section>
 
       <div className={styles.loginRibbon}>
-        <div><strong>Already part of VidyaSetu?</strong><div className={styles.muted}>{config.loginText}</div></div>
+        <div><strong>Already part of VidyaSetu?</strong><div className={styles.muted}>{liveConfig.loginText}</div></div>
         <div className={styles.twoActions}>
-          <Link className={styles.primary} href={loginHref}>{config.loginTitle}</Link>
-          {config.secondaryLogin && <Link className={styles.lightButton} href={`/login?role=${config.secondaryLogin.role}`}>{config.secondaryLogin.label}</Link>}
+          <Link className={styles.primary} href={loginHref}>{liveConfig.loginTitle}</Link>
+          {liveConfig.secondaryLogin && <Link className={styles.lightButton} href={`/login?role=${liveConfig.secondaryLogin.role}`}>{liveConfig.secondaryLogin.label}</Link>}
         </div>
       </div>
 
       <section className={styles.section} id="module-capabilities">
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}><h2>Everything {config.audience} need in one connected place</h2><p>Explore the practical capabilities available inside this role-aware VidyaSetu workspace.</p></div>
+          <div className={styles.sectionHeader}><h2>{editorial.sections.capabilitiesTitle}</h2><p>{editorial.sections.capabilitiesIntro}</p></div>
           <div className={styles.capGrid}>
-            {config.capabilities.map((capability) => (
+            {liveConfig.capabilities.map((capability) => (
               <article className={styles.capCard} key={capability.title}>
                 <div className={styles.capIcon}>{capability.icon}</div><h3>{capability.title}</h3><p>{capability.description}</p>
                 <ul className={styles.bulletList}>{capability.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
@@ -250,19 +292,19 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
 
       <section className={styles.sectionAlt}>
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}><h2>How the experience works</h2><p>Public pages explain the platform. Personal records, school actions and family information remain protected inside the authenticated role workspace.</p></div>
-          <div className={styles.steps}>{config.steps.map((step) => <article className={styles.step} key={step.title}><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
+          <div className={styles.sectionHeader}><h2>{editorial.sections.stepsTitle}</h2><p>{editorial.sections.stepsIntro}</p></div>
+          <div className={styles.steps}>{liveConfig.steps.map((step) => <article className={styles.step} key={step.title}><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
         </div>
       </section>
 
       <section className={styles.section}>
         <div className={styles.shell}>
-          <div className={styles.sectionHeader}><h2>{config.proofTitle}</h2><p>{config.proofIntro}</p></div>
-          <div className={styles.proofGrid}>{config.proofs.map((proof) => <article className={styles.proof} key={proof.title}><span>{proof.icon}</span><div><strong>{proof.title}</strong><p>{proof.description}</p></div></article>)}</div>
+          <div className={styles.sectionHeader}><h2>{liveConfig.proofTitle}</h2><p>{liveConfig.proofIntro}</p></div>
+          <div className={styles.proofGrid}>{liveConfig.proofs.map((proof) => <article className={styles.proof} key={proof.title}><span>{proof.icon}</span><div><strong>{proof.title}</strong><p>{proof.description}</p></div></article>)}</div>
         </div>
       </section>
 
-      {config.schoolDirectory && (
+      {liveConfig.schoolDirectory && (
         <section className={styles.sectionAlt} id="school-directory">
           <div className={styles.shell}>
             <div className={styles.sectionHeader}><h2>Schools currently on VidyaSetu</h2><p>Browse active institution records by school name, board, district or state. Only safe institution-level information is shown publicly.</p></div>
@@ -286,10 +328,11 @@ export default function PublicModulePage({ config }: { config: PublicModuleConfi
 
       <section className={styles.section}>
         <div className={styles.shell}>
-          <div className={styles.cta}><div><h2>Explore publicly. Sign in for your own records and actions.</h2><p>Use the role dashboard to access personal learning data, school operations, family records, Communities and support workflows.</p></div><div className={styles.twoActions}><Link className={styles.lightButton} href={loginHref}>{config.loginTitle}</Link><Link className={styles.secondary} href="/register">Create an account</Link></div></div>
+          <div className={styles.cta}><div><h2>{editorial.sections.ctaTitle}</h2><p>{editorial.sections.ctaDescription}</p></div><div className={styles.twoActions}><Link className={styles.lightButton} href={loginHref}>{liveConfig.loginTitle}</Link><Link className={styles.secondary} href="/register">Create an account</Link></div></div>
         </div>
       </section>
       <footer className={styles.footer}>© 2026 VidyaSetu · Learning, schools, families, Competitions, Communities and accountable support</footer>
+      {editorOpen && <PublicModulePageEditor slug={slug} initial={fallbackEditorial} onClose={() => setEditorOpen(false)} />}
     </div>
   );
 }

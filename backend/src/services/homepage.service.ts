@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import type { UUID } from '@vidyasetu/contracts';
 import { query, transaction } from '../config/db';
+import { getDownloadUrl, getUploadUrl } from '../config/s3';
 
 const internalLink = z.string().trim().min(1).max(300).regex(/^\/(?!\/)/, 'Use an internal VidyaSetu path');
 const mediaUrl = z.string().trim().max(1200).refine((value) => {
@@ -12,7 +14,7 @@ const videoUrl = mediaUrl.refine((value) => {
   if (!value) return true;
   try {
     const path = value.startsWith('/') ? value.split('?')[0] : new URL(value).pathname;
-    return /\.(mp4|webm|ogg)$/i.test(path);
+    return /\.(mp4|webm|ogg|ogv)$/i.test(path);
   } catch { return false; }
 }, 'Use a direct MP4, WebM or Ogg video file URL');
 const captionUrl = mediaUrl.refine((value) => !value || /\.vtt(?:$|\?)/i.test(value), 'Captions must be a WebVTT (.vtt) file');
@@ -66,6 +68,25 @@ export const DEFAULT_HOMEPAGE_CONTENT: HomepageContent = {
   ],
   finalCta: { eyebrow: 'START WITH THE PART YOU NEED', title: 'Learn publicly. Join when you are ready for the connected experience.', copy: 'Create an account for role-based learning, school workflows, parent visibility, Communities and participation history.' },
 };
+
+const HOMEPAGE_VIDEO_TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.ogv': 'video/ogg', '.ogg': 'video/ogg' };
+export async function createHomepageVideoUpload(fileName: string, contentType: string, fileSize: number) {
+  if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > 500 * 1024 * 1024) {
+    throw Object.assign(new Error('Choose a video file up to 500 MB'), { statusCode: 400 });
+  }
+  const extension = fileName.toLowerCase().match(/\.[a-z0-9]{1,8}$/)?.[0] || '';
+  if (HOMEPAGE_VIDEO_TYPES[extension] !== contentType.toLowerCase()) {
+    throw Object.assign(new Error('Upload an MP4, WebM or Ogg video file'), { statusCode: 400 });
+  }
+  const key = `homepage-intro/${randomUUID()}${extension}`;
+  const uploadUrl = await getUploadUrl(key, contentType.toLowerCase());
+  return { uploadUrl, videoUrl: `/api/v1/public/homepage/videos/${key.split('/')[1]}`, contentType: contentType.toLowerCase(), maxBytes: 500 * 1024 * 1024 };
+}
+
+export async function getHomepageVideoReadUrl(filename: string) {
+  if (!/^[0-9a-f-]{36}\.(mp4|webm|ogg|ogv)$/i.test(filename)) throw Object.assign(new Error('Video not found'), { statusCode: 404 });
+  return getDownloadUrl(`homepage-intro/${filename}`);
+}
 
 interface HomepageRow {
   published_content: HomepageContent;

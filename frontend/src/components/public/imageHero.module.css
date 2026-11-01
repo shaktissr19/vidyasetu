@@ -7,7 +7,7 @@
 }
 
 .homeHero { min-height: 440px; }
-.compactHero { min-height: 380px; }
+.compactHero { min-height: 500px; }
 
 /* One photograph owns the complete hero. */
 .photo {
@@ -56,8 +56,8 @@
 }
 
 .compactHero .content {
-  min-height: 380px;
-  padding: 36px 56px 40px;
+  min-height: 500px;
+  padding: 44px 56px 48px;
 }
 
 .eyebrow {
@@ -179,14 +179,14 @@
   .compactHero {
     min-height: 0;
     display: grid;
-    grid-template-rows: auto 260px;
+    grid-template-rows: auto 320px;
     background: #fff;
   }
 
   .photo {
     position: relative;
     grid-row: 2;
-    height: 260px;
+    height: 320px;
   }
 
   .wash { display: none; }
@@ -207,8 +207,8 @@
 
 @media (max-width: 430px) {
   .homeHero,
-  .compactHero { grid-template-rows: auto 225px; }
-  .photo { height: 225px; }
+  .compactHero { grid-template-rows: auto 280px; }
+  .photo { height: 280px; }
   .homeHero .content h1 { font-size: 35px; }
   .compactHero .content h1 { font-size: 32px; }
   .actions { width: 100%; }

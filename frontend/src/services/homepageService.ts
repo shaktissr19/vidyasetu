@@ -25,3 +25,12 @@ export const getPublicHomepage = () => api.get<ApiEnvelope<HomepageContent>>('/p
 export const getAdminHomepage = () => api.get<ApiEnvelope<AdminHomepageContent>>('/admin/homepage');
 export const saveHomepageDraft = (content: HomepageContent) => api.put<ApiEnvelope<{ saved: boolean; version: number }>>('/admin/homepage/draft', content);
 export const publishHomepageDraft = () => api.post<ApiEnvelope<{ published: boolean; publishedAt: string; version: number }>>('/admin/homepage/publish');
+export async function uploadHomepageVideo(file: File): Promise<{ videoUrl: string }> {
+  const types = new Set(['video/mp4', 'video/webm', 'video/ogg']);
+  if (!types.has(file.type)) throw new Error('Choose an MP4, WebM or Ogg video file.');
+  if (file.size <= 0 || file.size > 500 * 1024 * 1024) throw new Error('The introduction video must be 500 MB or smaller.');
+  const { data } = await api.post<ApiEnvelope<{ uploadUrl: string; videoUrl: string; contentType: string }>>('/admin/homepage/video-upload-url', { fileName: file.name, contentType: file.type, fileSize: file.size });
+  const upload = await fetch(data.data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': data.data.contentType }, body: file });
+  if (!upload.ok) throw new Error(`Video upload failed (${upload.status}). Check the media storage CORS and bucket access settings.`);
+  return { videoUrl: data.data.videoUrl };
+}

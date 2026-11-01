@@ -184,6 +184,7 @@ export default function PublicHomeSampleExperience() {
             <span>MEET VIDYASETU</span>
             <h2 id="home-video-title">{homeContent.video.title}</h2>
             <p>{homeContent.video.description}</p>
+            {canEditHome && <Link className={sample.adminEditShortcut} href="/admin/homepage#video-settings">Upload or edit intro video</Link>}
             {homeContent.video.transcript && <details className={sample.videoTranscript}><summary>Read the video transcript</summary><p>{homeContent.video.transcript}</p></details>}
           </div>
           <div className={sample.videoFrame}>

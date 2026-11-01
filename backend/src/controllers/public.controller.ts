@@ -48,3 +48,13 @@ export async function learnPage(
   try { return R.ok(res, await publicPageContentService.getPublishedLearnPage()); }
   catch (error: unknown) { next(error); }
 }
+
+export async function modulePage(req: Request<{ slug: string }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await publicPageContentService.getPublishedModulePage(req.params.slug)); }
+  catch (error: unknown) { next(error); }
+}
+
+export async function homepageVideo(req: Request<{ filename: string }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return res.redirect(302, await homepageService.getHomepageVideoReadUrl(req.params.filename)); }
+  catch (error: unknown) { next(error); }
+}
