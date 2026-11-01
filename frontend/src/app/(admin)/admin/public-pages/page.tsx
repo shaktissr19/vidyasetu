@@ -1,2 +1,17 @@
-/bin/bash: -c: line 1: syntax error near unexpected token `('
-/bin/bash: -c: line 1: `git show HEAD:frontend/src/app/(admin)/admin/public-pages/page.tsx'
+import Link from 'next/link';
+
+export default function PublicPagesAdmin() {
+  return <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
+    <header className="rounded-2xl bg-[#243B63] p-6 text-white"><p className="text-xs font-black tracking-[.14em] text-orange-300">SUPER ADMIN · PUBLIC WEBSITE</p><h1 className="mt-1 text-2xl font-extrabold">Public page content</h1><p className="mt-2 max-w-3xl text-sm text-blue-100">Edit and publish the public page story. Learning resources, school records, competitions and all account data remain connected to their existing services and access rules.</p></header>
+    <section className="grid gap-4 sm:grid-cols-2" aria-label="Public page editors">
+      <article className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm"><h2 className="text-xl font-extrabold text-slate-900">Home</h2><p className="mt-2 text-sm leading-6 text-slate-600">Manage the platform introduction, audience cards, video and Home story.</p><Link className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-[#14213D] px-4 font-bold text-white" href="/admin/homepage">Open Home editor</Link></article>
+      <article className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm"><h2 className="text-xl font-extrabold text-slate-900">Learn</h2><p className="mt-2 text-sm leading-6 text-slate-600">Manage Learn page copy, learning type labels and descriptions, developmental pathways, and calls to action. Published resources and filters remain live from the Learning Library.</p><Link className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-[#14213D] px-4 font-bold text-white" href="/admin/public-pages/learn">Open Learn editor</Link></article>
+      {[
+        ['Students', '/for-students'], ['Schools & Teachers', '/for-schools'], ['Parents', '/for-parents'],
+        ['Communities', '/communities'], ['Platform Admin', '/platform-admin'],
+      ].map(([title, href]) => <article key={href} className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm"><h2 className="text-xl font-extrabold text-slate-900">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-600">Edit the introduction, capability cards, journey cards, proof cards and sign-in calls to action directly on this public page.</p><Link className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-[#14213D] px-4 font-bold text-white" href={href}>Open page and edit</Link></article>)}
+      <article className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm"><h2 className="text-xl font-extrabold text-slate-900">Competitions</h2><p className="mt-2 text-sm leading-6 text-slate-600">Competition cards are live records from the competitions service. Create and manage them in the competition admin workspace.</p><Link className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-[#14213D] px-4 font-bold text-white" href="/admin/competitions">Manage competitions</Link><Link className="ml-2 mt-4 inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 font-bold text-[#14213D]" href="/competition">View public page</Link></article>
+    </section>
+    <p className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-slate-700">The page-level edit control appears on each listed page only while signed in as Super Admin. Learning catalogue records, live statistics, school directory data, and competition schedules stay connected to their existing services.</p>
+  </div>;
+}
