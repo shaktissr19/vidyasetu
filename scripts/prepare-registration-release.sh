@@ -64,6 +64,8 @@ apply_if_missing 061_youtube_verified_video_discovery.sql "SELECT EXISTS(SELECT 
 apply_if_missing 062_homepage_content_and_platform_admins.sql "SELECT to_regclass('public.public_homepage_content') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='user_role' AND e.enumlabel='PLATFORM_ADMIN') AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_users_single_super_admin');"
 apply_if_missing 063_public_page_content.sql "SELECT to_regclass('public.public_page_content') IS NOT NULL AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='public_page_content' AND column_name IN ('page_slug','published_content','draft_content','version') GROUP BY table_name HAVING COUNT(*)=4);"
 apply_if_missing 064_platform_admin_scoped_permissions.sql "SELECT to_regclass('public.platform_admin_permissions') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='platform_admin_permissions_pkey');"
+apply_if_missing 065_public_content_revisions.sql "SELECT to_regclass('public.public_content_revisions') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='idx_public_content_revisions_page_version');"
+[[ "$("${PSQL[@]}" -Atc "SELECT to_regclass('public.public_content_revisions') IS NOT NULL AND EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='idx_public_content_revisions_page_version');")" == t ]] || { echo 'Public content revision migration 065 did not complete.' >&2; exit 1; }
 "${PSQL[@]}" -f scripts/verify-curriculum-framework.sql
 "${PSQL[@]}" -f scripts/verify-curriculum-assets.sql
 unset PGPASSWORD

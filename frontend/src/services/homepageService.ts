@@ -8,7 +8,7 @@ export interface HomepageContent {
   hero: { eyebrow: string; title: string; description: string };
   benefits: HomepageCard[];
   modules: Array<HomepageCard & { href: string; imageUrl: string }>;
-  video: { title: string; description: string; videoUrl: string; posterUrl: string; captionsUrl: string; captionsLanguage: string; transcript: string };
+  video: { title: string; description: string; videoUrl: string; posterUrl: string; captionsUrl: string; captionsLanguage: string; transcript: string; hindiTitle?: string; hindiDescription?: string; hindiCaptionsUrl?: string; hindiTranscript?: string };
   journey: Array<HomepageCard & { step: string }>;
   trust: HomepageCard[];
   finalCta: { eyebrow: string; title: string; copy: string };
@@ -25,6 +25,9 @@ export const getPublicHomepage = () => api.get<ApiEnvelope<HomepageContent>>('/p
 export const getAdminHomepage = () => api.get<ApiEnvelope<AdminHomepageContent>>('/admin/homepage');
 export const saveHomepageDraft = (content: HomepageContent) => api.put<ApiEnvelope<{ saved: boolean; version: number }>>('/admin/homepage/draft', content);
 export const publishHomepageDraft = () => api.post<ApiEnvelope<{ published: boolean; publishedAt: string; version: number }>>('/admin/homepage/publish');
+export interface PublicContentRevision { version: number; published_at: string; published_by_name: string | null; }
+export const getHomepageHistory = () => api.get<ApiEnvelope<PublicContentRevision[]>>('/admin/homepage/history');
+export const restoreHomepageVersion = (version: number) => api.post<ApiEnvelope<{ restored: boolean; sourceVersion: number; stagedAsDraft: boolean }>>('/admin/homepage/restore', { version });
 export async function uploadHomepageVideo(file: File): Promise<{ videoUrl: string }> {
   const types = new Set(['video/mp4', 'video/webm', 'video/ogg']);
   if (!types.has(file.type)) throw new Error('Choose an MP4, WebM or Ogg video file.');

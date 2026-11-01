@@ -32,11 +32,14 @@ export interface AdminPublicModulePageContent {
   version: number;
 }
 export interface AdminLearnPageContent { published: LearnPageContent; draft: LearnPageContent | null; updatedAt: string | null; publishedAt: string | null; version: number; }
+export interface PublicContentRevision { version: number; published_at: string; published_by_name: string | null; }
 
 export const getPublicLearnPage = () => api.get<ApiEnvelope<LearnPageContent>>('/public/pages/learn');
 export const getAdminLearnPage = () => api.get<ApiEnvelope<AdminLearnPageContent>>('/admin/public-pages/learn');
 export const saveLearnPageDraft = (content: LearnPageContent) => api.put<ApiEnvelope<{ saved: boolean; version: number }>>('/admin/public-pages/learn/draft', content);
 export const publishLearnPageDraft = () => api.post<ApiEnvelope<{ published: boolean; publishedAt: string; version: number }>>('/admin/public-pages/learn/publish');
+export const getPublicPageHistory = (slug: string) => api.get<ApiEnvelope<PublicContentRevision[]>>(`/admin/public-pages/${slug}/history`);
+export const restorePublicPageVersion = (slug: string, version: number) => api.post<ApiEnvelope<{ restored: boolean; sourceVersion: number; stagedAsDraft: boolean }>>(`/admin/public-pages/${slug}/restore`, { version });
 export const getPublicModulePage = (slug: string) => api.get<ApiEnvelope<PublicModulePageContent | null>>(`/public/pages/modules/${slug}`);
 export const getAdminModulePage = (slug: string) => api.get<ApiEnvelope<AdminPublicModulePageContent>>(`/admin/public-pages/modules/${slug}`);
 export const saveAdminModulePageDraft = (slug: string, content: PublicModulePageContent, publishedFallback: PublicModulePageContent) => api.put<ApiEnvelope<{ saved: boolean; version: number }>>(`/admin/public-pages/modules/${slug}/draft`, { content, publishedFallback });

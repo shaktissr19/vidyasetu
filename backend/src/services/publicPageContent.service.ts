@@ -94,9 +94,10 @@ export async function saveModulePageDraft(slug: string, input: unknown, fallback
 export async function publishModulePageDraft(slug: string, actorId: UUID) {
   assertModulePageSlug(slug);
   return transaction(async (client) => {
-    const { rows: [current] } = await client.query<{ draft_content: unknown; version: number }>('SELECT draft_content,version FROM public_page_content WHERE page_slug=$1 FOR UPDATE', [slug]);
+    const { rows: [current] } = await client.query<{ published_content: unknown; draft_content: unknown; version: number; published_by: UUID | null; published_at: string }>('SELECT published_content,draft_content,version,published_by,published_at FROM public_page_content WHERE page_slug=$1 FOR UPDATE', [slug]);
     if (!current?.draft_content) throw Object.assign(new Error('Save a page draft before publishing it'), { statusCode: 409 });
     const content = modulePageSchema.parse(current.draft_content);
+    await client.query(`INSERT INTO public_content_revisions(page_slug,version,content,published_by,published_at) VALUES($1,$2,$3::jsonb,$4,$5) ON CONFLICT(page_slug,version) DO NOTHING`, [slug, current.version, JSON.stringify(current.published_content), current.published_by, current.published_at]);
     const { rows: [published] } = await client.query(
       `UPDATE public_page_content SET published_content=$1::jsonb,draft_content=NULL,published_by=$2,published_at=NOW(),updated_by=$2,updated_at=NOW(),version=version+1
        WHERE page_slug=$3 RETURNING published_at,version`, [JSON.stringify(content), actorId, slug],
@@ -129,14 +130,47 @@ export async function saveLearnPageDraft(input: unknown, actorId: UUID) {
 
 export async function publishLearnPageDraft(actorId: UUID) {
   return transaction(async (client) => {
-    const { rows: [current] } = await client.query<{ draft_content: unknown; version: number }>('SELECT draft_content,version FROM public_page_content WHERE page_slug=$1 FOR UPDATE', [PAGE_SLUG]);
+    const { rows: [current] } = await client.query<{ published_content: unknown; draft_content: unknown; version: number; published_by: UUID | null; published_at: string }>('SELECT published_content,draft_content,version,published_by,published_at FROM public_page_content WHERE page_slug=$1 FOR UPDATE', [PAGE_SLUG]);
     if (!current?.draft_content) throw Object.assign(new Error('Save a Learn page draft before publishing it'), { statusCode: 409 });
     const content = learnPageContentSchema.parse(current.draft_content);
+    await client.query(`INSERT INTO public_content_revisions(page_slug,version,content,published_by,published_at) VALUES($1,$2,$3::jsonb,$4,$5) ON CONFLICT(page_slug,version) DO NOTHING`, [PAGE_SLUG, current.version, JSON.stringify(current.published_content), current.published_by, current.published_at]);
     const { rows: [published] } = await client.query(
       `UPDATE public_page_content SET published_content=$1::jsonb,draft_content=NULL,published_by=$2,published_at=NOW(),updated_by=$2,updated_at=NOW(),version=version+1
        WHERE page_slug=$3 RETURNING published_at,version`, [JSON.stringify(content), actorId, PAGE_SLUG],
     );
     await client.query(`INSERT INTO audit_log(actor_id,actor_role,action,entity_type,new_value) VALUES($1,'SUPER_ADMIN','PUBLIC_PAGE_PUBLISHED',$2,$3::jsonb)`, [actorId, PAGE_SLUG, JSON.stringify({ page: PAGE_SLUG, version: published.version })]);
     return { published: true, publishedAt: published.published_at, version: published.version };
+  });
+}
+
+const REVISION_PAGE_SLUGS = new Set(['learn', ...MODULE_PAGE_SLUGS]);
+
+export async function getPublicPageHistory(slug: string) {
+  if (!REVISION_PAGE_SLUGS.has(slug)) throw Object.assign(new Error('Public page not found'), { statusCode: 404 });
+  const { rows } = await query<{ version: number; published_at: string; published_by_name: string | null }>(
+    `SELECT r.version,r.published_at,u.name AS published_by_name
+     FROM public_content_revisions r LEFT JOIN users u ON u.id=r.published_by
+     WHERE r.page_slug=$1 ORDER BY r.version DESC LIMIT 30`, [slug],
+  );
+  return rows;
+}
+
+export async function restorePublicPageVersion(slug: string, version: number, actorId: UUID) {
+  if (!REVISION_PAGE_SLUGS.has(slug)) throw Object.assign(new Error('Public page not found'), { statusCode: 404 });
+  return transaction(async (client) => {
+    const { rows: [revision] } = await client.query<{ content: unknown }>(
+      'SELECT content FROM public_content_revisions WHERE page_slug=$1 AND version=$2', [slug, version],
+    );
+    if (!revision) throw Object.assign(new Error('Published version not found'), { statusCode: 404 });
+    const content = slug === PAGE_SLUG
+      ? learnPageContentSchema.parse(revision.content)
+      : modulePageSchema.parse(revision.content);
+    await client.query('UPDATE public_page_content SET draft_content=$1::jsonb,updated_by=$2,updated_at=NOW() WHERE page_slug=$3', [JSON.stringify(content), actorId, slug]);
+    await client.query(
+      `INSERT INTO audit_log(actor_id,actor_role,action,entity_type,new_value)
+       VALUES($1,'SUPER_ADMIN','PUBLIC_PAGE_VERSION_RESTORED',$2,$3::jsonb)`,
+      [actorId, slug, JSON.stringify({ sourceVersion: version, stagedAsDraft: true })],
+    );
+    return { restored: true, sourceVersion: version, stagedAsDraft: true };
   });
 }

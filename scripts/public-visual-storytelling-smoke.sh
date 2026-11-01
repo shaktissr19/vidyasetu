@@ -43,7 +43,7 @@ require_text "$HERO" "fetchPriority={priority ? 'high' : 'auto'}" 'Above-the-fol
 require_text "$HERO" 'quality={88}' 'Local hero must use optimized delivery'
 reject_text "$HERO" 'unoptimized' 'Local hero must not bypass Next image optimization'
 require_text "$HERO_CSS" '.homeHero { min-height: 440px; }' 'Home hero must remain sample-proportioned'
-require_text "$HERO_CSS" '.compactHero { min-height: 380px; }' 'Inner heroes must remain compact'
+require_text "$HERO_CSS" '.compactHero { min-height: 500px; }' 'Inner page intro images must retain their current 500px height'
 require_text "$HERO_CSS" 'inset: 0;' 'Hero must remain one full-bleed scene'
 reject_text "$HERO_CSS" 'left: 42%;' 'Hero must not return to a separate right-side pane'
 
@@ -73,7 +73,7 @@ require_text "$HOME_IMPL" 'getPublicCompetitions()' 'Home competition discovery 
 
 printf '==> Module pages and Learning preservation\n'
 require_text "$MODULE" 'variant="compact"' 'Role pages must use compact heroes'
-require_text "$MODULE" 'config.capabilities.slice(0, 6)' 'Role pages must retain six highlights'
+require_text "$MODULE" 'liveConfig.capabilities.slice(0, 6)' 'Role pages must retain six highlights from the published page copy'
 require_text "$MODULE" 'capabilityHref(config, capability)' 'Role highlights must remain functional'
 require_text "$MODULE" 'config.schoolDirectory' 'School directory behavior must remain intact'
 require_text "$SUBJECT" "export type LearningGradeBand = 'primary' | 'middle' | 'secondary'" 'Learning must retain three grade bands'

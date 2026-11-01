@@ -53,7 +53,9 @@
 .admin-shell .admin-main h4,
 .admin-shell .admin-main .text-white,
 .admin-shell .admin-main [style*="color: rgba(255,255,255"],
-.admin-shell .admin-main [style*="color:rgba(255,255,255"] {
+.admin-shell .admin-main [style*="color:rgba(255,255,255"],
+.admin-shell .admin-main [style*="color: rgba(255, 255, 255"],
+.admin-shell .admin-main [style*="color:rgba(255, 255, 255"] {
   color: var(--admin-text) !important;
 }
 .admin-shell .admin-main p,
@@ -81,7 +83,9 @@
 .admin-shell .admin-main .skeleton { background: #DDE6F1 !important; }
 .admin-shell .admin-main .text-white,
 .admin-shell .admin-main [style*="color: rgba(255,255,255"],
-.admin-shell .admin-main [style*="color:rgba(255,255,255"] { color: var(--admin-text) !important; }
+.admin-shell .admin-main [style*="color:rgba(255,255,255"],
+.admin-shell .admin-main [style*="color: rgba(255, 255, 255"],
+.admin-shell .admin-main [style*="color:rgba(255, 255, 255"] { color: var(--admin-text) !important; }
 .admin-shell .admin-main .btn-green,
 .admin-shell .admin-main .btn-green * { color: #FFFFFF !important; }
 .admin-shell .admin-main .btn-primary,
@@ -93,6 +97,32 @@
 }
 .admin-shell .admin-main .tbl td { color: var(--admin-text) !important; }
 .admin-shell .admin-main .tbl tbody tr:hover td { background: #DFEAF7 !important; }
+
+/* Semantic actions keep table controls readable regardless of inherited row styles. */
+.admin-shell .admin-main .admin-action-view {
+  min-height: 34px; padding: 6px 12px; border: 1px solid #31547D; border-radius: 8px;
+  background: #FFFFFF !important; color: #173461 !important; font-weight: 800;
+}
+.admin-shell .admin-main .admin-action-view:hover { background: #EAF1FB !important; color: #10254B !important; }
+.admin-shell .admin-main .admin-action-suspend {
+  min-height: 34px; padding: 6px 12px; border: 1px solid #8F1D14 !important; border-radius: 8px;
+  background: #B42318 !important; color: #FFFFFF !important; font-weight: 800;
+}
+.admin-shell .admin-main .admin-action-suspend:hover { background: #8F1D14 !important; color: #FFFFFF !important; }
+.admin-shell .admin-main .admin-action-activate {
+  min-height: 34px; padding: 6px 12px; border: 1px solid #14532D !important; border-radius: 8px;
+  background: #166534 !important; color: #FFFFFF !important; font-weight: 800;
+}
+.admin-shell .admin-main .admin-detail-surface {
+  background: #FFFFFF !important; color: #14213D !important; border: 1px solid #AEBBD0 !important;
+}
+.admin-shell .admin-main .admin-detail-surface h2,
+.admin-shell .admin-main .admin-detail-surface h3,
+.admin-shell .admin-main .admin-detail-surface strong { color: #14213D !important; }
+.admin-shell .admin-main .admin-detail-surface p,
+.admin-shell .admin-main .admin-detail-surface dt { color: #53627B !important; }
+.admin-shell .admin-main .admin-detail-surface dd { color: #14213D !important; }
+.admin-shell .admin-main .admin-detail-surface button.admin-dialog-close { color: #34445E !important; }
 
 .admin-shell .btn-primary,
 .admin-shell .admin-main button.btn-primary,
@@ -226,7 +256,7 @@
 .admin-shell .admin-step { width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #C2410C; color: #FFFFFF; font-weight: 900; margin-right: 8px; }
 .admin-shell .badge-orange { background: #FFF1E6; color: #8A2F0B; border: 1px solid #E9A77F; }
 .admin-shell .badge-gold { background: #FFF8E1; color: #9A3412; border: 1px solid #F1D898; }
-.admin-shell .admin-main :focus-visible,
+.admin-shell .admin-main :focus-visible { outline: 3px solid #9A3412; outline-offset: 2px; }
 .admin-shell .dash-sidebar :focus-visible { outline: 3px solid #FFB36F; outline-offset: 2px; }
 .admin-shell .admin-mobile-toolbar,
 .admin-shell .admin-mobile-backdrop { display: none; }
