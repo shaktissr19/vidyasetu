@@ -35,7 +35,8 @@ export async function uploadHomepageVideo(file: File): Promise<{ videoUrl: strin
   const form = new FormData();
   form.append('video', file, file.name);
   const { data } = await api.post<ApiEnvelope<{ videoUrl: string }>>('/admin/homepage/video-upload', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    // Let Axios/the browser add the multipart boundary. A hand-set header can
+    // omit that boundary, which prevents Multer from parsing the uploaded file.
     timeout: 15 * 60 * 1000,
   });
   return { videoUrl: data.data.videoUrl };
