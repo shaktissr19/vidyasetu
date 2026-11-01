@@ -19,8 +19,10 @@ From `/var/www/vidyasetu`, verify the exact credentials and role used by the bac
 
 ```bash
 node - <<'NODE'
-require('dotenv').config({ path: 'backend/.env' });
-const AWS = require('./backend/node_modules/aws-sdk');
+const path = require('node:path');
+const backendPath = path.resolve('backend');
+require(require.resolve('dotenv', { paths: [backendPath] })).config({ path: path.join(backendPath, '.env') });
+const AWS = require(require.resolve('aws-sdk', { paths: [backendPath] }));
 new AWS.STS({ region: process.env.AWS_REGION || 'ap-south-1' }).getCallerIdentity({})
   .promise()
   .then(({ Account, Arn }) => console.log({ Account, Arn }))
