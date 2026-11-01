@@ -47,6 +47,65 @@ export const DEFAULT_LEARN_PAGE_CONTENT: LearnPageContent = {
 interface PageRow { published_content: unknown; draft_content: unknown; updated_at: string; published_at: string; version: number; }
 const PAGE_SLUG = 'learn';
 
+// Public role pages share one editorial shape. Operational metrics, routes,
+// school directories and private data stay owned by their existing services.
+const moduleText = (max: number) => z.string().trim().min(1).max(max);
+const modulePageSchema = z.object({
+  hero: z.object({ eyebrow: moduleText(140), title: moduleText(180), accentTitle: moduleText(140), summary: moduleText(900), heroImage: imageUrl }),
+  capabilities: z.array(z.object({ icon: moduleText(16), title: moduleText(100), description: moduleText(600), bullets: z.array(moduleText(160)).max(8), href: z.string().trim().max(300).optional() })).min(1).max(20),
+  steps: z.array(z.object({ title: moduleText(100), description: moduleText(600) })).max(12),
+  proofTitle: moduleText(180), proofIntro: moduleText(500),
+  proofs: z.array(z.object({ icon: moduleText(16), title: moduleText(100), description: moduleText(500) })).max(12),
+  loginTitle: moduleText(100), loginText: moduleText(600),
+  sections: z.object({ capabilitiesTitle: moduleText(180), capabilitiesIntro: moduleText(500), stepsTitle: moduleText(180), stepsIntro: moduleText(500), ctaTitle: moduleText(220), ctaDescription: moduleText(600) }),
+});
+export type PublicModulePageContent = z.infer<typeof modulePageSchema>;
+const MODULE_PAGE_SLUGS = new Set(['students', 'schools', 'parents', 'communities', 'platform-admin']);
+
+function assertModulePageSlug(slug: string) {
+  if (!MODULE_PAGE_SLUGS.has(slug)) throw Object.assign(new Error('This public page is not available in the page editor'), { statusCode: 404 });
+}
+
+export async function getPublishedModulePage(slug: string): Promise<PublicModulePageContent | null> {
+  assertModulePageSlug(slug);
+  const { rows: [row] } = await query<{ published_content: unknown }>('SELECT published_content FROM public_page_content WHERE page_slug=$1', [slug]);
+  return row?.published_content ? modulePageSchema.parse(row.published_content) : null;
+}
+
+export async function getModulePageForOwner(slug: string) {
+  assertModulePageSlug(slug);
+  const { rows: [row] } = await query<PageRow>('SELECT published_content,draft_content,updated_at,published_at,version FROM public_page_content WHERE page_slug=$1', [slug]);
+  return { published: row?.published_content ? modulePageSchema.parse(row.published_content) : null, draft: row?.draft_content ? modulePageSchema.parse(row.draft_content) : null, updatedAt: row?.updated_at || null, publishedAt: row?.published_at || null, version: row?.version || 1 };
+}
+
+export async function saveModulePageDraft(slug: string, input: unknown, fallbackInput: unknown, actorId: UUID) {
+  assertModulePageSlug(slug);
+  const draft = modulePageSchema.parse(input);
+  const fallback = modulePageSchema.parse(fallbackInput);
+  const { rows: [row] } = await query<{ version: number }>(
+    `INSERT INTO public_page_content(page_slug,published_content,draft_content,updated_by,updated_at)
+     VALUES($1,$2::jsonb,$3::jsonb,$4,NOW()) ON CONFLICT(page_slug) DO UPDATE
+     SET draft_content=EXCLUDED.draft_content,updated_by=EXCLUDED.updated_by,updated_at=NOW() RETURNING version`,
+    [slug, JSON.stringify(fallback), JSON.stringify(draft), actorId],
+  );
+  return { saved: true, version: row?.version || 1 };
+}
+
+export async function publishModulePageDraft(slug: string, actorId: UUID) {
+  assertModulePageSlug(slug);
+  return transaction(async (client) => {
+    const { rows: [current] } = await client.query<{ draft_content: unknown; version: number }>('SELECT draft_content,version FROM public_page_content WHERE page_slug=$1 FOR UPDATE', [slug]);
+    if (!current?.draft_content) throw Object.assign(new Error('Save a page draft before publishing it'), { statusCode: 409 });
+    const content = modulePageSchema.parse(current.draft_content);
+    const { rows: [published] } = await client.query(
+      `UPDATE public_page_content SET published_content=$1::jsonb,draft_content=NULL,published_by=$2,published_at=NOW(),updated_by=$2,updated_at=NOW(),version=version+1
+       WHERE page_slug=$3 RETURNING published_at,version`, [JSON.stringify(content), actorId, slug],
+    );
+    await client.query(`INSERT INTO audit_log(actor_id,actor_role,action,entity_type,new_value) VALUES($1,'SUPER_ADMIN','PUBLIC_PAGE_PUBLISHED',$2,$3::jsonb)`, [actorId, slug, JSON.stringify({ page: slug, version: published.version })]);
+    return { published: true, publishedAt: published.published_at, version: published.version };
+  });
+}
+
 export async function getPublishedLearnPage(): Promise<LearnPageContent> {
   const { rows: [row] } = await query<{ published_content: unknown }>('SELECT published_content FROM public_page_content WHERE page_slug=$1', [PAGE_SLUG]);
   return row?.published_content ? learnPageContentSchema.parse(row.published_content) : DEFAULT_LEARN_PAGE_CONTENT;

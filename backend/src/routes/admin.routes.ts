@@ -16,6 +16,7 @@ router.use(authorize('SUPER_ADMIN', 'PLATFORM_ADMIN'));
 const configValue = z.union([z.string().max(500), z.number().finite(), z.boolean()]);
 const configSchema = z.object({ value: configValue });
 const configBodySchema = z.object({ key: z.string().trim().min(1).max(100), value: configValue });
+const homepageVideoUploadSchema = z.object({ fileName: z.string().trim().min(1).max(240), contentType: z.enum(['video/mp4','video/webm','video/ogg']), fileSize: z.number().int().positive().max(500 * 1024 * 1024) });
 const statusSchema = z.object({ status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']) });
 const supportUpdateSchema = z.object({
   status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
@@ -72,6 +73,10 @@ router.post('/homepage/publish', authorize('SUPER_ADMIN'), ctrl.publishHomepageD
 router.get('/public-pages/learn', authorize('SUPER_ADMIN'), ctrl.getLearnPageDraft);
 router.put('/public-pages/learn/draft', authorize('SUPER_ADMIN'), ctrl.saveLearnPageDraft);
 router.post('/public-pages/learn/publish', authorize('SUPER_ADMIN'), ctrl.publishLearnPageDraft);
+router.get('/public-pages/modules/:slug', authorize('SUPER_ADMIN'), ctrl.getModulePageDraft);
+router.put('/public-pages/modules/:slug/draft', authorize('SUPER_ADMIN'), ctrl.saveModulePageDraft);
+router.post('/public-pages/modules/:slug/publish', authorize('SUPER_ADMIN'), ctrl.publishModulePageDraft);
+router.post('/homepage/video-upload-url', authorize('SUPER_ADMIN'), validate(homepageVideoUploadSchema), ctrl.createHomepageVideoUpload);
 
 router.get('/support', requirePlatformCapability('SUPPORT'), ctrl.getTickets);
 router.patch('/support/:ticketId', requirePlatformCapability('SUPPORT'), validate(supportUpdateSchema), ctrl.updateTicket);

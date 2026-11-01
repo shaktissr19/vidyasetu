@@ -259,3 +259,27 @@ export async function publishLearnPageDraft(req: Request, res: Response, next: N
     return R.ok(res, await publicPageContentService.publishLearnPageDraft(user.userId));
   } catch (err: unknown) { next(err); }
 }
+
+export async function getModulePageDraft(req: Request<{ slug: string }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await publicPageContentService.getModulePageForOwner(req.params.slug)); }
+  catch (err: unknown) { next(err); }
+}
+
+export async function saveModulePageDraft(req: Request<{ slug: string }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await publicPageContentService.saveModulePageDraft(req.params.slug, req.body.content, req.body.publishedFallback, user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function publishModulePageDraft(req: Request<{ slug: string }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try {
+    const user = authenticated(req, res); if (!user) return;
+    return R.ok(res, await publicPageContentService.publishModulePageDraft(req.params.slug, user.userId));
+  } catch (err: unknown) { next(err); }
+}
+
+export async function createHomepageVideoUpload(req: Request<Record<string, string>, unknown, { fileName: string; contentType: string; fileSize: number }>, res: Response, next: NextFunction): Promise<Response | void> {
+  try { return R.ok(res, await homepageService.createHomepageVideoUpload(req.body.fileName, req.body.contentType, req.body.fileSize)); }
+  catch (err: unknown) { next(err); }
+}

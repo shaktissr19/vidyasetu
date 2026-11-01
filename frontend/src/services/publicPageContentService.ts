@@ -11,12 +11,36 @@ export interface LearnPageContent {
   development: { eyebrow: string; title: string; description: string; pillars: Array<{ category: LearningCategory; eyebrow: string; title: string; copy: string }> };
   finalCta: { eyebrow: string; title: string; description: string; loginLabel: string; createAccountLabel: string };
 }
+
+export interface PublicModulePageContent {
+  hero: { eyebrow: string; title: string; accentTitle: string; summary: string; heroImage: string };
+  capabilities: Array<{ icon: string; title: string; description: string; bullets: string[]; href?: string }>;
+  steps: Array<{ title: string; description: string }>;
+  proofTitle: string;
+  proofIntro: string;
+  proofs: Array<{ icon: string; title: string; description: string }>;
+  loginTitle: string;
+  loginText: string;
+  sections: { capabilitiesTitle: string; capabilitiesIntro: string; stepsTitle: string; stepsIntro: string; ctaTitle: string; ctaDescription: string };
+}
+
+export interface AdminPublicModulePageContent {
+  published: PublicModulePageContent | null;
+  draft: PublicModulePageContent | null;
+  updatedAt: string | null;
+  publishedAt: string | null;
+  version: number;
+}
 export interface AdminLearnPageContent { published: LearnPageContent; draft: LearnPageContent | null; updatedAt: string | null; publishedAt: string | null; version: number; }
 
 export const getPublicLearnPage = () => api.get<ApiEnvelope<LearnPageContent>>('/public/pages/learn');
 export const getAdminLearnPage = () => api.get<ApiEnvelope<AdminLearnPageContent>>('/admin/public-pages/learn');
 export const saveLearnPageDraft = (content: LearnPageContent) => api.put<ApiEnvelope<{ saved: boolean; version: number }>>('/admin/public-pages/learn/draft', content);
 export const publishLearnPageDraft = () => api.post<ApiEnvelope<{ published: boolean; publishedAt: string; version: number }>>('/admin/public-pages/learn/publish');
+export const getPublicModulePage = (slug: string) => api.get<ApiEnvelope<PublicModulePageContent | null>>(`/public/pages/modules/${slug}`);
+export const getAdminModulePage = (slug: string) => api.get<ApiEnvelope<AdminPublicModulePageContent>>(`/admin/public-pages/modules/${slug}`);
+export const saveAdminModulePageDraft = (slug: string, content: PublicModulePageContent, publishedFallback: PublicModulePageContent) => api.put<ApiEnvelope<{ saved: boolean; version: number }>>(`/admin/public-pages/modules/${slug}/draft`, { content, publishedFallback });
+export const publishAdminModulePageDraft = (slug: string) => api.post<ApiEnvelope<{ published: boolean; publishedAt: string; version: number }>>(`/admin/public-pages/modules/${slug}/publish`);
 
 export const DEFAULT_LEARN_PAGE_CONTENT: LearnPageContent = {
   hero: { eyebrow: 'Learning · Pre-Nursery to Class 12 · Cross-board', title: 'Learning that fits into real life.', description: 'Explore lessons, practice, reading and skills that help learners keep moving forward.', imageUrl: '/images/heroes/learn-hero.png', primaryActionLabel: 'Explore learning', secondaryActionLabel: 'Practice by class' },

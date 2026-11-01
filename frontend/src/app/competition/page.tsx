@@ -27,6 +27,7 @@ export default function CompetitionPage() {
   const { t } = useLanguageStore();
   const router = useRouter();
   const isStudent = isLoggedIn && user?.role === 'STUDENT';
+  const isSuperAdmin = isLoggedIn && user?.role === 'SUPER_ADMIN';
   const [lbExamId, setLbExamId] = useState<string | null>(null);
   const activeLbExamId = lbExamId || '';
 
@@ -71,6 +72,7 @@ export default function CompetitionPage() {
         theme="rose"
         actions={[{ label: 'Explore competitions', href: '#competition-list' }, { label: 'Student login', href: '/login?role=student', variant: 'secondary' }]}
       />
+      {isSuperAdmin && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '10px clamp(16px, 4vw, 56px)', background: '#DCE5EF' }}><a href="/admin/competitions" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center', borderRadius: 10, background: '#14213D', color: '#fff', padding: '0 18px', fontWeight: 800, textDecoration: 'none' }}>Manage competition cards</a><a href="/admin/public-pages" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center', borderRadius: 10, border: '1px solid #14213D', color: '#14213D', padding: '0 18px', fontWeight: 800, textDecoration: 'none' }}>Edit public pages</a></div>}
 
         <div id="competition-list" className="max-w-5xl mx-auto" style={{ padding: '32px 32px 0', scrollMarginTop: 96 }}>
         <div className="competition-note-card" style={{ borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
