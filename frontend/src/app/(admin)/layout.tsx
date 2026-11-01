@@ -59,12 +59,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const contentLibraryCount = queueQuery.data?.contentLibraryPending || 0;
 
   const menu = [
-    { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true, capability: 'ANALYTICS' },
+    ...(user?.role === 'SUPER_ADMIN' ? [
+      { href: '/admin/homepage', icon: '🏠', label: 'Home Page', exact: true, section: 'PUBLIC WEBSITE' },
+      { href: '/admin/public-pages', icon: '📝', label: 'Public Pages', exact: true },
+    ] : []),
+    { href: '/admin/analytics', icon: '📊', label: 'Analytics', exact: true, capability: 'ANALYTICS', section: user?.role === 'SUPER_ADMIN' ? 'PLATFORM' : undefined },
     { href: '/admin/schools', icon: '🏫', label: 'Schools', capability: 'SCHOOLS' },
-    { href: '/admin/users', icon: '👥', label: 'Users', capability: 'USERS' },
+    { href: '/admin/users', icon: '👥', label: user?.role === 'SUPER_ADMIN' ? 'Users & Admin Access' : 'Users', capability: 'USERS', section: user?.role === 'SUPER_ADMIN' ? 'ADMINISTRATION' : undefined },
     { href: '/admin/content', icon: '📈', label: 'Content analytics', capability: 'CONTENT_ANALYTICS' },
-    { href: '/admin/homepage', icon: '🏠', label: 'Home Page', exact: true },
-    { href: '/admin/public-pages', icon: '📝', label: 'Public Pages', exact: true },
     { href: '/admin/learning/syllabus', icon: '📋', label: 'Syllabus', exact: true },
     { href: '/admin/learning/factory', icon: '🏭', label: 'Content Factory', exact: true },
     { href: '/admin/learning/governance', icon: '🧩', label: 'Topic Assets', exact: true },

@@ -34,6 +34,14 @@
   border-left-color: #FF7A1A !important;
   box-shadow: inset 3px 0 0 #FF7A1A;
 }
+.admin-shell .sidebar-section-label {
+  margin: 16px 16px 6px;
+  padding: 0 4px;
+  color: rgba(255,255,255,.62) !important;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
 
 .admin-shell .admin-main {
   color: var(--admin-text);
@@ -137,6 +145,37 @@
 }
 .admin-shell .admin-main .btn-primary:disabled,
 .admin-shell .admin-main .btn-primary:disabled * { color: #596579 !important; }
+
+/* Keep public-site editor headers readable despite the admin dashboard's
+   general dark-text defaults. This also applies to the inline page editor. */
+.admin-shell .public-editor-banner {
+  background: #456184 !important;
+  color: #FFFFFF !important;
+}
+.admin-shell .public-editor-banner h1,
+.admin-shell .public-editor-banner h2,
+.admin-shell .public-editor-banner p,
+.admin-shell .public-editor-banner strong,
+.admin-shell .public-editor-banner span {
+  color: #FFFFFF !important;
+}
+.admin-shell .public-editor-banner .public-editor-eyebrow { color: #FFE0C7 !important; }
+.admin-shell .public-editor-banner .public-editor-muted { color: #E7EFF9 !important; }
+.admin-shell .public-editor-action,
+.admin-shell .public-editor-action:visited,
+.admin-shell .public-editor-action * { color: #FFFFFF !important; }
+.admin-shell .public-editor-action { background: #14213D !important; }
+.admin-shell .admin-main .public-editor-card {
+  background: #FFFFFF !important;
+  color: #14213D !important;
+  border-color: #AFC1D6 !important;
+}
+.admin-shell .admin-main .public-editor-card h2 { color: #14213D !important; }
+.admin-shell .admin-main .public-editor-card p { color: #53627B !important; }
+.admin-shell .admin-main .public-editor-save,
+.admin-shell .admin-main .public-editor-save * { color: #FFFFFF !important; }
+.admin-shell .admin-main .public-editor-publish,
+.admin-shell .admin-main .public-editor-publish * { color: #14213D !important; }
 
 .admin-shell .admin-input,
 .admin-shell .admin-select,

@@ -310,3 +310,23 @@ img, video, iframe { max-width: 100%; }
 .stagger > *:nth-child(5) { animation-delay: 0.25s; }
 .stagger > *:nth-child(6) { animation-delay: 0.30s; }
 .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+/* Public page editor surfaces are also opened as overlays from public routes,
+   so these contrast rules belong in the application-wide stylesheet. */
+.public-editor-banner {
+  background: #456184 !important;
+  color: #FFFFFF !important;
+}
+.public-editor-banner h1,
+.public-editor-banner h2,
+.public-editor-banner p,
+.public-editor-banner strong,
+.public-editor-banner span { color: #FFFFFF !important; }
+.public-editor-banner .public-editor-eyebrow { color: #FFE0C7 !important; }
+.public-editor-banner .public-editor-muted { color: #E7EFF9 !important; }
+.public-editor-save,
+.public-editor-save:visited,
+.public-editor-save * { color: #FFFFFF !important; }
+.public-editor-save { background: #14213D !important; }
+.public-editor-publish,
+.public-editor-publish * { color: #14213D !important; }
+.public-editor-publish { background: #FF8A3D !important; }
