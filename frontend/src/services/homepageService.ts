@@ -29,8 +29,10 @@ export interface PublicContentRevision { version: number; published_at: string; 
 export const getHomepageHistory = () => api.get<ApiEnvelope<PublicContentRevision[]>>('/admin/homepage/history');
 export const restoreHomepageVersion = (version: number) => api.post<ApiEnvelope<{ restored: boolean; sourceVersion: number; stagedAsDraft: boolean }>>('/admin/homepage/restore', { version });
 export async function uploadHomepageVideo(file: File): Promise<{ videoUrl: string }> {
-  const types = new Set(['video/mp4', 'video/webm', 'video/ogg']);
-  if (!types.has(file.type)) throw new Error('Choose an MP4, WebM or Ogg video file.');
+  // Browser-reported MIME types can be empty or vary by OS even for a valid
+  // MP4. Check the filename here; the API verifies the container signature.
+  const extension = file.name.toLowerCase().match(/\.(mp4|webm|ogg|ogv)$/)?.[0];
+  if (!extension) throw new Error('Choose a file with an .mp4, .webm or .ogg extension.');
   if (file.size <= 0 || file.size > 250 * 1024 * 1024) throw new Error('The introduction video must be 250 MB or smaller.');
   const form = new FormData();
   form.append('video', file, file.name);
