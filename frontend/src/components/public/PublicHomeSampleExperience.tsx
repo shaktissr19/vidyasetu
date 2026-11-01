@@ -178,7 +178,7 @@ export default function PublicHomeSampleExperience() {
         </div>
       </section>
 
-      {homeContent.video.videoUrl && <section className={sample.videoSection} aria-labelledby="home-video-title">
+      <section className={sample.videoSection} aria-labelledby="home-video-title">
         <div className={sample.videoShell}>
           <div className={sample.videoCopy}>
             <span>MEET VIDYASETU</span>
@@ -186,13 +186,25 @@ export default function PublicHomeSampleExperience() {
             <p>{homeContent.video.description}</p>
             {homeContent.video.transcript && <details className={sample.videoTranscript}><summary>Read the video transcript</summary><p>{homeContent.video.transcript}</p></details>}
           </div>
-          <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={homeContent.video.title}>
-            <source src={homeContent.video.videoUrl} />
-            {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default />}
-            Your browser does not support this video. Use the transcript beside it.
-          </video>
+          <div className={sample.videoFrame}>
+            {homeContent.video.videoUrl ? (
+              <video className={sample.videoPlayer} controls preload="none" poster={homeContent.video.posterUrl || HERO_IMAGES.home} aria-label={homeContent.video.title}>
+                <source src={homeContent.video.videoUrl} />
+                {homeContent.video.captionsUrl && <track kind="captions" src={homeContent.video.captionsUrl} srcLang={homeContent.video.captionsLanguage || 'en'} label={homeContent.video.captionsLanguage === 'hi' ? 'Hindi' : 'English'} default />}
+                Your browser does not support this video. Use the transcript beside it.
+              </video>
+            ) : (
+              <div className={sample.videoPlaceholder} role="group" aria-label="VidyaSetu introduction video placeholder">
+                <Image className={sample.videoPoster} src={homeContent.video.posterUrl || HERO_IMAGES.home} alt="" fill sizes="(max-width: 760px) 100vw, 1240px" />
+                <div className={sample.videoPlaceholderCopy}>
+                  <strong>{homeContent.video.title}</strong>
+                  <span>Introduction video coming soon</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </section>}
+      </section>
 
       <section className={sample.modulesSection} id="platform-modules">
         <div className={sample.wideShell}>

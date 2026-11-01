@@ -72,3 +72,30 @@
 .bulletList li:before { color: #A8F0BB; }
 .smallLink { color: #FFD3B0; }
 .notice { background: #456184; border-color: #456184; color: #fff; }
+
+/* Bright card surfaces and consistent text contrast across public role pages. */
+.capCard,.schoolCard,.audienceCard,.previewCard,.step,.proof,.loginRibbon,.empty,.notice {
+  background: #FFFFFF;
+  border: 1px solid #AEBFD1;
+  color: #14213D;
+  box-shadow: 0 10px 24px rgba(13,27,62,.08);
+}
+.capCard h3,.schoolName,.audienceCard strong,.previewCard h3,.step h3,.proof strong,.loginRibbon strong,.empty strong { color: #14213D; }
+.capCard p,.capCard .bulletList li,.schoolMeta,.audienceCard p,.previewCard p,.step p,.proof p,.loginRibbon .muted,.empty p,.empty,.notice { color: #40516A; }
+.proof { align-items: center; }
+.proof p { color: #526078; }
+.miniStat { background: #F2F5F9; color: #14213D; border: 1px solid #E0E7EF; }
+.miniStat span { color: #526078; }
+.badge { background: #E8F5E9; color: #176B32; }
+.bulletList li:before { color: #138808; }
+.smallLink { color: #A43A00; }
+
+/* Equal-width actions make the final role-page CTA easier to scan. */
+.cta .twoActions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; width: min(100%, 340px); flex: 0 0 min(100%, 340px); }
+.cta .twoActions > a { width: 100%; min-height: 52px; padding: 12px 16px; text-align: center; }
+.cta .lightButton { background: #14213D; border: 1px solid #14213D; color: #FFFFFF; }
+.cta .secondary { background: #FFFFFF; border: 1px solid #FFFFFF; color: #14213D; }
+.cta .lightButton:hover,.cta .secondary:hover { box-shadow: 0 6px 18px rgba(13,27,62,.18); transform: translateY(-1px); }
+@media(max-width:680px) {
+  .cta .twoActions { width: 100%; flex-basis: 100%; }
+}

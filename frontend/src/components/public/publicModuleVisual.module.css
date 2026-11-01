@@ -5,8 +5,8 @@
 
 .quickGrid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .quickCard {
@@ -116,10 +116,10 @@
 
 /* Keep role highlight cards compact while grouping the icon and heading. */
 .quickCard {
-  min-height: 150px;
+  min-height: 0;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto auto;
   align-content: start;
   align-items: center;
   column-gap: 11px;
@@ -128,8 +128,8 @@
 }
 .quickIcon { grid-column: 1; grid-row: 1; margin: 0; }
 .quickCard strong { grid-column: 2; grid-row: 1; }
-.quickCard p { grid-column: 1 / -1; margin: 10px 0 8px; }
-.quickCard > span { grid-column: 1 / -1; margin-top: 0; }
+.quickCard p { grid-column: 1 / -1; margin: 10px 0 8px; display: block; overflow: visible; }
+.quickCard > span { grid-column: 1 / -1; margin-top: 4px; }
 @media(max-width:1180px) { .quickCard { min-height: 150px; } }
 @media(max-width:720px) { .quickCard { min-height: 142px; padding: 12px; } }
 @media(max-width:440px) { .quickCard { min-height: 0; } }
@@ -140,3 +140,17 @@
 .quickIcon { background: rgba(255,255,255,.16); color: #fff; box-shadow: none; }
 .metricCard strong { color: #FFB477; }
 .metricError button { background: #14213D; border-color: #14213D; color: #fff; }
+
+/* Public role cards use the same bright surface as Home and Learning. */
+.quickCard,.metricCard,.metricError {
+  background: #FFFFFF;
+  border: 1px solid #AEBFD1;
+  color: #14213D;
+  box-shadow: 0 10px 24px rgba(13,27,62,.08);
+}
+.quickCard strong,.metricCard span { color: #14213D; }
+.quickCard p { color: #40516A; }
+.quickCard > span { color: var(--quick-accent); }
+.quickIcon { background: var(--quick-icon-bg); color: var(--quick-accent); box-shadow: inset 0 0 0 1px rgba(20,33,61,.06); }
+.metricCard strong { color: #B84B0A; }
+.metricError button { background: #14213D; border-color: #14213D; color: #FFFFFF; }
