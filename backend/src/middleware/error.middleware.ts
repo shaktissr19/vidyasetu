@@ -61,6 +61,8 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
     ? isServiceUnavailable
       ? appError.apiCode === 'OTP_SMS_UNAVAILABLE'
         ? 'OTP SMS service is temporarily unavailable. Please try again shortly.'
+        : appError.apiCode === 'MEDIA_STORAGE_CREDENTIALS_INVALID'
+          ? appError.message || 'Video upload is unavailable because media storage credentials are invalid.'
         : 'The requested service is temporarily unavailable. Please try again shortly.'
       : 'Internal server error'
     : appError.message || 'Internal server error';
