@@ -67,7 +67,8 @@ jobs:
           ! grep -q "router.post('/items'" backend/src/routes/content.routes.ts
           ! grep -q "'/upload-url'" backend/src/routes/content.routes.ts
           grep -q "Global Learning Bulk Importer" 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'
-          grep -q "Pre-Nursery to Class 12" frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -Fq 'eyebrow={editorial.hero.eyebrow}' frontend/src/components/public/PublicLearningLibrary.tsx
+          grep -Fq 'Pre-Nursery to Class 12' frontend/src/services/publicPageContentService.ts
           grep -q "Digital Learning Library" frontend/src/components/public/PublicLearningCatalogue.tsx
           grep -q "Content Coverage & Quality" 'frontend/src/app/(admin)/admin/learning/coverage/page.tsx'
           test -s 'frontend/src/app/(admin)/admin/learning/imports/page.tsx'

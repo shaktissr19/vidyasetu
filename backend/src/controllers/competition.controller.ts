@@ -79,7 +79,8 @@ export async function listMine(req: Request, res: Response, next: NextFunction):
     const student = await getStudent(req);
     if (!student) return R.notFound(res, 'Student profile not found');
     if (await competitionPlatformService.competitionV2Available()) {
-      return R.ok(res, await competitionPlatformService.listStudentCompetitions(student.id, student.class_name));
+      const schoolId = student.school_link_status === 'APPROVED' ? student.school_id : null;
+      return R.ok(res, await competitionPlatformService.listStudentCompetitions(student.id, student.class_name, schoolId));
     }
     return R.ok(res, await competitionService.listForStudent(
       student.id,

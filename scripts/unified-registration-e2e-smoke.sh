@@ -108,12 +108,13 @@ call 403 GET /school/profile '' "$TEACHER_TOKEN"
 call 403 POST /auth/login '{"identifier":"registration.school","password":"Registration12345"}'
 call 200 PATCH "/admin/schools/$SCHOOL_ID/status" '{"status":"ACTIVE"}' "$ADMIN_TOKEN"
 
-echo 'Existing Platform Admin can create another audited admin'
+echo 'Super Admin can create a scoped Platform Admin'
 call 401 POST /admin/platform-admins '{"name":"Invalid Admin"}'
-call 201 POST /admin/platform-admins '{"name":"Registration Admin","username":"registration.admin","mobile":"9097770001","password":"Registration12345"}' "$ADMIN_TOKEN"
-test "$(jq -r '.data.role' <<< "$BODY")" = SUPER_ADMIN
+call 201 POST /admin/platform-admins '{"name":"Registration Admin","username":"registration.admin","mobile":"9097770001","password":"Registration12345","permissions":["USERS"]}' "$ADMIN_TOKEN"
+test "$(jq -r '.data.role' <<< "$BODY")" = PLATFORM_ADMIN
 test "$(jq -r '.data.password_hash == null and .data.password == null' <<< "$BODY")" = true
-call 409 POST /admin/platform-admins '{"name":"Duplicate Admin","username":"registration.admin","mobile":"9097770002","password":"Registration12345"}' "$ADMIN_TOKEN"
+call 409 POST /admin/platform-admins '{"name":"Duplicate Admin","username":"registration.admin","mobile":"9097770002","password":"Registration12345","permissions":["USERS"]}' "$ADMIN_TOKEN"
 NEW_ADMIN_TOKEN="$(password_login registration.admin)"
 call 200 GET /admin/users '' "$NEW_ADMIN_TOKEN"
-echo 'Unified registration E2E passed: Student, Parent, School, Teacher and Platform Admin.'
+call 403 GET /admin/schools '' "$NEW_ADMIN_TOKEN"
+echo 'Unified registration E2E passed: Student, Parent, School, Teacher and scoped Platform Admin.'
